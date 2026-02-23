@@ -1,0 +1,63 @@
+.arena {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+
+  &__title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.5rem;
+  }
+
+  &__desc {
+    color: #666;
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+  }
+
+  &__field {
+    display: flex;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  &__half {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    transition: flex 0.3s ease;
+
+    &:hover {
+      flex: 1.2;
+    }
+
+    &--left {
+      background: linear-gradient(135deg, #667eea, #5a67d8);
+    }
+
+    &--right {
+      background: linear-gradient(135deg, #ed64a6, #d53f8c);
+    }
+  }
+
+  &__divider {
+    width: 4px;
+    background: #fff;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
