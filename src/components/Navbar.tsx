@@ -115,6 +115,7 @@ function Navbar() {
   const [open, setOpen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const isViewingMember = location.pathname.startsWith('/character/');
+  const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge';
 
   const close = () => setOpen(false);
 
@@ -155,6 +156,14 @@ function Navbar() {
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
           <span>Camp Members</span>
+        </NavLink>
+        <NavLink to="/life" className={({ isActive }) => `topbar-menu__item ${isActive || isLifeSubPage ? 'topbar-menu__item--active' : ''}`} onClick={close}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </svg>
+          <span>Life in Camp</span>
         </NavLink>
         <button className="topbar-menu__item" onClick={() => { setShowThemePicker(p => !p); close(); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -201,6 +210,14 @@ function Navbar() {
             <circle cx="9" cy="7" r="4" />
             <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </NavLink>
+
+        <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPage ? 'sidebar__icon--active' : ''}`} data-tooltip="Life in Camp" data-tooltip-pos="right">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
           </svg>
         </NavLink>
 
