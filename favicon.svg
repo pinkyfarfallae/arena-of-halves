@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8a830"/>
+      <stop offset="100%" stop-color="#d4882a"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield body -->
+  <path d="M32 4 L56 16 L56 32 Q56 52 32 60 Q8 52 8 32 L8 16 Z" fill="#1a1a2e" stroke="url(#g)" stroke-width="3"/>
+  <!-- Inner shield accent -->
+  <path d="M32 12 L48 20 L48 32 Q48 46 32 52 Q16 46 16 32 L16 20 Z" fill="none" stroke="#e8a830" stroke-width="1" opacity="0.4"/>
+  <!-- Crossed swords -->
+  <line x1="22" y1="42" x2="42" y2="18" stroke="#e8a830" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="42" y1="42" x2="22" y2="18" stroke="#e8a830" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Sword guards -->
+  <line x1="18" y1="38" x2="26" y2="46" stroke="#e8a830" stroke-width="2" stroke-linecap="round"/>
+  <line x1="38" y1="46" x2="46" y2="38" stroke="#e8a830" stroke-width="2" stroke-linecap="round"/>
+  <!-- Sword pommels -->
+  <circle cx="20" cy="44" r="2" fill="#e8a830"/>
+  <circle cx="44" cy="44" r="2" fill="#e8a830"/>
+</svg>
