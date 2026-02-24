@@ -4,16 +4,24 @@
    LIFE IN CAMP — Colorful Camp Map
    ══════════════════════════════════════ */
 
-/* ── Page shell ── */
+/* ── Page shell (scroll container) ── */
 .life {
   width: 100%;
   height: 100%;
+  min-height: calc(100vh - #{$topbar-height});
   overflow: auto;
-  display: flex;
-  flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+  background: linear-gradient(170deg, #faf6ee 0%, #f5eedd 30%, #f8f2e4 60%, #f0e8d6 100%);
 
   @media (max-width: $bp-medium) {
-    -webkit-overflow-scrolling: touch;
+    position: fixed;
+    top: $topbar-height;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
   }
 }
 
@@ -25,10 +33,11 @@
   z-index: 15;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   width: 38px;
   height: 38px;
-  padding: 0 0.55rem;
+  padding: 0;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -37,18 +46,38 @@
   cursor: pointer;
   transition: width 0.25s ease, box-shadow 0.2s ease;
   overflow: hidden;
+  
+  input {
+    width: 0;
+    padding: 0;
+    opacity: 0;
+    position: absolute;
+  }
 
   &:focus-within,
   &--active {
     width: 220px;
     cursor: text;
+    padding: 0 0.55rem;
+    justify-content: unset;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+
+    input {
+      width: auto;
+      flex: 1;
+      padding: 0;
+      opacity: 1;
+      position: static;
+    }
+  }
+
+  @media (max-width: $bp-medium) {
+    position: fixed;
+    top: calc(#{$topbar-height} + 0.5rem);
+    right: 0.5rem;
   }
 
   @media (max-width: $bp-compact) {
-    top: 0.5rem;
-    right: 0.5rem;
-
     &:focus-within,
     &--active {
       width: 180px;
@@ -110,9 +139,9 @@
 /* ── Map container ── */
 .life__map {
   position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 0;
+  width: max(100%, 900px);
+  min-height: 100vh;
+  overflow: hidden;
   background:
     /* vivid terrain washes */
     radial-gradient(ellipse at 18% 28%, rgba(60, 190, 90, 0.18) 0%, transparent 30%),
@@ -126,13 +155,7 @@
     linear-gradient(170deg, #faf6ee 0%, #f5eedd 30%, #f8f2e4 60%, #f0e8d6 100%);
 
   @media (max-width: $bp-medium) {
-    min-width: 800px;
-    height: 600px;
-  }
-
-  @media (max-width: $bp-compact) {
-    min-width: 700px;
-    height: 550px;
+    min-height: calc(100vh - #{$topbar-height});
   }
 }
 
@@ -177,6 +200,7 @@
   filter: drop-shadow(0 1px 3px rgba(80, 60, 30, 0.12));
 
   @media (max-width: $bp-medium) {
+    position: fixed;
     width: 70px;
     height: 70px;
   }
@@ -398,23 +422,6 @@
     svg { width: 28px; height: 28px; }
   }
 
-  @media (max-width: $bp-compact) {
-    width: 54px;
-    height: 54px;
-    svg { width: 30px; height: 30px; }
-
-    .life__pin--lg & {
-      width: 64px;
-      height: 64px;
-      svg { width: 36px; height: 36px; }
-    }
-
-    .life__pin--sm & {
-      width: 44px;
-      height: 44px;
-      svg { width: 24px; height: 24px; }
-    }
-  }
 }
 
 /* ── Pin label (standout badge) ── */
