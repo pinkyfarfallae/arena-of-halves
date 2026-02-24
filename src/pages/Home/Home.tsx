@@ -10,6 +10,7 @@ function Home() {
         <div className="home__actions">
           <Link to="/lobby" className="btn btn--primary">Enter Lobby</Link>
           <Link to="/arena" className="btn btn--secondary">Jump to Arena</Link>
+          <Link to="/character" className="btn btn--secondary">Character Info</Link>
         </div>
       </div>
     </div>

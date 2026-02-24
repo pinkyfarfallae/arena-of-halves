@@ -5,16 +5,21 @@
   text-align: center;
 
   &__title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #333;
+    font-family: 'Cinzel', serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--ci-fg);
     margin-bottom: 0.5rem;
+    text-shadow: 0 0 20px color-mix(in srgb, var(--ci-primary) 15%, transparent);
+    transition: color 0.4s;
   }
 
   &__desc {
-    color: #666;
+    font-family: 'Philosopher', sans-serif;
+    color: var(--ci-muted);
     margin-bottom: 2rem;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+    transition: color 0.4s;
   }
 
   &__grid {
@@ -27,19 +32,41 @@
   &__card {
     padding: 2rem;
     border-radius: 12px;
-    color: #fff;
     text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.4s;
 
     h2 {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
       margin-bottom: 0.5rem;
+      color: var(--ci-light);
+    }
+
+    p {
+      font-family: 'Philosopher', sans-serif;
+      color: color-mix(in srgb, var(--ci-light) 70%, transparent);
+    }
+
+    &:hover {
+      transform: translateY(-3px);
     }
 
     &--left {
-      background: linear-gradient(135deg, #667eea, #5a67d8);
+      background: linear-gradient(135deg, var(--ci-primary), var(--ci-primary-dark));
+      box-shadow: 0 4px 20px color-mix(in srgb, var(--ci-primary) 15%, transparent);
+
+      &:hover {
+        box-shadow: 0 8px 30px color-mix(in srgb, var(--ci-primary) 25%, transparent);
+      }
     }
 
     &--right {
-      background: linear-gradient(135deg, #ed64a6, #d53f8c);
+      background: linear-gradient(135deg, var(--ci-accent), var(--ci-accent-dark));
+      box-shadow: 0 4px 20px color-mix(in srgb, var(--ci-accent) 15%, transparent);
+
+      &:hover {
+        box-shadow: 0 8px 30px color-mix(in srgb, var(--ci-accent) 25%, transparent);
+      }
     }
   }
 
