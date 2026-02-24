@@ -520,10 +520,23 @@ function MapDecorations() {
 function LifeInCamp() {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const q = search.toLowerCase();
 
+  useEffect(() => {
+    if (!q || !scrollRef.current) return;
+    const match = CAMP_LOCATIONS.find(loc => loc.name.toLowerCase().startsWith(q));
+    if (!match) return;
+    const container = scrollRef.current;
+    const map = container.querySelector('.life__map') as HTMLElement;
+    if (!map) return;
+    const targetX = (match.x / 100) * map.scrollWidth - container.clientWidth / 2;
+    const targetY = (match.y / 100) * map.scrollHeight - container.clientHeight / 2;
+    container.scrollTo({ left: Math.max(0, targetX), top: Math.max(0, targetY), behavior: 'smooth' });
+  }, [q]);
+
   return (
-    <div className="life">
+    <div className="life" ref={scrollRef}>
       <div className="life__map">
         <div
           className={`life__search-box ${search ? 'life__search-box--active' : ''}`}
