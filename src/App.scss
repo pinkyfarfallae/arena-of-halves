@@ -1,37 +1,247 @@
+@use 'styles/variables' as *;
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Kalam:wght@300;400;700&display=swap');
+
+/* ══════════════════════════════════════
+   THEME: 15 CSS VARIABLES
+   ══════════════════════════════════════
+   Base:
+     --ci-primary        Main brand/accent color
+     --ci-dark           Darkest color
+     --ci-light          Lightest color
+     --ci-accent         Secondary accent
+   Core:
+     --ci-bg             Page background
+     --ci-fg             Text/foreground
+     --ci-surface        Card/panel bg
+     --ci-muted          Secondary text
+     --ci-border         Borders/dividers
+   Extended:
+     --ci-primary-hover  Darker primary for hover/active
+     --ci-accent-soft    Lighter accent for tags/badges
+     --ci-surface-hover  Surface hover state
+     --ci-bg-alt         Alternate section background
+     --ci-shadow         Shadow color
+     --ci-highlight      Selection/highlight bg
+   ══════════════════════════════════════ */
 .app {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f7fa;
+  transition: background 0.4s ease, color 0.4s ease;
 
-  &__content {
-    flex: 1;
+  background:
+    radial-gradient(ellipse at 20% 15%, color-mix(in srgb, var(--ci-primary, #c0a062) 10%, var(--ci-bg)) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--ci-accent, #9dad71) 6%, var(--ci-bg)) 0%, transparent 50%),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--ci-bg) 92%, var(--ci-primary, #c0a062)) 0%,
+      var(--ci-bg) 40%,
+      color-mix(in srgb, var(--ci-bg) 94%, var(--ci-accent, #9dad71)) 100%
+    );
+}
+
+.app__content {
+  height: 100vh;
+  overflow: hidden;
+
+  &--with-sidebar {
+    margin-left: $sidebar-width;
   }
 }
 
+@media (max-width: $bp-medium) {
+  .app__content {
+    height: auto;
+    overflow: auto;
+    padding-top: $topbar-height;
+
+    &--with-sidebar {
+      margin-left: 0;
+    }
+  }
+}
+
+/* ══════════════════════════════════════
+   LOADING STATE
+   ══════════════════════════════════════ */
+.app-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.app-loader__ring {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--ci-border, rgba(0, 0, 0, 0.1));
+  border-top-color: var(--ci-primary, #c0a062);
+  border-radius: 50%;
+  animation: app-spin 0.8s linear infinite;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════
+   GLOBAL BUTTON
+   ══════════════════════════════════════ */
 .btn {
   display: inline-block;
   padding: 0.75rem 1.75rem;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
   text-decoration: none;
-  transition: transform 0.2s, box-shadow 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
   cursor: pointer;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--ci-shadow, #3a3a4e) 30%, transparent);
   }
 
   &--primary {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: #fff;
+    background: linear-gradient(135deg, var(--ci-primary, #c0a062), var(--ci-primary-hover, #a8884a));
+    color: var(--ci-light, #fff);
+    border: 1px solid color-mix(in srgb, var(--ci-primary, #c0a062) 30%, transparent);
+
+    &:hover {
+      background: linear-gradient(135deg, var(--ci-primary-hover, #a8884a), color-mix(in srgb, var(--ci-primary-hover, #a8884a) 70%, var(--ci-dark, #1a1a2e)));
+    }
   }
 
   &--secondary {
-    background: #fff;
-    color: #333;
-    border: 2px solid #e2e8f0;
+    background: var(--ci-surface);
+    color: var(--ci-fg);
+    border: 1px solid var(--ci-border);
+
+    &:hover {
+      background: var(--ci-surface-hover);
+    }
+  }
+}
+
+/* ══════════════════════════════════════
+   TOOLTIP
+   ══════════════════════════════════════ */
+[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    z-index: 100;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ci-light, #fff);
+    background: var(--ci-dark, #1a1a2e);
+    padding: 5px 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ci-shadow, #000) 30%, transparent);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition-delay: 0s;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    border: 5px solid transparent;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition-delay: 0s;
+  }
+
+  /* Default: bottom */
+  &::after {
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  &::before {
+    top: calc(100% - 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border-bottom-color: var(--ci-dark, #1a1a2e);
+  }
+
+  &:hover::after,
+  &:hover::before {
+    opacity: 1;
+    transition-delay: 0.35s;
+  }
+  &:hover::after {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Right position */
+  &[data-tooltip-pos="right"] {
+    &::after {
+      top: 50%;
+      left: calc(100% + 8px);
+      transform: translateY(-50%) translateX(-4px);
+    }
+    &::before {
+      top: 50%;
+      left: calc(100% - 2px);
+      transform: translateY(-50%);
+      border-bottom-color: transparent;
+      border-right-color: var(--ci-dark, #1a1a2e);
+    }
+    &:hover::after {
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  /* Left position */
+  &[data-tooltip-pos="left"] {
+    &::after {
+      top: 50%;
+      right: calc(100% + 8px);
+      left: auto;
+      transform: translateY(-50%) translateX(4px);
+    }
+    &::before {
+      top: 50%;
+      right: calc(100% - 2px);
+      left: auto;
+      transform: translateY(-50%);
+      border-bottom-color: transparent;
+      border-left-color: var(--ci-dark, #1a1a2e);
+    }
+    &:hover::after {
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  /* Top position */
+  &[data-tooltip-pos="top"] {
+    &::after {
+      top: auto;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+    }
+    &::before {
+      top: auto;
+      bottom: calc(100% - 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-color: transparent;
+      border-top-color: var(--ci-dark, #1a1a2e);
+    }
+    &:hover::after {
+      transform: translateX(-50%) translateY(0);
+    }
   }
 }

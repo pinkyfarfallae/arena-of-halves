@@ -1,0 +1,387 @@
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Philosopher:wght@400;700&display=swap');
+
+/* ── Night sky base ── */
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 100%, #1a1510 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 0%, #0f1a2e 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 10%, #1a0f2e 0%, transparent 50%),
+    linear-gradient(to bottom, #05080f 0%, #0a0f1a 40%, #12100d 100%);
+}
+
+/* ── Twinkling starfield (3 layers, CSS-only) ── */
+.login__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 25% 35%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 40% 8%, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1px 1px at 55% 42%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 65% 18%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1.5px 1.5px at 78% 52%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 88% 28%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 15% 62%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 35% 78%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 50% 88%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 72% 72%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 92% 85%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 5% 90%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 48% 55%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 82% 5%, rgba(255,255,255,0.8), transparent);
+  animation: twinkle 4s ease-in-out infinite alternate;
+
+  &--mid {
+    opacity: 0.6;
+    background-image:
+      radial-gradient(1px 1px at 12% 28%, rgba(200,220,255,0.7), transparent),
+      radial-gradient(1.5px 1.5px at 30% 12%, rgba(200,220,255,0.5), transparent),
+      radial-gradient(1px 1px at 58% 65%, rgba(255,220,180,0.6), transparent),
+      radial-gradient(1px 1px at 75% 38%, rgba(200,220,255,0.8), transparent),
+      radial-gradient(1.5px 1.5px at 90% 58%, rgba(200,220,255,0.4), transparent),
+      radial-gradient(1px 1px at 42% 92%, rgba(255,220,180,0.5), transparent),
+      radial-gradient(1px 1px at 20% 75%, rgba(200,220,255,0.6), transparent),
+      radial-gradient(1px 1px at 68% 8%, rgba(200,220,255,0.7), transparent);
+    animation: twinkle 6s ease-in-out 1s infinite alternate;
+  }
+
+  &--slow {
+    opacity: 0.4;
+    background-image:
+      radial-gradient(2px 2px at 18% 48%, rgba(192,160,98,0.6), transparent),
+      radial-gradient(2px 2px at 62% 22%, rgba(192,160,98,0.5), transparent),
+      radial-gradient(2px 2px at 85% 68%, rgba(192,160,98,0.4), transparent),
+      radial-gradient(2px 2px at 38% 82%, rgba(192,160,98,0.5), transparent),
+      radial-gradient(2px 2px at 52% 12%, rgba(192,160,98,0.6), transparent);
+    animation: twinkle 8s ease-in-out 2s infinite alternate;
+  }
+}
+
+@keyframes twinkle {
+  0%   { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* ── Greek column silhouettes ── */
+.login__column {
+  position: absolute;
+  bottom: 0;
+  width: 60px;
+  height: 70%;
+  pointer-events: none;
+  opacity: 0.06;
+
+  &--left {
+    left: 8%;
+    background:
+      /* capital */
+      linear-gradient(to bottom, transparent 0%, #c0a062 0.5%, #c0a062 3%, transparent 3.2%) no-repeat center top,
+      /* wider capital base */
+      linear-gradient(to bottom, transparent 3%, #c0a062 3.2%, #c0a062 4.5%, transparent 4.7%) no-repeat center top / 70px 100%,
+      /* shaft */
+      linear-gradient(to right, transparent 15%, #c0a062 20%, #c0a062 80%, transparent 85%) no-repeat center 5% / 45px 90%,
+      /* base */
+      linear-gradient(to bottom, #c0a062, #c0a062) no-repeat center bottom / 70px 3%;
+    transform: perspective(300px) rotateY(3deg);
+  }
+
+  &--right {
+    right: 8%;
+    background:
+      linear-gradient(to bottom, transparent 0%, #c0a062 0.5%, #c0a062 3%, transparent 3.2%) no-repeat center top,
+      linear-gradient(to bottom, transparent 3%, #c0a062 3.2%, #c0a062 4.5%, transparent 4.7%) no-repeat center top / 70px 100%,
+      linear-gradient(to right, transparent 15%, #c0a062 20%, #c0a062 80%, transparent 85%) no-repeat center 5% / 45px 90%,
+      linear-gradient(to bottom, #c0a062, #c0a062) no-repeat center bottom / 70px 3%;
+    transform: perspective(300px) rotateY(-3deg);
+  }
+}
+
+/* ── Drifting mist layers ── */
+.login__mist {
+  position: absolute;
+  bottom: 0;
+  left: -50%;
+  width: 200%;
+  height: 35%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 25% 80%, rgba(160, 180, 200, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 60%, rgba(140, 160, 190, 0.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 80% 90%, rgba(160, 180, 200, 0.04) 0%, transparent 40%);
+  animation: drift 20s ease-in-out infinite;
+
+  &--reverse {
+    bottom: 5%;
+    opacity: 0.6;
+    animation: drift 25s ease-in-out 5s infinite reverse;
+  }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(8%); }
+}
+
+/* ── Campfire glow ── */
+.login__campfire {
+  position: absolute;
+  bottom: -15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 350px;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgba(255, 120, 30, 0.15) 0%,
+    rgba(255, 80, 20, 0.08) 30%,
+    rgba(200, 50, 10, 0.03) 55%,
+    transparent 75%
+  );
+  animation: flicker 3s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  25%      { opacity: 0.85; transform: translateX(-50%) scale(1.02); }
+  50%      { opacity: 0.95; transform: translateX(-50%) scale(0.98); }
+  75%      { opacity: 0.8; transform: translateX(-50%) scale(1.03); }
+}
+
+/* ── Floating embers (12 particles) ── */
+.login__embers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login__ember {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  animation: rise linear infinite;
+
+  @for $i from 1 through 12 {
+    &:nth-child(#{$i}) {
+      $size: 2px + random(4) * 1px;
+      width: $size;
+      height: $size;
+      left: 15% + random(70) * 1%;
+      bottom: random(10) * 1%;
+      background: nth(
+        (#ff8c32 #ffad42 #ff6a1a #ffc857 #ff5e2b #ffad42 #ff8c32 #ffc857 #ff6a1a #ff5e2b #ffad42 #ff8c32),
+        $i
+      );
+      box-shadow: 0 0 #{3 + random(4)}px currentColor;
+      animation-duration: #{3 + random(4)}s;
+      animation-delay: #{random(40) / 10}s;
+    }
+  }
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70vh) translateX(#{-20 + random(40)}px) scale(0.2);
+  }
+}
+
+/* ── Card (ancient stone tablet) ── */
+.login__card {
+  position: relative;
+  width: 400px;
+  background: linear-gradient(175deg, #1c2333 0%, #151b28 50%, #171310 100%);
+  padding: 2.5rem 2rem 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(192, 160, 98, 0.25);
+  box-shadow:
+    0 0 60px rgba(192, 160, 98, 0.07),
+    0 0 120px rgba(255, 120, 30, 0.04),
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(192, 160, 98, 0.12),
+    inset 0 -1px 0 rgba(255, 120, 30, 0.05);
+  z-index: 1;
+
+  /* Subtle inner texture */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(192, 160, 98, 0.015) 3px,
+        rgba(192, 160, 98, 0.015) 4px
+      );
+    pointer-events: none;
+  }
+
+  &--shake {
+    animation: shake 0.4s ease;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-8px); }
+  40%      { transform: translateX(8px); }
+  60%      { transform: translateX(-5px); }
+  80%      { transform: translateX(5px); }
+}
+
+/* ── Omega symbol ── */
+.login__omega {
+  text-align: center;
+  font-size: 3rem;
+  color: rgba(192, 160, 98, 0.7);
+  margin-bottom: 0.25rem;
+  text-shadow:
+    0 0 20px rgba(192, 160, 98, 0.3),
+    0 0 40px rgba(192, 160, 98, 0.1);
+  font-family: 'Cinzel', serif;
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(192,160,98,0.3), 0 0 40px rgba(192,160,98,0.1); }
+  50%      { text-shadow: 0 0 30px rgba(192,160,98,0.5), 0 0 60px rgba(192,160,98,0.2); }
+}
+
+/* ── Typography ── */
+.login__title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.9rem;
+  font-weight: 900;
+  text-align: center;
+  color: #c0a062;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 10px rgba(192, 160, 98, 0.2);
+}
+
+.login__subtitle {
+  font-family: 'Philosopher', sans-serif;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1rem;
+  margin-bottom: 1.8rem;
+  font-style: italic;
+}
+
+/* ── Form ── */
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.login__label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(192, 160, 98, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.login__input {
+  font-family: 'Philosopher', sans-serif;
+  font-size: 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(192, 160, 98, 0.2);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #e8dcc8;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.2);
+    font-style: italic;
+  }
+
+  &:focus {
+    border-color: rgba(192, 160, 98, 0.5);
+    box-shadow:
+      0 0 12px rgba(192, 160, 98, 0.12),
+      0 0 30px rgba(192, 160, 98, 0.05);
+  }
+}
+
+/* ── Error ── */
+.login__error {
+  font-family: 'Philosopher', sans-serif;
+  color: #e85d4a;
+  font-size: 0.95rem;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Button ── */
+.login__btn {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(192, 160, 98, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  color: #1a1a2e;
+  background: linear-gradient(135deg, #c0a062, #a8893e);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 15px rgba(192, 160, 98, 0.2);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 20px rgba(192, 160, 98, 0.35),
+      0 0 40px rgba(192, 160, 98, 0.1);
+    background: linear-gradient(135deg, #d4b470, #c0a062);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* ── Footer ── */
+.login__footer {
+  font-family: 'Philosopher', sans-serif;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.85rem;
+  margin-top: 1.8rem;
+  letter-spacing: 0.1em;
+}
