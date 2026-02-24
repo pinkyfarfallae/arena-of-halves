@@ -5,6 +5,10 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login/Login';
 import CharacterInfo from './pages/CharacterInfo/CharacterInfo';
 import CampMembers from './pages/CampMembers/CampMembers';
+import LifeInCamp from './pages/LifeInCamp/LifeInCamp';
+import IrisMessage from './pages/IrisMessage/IrisMessage';
+import Shop from './pages/Shop/Shop';
+import Forge from './pages/Forge/Forge';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -62,6 +66,10 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<CharacterInfo />} />
           <Route path="/camp" element={<CampMembers />} />
+          <Route path="/life" element={<LifeInCamp />} />
+          <Route path="/iris-message" element={<IrisMessage />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/craft-forge" element={<Forge />} />
           <Route path="/character/:id" element={<CharacterInfo />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

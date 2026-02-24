@@ -28,7 +28,7 @@ function StatOrb({ value, label, max = 10, accent }: {
 }) {
   const pct = Math.min(value / max, 1);
   const r = 26;
-  const circ = 2 * Math.PI * r;
+  const circ = 2 * Math.PI * r; 
   const offset = circ * (1 - pct);
 
   return (
