@@ -195,12 +195,14 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  min-width: 100%;
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--ci-primary) 30%, transparent),
     0 8px 28px color-mix(in srgb, var(--ci-dark) 15%, transparent);
   animation: cs-portrait-border 4s ease-in-out infinite;
+  margin: 0 auto;
 
   @media (max-width: $bp-medium) {
     aspect-ratio: 3 / 4;
