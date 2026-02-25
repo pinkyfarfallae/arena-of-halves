@@ -102,11 +102,15 @@ function IrisMessage() {
         })}
       </div>
 
-      <Link to="/life" className="iris__back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="15 18 9 12 15 6" />
+      <Link to="/life" className="iris__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
+        <svg viewBox="0 0 24 24" fill="none">
+          {/* Door frame */}
+          <rect x="5" y="3" width="11" height="17" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+          {/* Door knob */}
+          <circle cx="13" cy="12.5" r="1" fill="currentColor" />
+          {/* Arrow exiting door */}
+          <path d="M16 12h6M20 9.5l2.5 2.5-2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Back to Camp
       </Link>
 
       {/* Rainbow ring burst + convergence flash */}
