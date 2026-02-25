@@ -84,7 +84,7 @@ function DeityCard({ deity }: { deity: string }) {
         ))}
       </div>
       <div className="dcard__line" />
-      <span className="dcard__sub">Divine Powers</span>
+      <span className="dcard__sub">Divine Parent</span>
     </div>
   );
 }
@@ -181,7 +181,7 @@ function CharacterInfo() {
   }, [id, isOwnProfile]);
 
   const POWER_OVERRIDES: Record<string, string> = {
-    rosabella: 'Hades',
+    rosabella: 'Demeter',
   };
   const powerDeity =
     POWER_OVERRIDES[char?.characterId?.toLowerCase() ?? ''] ?? char?.dietyBlood;
