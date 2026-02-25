@@ -343,7 +343,7 @@ function CharacterInfo() {
         {/* Stats grid */}
         <div className="cs__stats">
           <StatOrb value={char.damage} label="DAMAGE" />
-          <StatOrb value={char.protectionDiceUp} label="PROTECT DICE" />
+          <StatOrb value={char.defendDiceUp} label="DEFEND DICE" />
           <StatOrb value={char.attackDiceUp} label="ATTACK DICE" />
           <StatOrb value={char.reroll} label="REROLL" />
           {([
