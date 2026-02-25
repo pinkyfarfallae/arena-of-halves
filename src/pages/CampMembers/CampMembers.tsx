@@ -399,7 +399,7 @@ function CampMembers() {
 
                   {/* Deity label */}
                   <div className="camp__deity-label">
-                    <span className="camp__deity">{m.dietyBlood || 'Unknown'}</span>
+                    <span className="camp__deity">{m.characterId.toLowerCase() === 'rosabella' ? 'Persephone' : (m.dietyBlood || 'Unknown')}</span>
                     <span className="camp__cabin">{m.cabin ? `Cabin ${m.cabin}` : '???'}</span>
                   </div>
                 </div>
