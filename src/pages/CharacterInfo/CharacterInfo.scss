@@ -1459,6 +1459,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 
   .wslot--empty & {
     color: var(--ci-muted);
@@ -2804,8 +2805,8 @@
 
   @media (max-width: $bp-compact) {
     top: 0.8rem;
-    left: 0.5rem;
-    right: 0.5rem;
+    left: 0.8rem;
+    right: 0.8rem;
   }
 }
 
