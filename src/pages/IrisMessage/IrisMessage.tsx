@@ -380,26 +380,32 @@ function IrisMessage() {
             </div>
           )}
 
-          {/* Reveal */}
+          {/* Reveal — Tarot card */}
           {phase === 'reveal' && wish && (
-            <div className="iris__card">
-              <div className="iris__card-accent" />
-              <div className="iris__card-body">
-                <div className="iris__card-icon">
-                  {DEITY_SVG[wish.deity]}
+            <div className="iris__card" data-deity={wish.deity.toLowerCase()}>
+              <div className="iris__card-glow" />
+              <div className="iris__card-frame">
+                <div className="iris__card-inner">
+                  <div className="iris__card-icon">
+                    {DEITY_SVG[wish.deity]}
+                  </div>
+                  <div className="iris__card-deity">
+                    <span className="iris__card-diamond">◆</span>
+                    {deityLabel}
+                    <span className="iris__card-diamond">◆</span>
+                  </div>
+                  <h2 className="iris__card-name">{wish.name}</h2>
+                  <div className="iris__card-divider" />
+                  <p className="iris__card-desc">{wish.description}</p>
+                  <button className="iris__btn-again" onClick={reset}>
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 8a6 6 0 0111.5-2.4M14 8A6 6 0 012.5 10.4" />
+                      <polyline points="2 3 2 8 7 8" />
+                      <polyline points="14 13 14 8 9 8" />
+                    </svg>
+                    Toss Again
+                  </button>
                 </div>
-                <span className="iris__card-deity">{deityLabel}</span>
-                <h2 className="iris__card-name">{wish.name}</h2>
-                <div className="iris__card-rule" />
-                <p className="iris__card-desc">{wish.description}</p>
-                <button className="iris__btn-again" onClick={reset}>
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 8a6 6 0 0111.5-2.4M14 8A6 6 0 012.5 10.4" />
-                    <polyline points="2 3 2 8 7 8" />
-                    <polyline points="14 13 14 8 9 8" />
-                  </svg>
-                  Toss Again
-                </button>
               </div>
             </div>
           )}
@@ -410,17 +416,19 @@ function IrisMessage() {
           The fountain shimmers with every color of the rainbow. Each drachma carries a prayer — and the gods always answer, though not always as you'd expect.
         </p>
       </div>
+
+      {/* Back button */}
+      <Link to="/life" className="iris__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
+        <svg viewBox="0 0 24 24" fill="none">
+          {/* Door frame */}
+          <rect x="9" y="3" width="11" height="17" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+          {/* Door knob */}
+          <circle cx="12" cy="12.5" r="1" fill="currentColor" />
+          {/* Arrow exiting door to the left */}
+          <path d="M9 12H3M5.5 9.5L3 12l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Link>
     </div>
-    <Link to="/life" className="iris__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
-      <svg viewBox="0 0 24 24" fill="none">
-        {/* Door frame */}
-        <rect x="9" y="3" width="11" height="17" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-        {/* Door knob */}
-        <circle cx="12" cy="12.5" r="1" fill="currentColor" />
-        {/* Arrow exiting door to the left */}
-        <path d="M9 12H3M5.5 9.5L3 12l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </Link>
     </>
   );
 }
