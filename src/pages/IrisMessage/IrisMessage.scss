@@ -15,6 +15,8 @@ $orbit-radius-sm: 128px;
 .iris {
   width: 100%;
   min-height: 100vh;
+  max-height: 100vh;
+  max-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -293,7 +295,7 @@ $orbit-radius-sm: 128px;
 
 /* ── Back button ── */
 .iris__back {
-  position: absolute;
+  position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
   width: 40px;
@@ -318,6 +320,15 @@ $orbit-radius-sm: 128px;
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
+  }
+
+  @media (max-width: $bp-medium) {
+    bottom: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+
+    svg { width: 16px; height: 16px; }
   }
 }
 
@@ -398,13 +409,15 @@ $orbit-radius-sm: 128px;
 
 /* ── Page layout ── */
 .iris__page {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   z-index: 3;
   padding: 0 1rem;
-  width: 100%;
-  max-width: 540px;
+  overflow-y: auto;
 }
 
 /* ══════════════════════════════════════
