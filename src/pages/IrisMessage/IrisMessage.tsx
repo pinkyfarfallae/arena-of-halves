@@ -26,7 +26,7 @@ function IrisMessage() {
       .catch(() => {});
   }, []);
 
-  const deityOrder = wishes.map(w => w.deity);
+  const deityOrder = wishes.map(w => w.deity).slice(0, ORB_SCATTER.length);
 
   const toss = useCallback(() => {
     if (phase === 'tossing') return;
@@ -85,7 +85,7 @@ function IrisMessage() {
       {/* Deity orbs — background, top half */}
       <div className="iris__orbit">
         {deityOrder.map((deity, i) => {
-          const [t, l] = ORB_SCATTER[i];
+          const [t, l] = ORB_SCATTER[i] ?? [50, 50];
           const found = discovered.has(deity);
           const isActive = wish?.deity === deity && phase === 'reveal';
           return (
