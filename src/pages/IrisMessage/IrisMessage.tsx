@@ -47,6 +47,7 @@ function IrisMessage() {
   const deityLabel = wish ? wish.deity.charAt(0).toUpperCase() + wish.deity.slice(1) : '';
 
   return (
+    <>
     <div className={`iris iris--${phase}`}>
       {/* Prismatic light rays */}
       <div className="iris__prism" />
@@ -101,17 +102,6 @@ function IrisMessage() {
           );
         })}
       </div>
-
-      <Link to="/life" className="iris__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
-        <svg viewBox="0 0 24 24" fill="none">
-          {/* Door frame */}
-          <rect x="5" y="3" width="11" height="17" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-          {/* Door knob */}
-          <circle cx="13" cy="12.5" r="1" fill="currentColor" />
-          {/* Arrow exiting door */}
-          <path d="M16 12h6M20 9.5l2.5 2.5-2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Link>
 
       {/* Rainbow ring burst + convergence flash */}
       {phase === 'tossing' && (
@@ -421,6 +411,17 @@ function IrisMessage() {
         </p>
       </div>
     </div>
+    <Link to="/life" className="iris__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
+      <svg viewBox="0 0 24 24" fill="none">
+        {/* Door frame */}
+        <rect x="9" y="3" width="11" height="17" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+        {/* Door knob */}
+        <circle cx="12" cy="12.5" r="1" fill="currentColor" />
+        {/* Arrow exiting door to the left */}
+        <path d="M9 12H3M5.5 9.5L3 12l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </Link>
+    </>
   );
 }
 
