@@ -180,11 +180,15 @@ function CharacterInfo() {
       .finally(() => setLoadingViewed(false));
   }, [id, isOwnProfile]);
 
+  const DEITY_DISPLAY_OVERRIDES: Record<string, string> = {
+    rosabella: 'Persephone',
+  };
   const POWER_OVERRIDES: Record<string, string> = {
     rosabella: 'Demeter',
   };
-  const powerDeity =
-    POWER_OVERRIDES[char?.characterId?.toLowerCase() ?? ''] ?? char?.dietyBlood;
+  const charKey = char?.characterId?.toLowerCase() ?? '';
+  const displayDeity = DEITY_DISPLAY_OVERRIDES[charKey] ?? char?.dietyBlood;
+  const powerDeity = POWER_OVERRIDES[charKey] ?? char?.dietyBlood;
 
   useEffect(() => {
     if (!powerDeity) return;
@@ -291,7 +295,7 @@ function CharacterInfo() {
             <h1 className="cs__name">{char.nameEng}</h1>
             {char.nameThai && <p className="cs__name-th">{char.nameThai}</p>}
             <p className="cs__deity">
-              {char.sex === 'female' ? 'Daughter' : 'Son'} of {char.dietyBlood} &middot; Cabin {char.cabin}
+              {char.sex === 'female' ? 'Daughter' : 'Son'} of {displayDeity} &middot; Cabin {char.cabin}
             </p>
           </div>
         </div>
@@ -407,7 +411,7 @@ function CharacterInfo() {
 
           {/* Powers */}
           <div className="cs__powers-row">
-            <DeityCard deity={char.dietyBlood} />
+            <DeityCard deity={displayDeity} />
             <div className="cs__powers">
               {loadingPowers ? (
                 <div className="cs__powers-loader"><div className="app-loader__ring" /></div>
@@ -531,13 +535,13 @@ function CharacterInfo() {
               {/* Human parent — full width below scrapbook + appearance */}
               {(char.humanParent || char.dietyBlood) && (
                 <div className="cs__human-parent">
-                  {char.dietyBlood && (
+                  {displayDeity && (
                     <div className="cs__human-parent-entry cs__human-parent-entry--divine">
                       <svg className="cs__human-parent-icon" viewBox="0 0 24 24" fill="none">
                         <path d="M12 2l2.09 6.26L21 9.27l-5.18 4.73L17.82 22 12 17.77 6.18 22l1.64-7.73L2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
                       </svg>
                       <span className="cs__human-parent-label">Deity</span>
-                      <span className="cs__human-parent-name">{char.dietyBlood}</span>
+                      <span className="cs__human-parent-name">{displayDeity}</span>
                     </div>
                   )}
                   {char.humanParent && (() => {
