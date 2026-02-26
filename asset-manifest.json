@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/arena-of-halves/static/css/main.245faa12.css",
-    "main.js": "/arena-of-halves/static/js/main.35ec284a.js",
+    "main.css": "/arena-of-halves/static/css/main.c9fc798d.css",
+    "main.js": "/arena-of-halves/static/js/main.9dd147f2.js",
     "static/js/453.0d4e17f0.chunk.js": "/arena-of-halves/static/js/453.0d4e17f0.chunk.js",
     "index.html": "/arena-of-halves/index.html",
-    "main.245faa12.css.map": "/arena-of-halves/static/css/main.245faa12.css.map",
-    "main.35ec284a.js.map": "/arena-of-halves/static/js/main.35ec284a.js.map",
+    "main.c9fc798d.css.map": "/arena-of-halves/static/css/main.c9fc798d.css.map",
+    "main.9dd147f2.js.map": "/arena-of-halves/static/js/main.9dd147f2.js.map",
     "453.0d4e17f0.chunk.js.map": "/arena-of-halves/static/js/453.0d4e17f0.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.245faa12.css",
-    "static/js/main.35ec284a.js"
+    "static/css/main.c9fc798d.css",
+    "static/js/main.9dd147f2.js"
   ]
 }
