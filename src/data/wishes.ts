@@ -10,41 +10,51 @@ const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?forma
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
-  const lines = csv.split('\n');
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cells: string[] = [];
-    let i = 0;
-    while (i < line.length) {
-      if (line[i] === '"') {
-        i++;
-        let cell = '';
-        while (i < line.length) {
-          if (line[i] === '"' && line[i + 1] === '"') {
-            cell += '"';
-            i += 2;
-          } else if (line[i] === '"') {
-            i++;
-            break;
-          } else {
-            cell += line[i];
-            i++;
-          }
+  let cells: string[] = [];
+  let cell = '';
+  let inQuote = false;
+  let i = 0;
+
+  while (i < csv.length) {
+    const ch = csv[i];
+    if (inQuote) {
+      if (ch === '"') {
+        if (csv[i + 1] === '"') {
+          cell += '"';
+          i += 2;
+        } else {
+          inQuote = false;
+          i++;
         }
-        cells.push(cell);
-        if (line[i] === ',') i++;
       } else {
-        const next = line.indexOf(',', i);
-        if (next === -1) {
-          cells.push(line.slice(i));
-          break;
-        }
-        cells.push(line.slice(i, next));
-        i = next + 1;
+        cell += ch;
+        i++;
       }
+    } else if (ch === '"') {
+      inQuote = true;
+      i++;
+    } else if (ch === ',') {
+      cells.push(cell.trim());
+      cell = '';
+      i++;
+    } else if (ch === '\n' || ch === '\r') {
+      cells.push(cell.trim());
+      cell = '';
+      if (ch === '\r' && csv[i + 1] === '\n') i++;
+      i++;
+      if (cells.some(c => c)) rows.push(cells);
+      cells = [];
+    } else {
+      cell += ch;
+      i++;
     }
-    rows.push(cells);
   }
+
+  if (cell || cells.length) {
+    cells.push(cell.trim());
+    if (cells.some(c => c)) rows.push(cells);
+  }
+
   return rows;
 }
 

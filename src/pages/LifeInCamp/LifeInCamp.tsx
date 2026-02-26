@@ -549,7 +549,7 @@ function LifeInCamp() {
             ref={searchRef}
             className="life__search"
             type="text"
-            placeholder="Search locations…"
+            placeholder="Search locations"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

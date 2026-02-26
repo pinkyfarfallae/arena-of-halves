@@ -42,7 +42,7 @@ export interface Character {
   cabin: number;
   hp: number;
   damage: number;
-  protectionDiceUp: number;
+  defendDiceUp: number;
   attackDiceUp: number;
   speed: number;
   passiveSkillPoint: string;
@@ -270,7 +270,7 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     cabin: num('cabin'),
     hp: num('hp'),
     damage: num('damage'),
-    protectionDiceUp: num('protection dice up'),
+    defendDiceUp: num('defend dice up'),
     attackDiceUp: num('attack dice up'),
     speed: num('speed'),
     passiveSkillPoint: get('passive skill point'),
