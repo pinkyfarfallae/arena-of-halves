@@ -473,6 +473,30 @@ function CharacterInfo() {
             <div className="cs__personal-stats">
               <div className="cs__personal-stat">
                 <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span className="cs__personal-stat-label">Birthdate</span>
+                <span className="cs__personal-stat-value">{char.birthdate || 'Unknown'}</span>
+              </div>
+              <div className="cs__personal-stat">
+                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 13v8M9 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span className="cs__personal-stat-label">Gender</span>
+                <span className="cs__personal-stat-value">{char.genderIdentity || 'Prefer not to say'}</span>
+              </div>
+              <div className="cs__personal-stat">
+                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C6.48 2 2 6 2 11c0 5.25 4.25 9 7 12 .68.75 1.52.75 2.2.1C14 20 22 16 22 11c0-5-4.48-9-10-9z" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="12" cy="11" r="3" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+                <span className="cs__personal-stat-label">Species</span>
+                <span className="cs__personal-stat-value">{char.species || 'Demigod'}</span>
+              </div>
+              <div className="cs__personal-stat">
+                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2v20M8 4h8M8 20h8M10 8h4M10 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
                 <span className="cs__personal-stat-label">Height</span>
@@ -489,11 +513,13 @@ function CharacterInfo() {
               </div>
               <div className="cs__personal-stat">
                 <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M12 13v8M9 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 3c-3 3-5 6-5 9s2 6 5 9" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M12 3c3 3 5 6 5 9s-2 6-5 9" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M3 12h18" stroke="currentColor" strokeWidth="1.2" />
                 </svg>
-                <span className="cs__personal-stat-label">Gender</span>
-                <span className="cs__personal-stat-value">{char.genderIdentity || 'Prefer not to say'}</span>
+                <span className="cs__personal-stat-label">Ethnicity</span>
+                <span className="cs__personal-stat-value">{char.ethnicity || 'Unknown'}</span>
               </div>
               <div className="cs__personal-stat">
                 <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
@@ -503,7 +529,49 @@ function CharacterInfo() {
                 <span className="cs__personal-stat-label">Nationality</span>
                 <span className="cs__personal-stat-value">{char.nationality || 'Unknown'}</span>
               </div>
+              <div className="cs__personal-stat">
+                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2l2.09 6.26L21 9.27l-5.18 4.73L17.82 22 12 17.77 6.18 22l1.64-7.73L2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                </svg>
+                <span className="cs__personal-stat-label">Religion</span>
+                <span className="cs__personal-stat-value">{char.religion || 'Olympian'}</span>
+              </div>
             </div>
+            {/* Residence */}
+            <div className="cs__residence">
+              <div className="cs__residence-pin">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </div>
+              <div className="cs__residence-body">
+                <span className="cs__residence-label">Residence</span>
+                <span className="cs__residence-value">{char.residence || '—'}</span>
+              </div>
+            </div>
+
+            {/* Aliases */}
+            {char.aliases && (
+              <div className="cs__aliases">
+                <span className="cs__aliases-label">
+                  <span className="cs__aliases-quote">«</span>
+                  Also known as
+                  <span className="cs__aliases-quote">»</span>
+                </span>
+                <div className="cs__aliases-chips">
+                  {char.aliases.split(',').map(a => a.trim()).filter(Boolean).map((alias, i) => (
+                    <span key={i} className="cs__aliases-chip">{alias}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {char.personality && (
+              <div className="cs__background">
+                <span className="cs__background-label">Personality</span>
+                <p className="cs__background-text">{char.personality}</p>
+              </div>
+            )}
             {char.background && (
               <div className="cs__background">
                 <span className="cs__background-label">Background</span>
