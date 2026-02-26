@@ -1,0 +1,25 @@
+export type DoodleType =
+  | 'star' | 'bolt' | 'arrow' | 'heart' | 'swirl' | 'sparkle' | 'circle' | 'wave'
+  | 'skull' | 'gem' | 'crown' | 'flame'
+  | 'leaf' | 'wheat' | 'flower' | 'vine'
+  | 'rose' | 'dove' | 'mirror'
+  | 'trident' | 'shell' | 'fish'
+  | 'sword' | 'shield' | 'spear'
+  | 'owl' | 'scroll' | 'olive'
+  | 'lyre' | 'sun' | 'laurel'
+  | 'hammer' | 'gear' | 'anvil'
+  | 'wing' | 'coin' | 'caduceus'
+  | 'grape' | 'cup' | 'ivy'
+  | 'moon' | 'cloud' | 'zzz'
+  | 'scales' | 'eye'
+  | 'torch' | 'key'
+  | 'peacock' | 'scepter'
+  | 'bow' | 'deer'
+  | 'rainbow' | 'prism'
+  | 'wreath' | 'trophy'
+  | 'goblet' | 'youth'
+  | 'wheel' | 'clover' | 'dice'
+  | 'pomegranate'
+  | 'cerberus';
+
+export type DoodlePos = 'tl' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br' | 'itl' | 'itr' | 'ibl' | 'ibr' | 'ml2' | 'mr2' | 'bl2' | 'br2';

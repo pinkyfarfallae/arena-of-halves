@@ -1,12 +1,6 @@
 import { Power } from '../../../../data/characters';
+import { POWER_META } from '../../constants/powerMeta';
 import './PowerCard.scss';
-
-const POWER_META: Record<string, { icon: string; tag: string; cls: string }> = {
-  Passive:      { icon: '◈', tag: 'PASSIVE',   cls: 'pcard--passive' },
-  '1st Skill':  { icon: '⚔', tag: '1ST SKILL', cls: 'pcard--skill' },
-  '2nd Skill':  { icon: '⚔', tag: '2ND SKILL', cls: 'pcard--skill' },
-  Ultimate:     { icon: '✦', tag: 'ULTIMATE',  cls: 'pcard--ult' },
-};
 
 export default function PowerCard({ power, index }: { power: Power; index: number }) {
   const meta = POWER_META[power.status] || { icon: '◇', tag: power.status.toUpperCase(), cls: '' };

@@ -1,4 +1,5 @@
 import React from 'react';
+import { DEITY } from '../constants/deities';
 import Zeus from './icons/Zeus';
 import Poseidon from './icons/Poseidon';
 import Demeter from './icons/Demeter';
@@ -46,7 +47,7 @@ export const DEITY_SVG: Record<string, React.ReactNode> = {
 };
 
 export const DEITY_ALIASES: Record<string, string> = {
-  persaphone: 'persephone',
+  persaphone: DEITY.PERSEPHONE.toLowerCase(),
 };
 
 export function parseDeityNames(raw: string): string[] {

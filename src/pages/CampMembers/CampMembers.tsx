@@ -6,13 +6,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { hash } from '../../utils/hash';
 import Pin from './components/Pin/Pin';
 import Tape from './components/Tape/Tape';
-import Doodle, { DoodleType, DoodlePos, GENERIC_DOODLES, DEITY_DOODLES, DOODLE_POSITIONS } from './components/Doodle/Doodle';
+import Doodle from './components/Doodle/Doodle';
+import { DoodleType, DoodlePos, GENERIC_DOODLES, DEITY_DOODLES, DOODLE_POSITIONS } from './constants/doodles';
 import Laurel from './icons/Laurel';
+import { DEITY } from '../../constants/deities';
+import { CHARACTER } from '../../constants/characters';
+import { DECOS } from './constants/decos';
 import './CampMembers.scss';
-
-/* ── Decoration types ── */
-type Deco = 'pin' | 'tape-l' | 'tape-r' | 'tape-c';
-const DECOS: Deco[] = ['pin', 'pin', 'pin', 'tape-l', 'tape-r', 'tape-c'];
 
 function CampMembers() {
   const [members, setMembers] = useState<Character[]>([]);
@@ -31,15 +31,15 @@ function CampMembers() {
   const cardMeta = useMemo(() =>
     members.map((m) => {
       const h = hash(m.characterId);
-      const deityKeys = parseDeityNames(m.dietyBlood);
-      const isRosabella = m.nicknameEng.toLowerCase() === 'rosabella';
+      const deityKeys = parseDeityNames(m.deityBlood);
+      const isRosabella = m.nicknameEng.toLowerCase() === CHARACTER.ROSABELLA;
 
       /* pick doodle pool based on deity */
       let pool: DoodleType[];
       if (isRosabella) {
         // Special: heart + rose, then Persephone + Hades doodles
-        const persephonePick = (DEITY_DOODLES.persephone || GENERIC_DOODLES).slice(0, 4);
-        const hadesPick = (DEITY_DOODLES.hades || GENERIC_DOODLES).slice(0, 4);
+        const persephonePick = (DEITY_DOODLES[DEITY.PERSEPHONE.toLowerCase()] || GENERIC_DOODLES).slice(0, 4);
+        const hadesPick = (DEITY_DOODLES[DEITY.HADES.toLowerCase()] || GENERIC_DOODLES).slice(0, 4);
         pool = ['heart' as DoodleType, 'rose' as DoodleType, ...persephonePick, ...hadesPick];
       } else {
         // Combine doodle sets from all deity parents
@@ -108,7 +108,7 @@ function CampMembers() {
       <div className="camp__board">
         <div className="camp__grid">
           {members.map((m, i) => {
-            const deityKey = parseDeityNames(m.dietyBlood)[0];
+            const deityKey = parseDeityNames(m.deityBlood)[0];
             const { rotation, deco, doodles } = cardMeta[i];
             const isPin = deco === 'pin';
             const isMe = user?.characterId === m.characterId;
@@ -158,7 +158,7 @@ function CampMembers() {
 
                   {/* Deity label */}
                   <div className="camp__deity-label">
-                    <span className="camp__deity">{m.characterId.toLowerCase() === 'rosabella' ? 'Persephone' : (m.dietyBlood || 'Unknown')}</span>
+                    <span className="camp__deity">{m.characterId.toLowerCase() === CHARACTER.ROSABELLA ? DEITY.PERSEPHONE : (m.deityBlood || 'Unknown')}</span>
                     <span className="camp__cabin">{m.cabin ? `Cabin ${m.cabin}` : '???'}</span>
                   </div>
                 </div>

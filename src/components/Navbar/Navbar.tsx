@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { THEME_LABELS, updateTheme } from '../../data/characters';
+import { updateTheme } from '../../data/characters';
+import { THEME_LABELS, CSS_VAR_KEYS } from '../../constants/theme';
 import CloseIcon from '../../icons/Close';
 import MenuToggle from './icons/MenuToggle';
 import Person from './icons/Person';
@@ -12,16 +13,6 @@ import Logout from './icons/Logout';
 import './Navbar.scss';
 
 /* ── Theme Picker Panel ── */
-const CSS_VAR_KEYS = [
-  '--ci-primary', '--ci-dark', '--ci-light', '--ci-accent',
-  '--ci-bg', '--ci-fg', '--ci-surface', '--ci-muted', '--ci-border',
-  '--ci-primary-hover', '--ci-accent-soft', '--ci-surface-hover',
-  '--ci-bg-alt', '--ci-shadow', '--ci-highlight',
-  '--ci-overlay', '--ci-nav-icon', '--ci-overlay-text', '--ci-primary-dark', '--ci-accent-dark',
-  '--ci-left-grad1', '--ci-left-grad2', '--ci-right-grad1', '--ci-right-grad2',
-  '--ci-tag-color',
-];
-
 function ThemePicker({ colors, onClose, onSave }: {
   colors: string[];
   onClose: () => void;

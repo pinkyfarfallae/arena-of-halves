@@ -29,6 +29,7 @@ import Document from './icons/Document';
 import EditPencil from './icons/EditPencil';
 import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
+import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
 import './CharacterInfo.scss';
 
 /* ════ Main ════ */
@@ -63,15 +64,9 @@ function CharacterInfo() {
       .finally(() => setLoadingViewed(false));
   }, [id, isOwnProfile]);
 
-  const DEITY_DISPLAY_OVERRIDES: Record<string, string> = {
-    rosabella: 'Persephone',
-  };
-  const POWER_OVERRIDES: Record<string, string> = {
-    rosabella: 'Demeter',
-  };
   const charKey = char?.characterId?.toLowerCase() ?? '';
-  const displayDeity = DEITY_DISPLAY_OVERRIDES[charKey] ?? char?.dietyBlood;
-  const powerDeity = POWER_OVERRIDES[charKey] ?? char?.dietyBlood;
+  const displayDeity = DEITY_DISPLAY_OVERRIDES[charKey] ?? char?.deityBlood;
+  const powerDeity = POWER_OVERRIDES[charKey] ?? char?.deityBlood;
 
   useEffect(() => {
     if (!powerDeity) return;
@@ -436,7 +431,7 @@ function CharacterInfo() {
                 <p className="cs__appearance-text">{char.appearance || 'No description yet.'}</p>
               </div>
               {/* Human parent — full width below scrapbook + appearance */}
-              {(char.humanParent || char.dietyBlood) && (
+              {(char.humanParent || char.deityBlood) && (
                 <div className="cs__human-parent">
                   {displayDeity && (
                     <div className="cs__human-parent-entry cs__human-parent-entry--divine">
