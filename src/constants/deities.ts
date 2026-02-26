@@ -1,0 +1,25 @@
+export const DEITY = {
+  ZEUS: 'Zeus',
+  POSEIDON: 'Poseidon',
+  DEMETER: 'Demeter',
+  ARES: 'Ares',
+  ATHENA: 'Athena',
+  APOLLO: 'Apollo',
+  HEPHAESTUS: 'Hephaestus',
+  APHRODITE: 'Aphrodite',
+  HERMES: 'Hermes',
+  DIONYSUS: 'Dionysus',
+  HADES: 'Hades',
+  PERSEPHONE: 'Persephone',
+  HYPNOS: 'Hypnos',
+  NEMESIS: 'Nemesis',
+  HECATE: 'Hecate',
+  HERA: 'Hera',
+  ARTEMIS: 'Artemis',
+  IRIS: 'Iris',
+  NIKE: 'Nike',
+  HEBE: 'Hebe',
+  TYCHE: 'Tyche',
+} as const;
+
+export type DeityName = typeof DEITY[keyof typeof DEITY];

@@ -1,12 +1,8 @@
-export interface Wish {
-  deity: string;
-  name: string;
-  description: string;
-}
+import { GID, csvUrl } from '../constants/sheets';
+import type { Wish } from '../types/wish';
+export type { Wish };
 
-const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
-const GID = '198616624';
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
@@ -59,7 +55,7 @@ function parseCSV(csv: string): string[][] {
 }
 
 export async function fetchWishes(): Promise<Wish[]> {
-  const res = await fetch(CSV_URL);
+  const res = await fetch(wishesCsvUrl());
   const csv = await res.text();
   const rows = parseCSV(csv);
   // Skip header row, map columns: deity, wish (name), description

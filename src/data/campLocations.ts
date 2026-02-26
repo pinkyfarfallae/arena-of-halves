@@ -1,17 +1,5 @@
-export interface CampLocation {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  x: number;
-  y: number;
-  size?: 'sm' | 'md' | 'lg';
-  tags?: string[];
-  actionLabels?: string[];
-  actionIcons?: string[];
-  actionPaths?: string[];
-}
+import type { CampLocation } from '../types/campLocation';
+export type { CampLocation };
 
 export const CAMP_LOCATIONS: CampLocation[] = [
   {

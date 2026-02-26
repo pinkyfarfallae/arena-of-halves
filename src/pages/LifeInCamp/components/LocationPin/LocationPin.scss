@@ -1,0 +1,348 @@
+@use '../../../../styles/variables' as *;
+
+/* ══════════════════════════════════
+   LOCATION PINS
+   ══════════════════════════════════ */
+.life__pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  transition: z-index 0s, opacity 0.25s ease, filter 0.25s ease;
+
+  &:hover {
+    z-index: 10;
+  }
+
+  &--dimmed {
+    opacity: 0.15;
+    filter: grayscale(0.8) brightness(0.9);
+    pointer-events: none;
+  }
+}
+
+/* ── Marker button (big colorful circle) ── */
+.life__marker {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: 2.5px solid color-mix(in srgb, var(--pin-color) 60%, rgba(255, 255, 255, 0.4));
+  background:
+    radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--pin-color) 5%, white) 0%, color-mix(in srgb, var(--pin-color) 8%, white) 20%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: var(--pin-color);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--pin-color) 30%, transparent),
+    0 3px 10px rgba(0, 0, 0, 0.12);
+
+  svg {
+    width: 36px;
+    height: 36px;
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--pin-color) 45%, transparent));
+  }
+
+  &:hover {
+    box-shadow:
+      0 0 24px color-mix(in srgb, var(--pin-color) 45%, transparent),
+      0 0 48px color-mix(in srgb, var(--pin-color) 18%, transparent),
+      0 4px 14px rgba(0, 0, 0, 0.14);
+
+    svg {
+      filter: drop-shadow(0 0 5px color-mix(in srgb, var(--pin-color) 60%, transparent));
+    }
+  }
+
+  .life__pin--lg & {
+    width: 65px;
+    height: 65px;
+    svg { width: 44px; height: 44px; }
+  }
+
+  .life__pin--sm & {
+    width: 52px;
+    height: 52px;
+    svg { width: 28px; height: 28px; }
+  }
+
+}
+
+/* ── Pin label (standout badge) ── */
+.life__pin-label {
+  display: block;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+  pointer-events: none;
+  margin-top: 5px;
+  letter-spacing: 0.01em;
+  background: color-mix(in srgb, var(--pin-color) 85%, #000);
+  padding: 2px 8px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+
+  .life__pin--lg & {
+    font-size: 0.66rem;
+    padding: 2.5px 10px;
+  }
+
+  .life__pin--sm & {
+    font-size: 0.5rem;
+    padding: 1.5px 6px;
+  }
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.5rem;
+    padding: 1.5px 6px;
+  }
+}
+
+/* ══════════════════════════════════
+   LOCATION CARD (side-attached popup)
+   ══════════════════════════════════ */
+.life__card {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%) translateX(6px);
+  width: 230px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 20;
+
+  /* Invisible bridge to keep hover alive across the gap */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -16px;
+    width: 16px;
+  }
+
+  .life__pin--left &::before {
+    left: auto;
+    right: -16px;
+  }
+
+  /* Show on hover (desktop) */
+  .life__pin:hover & {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Show on click (mobile) */
+  &--open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Near right edge: card goes left */
+  .life__pin--left & {
+    left: auto;
+    right: calc(100% + 8px);
+    transform: translateY(-50%) translateX(-6px);
+
+    &--open {
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  .life__pin--left:hover & {
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Near bottom: card goes above pin */
+  .life__pin--above & {
+    top: auto;
+    bottom: calc(100% + 14px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px);
+
+    &--open {
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  .life__pin--above:hover & {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .life__pin--above &::before {
+    top: auto;
+    bottom: -16px;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 16px;
+  }
+
+  /* Near left edge: card goes right */
+  .life__pin--right & {
+    left: calc(100% + 8px);
+    transform: translateY(-50%) translateX(6px);
+
+    &--open {
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  .life__pin--right:hover & {
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Above + left edge: card above, aligned left */
+  .life__pin--above.life__pin--right & {
+    top: auto;
+    bottom: calc(100% + 14px);
+    left: 0;
+    transform: translateY(6px);
+
+    &--open {
+      transform: translateY(0);
+    }
+  }
+
+  .life__pin--above.life__pin--right:hover & {
+    transform: translateY(0);
+  }
+
+  /* Above + right edge: card above, aligned right */
+  .life__pin--above.life__pin--left & {
+    top: auto;
+    bottom: calc(100% + 14px);
+    left: auto;
+    right: 0;
+    transform: translateY(6px);
+
+    &--open {
+      transform: translateY(0);
+    }
+  }
+
+  .life__pin--above.life__pin--left:hover & {
+    transform: translateY(0);
+  }
+}
+
+/* ── Card header ── */
+.life__card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  background: color-mix(in srgb, var(--pin-color) 8%, #fff);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.life__card-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pin-color);
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.life__card-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* ── Card body ── */
+.life__card-body {
+  padding: 0.5rem 0.65rem 0.55rem;
+}
+
+.life__card-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: #444;
+  line-height: 1.55;
+  margin: 0;
+  letter-spacing: 0.005em;
+}
+
+.life__card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+}
+
+.life__tag {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.52rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--pin-color) 80%, #222);
+  background: color-mix(in srgb, var(--pin-color) 10%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ── Card action button ── */
+.life__card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--pin-color);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+
+  svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--pin-color) 85%, #000);
+  }
+
+  &:active {
+    transform: translateY(0);
+    background: color-mix(in srgb, var(--pin-color) 75%, #000);
+  }
+}
