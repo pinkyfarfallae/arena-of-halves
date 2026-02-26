@@ -465,10 +465,10 @@ function CharacterInfo() {
 
           {/* Traits */}
           <div className="cs__trait-row">
-            <TraitBox label="Strengths" raw={char.strengths} variant="primary" />
-            <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" />
+            <TraitBox label="Strengths" raw={char.strengths} variant="primary" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
+            <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
           </div>
-          <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" />
+          <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
         </div>
       </main>
 

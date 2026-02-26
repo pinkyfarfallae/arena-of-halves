@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { patchCharacter, Character } from '../../../../data/characters';
 import { EDIT_FIELDS, GROUP_ICONS, GROUPS } from '../../constants/editFields';
 import './EditCharacterModal.scss';
@@ -115,6 +115,22 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
   const removeTrait = (key: string, idx: number) => {
     setTraits(prev => {
       const next = (prev[key] || []).filter((_, i) => i !== idx);
+      setForm(f => ({ ...f, [key]: serializeTraits(next) }));
+      return { ...prev, [key]: next };
+    });
+  };
+
+  /* Trait drag-and-drop */
+  const dragKey = useRef<string | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+
+  const reorderTrait = (key: string, from: number, to: number) => {
+    if (from === to) return;
+    setTraits(prev => {
+      const next = [...(prev[key] || [])];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
       setForm(f => ({ ...f, [key]: serializeTraits(next) }));
       return { ...prev, [key]: next };
     });
@@ -244,7 +260,22 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                           <label className="cs__edit-label">{f.label}</label>
                           <div className="cs__edit-traits">
                             {entries.map((t, i) => (
-                              <div key={i} className="cs__edit-trait">
+                              <div
+                                key={i}
+                                className={`cs__edit-trait${dragKey.current === f.key && dragIdx === i ? ' cs__edit-trait--dragging' : ''}${dragKey.current === f.key && overIdx === i && dragIdx !== i ? ' cs__edit-trait--over' : ''}`}
+                                draggable
+                                onDragStart={e => { dragKey.current = f.key; setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; }}
+                                onDragOver={e => { e.preventDefault(); if (dragKey.current === f.key) setOverIdx(i); }}
+                                onDrop={e => { e.preventDefault(); if (dragKey.current === f.key && dragIdx !== null) reorderTrait(f.key, dragIdx, i); dragKey.current = null; setDragIdx(null); setOverIdx(null); }}
+                                onDragEnd={() => { dragKey.current = null; setDragIdx(null); setOverIdx(null); }}
+                              >
+                                <span className="cs__edit-trait-grip">
+                                  <svg viewBox="0 0 6 14" width="6" height="14" fill="currentColor">
+                                    <circle cx="1.5" cy="2" r="1" /><circle cx="4.5" cy="2" r="1" />
+                                    <circle cx="1.5" cy="7" r="1" /><circle cx="4.5" cy="7" r="1" />
+                                    <circle cx="1.5" cy="12" r="1" /><circle cx="4.5" cy="12" r="1" />
+                                  </svg>
+                                </span>
                                 <input
                                   type="text"
                                   className="cs__edit-input cs__edit-trait-label"
