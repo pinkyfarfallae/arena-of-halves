@@ -15,6 +15,8 @@ $orbit-radius-sm: 128px;
 .iris {
   width: 100%;
   min-height: 100vh;
+  max-height: 100vh;
+  max-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,6 +40,7 @@ $orbit-radius-sm: 128px;
 
   @media (max-width: $bp-medium) {
     min-height: calc(100vh - #{$topbar-height});
+    padding: 2rem 0;
   }
 }
 
@@ -293,7 +296,7 @@ $orbit-radius-sm: 128px;
 
 /* ── Back button ── */
 .iris__back {
-  position: absolute;
+  position: fixed !important;
   bottom: 1.5rem;
   right: 1.5rem;
   width: 40px;
@@ -309,7 +312,7 @@ $orbit-radius-sm: 128px;
   color: #888;
   text-decoration: none;
   transition: color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s;
-  z-index: 10;
+  z-index: 100;
 
   svg { width: 20px; height: 20px; }
 
@@ -317,7 +320,15 @@ $orbit-radius-sm: 128px;
     color: #555;
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+  }
+
+  @media (max-width: $bp-medium) {
+    bottom: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+
+    svg { width: 16px; height: 16px; }
   }
 }
 
@@ -398,13 +409,15 @@ $orbit-radius-sm: 128px;
 
 /* ── Page layout ── */
 .iris__page {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   z-index: 3;
   padding: 0 1rem;
-  width: 100%;
-  max-width: 540px;
+  overflow: hidden;
 }
 
 /* ══════════════════════════════════════
@@ -462,13 +475,10 @@ $orbit-radius-sm: 128px;
   align-items: center;
   gap: 1.8rem;
   margin-bottom: 2rem;
+  min-height: 0;
 
   @media (max-width: $bp-medium) {
     transform: scale(0.9);
-  }
-
-  @media (max-width: $bp-compact) {
-    margin-bottom: 1.5rem;
   }
 }
 
@@ -512,7 +522,7 @@ $orbit-radius-sm: 128px;
   }
 
   .iris--reveal & {
-    opacity: 0.5;
+    opacity: 0.7;
     animation: orbFloat 8s ease-in-out infinite;
     animation-delay: calc(var(--i, 0) * -0.4s);
     transition: top 1.2s cubic-bezier(0, 0.5, 0.3, 1) 0.3s,
@@ -536,7 +546,7 @@ $orbit-radius-sm: 128px;
       animation: orbIdle 4s ease-in-out infinite, orbPulse 3s ease-in-out infinite;
 
       &::before {
-        opacity: 0.6;
+        opacity: 0.7;
         background: conic-gradient(
           from 0deg,
           rgba($iris-violet, 0.5),
@@ -548,7 +558,7 @@ $orbit-radius-sm: 128px;
       }
 
       &::after {
-        opacity: 0.5;
+        opacity: 0.7;
       }
     }
   }
@@ -1417,7 +1427,7 @@ $orbit-radius-sm: 128px;
 /* ── Dove in flight ── */
 .iris__dove {
   position: absolute;
-  top: -26px;
+  top: 0px;
   right: 15px;
   width: 56px;
   height: 44px;
@@ -1929,12 +1939,12 @@ $orbit-radius-sm: 128px;
   letter-spacing: 0.02em;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 20px rgba($iris-violet, 0.15);
+  box-shadow: 0 1px 4px rgba($iris-violet, 0.08);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 28px rgba($iris-violet, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba($iris-violet, 0.15);
   }
 
   &:active {
@@ -1984,149 +1994,404 @@ $orbit-radius-sm: 128px;
 }
 
 /* ══════════════════════════════════════
-   REVEAL CARD
+   REVEAL CARD — DIVINE TAROT
    ══════════════════════════════════════ */
+
+/* ── Deity color variables ── */
+.iris__card[data-deity="zeus"]       { --card-hue: #ffd700; --card-text: #d4a900; } /* bright gold */
+.iris__card[data-deity="hera"]       { --card-hue: #9b59b6; --card-text: #7e3a98; } /* royal purple */
+.iris__card[data-deity="poseidon"]   { --card-hue: #1e88e5; --card-text: #0d5da8; } /* ocean blue */
+.iris__card[data-deity="demeter"]    { --card-hue: #7cb342; --card-text: #558b2f; } /* wheat green */
+.iris__card[data-deity="ares"]       { --card-hue: #d32f2f; --card-text: #a01818; } /* blood red */
+.iris__card[data-deity="athena"]     { --card-hue: #95a5a6; --card-text: #687078; } /* silver gray */
+.iris__card[data-deity="apollo"]     { --card-hue: #ff8f00; --card-text: #c56000; } /* sun orange */
+.iris__card[data-deity="artemis"]    { --card-hue: #26a69a; --card-text: #007869; } /* teal */
+.iris__card[data-deity="hephaestus"] { --card-hue: #e64a19; --card-text: #bf360c; } /* forge orange-red */
+.iris__card[data-deity="aphrodite"]  { --card-hue: #ec407a; --card-text: #c2185b; } /* rose pink */
+.iris__card[data-deity="hermes"]     { --card-hue: #00acc1; --card-text: #00838f; } /* cyan */
+.iris__card[data-deity="dionysus"]   { --card-hue: #8e24aa; --card-text: #6a1b9a; } /* deep purple */
+.iris__card[data-deity="hades"]      { --card-hue: #37474f; --card-text: #263238; } /* charcoal */
+.iris__card[data-deity="iris"]       { --card-hue: #ff6ec7; --card-text: #d81b60; } /* hot pink */
+.iris__card[data-deity="hypnos"]     { --card-hue: #5e35b1; --card-text: #4527a0; } /* indigo */
+.iris__card[data-deity="nemesis"]    { --card-hue: #a1887f; --card-text: #6d4c41; } /* brown */
+.iris__card[data-deity="nike"]       { --card-hue: #ffca28; --card-text: #ffa000; } /* amber */
+.iris__card[data-deity="hebe"]       { --card-hue: #f8bbd0; --card-text: #f48fb1; } /* light pink */
+.iris__card[data-deity="tyche"]      { --card-hue: #66bb6a; --card-text: #388e3c; } /* emerald green */
+.iris__card[data-deity="hecate"]     { --card-hue: #4a148c; --card-text: #311b92; } /* dark violet */
+.iris__card[data-deity="persephone"] { --card-hue: #ce93d8; --card-text: #9c27b0; } /* lavender */
+
+/* ── Card container ── */
 .iris__card {
+  --card-hue: #a899e0;
+  --card-text: #6e5fa0;
   position: relative;
-  max-width: 340px;
-  width: 100%;
-  border-radius: 20px;
-  padding: 2px;
-  animation: cardUp 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: 235px;
+  min-height: 275px;
+  flex-shrink: 0;
+  margin: auto 0;
+  animation: cardFlip 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
-  @media (max-width: $bp-compact) {
-    max-width: 300px;
+  /* Rotating light rays on entrance */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -80px;
+    background: conic-gradient(from 0deg at 50% 50%,
+      transparent 0deg,
+      color-mix(in srgb, var(--card-hue) 40%, transparent) 60deg,
+      transparent 120deg,
+      color-mix(in srgb, var(--card-hue) 40%, transparent) 180deg,
+      transparent 240deg,
+      color-mix(in srgb, var(--card-hue) 40%, transparent) 300deg,
+      transparent 360deg);
+    opacity: 0;
+    animation: cardRays 1.4s ease-out both;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @media (max-width: $bp-medium) {
+    width: 220px;
+    min-height: 270px;
+    max-height: 270px;
   }
 }
 
-.iris__card-accent {
+@keyframes cardFlip {
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateY(-90deg) rotateX(15deg) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(10deg) rotateX(-5deg) scale(1.02);
+  }
+  70% {
+    transform: perspective(800px) rotateY(-5deg) rotateX(2deg) scale(1.01);
+  }
+  100% {
+    transform: perspective(800px) rotateY(0deg) rotateX(0deg) scale(1);
+  }
+}
+
+@keyframes cardRays {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.5) rotate(0deg);
+  }
+  30% { 
+    opacity: 0.8;
+    transform: scale(1.2) rotate(90deg);
+  }
+  100% { 
+    opacity: 0; 
+    transform: scale(1.8) rotate(180deg);
+  }
+}
+
+/* ── Outer glow — multi-layered ambient light ── */
+.iris__card-glow {
   position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  background: conic-gradient(
-    from 210deg,
-    #f9c4c4, #f9dba8, #f5f0a8, #b4ecc4, #a8d4f9, #ccb4f0, #f0b4d8, #f9c4c4
-  );
-  opacity: 0.6;
-  animation: hueShift 6s linear infinite;
+  inset: -20px;
+  border-radius: 34px;
+  background:
+    radial-gradient(ellipse at 50% 25%,
+      color-mix(in srgb, var(--card-hue) 35%, transparent) 0%,
+      color-mix(in srgb, var(--card-hue) 12%, transparent) 40%,
+      transparent 65%),
+    radial-gradient(ellipse at 25% 80%,
+      color-mix(in srgb, var(--card-hue) 14%, transparent) 0%,
+      transparent 50%),
+    radial-gradient(ellipse at 75% 70%,
+      color-mix(in srgb, var(--card-hue) 10%, transparent) 0%,
+      transparent 45%);
+  filter: blur(16px);
+  opacity: 0.4;
+  animation: cardGlowPulse 3s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
 }
 
-@keyframes hueShift {
-  0% { filter: hue-rotate(0deg); }
-  100% { filter: hue-rotate(360deg); }
+@keyframes cardGlowPulse {
+  0%   { opacity: 0.45; transform: scale(0.96); }
+  100% { opacity: 0.7; transform: scale(1.05); }
 }
 
-.iris__card-body {
+/* ── Tarot frame ── */
+.iris__card-frame {
   position: relative;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  border-radius: 19px;
-  padding: 1.8rem 2rem 1.4rem;
-  text-align: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 2.5px solid color-mix(in srgb, var(--card-hue) 42%, #ddd8cc);
+  background:
+    linear-gradient(170deg,
+      color-mix(in srgb, var(--card-hue) 2%, #fdfcf8) 0%,
+      color-mix(in srgb, var(--card-hue) 9%, #faf8f2) 45%,
+      color-mix(in srgb, var(--card-hue) 3%, #fdfcf8) 100%);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--card-hue) 12%, rgba(0,0,0,0.08)),
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+  z-index: 1;
 
-  @media (max-width: $bp-compact) {
-    padding: 1.4rem 1.5rem 1.2rem;
+  /* Ornate inner border with subtle inset glow */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--card-hue) 24%, rgba(220,215,200,0.6));
+    box-shadow: inset 0 0 16px color-mix(in srgb, var(--card-hue) 6%, transparent);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Holographic shimmer sweep */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(
+      110deg,
+      transparent 0%,
+      transparent 28%,
+      color-mix(in srgb, var(--card-hue) 5%, rgba(255,255,255,0.12)) 38%,
+      rgba(255, 255, 255, 0.45) 50%,
+      color-mix(in srgb, var(--card-hue) 5%, rgba(255,255,255,0.12)) 62%,
+      transparent 72%,
+      transparent 100%);
+    background-size: 300% 100%;
+    animation: shimmerSweep 8s ease-in-out 1.2s infinite;
+    pointer-events: none;
+    z-index: 10;
   }
 }
 
-@keyframes cardUp {
-  0% { opacity: 0; transform: translateY(24px) scale(0.95); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes shimmerSweep {
+  0%, 100% { background-position: 300% 0; }
+  50%      { background-position: -100% 0; }
 }
 
+/* ── Inner content ── */
+.iris__card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  z-index: 2;
+
+  /* Corner ornaments with gentle twinkle */
+  &::before,
+  &::after {
+    content: '✦';
+    position: absolute;
+    font-size: 0.5rem;
+    color: color-mix(in srgb, var(--card-hue) 50%, #c0b8a8);
+    pointer-events: none;
+    line-height: 1;
+    animation: cornerTwinkle 3s ease-in-out infinite alternate;
+  }
+
+  &::before { top: 10px; left: 12px; }
+  &::after  { top: 10px; right: 12px; animation-delay: 1.5s; }
+}
+
+@keyframes cornerTwinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.8) rotate(0deg); }
+  50%      { opacity: 0.85; transform: scale(1.2) rotate(15deg); }
+}
+
+/* ── Icon circle — deity emblem ── */
 .iris__card-icon {
-  width: 50px;
-  height: 50px;
-  margin: 0 auto 0.4rem;
-  color: $iris-violet;
-  background: rgba($iris-violet, 0.05);
-  border: 1px solid rgba($iris-violet, 0.08);
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  color: var(--card-hue);
+  background:
+    radial-gradient(circle at 38% 32%,
+      rgba(255,255,255,0.95),
+      color-mix(in srgb, var(--card-hue) 14%, #fff));
+  border: 2px solid color-mix(in srgb, var(--card-hue) 38%, #e8e4dc);
+  box-shadow:
+    0 4px 20px color-mix(in srgb, var(--card-hue) 38%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--card-hue) 9%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  margin-bottom: 0.7rem;
+  flex-shrink: 0;
+  animation: iconAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
 
-  svg { width: 100%; height: 100%; }
+  svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 1px 4px color-mix(in srgb, var(--card-hue) 45%, rgba(0,0,0,0.15)));
+  }
 
-  @media (max-width: $bp-compact) {
+
+  @media (max-width: $bp-mobile) {
     width: 42px;
     height: 42px;
     padding: 8px;
   }
 }
 
-.iris__card-deity {
-  display: block;
-  font-family: 'DM Mono', monospace;
-  font-size: 0.55rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: $iris-violet-soft;
-  margin-bottom: 0.6rem;
+@keyframes iconAppear {
+  0%  { opacity: 0; transform: scale(0) rotate(-30deg); }
+  60% { transform: scale(1.15) rotate(5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
 }
 
+/* ── Deity label ── */
+.iris__card-deity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--card-text);
+  margin: 0.25rem 0;
+  flex-shrink: 0;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--card-hue) 20%, transparent);
+  animation: fadeSlideUp 0.5s ease-out 0.5s both;
+}
+
+.iris__card-diamond {
+  font-size: 0.3rem;
+  color: var(--card-hue);
+  animation: diamondPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes diamondPulse {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 0.75; }
+}
+
+/* ── Wish name ── */
 .iris__card-name {
   font-family: 'Noto Sans Thai', 'Playfair Display', serif;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #2d2644;
+  color: #2a2240;
   margin: 0 0 0.5rem;
-  line-height: 1.5;
+  line-height: 1.4;
+  flex-shrink: 0;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  animation: fadeSlideUp 0.5s ease-out 0.55s both;
 
-  @media (max-width: $bp-compact) {
-    font-size: 1rem;
+  @media (max-width: $bp-compact) { font-size: 0.82rem; }
+  @media (max-width: $bp-mobile) { font-size: 0.75rem; }
+}
+
+@keyframes fadeSlideUp {
+  0%   { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Ornate divider with center diamond ── */
+.iris__card-divider {
+  width: 70px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--card-hue) 60%, #c8c0b0),
+    transparent);
+  margin: 0 auto 0.5rem;
+  position: relative;
+  flex-shrink: 0;
+  animation: dividerExpand 0.7s ease-out 0.65s both;
+
+  &::after {
+    content: '◇';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.35rem;
+    color: var(--card-hue);
+    background: color-mix(in srgb, var(--card-hue) 6%, #faf8f2);
+    padding: 0 5px;
+    line-height: 1;
+    opacity: 0.65;
   }
 }
 
-.iris__card-rule {
-  width: 40px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 160, 160, 0.3),
-    rgba(255, 220, 140, 0.3),
-    rgba(140, 200, 255, 0.3),
-    rgba(180, 150, 240, 0.3),
-    transparent
-  );
-  margin: 0 auto 0.6rem;
+@keyframes dividerExpand {
+  0%   { transform: scaleX(0); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 1; }
 }
 
+/* ── Description ── */
 .iris__card-desc {
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
-  font-size: 0.74rem;
-  color: #888;
-  line-height: 1.8;
-  margin: 0 0 1.3rem;
+  font-size: 0.75rem;
+  color: #68687a;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  animation: fadeSlideUp 0.5s ease-out 0.75s both;
 
-  @media (max-width: $bp-compact) {
-    font-size: 0.68rem;
-  }
+  @media (max-width: $bp-compact) { font-size: 0.7rem; }
 }
 
+/* ── Toss again button ── */
 .iris__btn-again {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.45rem 1.1rem;
-  border: 1.5px solid rgba($iris-violet, 0.15);
-  border-radius: 22px;
+  padding: 0.4rem 1.1rem;
+  border: 1.5px solid color-mix(in srgb, var(--card-hue) 38%, #d0ccc0);
+  border-radius: 20px;
   background: transparent;
-  color: $iris-violet;
+  color: var(--card-text);
   font-family: 'Inter', sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+  margin-top: auto;
+  animation: fadeSlideUp 0.5s ease-out 0.85s both;
 
-  svg { width: 13px; height: 13px; }
+  svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.4s ease;
+  }
 
   &:hover {
-    background: rgba($iris-violet, 0.04);
-    border-color: rgba($iris-violet, 0.3);
+    background: color-mix(in srgb, var(--card-hue) 12%, transparent);
+    border-color: color-mix(in srgb, var(--card-hue) 60%, #ccc);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--card-hue) 20%, transparent);
+
+    svg { transform: rotate(-180deg); }
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--card-hue) 12%, transparent);
+  }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.54rem;
+    padding: 0.35rem 0.85rem;
   }
 }
 
@@ -2141,15 +2406,10 @@ $orbit-radius-sm: 128px;
   text-align: center;
   line-height: 1.8;
   max-width: 380px;
-  margin: -1.5rem 0 1rem;
 
   @media (max-width: $bp-compact) {
     font-size: 0.6rem;
     max-width: 300px;
-  }
-
-  @media (max-width: $bp-mobile) {
-    margin-bottom: 2.5rem;
   }
 }
 

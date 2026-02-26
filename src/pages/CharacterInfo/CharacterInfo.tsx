@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { fetchCharacter, fetchPowers, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
 import { applyTheme } from '../../App';
 import { DEITY_SVG, parseDeityNames } from '../../data/deities';
+import Drachma from '../../components/icons/Drachma';
 import './CharacterInfo.scss';
 
 /* ── HP / SPD bar ── */
@@ -315,11 +316,7 @@ function CharacterInfo() {
           <div className="cs__currency-inner">
             <span className="cs__currency-star">✦</span>
             <div className="cs__currency-amount">
-              <svg className="cs__currency-icon" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="1" />
-                <path d="M12 5.5v13M8.5 7.5l7 9M15.5 7.5l-7 9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-              </svg>
+              <Drachma className="cs__currency-icon" />
               <span className="cs__currency-num">{char.currency.toLocaleString()}</span>
               <span className="cs__currency-label">Drachma{Number(char.currency) > 1 ? 's' : ''}</span>
             </div>
@@ -343,7 +340,7 @@ function CharacterInfo() {
         {/* Stats grid */}
         <div className="cs__stats">
           <StatOrb value={char.damage} label="DAMAGE" />
-          <StatOrb value={char.protectionDiceUp} label="PROTECT DICE" />
+          <StatOrb value={char.defendDiceUp} label="DEFEND DICE" />
           <StatOrb value={char.attackDiceUp} label="ATTACK DICE" />
           <StatOrb value={char.reroll} label="REROLL" />
           {([

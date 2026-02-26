@@ -9,6 +9,7 @@
 .camp {
   position: relative;
   height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   padding: 1.5rem 2rem;
@@ -20,19 +21,26 @@
     linear-gradient(175deg, #faf8f3 0%, #f5f0e6 35%, #f0ebe0 70%, #ece5d8 100%);
   background-size: 200px 200px, auto;
 
-  &--loading {
-    align-items: center;
-    justify-content: center;
-    background: none;
-  }
-
   @media (max-width: $bp-medium) {
     height: auto;
     overflow: visible;
     padding: 1.2rem 1rem;
+    min-height: calc(100vh - 46px);
   }
+
   @media (max-width: $bp-compact) {
     padding: 1rem 0.6rem;
+  }
+
+  &--loading {
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    background: none;
+
+    @media (max-width: $bp-medium) {
+      min-height: calc(100vh - 46px);
+    }
   }
 }
 
