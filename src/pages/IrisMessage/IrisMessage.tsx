@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchWishes, WISHES_FALLBACK, Wish } from '../../data/wishes';
 import { DEITY_SVG } from '../../data/deities';
+import Drachma from '../../components/icons/Drachma';
 import './IrisMessage.scss';
 
 type Phase = 'idle' | 'tossing' | 'reveal';
@@ -128,13 +129,7 @@ function IrisMessage() {
             {phase !== 'reveal' && (
               <div className={`iris__coin ${phase === 'tossing' ? 'iris__coin--drop' : ''}`}>
                 <div className="iris__coin-inner">
-                  <svg viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="1.2" />
-                    <circle cx="24" cy="24" r="15" stroke="currentColor" strokeWidth="0.5" opacity="0.4" />
-                    <path d="M18 17l6-3 6 3M18 31l6 3 6-3" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="24" cy="24" r="6" stroke="currentColor" strokeWidth="0.7" />
-                    <circle cx="24" cy="24" r="2" fill="currentColor" opacity="0.4" />
-                  </svg>
+                  <Drachma />
                 </div>
               </div>
             )}
