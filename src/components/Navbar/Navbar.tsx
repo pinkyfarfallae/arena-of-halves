@@ -1,7 +1,14 @@
 import { useCallback, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { THEME_LABELS, updateTheme } from '../data/characters';
+import { useAuth } from '../../hooks/useAuth';
+import { THEME_LABELS, updateTheme } from '../../data/characters';
+import CloseIcon from '../../icons/Close';
+import MenuToggle from './icons/MenuToggle';
+import Person from './icons/Person';
+import People from './icons/People';
+import MapIcon from './icons/MapIcon';
+import Palette from './icons/Palette';
+import Logout from './icons/Logout';
 import './Navbar.scss';
 
 /* ── Theme Picker Panel ── */
@@ -81,13 +88,11 @@ function ThemePicker({ colors, onClose, onSave }: {
       <div className="tp__header">
         <h3 className="tp__title">Theme Colors</h3>
         <button className="tp__close" onClick={onClose} data-tooltip="Close" data-tooltip-pos="left">
-          <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <CloseIcon width="16" height="16" />
         </button>
       </div>
       <div className="tp__grid">
-        {THEME_LABELS.map((label, i) => (
+        {THEME_LABELS.map((label: string, i: number) => (
           <label key={i} className="tp__swatch">
             <input
               type="color"
@@ -127,12 +132,7 @@ function Navbar() {
           {user?.nicknameEng?.[0]?.toUpperCase() ?? '?'}
         </NavLink>
         <button className="topbar__toggle" onClick={() => setOpen(o => !o)} aria-label="Toggle menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            {open
-              ? <><line x1="6" y1="6" x2="18" y2="18" /><line x1="6" y1="18" x2="18" y2="6" /></>
-              : <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
-            }
-          </svg>
+          <MenuToggle open={open} />
         </button>
       </div>
 
@@ -141,48 +141,24 @@ function Navbar() {
       <div className={`topbar-menu ${open ? 'topbar-menu--open' : ''}`}>
         {user?.characterId && (
           <NavLink to="/" end className={({ isActive }) => `topbar-menu__item ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <Person />
             <span>Character</span>
           </NavLink>
         )}
         <NavLink to="/camp" className={({ isActive }) => `topbar-menu__item ${isActive || isViewingMember ? 'topbar-menu__item--active' : ''}`} onClick={close}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
+          <People />
           <span>Camp Members</span>
         </NavLink>
         <NavLink to="/life" className={({ isActive }) => `topbar-menu__item ${isActive || isLifeSubPage ? 'topbar-menu__item--active' : ''}`} onClick={close}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-            <line x1="8" y1="2" x2="8" y2="18" />
-            <line x1="16" y1="6" x2="16" y2="22" />
-          </svg>
+          <MapIcon />
           <span>Life in the Camp</span>
         </NavLink>
         <button className="topbar-menu__item" onClick={() => { setShowThemePicker(p => !p); close(); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="7" cy="5" r="2.5" fill="currentColor" opacity="0.8" />
-            <circle cx="17" cy="5" r="2.5" fill="currentColor" opacity="0.6" />
-            <circle cx="4" cy="12" r="2.5" fill="currentColor" opacity="0.7" />
-            <circle cx="20" cy="12" r="2.5" fill="currentColor" opacity="0.5" />
-            <circle cx="7" cy="19" r="2.5" fill="currentColor" opacity="0.9" />
-            <circle cx="17" cy="19" r="2.5" fill="currentColor" opacity="0.4" />
-          </svg>
+          <Palette />
           <span>Theme Colors</span>
         </button>
         <button className="topbar-menu__item topbar-menu__item--logout" onClick={() => { logout(); close(); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+          <Logout />
           <span>Logout</span>
         </button>
       </div>
@@ -197,50 +173,26 @@ function Navbar() {
 
         {user?.characterId && (
           <NavLink to="/" end className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip="Character" data-tooltip-pos="right">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <Person />
           </NavLink>
         )}
 
         <NavLink to="/camp" className={({ isActive }) => `sidebar__icon ${isActive || isViewingMember ? 'sidebar__icon--active' : ''}`} data-tooltip="Camp Members" data-tooltip-pos="right">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
+          <People />
         </NavLink>
 
         <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPage ? 'sidebar__icon--active' : ''}`} data-tooltip="Life in Camp" data-tooltip-pos="right">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-            <line x1="8" y1="2" x2="8" y2="18" />
-            <line x1="16" y1="6" x2="16" y2="22" />
-          </svg>
+          <MapIcon />
         </NavLink>
 
         <div className="sidebar__spacer" />
 
         <button className={`sidebar__icon ${showThemePicker ? 'sidebar__icon--active' : ''}`} onClick={() => setShowThemePicker(p => !p)} data-tooltip="Theme Colors" data-tooltip-pos="right">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="7" cy="5" r="2.5" fill="currentColor" opacity="0.8" />
-            <circle cx="17" cy="5" r="2.5" fill="currentColor" opacity="0.6" />
-            <circle cx="4" cy="12" r="2.5" fill="currentColor" opacity="0.7" />
-            <circle cx="20" cy="12" r="2.5" fill="currentColor" opacity="0.5" />
-            <circle cx="7" cy="19" r="2.5" fill="currentColor" opacity="0.9" />
-            <circle cx="17" cy="19" r="2.5" fill="currentColor" opacity="0.4" />
-          </svg>
+          <Palette strokeWidth="1.5" />
         </button>
 
         <button className="sidebar__icon sidebar__icon--logout" onClick={logout} data-tooltip="Logout" data-tooltip-pos="right">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+          <Logout />
         </button>
       </nav>
 

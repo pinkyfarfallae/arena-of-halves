@@ -2,158 +2,39 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchCharacter, fetchPowers, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
-import { DEITY_SVG, parseDeityNames } from '../../data/deities';
-import Drachma from '../../components/icons/Drachma';
+import { DEITY_SVG } from '../../data/deities';
+import Drachma from '../../icons/Drachma';
+import VitalBar from './components/VitalBar/VitalBar';
+import StatOrb from './components/StatOrb/StatOrb';
+import Slot from './components/Slot/Slot';
+import DeityCard from './components/DeityCard/DeityCard';
+import PowerCard from './components/PowerCard/PowerCard';
+import TraitBox from './components/TraitBox/TraitBox';
+import TwitterX from './icons/TwitterX';
+import Beads from './icons/Beads';
+import Gender from './icons/Gender';
+import Species from './icons/Species';
+import HeightIcon from './icons/Height';
+import Weight from './icons/Weight';
+import Ethnicity from './icons/Ethnicity';
+import Nationality from './icons/Nationality';
+import Star from './icons/Star';
+import MapPin from './icons/MapPin';
+import Calendar from './icons/Calendar';
+import Person from './icons/Person';
+import BackArrow from './icons/BackArrow';
+import Document from './icons/Document';
+import EditPencil from './icons/EditPencil';
+import LockOpen from './icons/LockOpen';
+import LockClosed from './icons/LockClosed';
 import './CharacterInfo.scss';
-
-/* ── HP / SPD bar ── */
-function VitalBar({ value, max, label, accent }: {
-  value: number; max: number; label: string; accent?: boolean;
-}) {
-  const pct = Math.min((value / max) * 100, 100);
-  return (
-    <div className="vbar">
-      <span className="vbar__label">{label}</span>
-      <div className="vbar__track">
-        <div className={`vbar__fill ${accent ? 'vbar__fill--accent' : ''}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="vbar__num">{value}</span>
-    </div>
-  );
-}
-
-/* ── Stat orb ── */
-function StatOrb({ value, label, max = 10, accent }: {
-  value: number; label: string; max?: number; accent?: boolean;
-}) {
-  const pct = Math.min(value / max, 1);
-  const r = 26;
-  const circ = 2 * Math.PI * r; 
-  const offset = circ * (1 - pct);
-
-  return (
-    <div className={`so ${accent ? 'so--accent' : ''}`}>
-      <div className="so__orb">
-        <svg className="so__svg" viewBox="0 0 60 60">
-          <circle cx="30" cy="30" r={r} className="so__track" />
-          <circle cx="30" cy="30" r={r} className="so__arc"
-            strokeDasharray={circ} strokeDashoffset={offset} />
-          {/* decorative inner ring */}
-          <circle cx="30" cy="30" r={18} className="so__inner" />
-        </svg>
-        <span className="so__val">{value}</span>
-      </div>
-      <span className="so__label">{label}</span>
-    </div>
-  );
-}
-
-/* ── Slot (shared for weapons & items) ── */
-function Slot({ name, icon, quantity, imageUrl, tier }: { name?: string; icon: string; quantity?: number; imageUrl?: string; tier?: string }) {
-  const tierCls = tier ? `wslot--${tier.toLowerCase()}` : '';
-  return (
-    <div className={`wslot ${!name ? 'wslot--empty' : ''} ${name ? tierCls : ''}`}>
-      <div className="wslot__frame">
-        {imageUrl ? (
-          <img src={imageUrl} alt={name} className="wslot__img" referrerPolicy="no-referrer" />
-        ) : (
-          <span className="wslot__icon">{name ? icon : '+'}</span>
-        )}
-        {quantity != null && quantity > 0 && <span className="wslot__qty">{quantity}</span>}
-        {name && tier && <span className="wslot__tier">{tier}</span>}
-      </div>
-      <span className="wslot__name">{name || 'Empty'}</span>
-    </div>
-  );
-}
-
-/* ── Deity card ── */
-function DeityCard({ deity }: { deity: string }) {
-  const names = parseDeityNames(deity);
-
-  return (
-    <div className="dcard">
-      <div className={`dcard__icons ${names.length > 1 ? 'dcard__icons--dual' : ''}`}>
-        {names.map(name => (
-          <div key={name} className="dcard__deity">
-            <div className="dcard__icon">
-              {DEITY_SVG[name] || <span className="dcard__fallback">⚡</span>}
-            </div>
-            <span className="dcard__label">{name}</span>
-          </div>
-        ))}
-      </div>
-      <div className="dcard__line" />
-      <span className="dcard__sub">Divine Parent</span>
-    </div>
-  );
-}
-
-/* ── Power card ── */
-const POWER_META: Record<string, { icon: string; tag: string; cls: string }> = {
-  Passive:      { icon: '◈', tag: 'PASSIVE',   cls: 'pcard--passive' },
-  '1st Skill':  { icon: '⚔', tag: '1ST SKILL', cls: 'pcard--skill' },
-  '2nd Skill':  { icon: '⚔', tag: '2ND SKILL', cls: 'pcard--skill' },
-  Ultimate:     { icon: '✦', tag: 'ULTIMATE',  cls: 'pcard--ult' },
-};
-
-function PowerCard({ power, index }: { power: Power; index: number }) {
-  const meta = POWER_META[power.status] || { icon: '◇', tag: power.status.toUpperCase(), cls: '' };
-
-  return (
-    <div className={`pcard ${meta.cls}`} style={{ animationDelay: `${index * 0.1}s` }}>
-      <div className="pcard__accent" />
-      <div className="pcard__orb">
-        <span className="pcard__orb-icon">{meta.icon}</span>
-      </div>
-      <div className="pcard__body">
-        <span className="pcard__tag">{meta.tag}</span>
-        <h4 className="pcard__name">{power.name}</h4>
-        <p className="pcard__desc">{power.description}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ── Trait chip box ── */
-function TraitBox({ label, raw, variant }: {
-  label: string; raw: string; variant: 'primary' | 'accent' | 'mixed';
-}) {
-  const items = raw
-    ? raw.split(',').map(s => s.trim()).filter(Boolean).map(s => {
-        const [title, ...rest] = s.split(':');
-        return { title: title.trim(), desc: rest.join(':').trim() || '' };
-      })
-    : [];
-
-  return (
-    <div className={`cs__trait cs__trait--${variant}`}>
-      <h3 className="cs__trait-label"><span className="cs__trait-diamond">◆</span>{label}</h3>
-      <div className="cs__trait-chips">
-        {items.length > 0 ? items.map((item, i) => (
-          <span key={i} className="cs__chip">
-            <span className="cs__chip-title">{item.title}</span>
-            {item.desc && <span className="cs__chip-desc">{item.desc}</span>}
-          </span>
-        )) : (
-          <div className="cs__trait-empty">
-            <svg className="cs__trait-empty-icon" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <span className="cs__trait-empty-text">Undiscovered</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ════ Main ════ */
 
 function CharacterInfo() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const [viewed, setViewed] = useState<Character | null>(null);
@@ -165,6 +46,7 @@ function CharacterInfo() {
   const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
   const [weaponModal, setWeaponModal] = useState(false);
   const [itemModal, setItemModal] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const isOwnProfile = !id || id === user?.characterId;
   const char = isOwnProfile ? user : viewed;
@@ -287,9 +169,7 @@ function CharacterInfo() {
           {char.twitter && (
             <a href={char.twitter.startsWith('http') ? char.twitter : `https://x.com/${char.twitter.replace(/^@/, '')}`}
               target="_blank" rel="noopener noreferrer" className="cs__twitter" title="Twitter / X">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
+              <TwitterX width="16" height="16" />
             </a>
           )}
           <div className="cs__overlay">
@@ -322,13 +202,7 @@ function CharacterInfo() {
             </div>
             <span className="cs__currency-sep">|</span>
             <div className="cs__currency-amount">
-              <svg className="cs__currency-icon" viewBox="0 0 24 24" fill="none">
-                <circle cx="7" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="12" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="17" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="12" cy="18" r="3" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M9.5 10l2.5-2M14.5 10l-2.5-2M9.5 14l2.5 2M14.5 14l-2.5 2" stroke="currentColor" strokeWidth="1" />
-              </svg>
+              <Beads className="cs__currency-icon" />
               <span className="cs__currency-num">{char.beads}</span>
               <span className="cs__currency-label">Bead{Number(char.beads) > 1 ? 's' : ''}</span>
             </div>
@@ -358,21 +232,7 @@ function CharacterInfo() {
                       strokeDasharray={2 * Math.PI * 26} strokeDashoffset={unlocked ? 0 : 2 * Math.PI * 26} />
                     <circle cx="30" cy="30" r={18} className="so__inner" />
                   </svg>
-                  <svg className="so__lock-icon" viewBox="0 0 24 24" fill="none">
-                    {unlocked ? (
-                      <>
-                        <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                        <path d="M7 11V7a5 5 0 0 1 9.9-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        <circle cx="12" cy="16" r="1.5" fill="currentColor" />
-                      </>
-                    ) : (
-                      <>
-                        <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        <circle cx="12" cy="16" r="1.5" fill="currentColor" />
-                      </>
-                    )}
-                  </svg>
+                  {unlocked ? <LockOpen className="so__lock-icon" /> : <LockClosed className="so__lock-icon" />}
                 </div>
                 <span className="so__label">{label}</span>
               </div>
@@ -472,82 +332,60 @@ function CharacterInfo() {
             <h3 className="cs__personal-title"><span className="cs__personal-diamond">◆</span>Personal Info</h3>
             <div className="cs__personal-stats">
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <span className="cs__personal-stat-label">Birthdate</span>
-                <span className="cs__personal-stat-value">{char.birthdate || 'Unknown'}</span>
-              </div>
-              <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M12 13v8M9 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                <Gender className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Gender</span>
                 <span className="cs__personal-stat-value">{char.genderIdentity || 'Prefer not to say'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C6.48 2 2 6 2 11c0 5.25 4.25 9 7 12 .68.75 1.52.75 2.2.1C14 20 22 16 22 11c0-5-4.48-9-10-9z" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="11" r="3" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
+                <Species className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Species</span>
                 <span className="cs__personal-stat-value">{char.species || 'Demigod'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v20M8 4h8M8 20h8M10 8h4M10 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                <HeightIcon className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Height</span>
                 <span className="cs__personal-stat-value">{char.height ? `${char.height} cm.` : 'Unknown'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3L4 9h16L12 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                  <path d="M4 9v3a8 8 0 0016 0V9" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="14" r="2" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
+                <Weight className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Weight</span>
                 <span className="cs__personal-stat-value">{char.weight ? `${char.weight} kg.` : 'Unknown'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M12 3c-3 3-5 6-5 9s2 6 5 9" stroke="currentColor" strokeWidth="1.2" />
-                  <path d="M12 3c3 3 5 6 5 9s-2 6-5 9" stroke="currentColor" strokeWidth="1.2" />
-                  <path d="M3 12h18" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
+                <Ethnicity className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Ethnicity</span>
                 <span className="cs__personal-stat-value">{char.ethnicity || 'Unknown'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M3 12h18M12 3c-3 3-3 15 0 18M12 3c3 3 3 15 0 18" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
+                <Nationality className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Nationality</span>
                 <span className="cs__personal-stat-value">{char.nationality || 'Unknown'}</span>
               </div>
               <div className="cs__personal-stat">
-                <svg className="cs__personal-stat-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2l2.09 6.26L21 9.27l-5.18 4.73L17.82 22 12 17.77 6.18 22l1.64-7.73L2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                </svg>
+                <Star className="cs__personal-stat-icon" />
                 <span className="cs__personal-stat-label">Religion</span>
                 <span className="cs__personal-stat-value">{char.religion || 'Olympian'}</span>
               </div>
             </div>
-            {/* Residence */}
-            <div className="cs__residence">
-              <div className="cs__residence-pin">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
+            {/* Residence + Birthdate row */}
+            <div className="cs__info-row">
+              <div className="cs__residence">
+                <div className="cs__residence-pin">
+                  <MapPin />
+                </div>
+                <div className="cs__residence-body">
+                  <span className="cs__residence-label">Residence</span>
+                  <span className="cs__residence-value">{char.residence || '—'}</span>
+                </div>
               </div>
-              <div className="cs__residence-body">
-                <span className="cs__residence-label">Residence</span>
-                <span className="cs__residence-value">{char.residence || '—'}</span>
+              <div className="cs__residence">
+                <div className="cs__residence-pin">
+                  <Calendar />
+                </div>
+                <div className="cs__residence-body">
+                  <span className="cs__residence-label">Birthdate</span>
+                  <span className="cs__residence-value">{char.birthdate || '—'}</span>
+                </div>
               </div>
             </div>
 
@@ -602,9 +440,7 @@ function CharacterInfo() {
                 <div className="cs__human-parent">
                   {displayDeity && (
                     <div className="cs__human-parent-entry cs__human-parent-entry--divine">
-                      <svg className="cs__human-parent-icon" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2l2.09 6.26L21 9.27l-5.18 4.73L17.82 22 12 17.77 6.18 22l1.64-7.73L2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                      </svg>
+                      <Star className="cs__human-parent-icon" />
                       <span className="cs__human-parent-label">Deity</span>
                       <span className="cs__human-parent-name">{displayDeity}</span>
                     </div>
@@ -615,10 +451,7 @@ function CharacterInfo() {
                     const role = parts[1] ? parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase() : 'Parent';
                     return (
                       <div className="cs__human-parent-entry">
-                        <svg className="cs__human-parent-icon" viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
-                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
+                        <Person className="cs__human-parent-icon" />
                         <span className="cs__human-parent-label">{role}</span>
                         <span className="cs__human-parent-name">{name}</span>
                       </div>
@@ -642,28 +475,29 @@ function CharacterInfo() {
       <div className="cs__actions">
         {id && (
           <button className="cs__action-btn cs__back" type="button" onClick={() => navigate(-1)} data-tooltip="Go Back" data-tooltip-pos="right">
-            <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-              <path d="M19 12H5M5 12l6-6M5 12l6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <BackArrow width="16" height="16" />
           </button>
         )}
         {char.document && (
           <a className="cs__action-btn" href={char.document} target="_blank" rel="noopener noreferrer" data-tooltip="View Document" data-tooltip-pos="left">
-            <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-              <path d="M14 2v6h6M8 13h8M8 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <Document width="16" height="16" />
           </a>
         )}
         {isOwnProfile && !id && (
-          <button className="cs__action-btn" type="button" data-tooltip="Edit Character" data-tooltip-pos="left">
-            <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-              <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-              <path d="M15 5l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+          <button className="cs__action-btn" type="button" data-tooltip="Edit Character" data-tooltip-pos="left" onClick={() => setEditOpen(true)}>
+            <EditPencil width="16" height="16" />
           </button>
         )}
       </div>
+
+      {/* Edit modal */}
+      {editOpen && char && (
+        <EditCharacterModal
+          char={char}
+          onClose={() => setEditOpen(false)}
+          onSaved={(patch) => { updateUser(patch); setEditOpen(false); }}
+        />
+      )}
     </div>
   );
 }

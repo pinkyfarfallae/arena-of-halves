@@ -1,0 +1,234 @@
+@use '../../../../styles/variables' as *;
+
+@keyframes dcard-float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes dcard-ring {
+
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: scale(1.06);
+  }
+}
+
+/* ── Deity card (left half) ── */
+.dcard {
+  flex-shrink: 0;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.2rem 0.8rem;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 50% 30%,
+      color-mix(in srgb, var(--ci-primary) 12%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-primary) 3%, var(--ci-bg-alt)) 70%);
+  border: 1px solid color-mix(in srgb, var(--ci-primary) 15%, transparent);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  align-self: stretch;
+
+  /* Decorative corner glints */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--ci-primary) 8%, transparent), transparent 70%);
+    animation: dcard-ring 4s ease-in-out infinite;
+  }
+
+  &::before {
+    top: -10px;
+    left: -10px;
+  }
+
+  &::after {
+    bottom: -10px;
+    right: -10px;
+    animation-delay: 2s;
+  }
+
+  @media (min-width: $bp-expanded-wide) {
+    width: 160px;
+  }
+
+  @media (max-width: $bp-medium) {
+    width: 100px;
+    padding: 0.6rem 0.2rem;
+    gap: 0.8rem;
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 100%;
+    padding: 1rem 0.2rem;
+    gap: 0.8rem;
+  }
+
+  @media (max-width: $bp-mobile) {
+    padding: 1rem 0.7rem;
+    gap: 0.6rem;
+  }
+}
+
+.dcard__icons {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.4rem;
+
+  &--dual {
+    flex-direction: column;
+    gap: 1rem;
+
+    @media (max-width: $bp-compact) {
+      flex-direction: row;
+    }
+
+    .dcard__icon {
+      @media (max-width: $bp-medium) {
+        width: 44px;
+        height: 44px;
+
+        svg {
+          width: 24px;
+          height: 24px;
+        }
+      }
+    }
+  }
+}
+
+.dcard__deity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.dcard__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: dcard-float 5s ease-in-out infinite;
+  background:
+    radial-gradient(circle at 40% 35%,
+      color-mix(in srgb, var(--ci-primary) 16%, var(--ci-bg)),
+      color-mix(in srgb, var(--ci-primary) 5%, var(--ci-bg)));
+  border: 1.5px solid color-mix(in srgb, var(--ci-primary) 20%, transparent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--ci-primary) 6%, transparent),
+    0 0 20px color-mix(in srgb, var(--ci-primary) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--ci-light) 25%, transparent);
+
+  svg {
+    width: 40px;
+    height: 40px;
+    color: color-mix(in srgb, var(--ci-primary) 80%, var(--ci-dark));
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ci-primary) 20%, transparent));
+  }
+
+  @media (min-width: $bp-expanded-wide) {
+    width: 78px;
+    height: 78px;
+
+    svg {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  @media (max-width: $bp-medium) {
+    width: 52px;
+    height: 52px;
+
+    svg {
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 46px;
+    height: 46px;
+
+    svg {
+      width: 26px;
+      height: 26px;
+    }
+  }
+
+  @media (max-width: $bp-mobile) {
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 22px;
+      height: 22px;
+    }
+  }
+}
+
+.dcard__fallback {
+  font-size: 2rem;
+}
+
+.dcard__line {
+  width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ci-primary) 35%, transparent), transparent);
+}
+
+.dcard__label {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ci-fg);
+  text-align: center;
+  line-height: 1.2;
+  text-transform: capitalize;
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.6rem;
+  }
+}
+
+.dcard__sub {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ci-muted);
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.42rem;
+  }
+}
