@@ -17,7 +17,7 @@ function FormatLine({ text, bullet }: { text: string; bullet?: boolean }) {
 
 function FormatDesc({ text }: { text: string }) {
   // Split into lines on / or newline, then check each for * bullet prefix
-  const lines = text.split(/\s*\/\s*|\n/).filter(Boolean);
+  const lines = text.split(/\s*\\n\s*|\s*\/\s*|\n/).filter(Boolean);
   return (
     <>
       {lines.map((line, i) => {
