@@ -16,8 +16,8 @@ interface CheckoutModalProps {
 
 function CheckoutModal({ cart, totalPrice, paySuccess, customerName, onPay, onClose }: CheckoutModalProps) {
   return (
-    <div className="checkout__overlay" onClick={onClose}>
-      <div className="checkout" onClick={(e) => e.stopPropagation()}>
+    <div className="checkout__overlay">
+      <div className="checkout">
         <button className="checkout__close" onClick={onClose}>
           <CloseIcon />
         </button>

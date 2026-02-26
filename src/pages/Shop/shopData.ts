@@ -3,7 +3,7 @@ import { GID, csvUrl } from '../../constants/sheets';
 import type { ShopItem } from '../../types/shop';
 export type { ShopItem, CartItem } from '../../types/shop';
 
-const SHOP_CSV_URL = csvUrl(GID.SHOP);
+const shopCsvUrl = () => csvUrl(GID.SHOP);
 
 export function parseCSV(csv: string): ShopItem[] {
   const lines = csv.trim().split('\n');
@@ -55,7 +55,7 @@ export function parseCSV(csv: string): ShopItem[] {
 }
 
 export async function fetchShopItems(): Promise<ShopItem[]> {
-  const res = await fetch(SHOP_CSV_URL);
+  const res = await fetch(shopCsvUrl());
   const text = await res.text();
   return parseCSV(text);
 }

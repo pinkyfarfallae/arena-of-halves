@@ -7,4 +7,5 @@ export interface EditField {
   type: 'text' | 'textarea' | 'color';
   group: string;
   placeholder?: string;
+  required?: boolean;
 }

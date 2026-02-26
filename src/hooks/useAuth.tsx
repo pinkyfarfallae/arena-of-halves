@@ -9,9 +9,10 @@ interface AuthContextType {
   login: (characterId: string, password: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (patch: Partial<Character>) => void;
+  refreshUser: () => Promise<void>;
 }
 
-const USER_CSV_URL = csvUrl(GID.USER);
+const userCsvUrl = () => csvUrl(GID.USER);
 
 function parseCSV(csv: string): { characterId: string; password: string }[] {
   const lines = csv.trim().split('\n');
@@ -30,7 +31,7 @@ function parseCSV(csv: string): { characterId: string; password: string }[] {
 }
 
 async function fetchUsers(): Promise<{ characterId: string; password: string }[]> {
-  const res = await fetch(USER_CSV_URL);
+  const res = await fetch(userCsvUrl());
   const text = await res.text();
   return parseCSV(text);
 }
@@ -89,6 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const saved = localStorage.getItem(AUTH_KEY);
+    if (saved) {
+      const c = await fetchCharacter(saved);
+      if (c) {
+        setUser(c);
+        localStorage.setItem(THEME_KEY, JSON.stringify(c.theme));
+      }
+    }
+  }, []);
+
   const value: AuthContextType = {
     user,
     isLoggedIn: user !== null,
@@ -96,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
