@@ -1,0 +1,43 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Per-card doodles (scattered around the photo on the polaroid) ── */
+.camp__doodle {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  color: rgb(255, 255, 255);
+  pointer-events: none;
+  z-index: 4;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+
+  /* 16 positions scattered around & inside photo (relative to .camp__polaroid) */
+
+  /* ── Left side (spaced ~20% apart, some inside) ── */
+  &--tl  { top: 2%;     left: 2%;     transform: rotate(-12deg); }
+  &--itl { top: 22%;    left: -6px;   transform: rotate(-15deg); }
+  &--ml  { top: 42%;    left: 5%;     transform: rotate(-5deg); }
+  &--ml2 { top: 64%;    left: -6px;   transform: rotate(10deg); }
+
+  /* ── Right side (spaced ~20% apart, some inside) ── */
+  &--tr  { top: 2%;     right: 2%;    transform: rotate(15deg); }
+  &--itr { top: 22%;    right: -6px;  transform: rotate(12deg); }
+  &--mr  { top: 42%;    right: 5%;    transform: rotate(8deg); }
+  &--mr2 { top: 64%;    right: -6px;  transform: rotate(-8deg); }
+
+  /* ── Mid-edge extras ── */
+  &--mc  { top: 34%;    left: -8px;   transform: rotate(6deg); }
+  &--ibl { top: 52%;    left: -6px;   transform: rotate(-10deg); }
+  &--ibr { top: 52%;    right: -6px;  transform: rotate(7deg); }
+
+  /* ── Bottom area (spread across width) ── */
+  &--bl  { bottom: 24%;  left: 8%;    transform: rotate(-8deg); }
+  &--bc  { bottom: 22%;  left: 50%;   transform: translateX(-50%) rotate(-3deg); }
+  &--br  { bottom: 24%;  right: 8%;   transform: rotate(10deg); }
+  &--bl2 { bottom: 30%;  left: 30%;   transform: rotate(5deg); }
+  &--br2 { bottom: 30%;  right: 30%;  transform: rotate(-6deg); }
+
+  @media (max-width: $bp-compact) {
+    width: 22px;
+    height: 22px;
+  }
+}

@@ -1,109 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import Drachma from '../../components/icons/Drachma';
+import Drachma from '../../icons/Drachma';
+import { ShopItem, CartItem, fetchShopItems } from './shopData';
+import CheckoutModal from './components/CheckoutModal/CheckoutModal';
+import ChevronLeft from './icons/ChevronLeft';
+import Caduceus from './icons/Caduceus';
+import Cart from './icons/Cart';
+import SearchIcon from '../../icons/Search';
+import Package from './icons/Package';
+import InfoCircle from './icons/InfoCircle';
+import WingedSandal from './icons/WingedSandal';
+import Trash from './icons/Trash';
+import CloseIcon from '../../icons/Close';
+import Coupon from './icons/Coupon';
 import './Shop.scss';
-
-interface ShopItem {
-  itemId: string;
-  name: string;
-  price: number;
-  stock: number | "infinity";
-  category: string;
-  description: string;
-  imageUrl: string;
-}
-
-interface CartItem extends ShopItem {
-  quantity: number;
-}
-
-const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
-const SHOP_GID = '819284917';
-const SHOP_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHOP_GID}`;
-
-function parseCSV(csv: string): ShopItem[] {
-  const lines = csv.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  // Parse CSV properly - handle quoted fields
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  };
-
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-  const idIdx = headers.indexOf('productid');
-  const nameIdx = headers.indexOf('product name');
-  const priceIdx = headers.indexOf('price');
-  const stockIdx = headers.indexOf('piece');
-  const descIdx = headers.indexOf('description');
-  const imageIdx = headers.indexOf('image url');
-
-  if (idIdx === -1 || nameIdx === -1 || priceIdx === -1 || stockIdx === -1) return [];
-
-  return lines.slice(1).map((line) => {
-    const cols = parseCSVLine(line);
-    const stockValue = cols[stockIdx]?.toLowerCase();
-    const isUnlimited = stockValue === 'infinity' || stockValue === 'unlimited';
-
-    // Process image URL - convert Google Drive URLs to direct view URLs
-    let imageUrl = cols[imageIdx] || '';
-    if (imageUrl && imageUrl.includes('drive.google.com')) {
-      // Remove query parameters from URL
-      imageUrl = imageUrl.split('?')[0];
-      // Extract file ID from Google Drive URL (supports /d/ID format)
-      const fileIdMatch = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      if (fileIdMatch && fileIdMatch[1]) {
-        const fileId = fileIdMatch[1];
-        // Use CORS proxy to bypass Google Drive CORS restrictions
-        // Properly encode the Google Drive export URL for the proxy
-        const driveUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-        const encodedUrl = encodeURIComponent(driveUrl);
-        imageUrl = `https://images.weserv.nl/?url=${encodedUrl}&w=300&h=300&fit=cover`;
-        console.log(`Converted image URL: ${fileId} -> ${imageUrl}`);
-      }
-    }
-
-    return {
-      itemId: cols[idIdx] || '',
-      name: cols[nameIdx] || '',
-      price: parseFloat(cols[priceIdx]) || 0,
-      stock: isUnlimited ? -1 : parseInt(cols[stockIdx]) || 0,
-      category: isUnlimited ? 'General' : 'Limited',
-      description: cols[descIdx] || '',
-      imageUrl,
-    };
-  }).filter(item => item.itemId);
-}
-
-async function fetchShopItems(): Promise<ShopItem[]> {
-  const res = await fetch(SHOP_CSV_URL);
-  const text = await res.text();
-  return parseCSV(text);
-}
 
 function Shop() {
   const [items, setItems] = useState<ShopItem[]>([]);
@@ -204,23 +115,12 @@ function Shop() {
       {/* Compact header */}
       <header className="shop__bar">
         <Link to="/life" className="shop__bar-back">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+          <ChevronLeft />
           Camp
         </Link>
 
         <div className="shop__bar-title">
-          {/* Caduceus icon */}
-          <svg className="shop__bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="2" x2="12" y2="22" />
-            <path d="M8 5c-3 0-5 1.5-5 3.5S5 12 8 12c3 0 4-1.5 4-3.5" />
-            <path d="M16 5c3 0 5 1.5 5 3.5S19 12 16 12c-3 0-4-1.5-4-3.5" />
-            <path d="M9 12c-2.5 0-4 1.2-4 3s1.5 3 4 3c2.5 0 3-1.2 3-3" />
-            <path d="M15 12c2.5 0 4 1.2 4 3s-1.5 3-4 3c-2.5 0-3-1.2-3-3" />
-            <circle cx="9" cy="2.5" r="1.5" fill="currentColor" strokeWidth="0" />
-            <circle cx="15" cy="2.5" r="1.5" fill="currentColor" strokeWidth="0" />
-          </svg>
+          <Caduceus className="shop__bar-icon" />
           Hermes' Supply
         </div>
 
@@ -233,11 +133,7 @@ function Shop() {
 
         {/* Mobile cart toggle */}
         <button className="shop__bar-cart" onClick={() => setCartOpen(!cartOpen)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-          </svg>
+          <Cart />
           {totalItems > 0 && <span className="shop__bar-cart-count">{totalItems}</span>}
         </button>
       </header>
@@ -248,10 +144,7 @@ function Shop() {
         <main className="shop__shelves">
           <div className="shop__search-wrapper">
             <div className="shop__search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <SearchIcon />
               <input
                 type="text"
                 placeholder="Search items"
@@ -291,11 +184,7 @@ function Shop() {
                             }}
                           />
                         ) : (
-                          <svg className="item__img-ph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                            <line x1="12" y1="22.08" x2="12" y2="12" />
-                          </svg>
+                          <Package className="item__img-ph" />
                         )}
                       </button>
                       <div className="item__body">
@@ -306,11 +195,7 @@ function Shop() {
                               onMouseEnter={(e) => setTooltip({ id: item.itemId, rect: e.currentTarget.getBoundingClientRect() })}
                               onMouseLeave={() => setTooltip(null)}
                             >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="16" x2="12" y2="12" />
-                                <line x1="12" y1="8" x2="12.01" y2="8" />
-                              </svg>
+                              <InfoCircle />
                             </button>
                           )}
                           <div className="item__row">
@@ -391,11 +276,7 @@ function Shop() {
                             }}
                           />
                         ) : (
-                          <svg className="item__img-ph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                            <line x1="12" y1="22.08" x2="12" y2="12" />
-                          </svg>
+                          <Package className="item__img-ph" />
                         )}
                       </button>
                       <div className="item__body">
@@ -406,11 +287,7 @@ function Shop() {
                               onMouseEnter={(e) => setTooltip({ id: item.itemId, rect: e.currentTarget.getBoundingClientRect() })}
                               onMouseLeave={() => setTooltip(null)}
                             >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="16" x2="12" y2="12" />
-                                <line x1="12" y1="8" x2="12.01" y2="8" />
-                              </svg>
+                              <InfoCircle />
                             </button>
                           )}
                           <div className="item__row">
@@ -456,15 +333,7 @@ function Shop() {
 
             {items.length === 0 && (
               <div className="shop__empty">
-                {/* Winged sandal */}
-                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 22c2-1 6-2 10-2s8 1 12 3" />
-                  <path d="M8 20c1-3 3-5 6-6s6 0 8 2" />
-                  <path d="M5 24l1-4M9 24l0.5-3" />
-                  <path d="M22 16c1-3 0-6-1-8" opacity="0.5" />
-                  <path d="M24 15c2-2 3-5 2-7" opacity="0.5" />
-                  <path d="M20 17c0-3-1-6-3-8" opacity="0.5" />
-                </svg>
+                <WingedSandal />
                 <p>Loading wares...</p>
               </div>
             )}
@@ -476,29 +345,17 @@ function Shop() {
           <div className="cart">
             <div className="cart__head">
               <h2 className="cart__title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1" />
-                  <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-                </svg>
+                <Cart />
                 Your Basket
               </h2>
               <div className="cart__head-actions">
                 {cart.length > 0 && (
                   <button className="cart__clear" onClick={() => { setCart([]); localStorage.removeItem('camp_store_cart'); }} data-tooltip="Clear basket">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                    </svg>
+                    <Trash />
                   </button>
                 )}
                 <button className="cart__close" onClick={() => setCartOpen(false)}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <CloseIcon />
                 </button>
               </div>
             </div>
@@ -538,10 +395,7 @@ function Shop() {
                 </div>
 
                 <button className="cart__coupon-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 9a3 3 0 013-3h14a3 3 0 013 3v0a3 3 0 01-3 3v0a3 3 0 013 3v0a3 3 0 01-3 3H5a3 3 0 01-3-3v0a3 3 0 013-3v0a3 3 0 01-3-3z" />
-                    <line x1="9" y1="6" x2="9" y2="18" strokeDasharray="2 2" />
-                  </svg>
+                  <Coupon />
                   Apply Coupon
                 </button>
 
@@ -562,64 +416,14 @@ function Shop() {
 
       {/* Checkout modal */}
       {showCheckout && (
-        <div className="checkout__overlay" onClick={() => { setShowCheckout(false); setPaySuccess(false); }}>
-          <div className="checkout" onClick={(e) => e.stopPropagation()}>
-            <button className="checkout__close" onClick={() => { setShowCheckout(false); setPaySuccess(false); }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            {paySuccess ? (
-              <div className="checkout__success">
-                {/* Falling coins */}
-                <div className="checkout__coins">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <Drachma key={i} className="checkout__coin" />
-                  ))}
-                </div>
-                <Drachma className="checkout__success-icon" />
-                <h2 className="checkout__success-title">Thank you!</h2>
-                <p className="checkout__success-msg">Have a nice day in Camp Half-Blood</p>
-                <Link to="/life" className="checkout__success-btn">Back to Camp</Link>
-              </div>
-            ) : (
-              <>
-                <h1 className="checkout__title">Order Summary</h1>
-
-                <div className="checkout__customer">
-                  <span className="checkout__customer-label">Customer</span>
-                  <span className="checkout__customer-name">{user?.nameEng || 'Guest Demigod'}</span>
-                </div>
-
-                <div className="checkout__items-head">
-                  <span>Item</span>
-                  <span>Qty</span>
-                  <span>Price</span>
-                </div>
-                <div className="checkout__items">
-                  {cart.map(item => (
-                    <div key={item.itemId} className="checkout__item">
-                      <span className="checkout__item-name">{item.name}</span>
-                      <span className="checkout__item-qty">{item.quantity}</span>
-                      <span className="checkout__item-price">{(item.price * item.quantity).toFixed(0)} <Drachma /></span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="checkout__total">
-                  <span>Total</span>
-                  <span className="checkout__total-amount">{totalPrice.toFixed(0)} <Drachma /></span>
-                </div>
-
-                <button className="checkout__pay" onClick={handlePay}>
-                  Complete Payment
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <CheckoutModal
+          cart={cart}
+          totalPrice={totalPrice}
+          paySuccess={paySuccess}
+          customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
+          onPay={handlePay}
+          onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
+        />
       )}
 
       {/* Fixed tooltip — renders outside scroll container */}

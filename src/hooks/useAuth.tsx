@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Character, fetchCharacter } from '../data/characters';
+import { GID, csvUrl } from '../constants/sheets';
 
 interface AuthContextType {
   user: Character | null;
@@ -8,11 +9,10 @@ interface AuthContextType {
   login: (characterId: string, password: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (patch: Partial<Character>) => void;
+  refreshUser: () => Promise<void>;
 }
 
-const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
-const USER_GID = '1495840634';
-const USER_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${USER_GID}`;
+const userCsvUrl = () => csvUrl(GID.USER);
 
 function parseCSV(csv: string): { characterId: string; password: string }[] {
   const lines = csv.trim().split('\n');
@@ -31,7 +31,7 @@ function parseCSV(csv: string): { characterId: string; password: string }[] {
 }
 
 async function fetchUsers(): Promise<{ characterId: string; password: string }[]> {
-  const res = await fetch(USER_CSV_URL);
+  const res = await fetch(userCsvUrl());
   const text = await res.text();
   return parseCSV(text);
 }
@@ -90,6 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const saved = localStorage.getItem(AUTH_KEY);
+    if (saved) {
+      const c = await fetchCharacter(saved);
+      if (c) {
+        setUser(c);
+        localStorage.setItem(THEME_KEY, JSON.stringify(c.theme));
+      }
+    }
+  }, []);
+
   const value: AuthContextType = {
     user,
     isLoggedIn: user !== null,
@@ -97,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
