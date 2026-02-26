@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react';
 import Lock from './icons/Lock';
 import './TraitBox.scss';
 
-export default function TraitBox({ label, raw, variant }: {
-  label: string; raw: string; variant: 'primary' | 'accent' | 'mixed';
+export default function TraitBox({ label, raw, variant, icon }: {
+  label: string; raw: string; variant: 'primary' | 'accent' | 'mixed'; icon?: ReactNode;
 }) {
   const items = raw
     ? raw.split(',').map(s => s.trim()).filter(Boolean).map(s => {
@@ -15,6 +16,7 @@ export default function TraitBox({ label, raw, variant }: {
     <div className={`cs__trait cs__trait--${variant}`}>
       <h3 className="cs__trait-label"><span className="cs__trait-diamond">◆</span>{label}</h3>
       <div className="cs__trait-chips">
+        {icon && <div className="cs__trait-watermark">{icon}</div>}
         {items.length > 0 ? items.map((item, i) => (
           <span key={i} className="cs__chip">
             <span className="cs__chip-title">{item.title}</span>

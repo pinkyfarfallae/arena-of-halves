@@ -44,7 +44,7 @@
   --pc-color: var(--ci-primary);
   display: flex;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: clip;
   border-radius: 14px;
   background:
     linear-gradient(160deg,
@@ -127,9 +127,9 @@
 .pcard__orb {
   flex-shrink: 0;
   align-self: center;
-  height: calc(100% - 0.65rem);
-  max-height: 40px;
-  aspect-ratio: 1 / 1;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
   margin: 0.65rem 0.8rem;
   border-radius: 10px;
   display: flex;
@@ -219,8 +219,8 @@
 
   @media (max-width: $bp-compact) {
     margin: 0.4rem 0.45rem;
-    height: 46px;
-    max-height: none;
+    width: 36px;
+    height: 36px;
     border-radius: 7px;
 
     &::before { border-radius: 5.5px 5.5px 0 0; }
@@ -229,8 +229,8 @@
 
   @media (max-width: $bp-mobile) {
     margin: 0.35rem 0.4rem;
-    height: 42px;
-    max-height: none;
+    width: 32px;
+    height: 32px;
     border-radius: 6px;
 
     &::before { border-radius: 4.5px 4.5px 0 0; }
