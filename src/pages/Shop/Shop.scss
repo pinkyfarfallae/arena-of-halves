@@ -890,7 +890,7 @@ $ink-faint: #a08a74;
   border-bottom: 1px solid $ink;
 
   @media (max-width: $bp-medium) {
-    height: 46px;
+    height: $topbar-height;
   }
 }
 

@@ -1,22 +1,9 @@
 import { parseCSVLine } from '../../utils/csv';
+import { GID, csvUrl } from '../../constants/sheets';
+import type { ShopItem } from '../../types/shop';
+export type { ShopItem, CartItem } from '../../types/shop';
 
-export interface ShopItem {
-  itemId: string;
-  name: string;
-  price: number;
-  stock: number | "infinity";
-  category: string;
-  description: string;
-  imageUrl: string;
-}
-
-export interface CartItem extends ShopItem {
-  quantity: number;
-}
-
-const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
-const SHOP_GID = '819284917';
-const SHOP_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHOP_GID}`;
+const SHOP_CSV_URL = csvUrl(GID.SHOP);
 
 export function parseCSV(csv: string): ShopItem[] {
   const lines = csv.trim().split('\n');

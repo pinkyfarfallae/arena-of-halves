@@ -25,7 +25,7 @@
     height: auto;
     overflow: visible;
     padding: 1.2rem 1rem;
-    min-height: calc(100vh - 46px);
+    min-height: calc(100vh - $topbar-height);
   }
 
   @media (max-width: $bp-compact) {
@@ -39,7 +39,7 @@
     background: none;
 
     @media (max-width: $bp-medium) {
-      min-height: calc(100vh - 46px);
+      min-height: calc(100vh - $topbar-height);
     }
   }
 }

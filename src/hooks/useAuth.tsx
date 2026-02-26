@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Character, fetchCharacter } from '../data/characters';
+import { GID, csvUrl } from '../constants/sheets';
 
 interface AuthContextType {
   user: Character | null;
@@ -10,9 +11,7 @@ interface AuthContextType {
   updateUser: (patch: Partial<Character>) => void;
 }
 
-const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
-const USER_GID = '1495840634';
-const USER_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${USER_GID}`;
+const USER_CSV_URL = csvUrl(GID.USER);
 
 function parseCSV(csv: string): { characterId: string; password: string }[] {
   const lines = csv.trim().split('\n');

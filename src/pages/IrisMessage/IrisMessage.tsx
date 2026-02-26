@@ -7,17 +7,8 @@ import FountainIllustration from './components/FountainIllustration/FountainIllu
 import CoinCircle from './icons/CoinCircle';
 import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
+import { Phase, ORB_SCATTER } from './constants/iris';
 import './IrisMessage.scss';
-
-type Phase = 'idle' | 'tossing' | 'reveal';
-
-/* Scattered around the page */
-const ORB_SCATTER: [number, number][] = [
-  [10, 8],   [7, 72],  [14, 82], [13, 18],  [20, 5],
-  [10, 65], [30, 78], [26, 14], [30, 25],  [25, 85],
-  [44, 22], [16, 88], [46, 75], [34, 3],  [58, 22],
-  [42, 88], [47, 3], [55, 82], [60, 12], [60, 72],
-];
 
 function IrisMessage() {
   const [phase, setPhase] = useState<Phase>('idle');
