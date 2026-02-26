@@ -1,0 +1,1079 @@
+@use '../../../../styles/variables' as *;
+
+$iris-violet: #bd6bc4;
+$iris-violet-soft: #a899e0;
+$iris-gold: #d4a843;
+$iris-gold-light: #f0dfa0;
+
+/* ══════════════════════════════════════
+   FOUNTAIN — REALISTIC WATER
+   ══════════════════════════════════════ */
+.iris__fountain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  position: relative;
+}
+
+/* ── Water jet ── */
+.iris__jet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: -4px;
+  z-index: 3;
+}
+
+.iris__jet-stream {
+  width: 7px;
+  height: 78px;
+  background: linear-gradient(
+    180deg,
+    rgba(160, 215, 255, 0.1) 0%,
+    rgba(140, 205, 255, 0.4) 15%,
+    rgba(130, 200, 255, 0.6) 45%,
+    rgba(120, 190, 250, 0.7) 75%,
+    rgba(110, 185, 250, 0.5) 100%
+  );
+  border-radius: 3px 3px 1px 1px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 10px rgba(130, 200, 255, 0.15),
+    0 0 24px rgba(130, 200, 255, 0.06);
+
+  /* Flowing highlights */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.7) 0%,
+      transparent 12%,
+      rgba(255, 255, 255, 0.45) 30%,
+      transparent 45%,
+      rgba(255, 255, 255, 0.4) 65%,
+      transparent 80%,
+      rgba(255, 255, 255, 0.3) 100%
+    );
+    background-size: 100% 300%;
+    animation: jetFlow 0.9s linear infinite;
+  }
+
+  /* Rainbow tint */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 170, 170, 0.08),
+      rgba(255, 225, 140, 0.06),
+      rgba(150, 240, 200, 0.06),
+      rgba(140, 190, 255, 0.08),
+      rgba(180, 150, 240, 0.08)
+    );
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 6px;
+    height: 62px;
+  }
+}
+
+.iris__jet--fall {
+  position: absolute;
+  opacity: 0.5;
+  margin-top: -2px;
+  .iris__jet-stream {
+    width: 104px;
+    clip-path: polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%);
+    border-top-left-radius: 50px;
+    border-top-right-radius: 50px;
+
+    &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(201, 255, 252, 0.7) 0%,
+      transparent 12%,
+      rgba(201, 255, 252, 0.45) 30%,
+      transparent 45%,
+      rgba(201, 255, 252, 0.4) 65%,
+      transparent 80%,
+      rgba(201, 255, 252, 0.3) 100%
+    );
+    background-size: 100% 300%;
+    animation: jetFallFlow 2s linear infinite;
+  }
+  }
+}
+
+@keyframes jetFlow {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 300%; }
+}
+
+@keyframes jetFallFlow {
+  0% { background-position: 0 300%; }
+  100% { background-position: 0 0; }
+}
+
+/* Water spray droplets */
+.iris__jet-spray {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(150, 210, 255, 0.5);
+  box-shadow: 0 0 3px rgba(34, 159, 255, 0.3);
+  animation: sprayDrop 2s ease-in-out infinite;
+
+  &--2 {
+    top: 3px;
+    left: calc(50% - 8px);
+    width: 2.5px;
+    height: 2.5px;
+    animation-delay: -0.7s;
+    animation-duration: 1.8s;
+  }
+
+  &--3 {
+    top: 5px;
+    right: calc(50% - 8px);
+    left: auto;
+    width: 2px;
+    height: 2px;
+    animation-delay: -1.3s;
+    animation-duration: 1.6s;
+  }
+
+  &--4 {
+    top: -2px;
+    left: calc(50% + 6px);
+    width: 2px;
+    height: 2px;
+    animation: sprayArc 1.6s ease-out infinite;
+    animation-delay: -0.3s;
+  }
+
+  &--5 {
+    top: 1px;
+    left: calc(50% - 12px);
+    width: 2.5px;
+    height: 2.5px;
+    animation: sprayArc 2s ease-out infinite;
+    animation-delay: -1s;
+  }
+
+  &--6 {
+    top: -4px;
+    left: calc(50% + 2px);
+    width: 1.5px;
+    height: 1.5px;
+    animation: sprayArc 1.4s ease-out infinite;
+    animation-delay: -0.5s;
+  }
+}
+
+@keyframes sprayDrop {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+  25% { transform: translateY(-6px) scale(1.3); opacity: 0.7; }
+  50% { transform: translateY(-2px) scale(0.8); opacity: 0.2; }
+}
+
+@keyframes sprayArc {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.7; }
+  50% { transform: translate(var(--sx, 8px), -14px) scale(1); opacity: 0.5; }
+  100% { transform: translate(var(--sx, 8px), 6px) scale(0.3); opacity: 0; }
+}
+
+/* Mist cloud at jet top */
+.iris__jet-mist {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgba(180, 220, 255, 0.25) 0%,
+    rgba(232, 244, 255, 0.3) 40%,
+    transparent 70%
+  );
+  animation: mistPulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes mistPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.6; }
+  50% { transform: translateX(-50%) scale(1.3); opacity: 1; }
+}
+
+/* Splash particles along basin rim */
+.iris__splash {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 20px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.iris__splash-drop {
+  position: absolute;
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 50%;
+  background: rgba(170, 220, 255, 0.6);
+  box-shadow: 0 0 3px rgba(170, 220, 255, 0.3);
+  animation: splashUp 2.2s ease-out infinite;
+
+  &--2 { left: 20%; animation-delay: -0.4s; animation-duration: 2s; width: 2px; height: 2px; }
+  &--3 { left: 35%; animation-delay: -1.2s; animation-duration: 1.8s; }
+  &--4 { left: 50%; animation-delay: -0.8s; animation-duration: 2.4s; width: 3px; height: 3px; }
+  &--5 { left: 65%; animation-delay: -1.6s; animation-duration: 2s; width: 2px; height: 2px; }
+  &--6 { left: 80%; animation-delay: -0.2s; animation-duration: 1.9s; }
+  &--7 { left: 42%; animation-delay: -2s; animation-duration: 2.6s; width: 1.5px; height: 1.5px; }
+  &--8 { left: 58%; animation-delay: -1s; animation-duration: 2.1s; width: 2px; height: 2px; }
+}
+
+@keyframes splashUp {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  10% { opacity: 0.7; }
+  40% { transform: translateY(-12px) scale(1); opacity: 0.5; }
+  70% { transform: translateY(-8px) scale(0.7); opacity: 0.3; }
+  100% { transform: translateY(2px) scale(0.2); opacity: 0; }
+}
+
+/* Side splash arcs from basin edges */
+.iris__splash-arc {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(160, 215, 255, 0.4);
+  animation: splashArcLeft 3s ease-out infinite;
+
+  &--left {
+    left: 10%;
+    top: 2px;
+    animation-delay: -0.5s;
+  }
+
+  &--left-2 {
+    left: 5%;
+    top: 4px;
+    width: 3px;
+    height: 3px;
+    animation-delay: -1.8s;
+    animation-duration: 2.6s;
+  }
+
+  &--right {
+    right: 10%;
+    left: auto;
+    top: 2px;
+    animation: splashArcRight 3s ease-out infinite;
+    animation-delay: -1.2s;
+  }
+
+  &--right-2 {
+    right: 5%;
+    left: auto;
+    top: 4px;
+    width: 3px;
+    height: 3px;
+    animation: splashArcRight 2.6s ease-out infinite;
+    animation-delay: -2.2s;
+  }
+}
+
+@keyframes splashArcLeft {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  12% { opacity: 0.6; }
+  50% { transform: translate(-10px, -10px) scale(1); opacity: 0.4; }
+  100% { transform: translate(-14px, 4px) scale(0.2); opacity: 0; }
+}
+
+@keyframes splashArcRight {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  12% { opacity: 0.6; }
+  50% { transform: translate(10px, -10px) scale(1); opacity: 0.4; }
+  100% { transform: translate(14px, 4px) scale(0.2); opacity: 0; }
+}
+
+/* ── Greek basin (phiale-style) ── */
+.iris__basin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Wide flared rim — Greek lip */
+.iris__basin-rim {
+  width: 270px;
+  height: 10px;
+  background: linear-gradient(
+    180deg,
+    #eeebf4 0%,
+    #e4e0ed 40%,
+    #dbd7ea 100%
+  );
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  position: relative;
+  z-index: 2;
+  box-shadow:
+    0 -1px 3px rgba(0, 0, 0, 0.03),
+    inset 0 2px 1px rgba(255, 255, 255, 0.5);
+
+  /* Top edge highlight */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  }
+
+  /* Greek key hint — decorative band */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba($iris-violet-soft, 0.12) 0px,
+      rgba($iris-violet-soft, 0.12) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 220px;
+    height: 8px;
+  }
+}
+
+/* Wide shallow bowl — elliptical like a Greek phiale */
+.iris__basin-body {
+  width: 260px;
+  height: 68px;
+  background: linear-gradient(
+    180deg,
+    #e0dcec 0%,
+    #d8d4e6 25%,
+    #d2cee2 50%,
+    #ccc8de 80%,
+    #c8c4da 100%
+  );
+  border-radius: 0 0 100px 100px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  border-top: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.04),
+    inset 0 0 16px rgba(255, 255, 255, 0.1);
+
+  /* Stone highlight — left curvature */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 6%;
+    width: 25%;
+    height: 60%;
+    background: linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      transparent 100%
+    );
+    border-radius: 50%;
+  }
+
+  /* Inner shadow for depth */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.03), transparent);
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 210px;
+    height: 54px;
+  }
+}
+
+/* ── Water inside basin ── */
+.iris__water {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border-radius: 0 0 90px 90px;
+  overflow: hidden;
+}
+
+/* Gentle surface highlight */
+.iris__water-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent 5%,
+    rgba(255, 255, 255, 0.3) 20%,
+    rgba(210, 235, 255, 0.5) 40%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(210, 235, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0.3) 80%,
+    transparent 95%
+  );
+  animation: surfaceGlide 6s ease-in-out infinite alternate;
+}
+
+@keyframes surfaceGlide {
+  0% { opacity: 0.7; transform: scaleX(0.97); }
+  100% { opacity: 1; transform: scaleX(1.03); }
+}
+
+/* Blue fill */
+.iris__water-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(150, 210, 255, 0.28) 0%,
+    rgba(135, 200, 252, 0.38) 40%,
+    rgba(120, 188, 248, 0.45) 100%
+  );
+}
+
+/* Slow rainbow drift */
+.iris__water-rainbow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 150, 150, 0.15) 0%,
+    rgba(255, 210, 120, 0.12) 18%,
+    rgba(180, 245, 170, 0.12) 36%,
+    rgba(120, 200, 255, 0.16) 54%,
+    rgba(175, 140, 255, 0.15) 72%,
+    rgba(255, 150, 200, 0.12) 90%
+  );
+  background-size: 200% 100%;
+  animation: rainbowDrift 8s ease-in-out infinite alternate;
+}
+
+@keyframes rainbowDrift {
+  0% { background-position: 0% 0; opacity: 0.6; }
+  100% { background-position: 100% 0; opacity: 1; }
+}
+
+/* Smooth gliding light */
+.iris__water-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.25) 42%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.25) 58%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  animation: fountainShimmerSweep 5s ease-in-out infinite;
+}
+
+@keyframes fountainShimmerSweep {
+  0% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+
+/* ── Greek wave pattern on basin face ── */
+.iris__basin-wave {
+  position: absolute;
+  bottom: 13px;
+  left: 18%;
+  right: 18%;
+  height: 8px;
+  z-index: 1;
+  /* Greek wave / meander using repeating SVG-like gradient */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 2px,
+      rgba($iris-violet-soft, 0.12) 2px,
+      rgba($iris-violet-soft, 0.12) 3px,
+      transparent 3px,
+      transparent 6px
+    ),
+    linear-gradient(
+      0deg,
+      transparent 0%,
+      transparent 40%,
+      rgba($iris-violet-soft, 0.08) 40%,
+      rgba($iris-violet-soft, 0.08) 60%,
+      transparent 60%,
+      transparent 100%
+    );
+  mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  opacity: 0.8;
+
+  @media (max-width: $bp-compact) {
+    bottom: 10px;
+    height: 6px;
+  }
+}
+
+/* ── Decorative ring between basin & pedestal ── */
+.iris__ring {
+  width: 78px;
+  height: 7px;
+  background: linear-gradient(
+    180deg,
+    #e4e0ee 0%,
+    #d8d4e6 40%,
+    #ccc8de 100%
+  );
+  border-radius: 50%;
+  position: relative;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+
+  /* Decorative groove */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 15%;
+    right: 15%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba($iris-violet-soft, 0.15),
+      rgba($iris-gold, 0.08),
+      rgba($iris-violet-soft, 0.15),
+      transparent
+    );
+    transform: translateY(-50%);
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 64px;
+    height: 6px;
+  }
+}
+
+/* ── Classical Greek pedestal ── */
+.iris__pedestal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Molding cap (top & bottom of column) */
+.iris__pedestal-cap {
+  width: 52px;
+  height: 6px;
+  background: linear-gradient(
+    180deg,
+    #e4e0ee 0%,
+    #dbd7ea 50%,
+    #d4d0e4 100%
+  );
+  border-radius: 2px;
+  position: relative;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3);
+
+  /* Top edge line */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  }
+
+  &--bottom {
+    width: 57px;
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 44px;
+    height: 5px;
+
+    &--bottom { width: 48px; }
+  }
+}
+
+/* Fluted column neck */
+.iris__pedestal-neck {
+  width: 34px;
+  height: 36px;
+  background:
+    /* Fluting — vertical ridges */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.12) 0px,
+      rgba(255, 255, 255, 0.12) 1px,
+      transparent 1px,
+      transparent 2px,
+      rgba(0, 0, 0, 0.02) 2px,
+      rgba(0, 0, 0, 0.02) 3px,
+      transparent 3px,
+      transparent 4px
+    ),
+    /* Base stone color */
+    linear-gradient(
+      90deg,
+      #cdc8de 0%,
+      #ddd8ea 30%,
+      #e4e0ee 50%,
+      #ddd8ea 70%,
+      #cdc8de 100%
+    );
+  clip-path: polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%);
+  position: relative;
+
+  @media (max-width: $bp-compact) {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Wide classical foot with molding */
+.iris__pedestal-foot {
+  width: 124px;
+  height: 13px;
+  background: linear-gradient(
+    180deg,
+    #e0dcea 0%,
+    #d8d4e6 50%,
+    #d0cce0 100%
+  );
+  border-radius: 2px 2px 4px 4px;
+  position: relative;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+
+  /* Upper molding lip */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -10px;
+    right: -10px;
+    height: 6px;
+    background: linear-gradient(180deg, #eae6f2, #e0dcea);
+    border-radius: 3px 3px 0 0;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  }
+
+  /* Bottom shadow line */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 3%;
+    right: 3%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 100px;
+    height: 10px;
+  }
+}
+
+/* ══════════════════════════════════════
+   FOUNTAIN DECORATIONS
+   ══════════════════════════════════════ */
+
+/* ── Dove in flight ── */
+.iris__dove {
+  position: absolute;
+  top: 0px;
+  right: 15px;
+  width: 56px;
+  height: 44px;
+  color: #b8aed0;
+  z-index: 5;
+  animation: doveFloat 6s ease-in-out infinite;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+
+  svg { width: 100%; height: 100%; }
+
+  @media (max-width: $bp-compact) {
+    width: 44px;
+    height: 36px;
+    top: -20px;
+  }
+}
+
+@keyframes doveFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-6px) rotate(-3deg); }
+  50% { transform: translateY(-2px) rotate(0deg); }
+  75% { transform: translateY(-5px) rotate(2deg); }
+}
+
+/* ── Laurel branches ── */
+.iris__laurel {
+  position: absolute;
+  top: 50%;
+  width: 56px;
+  height: 112px;
+  color: #7aad74;
+  transform: translateY(-55%);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04));
+
+  svg { width: 100%; height: 100%; }
+
+  &--left {
+    left: -62px;
+
+    @media (max-width: $bp-compact) {
+      left: -48px;
+    }
+  }
+
+  &--right {
+    right: -62px;
+
+    @media (max-width: $bp-compact) {
+      right: -48px;
+    }
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 44px;
+    height: 86px;
+  }
+}
+
+/* ── Roses ── */
+.iris__rose {
+  position: absolute;
+  width: 38px;
+  height: 50px;
+  color: #d4889e;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(200, 120, 140, 0.1));
+
+  svg { width: 100%; height: 100%; }
+
+  &--left {
+    bottom: 22px;
+    left: -42px;
+    transform: rotate(8deg);
+
+    @media (max-width: $bp-compact) {
+      left: -30px;
+      bottom: 18px;
+    }
+  }
+
+  &--right {
+    bottom: 22px;
+    right: -42px;
+    transform: rotate(-8deg);
+
+    @media (max-width: $bp-compact) {
+      right: -30px;
+      bottom: 18px;
+    }
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 30px;
+    height: 40px;
+  }
+}
+
+/* ── Vine clusters at base ── */
+.iris__leaves {
+  position: absolute;
+  bottom: -8px;
+  width: 46px;
+  height: 36px;
+  color: #7aad74;
+  pointer-events: none;
+
+  svg { width: 100%; height: 100%; }
+
+  &--left {
+    left: -28px;
+
+    @media (max-width: $bp-compact) {
+      left: -18px;
+    }
+  }
+
+  &--right {
+    right: -28px;
+
+    @media (max-width: $bp-compact) {
+      right: -18px;
+    }
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 36px;
+    height: 28px;
+  }
+}
+
+/* ── Bubbles floating up ── */
+.iris__bubbles {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 140px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.iris__bubble {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 255, 255, 0.7),
+    rgba(180, 220, 255, 0.25) 50%,
+    rgba(180, 200, 255, 0.08)
+  );
+  border: 0.5px solid rgba(180, 220, 255, 0.3);
+  animation: bubbleFloat 4s ease-in-out infinite;
+
+  &--2 {
+    left: 35%;
+    width: 4px;
+    height: 4px;
+    animation-duration: 3.4s;
+    animation-delay: -0.8s;
+  }
+
+  &--3 {
+    left: 65%;
+    width: 5px;
+    height: 5px;
+    animation-duration: 4.6s;
+    animation-delay: -1.6s;
+  }
+
+  &--4 {
+    left: 42%;
+    width: 3px;
+    height: 3px;
+    animation-duration: 3s;
+    animation-delay: -2.4s;
+  }
+
+  &--5 {
+    left: 58%;
+    width: 7px;
+    height: 7px;
+    animation-duration: 5s;
+    animation-delay: -0.4s;
+  }
+
+  &--6 {
+    left: 48%;
+    width: 3.5px;
+    height: 3.5px;
+    animation-duration: 3.8s;
+    animation-delay: -3s;
+  }
+
+  &--7 {
+    left: 55%;
+    width: 4.5px;
+    height: 4.5px;
+    animation-duration: 4.2s;
+    animation-delay: -1.2s;
+  }
+}
+
+@keyframes bubbleFloat {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.4);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+    transform: translateY(-10px) translateX(2px) scale(0.8);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-70px) translateX(-4px) scale(1);
+  }
+  80% {
+    opacity: 0.3;
+    transform: translateY(-110px) translateX(3px) scale(1.05);
+  }
+  100% {
+    transform: translateY(-140px) translateX(0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* ── Sparkle wink effects ── */
+.iris__wink {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  z-index: 5;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 1px;
+  }
+
+  /* Vertical bar */
+  &::before {
+    top: 0;
+    left: 50%;
+    width: 1.5px;
+    height: 100%;
+    transform: translateX(-50%);
+  }
+
+  /* Horizontal bar */
+  &::after {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1.5px;
+    transform: translateY(-50%);
+  }
+
+  animation: winkFlash 3s ease-in-out infinite;
+
+  &--1 {
+    top: -10px;
+    left: -30px;
+    animation-delay: 0s;
+    color: rgba(200, 180, 255, 0.9);
+
+    &::before, &::after { background: rgba(200, 180, 255, 0.8); }
+  }
+
+  &--2 {
+    top: 20px;
+    right: -36px;
+    left: auto;
+    width: 6px;
+    height: 6px;
+    animation-delay: -1.2s;
+    animation-duration: 3.6s;
+
+    &::before, &::after { background: rgba(180, 220, 255, 0.7); }
+  }
+
+  &--3 {
+    top: -20px;
+    left: 20px;
+    width: 5px;
+    height: 5px;
+    animation-delay: -2s;
+    animation-duration: 4s;
+
+    &::before, &::after { background: rgba(255, 200, 200, 0.7); }
+  }
+
+  &--4 {
+    bottom: 70px;
+    right: -20px;
+    left: auto;
+    top: auto;
+    width: 7px;
+    height: 7px;
+    animation-delay: -0.6s;
+    animation-duration: 3.2s;
+
+    &::before, &::after { background: rgba(255, 240, 180, 0.8); }
+  }
+
+  &--5 {
+    bottom: 50px;
+    left: -18px;
+    top: auto;
+    width: 5px;
+    height: 5px;
+    animation-delay: -2.6s;
+    animation-duration: 4.4s;
+
+    &::before, &::after { background: rgba(180, 240, 200, 0.7); }
+  }
+}
+
+@keyframes winkFlash {
+  0%, 100% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    transform: scale(1.2) rotate(15deg);
+    opacity: 1;
+  }
+  16% {
+    transform: scale(0.9) rotate(30deg);
+    opacity: 0.8;
+  }
+  24% {
+    transform: scale(0) rotate(45deg);
+    opacity: 0;
+  }
+  /* Stay invisible for the rest of the cycle */
+}

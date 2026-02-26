@@ -1,0 +1,213 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Trait chip boxes ── */
+.cs__trait-row {
+  display: flex;
+  gap: 0.5rem;
+
+  >.cs__trait {
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (max-width: $bp-compact) {
+    flex-direction: column;
+  }
+}
+
+.cs__trait {
+  border-radius: 12px;
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--ci-primary) 6%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-primary) 2%, var(--ci-bg-alt)) 70%);
+  border: 1px solid color-mix(in srgb, var(--ci-primary) 12%, transparent);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  transition: box-shadow 0.25s ease;
+}
+
+.cs__trait-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ci-primary) 12%, transparent);
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--ci-primary) 18%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-primary) 8%, var(--ci-bg-alt)));
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--ci-primary-hover) 90%, var(--ci-dark));
+  margin: 0;
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.7rem;
+    padding: 0.45rem 0.6rem;
+  }
+}
+
+.cs__trait-diamond {
+  font-size: 0.45rem;
+  color: var(--ci-primary);
+  animation: cs-pulse-diamond 2.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+.cs__trait-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  min-height: 5rem;
+
+  @media (max-width: $bp-compact) {
+    min-height: 2.8rem;
+    padding: 0.45rem 0.5rem;
+    gap: 0.3rem;
+  }
+
+  @media (max-width: $bp-mobile) {
+    min-height: 2.5rem;
+  }
+}
+
+.cs__trait-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  opacity: 0.45;
+}
+
+.cs__trait-empty-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--ci-muted);
+
+  @media (max-width: $bp-compact) {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+}
+
+.cs__trait-empty-text {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.7rem;
+  color: color-mix(in srgb, var(--ci-fg) 85%, transparent);
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.62rem;
+  }
+}
+
+.cs__chip {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 0.3rem 0.6rem;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ci-primary) 8%, var(--ci-surface));
+  border: 1px solid color-mix(in srgb, var(--ci-primary) 12%, transparent);
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: color-mix(in srgb, var(--ci-primary) 14%, var(--ci-surface-hover));
+    border-color: color-mix(in srgb, var(--ci-primary-hover) 25%, transparent);
+    box-shadow:
+      0 3px 10px color-mix(in srgb, var(--ci-shadow) 25%, transparent),
+      0 0 16px color-mix(in srgb, var(--ci-primary) 5%, transparent);
+  }
+
+  &--empty {
+    background: transparent;
+    border-color: transparent;
+    color: var(--ci-muted);
+    font-style: italic;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: $bp-compact) {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+.cs__chip-title {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ci-fg) 90%, transparent);
+  line-height: 1.3;
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.62rem;
+  }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.58rem;
+  }
+}
+
+.cs__chip-desc {
+  font-family: 'Kalam', 'Noto Sans Thai', cursive;
+  font-size: 0.6rem;
+  color: var(--ci-muted);
+  line-height: 1.3;
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.55rem;
+  }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.5rem;
+  }
+}
+
+/* Accent variant (Weaknesses) */
+.cs__trait--accent {
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--ci-accent-soft) 10%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-accent-soft) 4%, var(--ci-bg-alt)) 70%);
+  border-color: color-mix(in srgb, var(--ci-accent) 12%, transparent);
+
+  .cs__trait-label {
+    border-bottom-color: color-mix(in srgb, var(--ci-accent) 12%, transparent);
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--ci-accent-soft) 22%, var(--ci-bg-alt)),
+        color-mix(in srgb, var(--ci-accent-soft) 10%, var(--ci-bg-alt)));
+    color: color-mix(in srgb, var(--ci-accent) 80%, var(--ci-dark));
+  }
+
+  .cs__chip {
+    background: color-mix(in srgb, var(--ci-accent-soft) 12%, var(--ci-surface));
+    border-color: color-mix(in srgb, var(--ci-accent) 12%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--ci-accent-soft) 18%, var(--ci-surface-hover));
+      border-color: color-mix(in srgb, var(--ci-accent) 25%, transparent);
+    }
+  }
+}
+
+/* Mixed variant (Abilities) */
+.cs__trait--mixed {
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--ci-primary) 4%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-accent-soft) 5%, var(--ci-bg-alt)) 70%);
+
+  .cs__trait-label {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--ci-primary) 14%, var(--ci-bg-alt)),
+        color-mix(in srgb, var(--ci-accent-soft) 10%, var(--ci-bg-alt)));
+  }
+}

@@ -1,0 +1,14 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Pushpin ── */
+.camp__pin {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 28px;
+  z-index: 3;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}

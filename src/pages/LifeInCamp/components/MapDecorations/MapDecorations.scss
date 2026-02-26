@@ -1,0 +1,193 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Map title banner ── */
+.life__map-title {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.life__map-title-text {
+  display: block;
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: rgba(90, 65, 30, 0.35);
+  letter-spacing: 0.08em;
+
+  @media (max-width: $bp-compact) {
+    font-size: 1.1rem;
+  }
+}
+
+.life__map-title-sub {
+  display: block;
+  font-family: 'Kalam', cursive;
+  font-size: 0.8rem;
+  color: rgba(90, 65, 30, 0.28);
+  margin-top: 0.1rem;
+}
+
+/* ── Compass rose ── */
+.life__compass {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(80, 60, 30, 0.12));
+
+  @media (max-width: $bp-medium) {
+    position: fixed;
+    width: 70px;
+    height: 70px;
+  }
+
+  @media (max-width: $bp-compact) {
+    width: 55px;
+    height: 55px;
+  }
+}
+
+/* ── Trail paths ── */
+.life__trails {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+
+  path {
+    fill: none;
+    stroke: rgba(140, 110, 60, 0.4);
+    stroke-width: 1.2;
+    stroke-dasharray: 5 5;
+  }
+}
+
+/* ── Lake shape ── */
+.life__lake-shape {
+  position: absolute;
+  left: 4%;
+  top: 38%;
+  width: 16%;
+  pointer-events: none;
+  z-index: 0;
+
+  ellipse {
+    fill: rgba(40, 140, 220, 0.15);
+    stroke: rgba(40, 140, 220, 0.25);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+  }
+}
+
+.life__lake-wave {
+  fill: none;
+  stroke: rgba(40, 140, 220, 0.2);
+  stroke-width: 1.2;
+}
+
+/* ── Forest area ── */
+.life__forest-area {
+  position: absolute;
+  left: 8%;
+  top: 14%;
+  width: 18%;
+  height: 25%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.life__tree {
+  position: absolute;
+  width: 14px;
+  height: 20px;
+  color: #2a9040;
+  opacity: 0.5;
+
+  @media (max-width: $bp-compact) {
+    width: 10px;
+    height: 14px;
+  }
+}
+
+/* ── Scattered decorations ── */
+.life__decorations {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.life__deco {
+  position: absolute;
+  pointer-events: none;
+
+  &--bush {
+    width: 22px;
+    height: 15px;
+  }
+
+  &--rock {
+    width: 16px;
+    height: 12px;
+  }
+
+  &--flower {
+    width: 18px;
+    height: 18px;
+  }
+
+  &--grass {
+    width: 14px;
+    height: 10px;
+  }
+
+  &--flag {
+    width: 10px;
+    height: 18px;
+  }
+
+  &--bird {
+    width: 14px;
+    height: 7px;
+  }
+
+  &--mushroom {
+    width: 12px;
+    height: 14px;
+  }
+
+  &--stone {
+    width: 18px;
+    height: 8px;
+  }
+
+  &--butterfly {
+    width: 14px;
+    height: 10px;
+  }
+
+  &--torch {
+    width: 7px;
+    height: 18px;
+  }
+
+  @media (max-width: $bp-compact) {
+    &--bush { width: 16px; height: 11px; }
+    &--rock { width: 12px; height: 9px; }
+    &--flower { width: 14px; height: 14px; }
+    &--grass { width: 10px; height: 8px; }
+    &--flag { width: 8px; height: 14px; }
+    &--bird { width: 10px; height: 5px; }
+    &--mushroom { width: 10px; height: 11px; }
+    &--stone { width: 14px; height: 6px; }
+    &--butterfly { width: 10px; height: 8px; }
+    &--torch { width: 6px; height: 14px; }
+  }
+}

@@ -1,3 +1,5 @@
+import { splitCSVRows, parseCSVLine } from '../utils/csv';
+
 export interface Power {
   deity: string;
   type: string;       // Passive | Skill
@@ -97,49 +99,6 @@ export interface Character {
 const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 const CHARACTER_GID = '0';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${CHARACTER_GID}`;
-
-/** Split CSV text into logical rows, respecting quoted multiline fields. */
-function splitCSVRows(text: string): string[] {
-  const rows: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-      current += ch;
-    } else if (ch === '\n' && !inQuotes) {
-      rows.push(current);
-      current = '';
-    } else if (ch === '\r') {
-      // skip
-    } else {
-      current += ch;
-    }
-  }
-  if (current.trim()) rows.push(current);
-  return rows;
-}
-
-function parseCSVLine(line: string): string[] {
-  const cols: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      cols.push(current.trim());
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  cols.push(current.trim());
-  return cols;
-}
 
 type Theme25 = [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
 // [primary, dark, light, accent, bg, fg, surface, muted, border, primaryHover, accentSoft, surfaceHover, bgAlt, shadow, highlight, overlay, navIcon, overlayText, primaryDark, accentDark, leftGrad1, leftGrad2, rightGrad1, rightGrad2, tagColor]
@@ -511,6 +470,23 @@ export async function updateTheme(characterId: string, theme: string[]): Promise
       action: 'updateTheme',
       characterId,
       theme: theme.join(','),
+    });
+    await fetch(`${APPS_SCRIPT_URL}?${params}`, { mode: 'no-cors' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function updateCharacter(
+  characterId: string,
+  fields: Record<string, string>,
+): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({
+      action: 'updateCharacter',
+      characterId,
+      ...fields,
     });
     await fetch(`${APPS_SCRIPT_URL}?${params}`, { mode: 'no-cors' });
     return true;
