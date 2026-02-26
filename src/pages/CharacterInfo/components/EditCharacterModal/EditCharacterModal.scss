@@ -317,6 +317,20 @@
   max-height: 150px;
 }
 
+.cs__edit-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  color: var(--ci-muted, #8a8a9a);
+  margin-top: 0.15rem;
+  padding: 0.4rem 0.75rem;
+  background: color-mix(in srgb, var(--ci-primary, #f5f1ea) 5%, transparent);
+  border-radius: 4px;
+
+  b:first-child {
+    margin-right: 0.5rem;
+  }
+}
+
 .cs__edit-color-wrap {
   display: flex;
   align-items: center;
@@ -425,14 +439,12 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  cursor: grab;
   border-radius: 6px;
   padding: 0.15rem;
   transition: opacity 0.15s, background 0.15s, box-shadow 0.15s;
 
   &--dragging {
     opacity: 0.3;
-    cursor: grabbing;
   }
 
   &--over {

@@ -147,7 +147,7 @@ function CampMembers() {
                   <div className="camp__strip">
                     <div className="camp__text">
                       <span className="camp__nick">{m.nicknameEng}</span>
-                      <span className="camp__name">{m.nameEng}</span>
+                      <span className="camp__name">{m.nameEng.replace(/\s*\\n\s*/g, ' ')}</span>
                     </div>
                     <div className="camp__badge">
                       <span className="camp__deity-icon">
