@@ -35,7 +35,7 @@ import './CharacterInfo.scss';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
-  const lines = text.split(/\s*\/\s*|\n/).filter(Boolean);
+  const lines = text.split(/\s*\\n\s*|\s*\/\s*|\n/).filter(Boolean);
   return (
     <>
       {lines.map((line, i) => {

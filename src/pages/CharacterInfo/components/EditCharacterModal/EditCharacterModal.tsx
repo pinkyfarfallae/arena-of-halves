@@ -10,10 +10,10 @@ interface Props {
   onSaved: (fields: Record<string, string>) => void;
 }
 
-/* Parse "Label: description" entries from slash-separated string */
+/* Parse "Label: description" entries from \n or / separated string */
 function parseTraits(raw: string): { label: string; desc: string }[] {
   if (!raw.trim()) return [];
-  return raw.split(/\s*\/\s*/).map(s => {
+  return raw.split(/\s*\\n\s*|\s*\/\s*/).map(s => {
     const i = s.indexOf(':');
     return i === -1
       ? { label: s.trim(), desc: '' }
@@ -22,7 +22,7 @@ function parseTraits(raw: string): { label: string; desc: string }[] {
 }
 
 function serializeTraits(traits: { label: string; desc: string }[]): string {
-  return traits.map(t => t.desc ? `${t.label}: ${t.desc}` : t.label).join(' / ');
+  return traits.map(t => t.desc ? `${t.label}: ${t.desc}` : t.label).join(' \\n ');
 }
 
 /* Parse comma-separated aliases */
@@ -34,17 +34,17 @@ const TRAIT_KEYS = new Set(['strengths', 'weaknesses', 'abilities']);
 const ALIAS_KEY = 'aliases';
 const TEXTAREA_KEYS = new Set(EDIT_FIELDS.filter(f => f.type === 'textarea').map(f => f.key));
 
-/* Convert stored format → editable (/ → newline) */
+/* Convert stored format → editable (\n and / → real newline) */
 function toEditable(val: string): string {
-  return val.replace(/\s*\/\s*/g, '\n');
+  return val.replace(/\s*\\n\s*|\s*\/\s*/g, '\n');
 }
 
-/* Convert editable → stored format (newline → /, normalize - bullets → *) */
+/* Convert editable → stored format (real newline → \n, normalize - bullets → *) */
 function toStored(val: string): string {
   return val
     .split('\n')
     .map(line => line.replace(/^\s*-\s+/, '* '))
-    .join(' / ');
+    .join(' \\n ');
 }
 
 export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
@@ -348,7 +348,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                               rows={3}
                               placeholder={f.placeholder}
                             />
-                            <span className="cs__edit-hint"><b>Note</b>Use * or - at line start for bullets | Press <b>Enter</b> for new line</span>
+                            <span className="cs__edit-hint"><b>Note</b>Use * or - at line start for bullets</span>
                           </>
                         ) : f.type === 'color' ? (
                           <div className="cs__edit-color-wrap">

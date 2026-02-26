@@ -6,7 +6,7 @@ export default function TraitBox({ label, raw, variant, icon }: {
   label: string; raw: string; variant: 'primary' | 'accent' | 'mixed'; icon?: ReactNode;
 }) {
   const items = raw
-    ? raw.split(/\s*\/\s*/).filter(Boolean).map(s => {
+    ? raw.split(/\s*\\n\s*|\s*\/\s*/).filter(Boolean).map(s => {
         const colonIdx = s.indexOf(':');
         return colonIdx > 0
           ? { title: s.substring(0, colonIdx).trim(), desc: s.substring(colonIdx + 1).trim() }

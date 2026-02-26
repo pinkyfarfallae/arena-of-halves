@@ -188,6 +188,7 @@
   border: none;
   padding: 0.85rem 1.25rem;
   margin: 0;
+  min-inline-size: 0;
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid color-mix(in srgb, var(--ci-border, #d4c9a8) 40%, transparent);
@@ -296,6 +297,7 @@
   border-radius: 6px;
   padding: 0.38rem 0.5rem;
   outline: none;
+  max-height: 32.66px;
   transition: border-color 0.15s, box-shadow 0.15s;
 
   &:focus {
@@ -450,6 +452,11 @@
   &--over {
     box-shadow: 0 0 10px 0 color-mix(in srgb, var(--ci-primary) 30%, transparent);
   }
+
+  @media (max-width: $bp-mobile) {
+    flex-wrap: wrap;
+    position: relative;
+  }
 }
 
 .cs__edit-trait-grip {
@@ -464,15 +471,37 @@
   .cs__edit-trait:hover & {
     color: var(--ci-muted, #8a8a9a);
   }
+
+  @media (max-width: $bp-mobile) {
+    position: absolute;
+    height: 90%;
+    width: 11px;
+    border-right: 3.5px solid color-mix(in srgb, var(--ci-primary, #c0a062) 15%, transparent);
+
+    svg {
+      margin-right: auto;
+      margin-left: -5px;
+    }
+  }
 }
 
 .cs__edit-trait-label {
   flex: 0 0 35%;
   font-weight: 500;
+
+  @media (max-width: $bp-mobile) {
+    margin-left: calc(9.19px + 0.35rem);
+    min-width: calc(100% - 9.19px - 0.35rem - 25px);
+  }
 }
 
 .cs__edit-trait-desc {
   flex: 1;
+
+  @media (max-width: $bp-mobile) {
+    margin-left: calc(9.19px + 0.35rem);
+    max-width: calc(100% - 9.19px - 0.35rem - 25px);
+  }
 }
 
 .cs__edit-trait-rm {
@@ -493,6 +522,12 @@
   &:hover {
     background: color-mix(in srgb, #d9534f 10%, transparent);
     color: #d9534f;
+  }
+
+  @media (max-width: $bp-mobile) {
+    position: absolute;
+    height: 100%;
+    right: 0;
   }
 }
 

@@ -79,7 +79,6 @@
 
   &:not(:has(.cs__chip)) {
     min-height: 5rem;
-    max-height: 5rem;
   }
 }
 
@@ -151,10 +150,6 @@
     font-style: italic;
     font-family: 'Inter', sans-serif;
     font-size: 0.75rem;
-  }
-
-  @media (max-width: $bp-compact) {
-    padding: 0.25rem 0.5rem;
   }
 }
 
