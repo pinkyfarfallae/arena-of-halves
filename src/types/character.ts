@@ -69,16 +69,10 @@ export interface Character {
   religion: string;
   personality: string;
   background: string;
-  powers: string;
-  weapons: string;
-  items: string;
   strengths: string;
   weaknesses: string;
   abilities: string;
-  divineRelationship: string;
-  relationships: string;
-  goals: string;
-  hobbies: string;
+  powers: string;
   twitter?: string;
   document?: string;
 

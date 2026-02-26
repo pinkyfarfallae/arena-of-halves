@@ -6,7 +6,7 @@ import { GID, csvUrl } from '../constants/sheets';
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
-const CSV_URL = csvUrl(GID.CHARACTER);
+const characterCsvUrl = () => csvUrl(GID.CHARACTER);
 
 function parseTheme(raw: string, deity?: string): Theme25 {
   const cleaned = raw.replace(/"/g, '').trim();
@@ -103,7 +103,7 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     currency: num('currency'),
     theme: parseTheme(get('theme'), get('deity blood')),
     image: toDirectImageUrl(get('image url')),
-    
+
     humanParent: get('human parent') || get('mortal parent'),
     eyeColor: get('eye color'),
     hairColor: get('hair color'),
@@ -115,25 +115,19 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     beads: get('beads') || '0',
     weight: get('weight'),
     height: get('height'),
-    genderIdentity: get('gender identity') || get('gender'),
+    genderIdentity: get('gender identity'),
     ethnicity: get('ethnicity'),
     nationality: get('nationality'),
     residence: get('residence'),
     religion: get('religion'),
     personality: get('personality'),
     background: get('background'),
-    powers: get('powers') || get('special powers'),
-    weapons: get('weapons') || get('weapons/items'),
-    items: get('items'),
     strengths: get('strengths'),
     weaknesses: get('weaknesses'),
     abilities: get('abilities'),
-    divineRelationship: get('divine relationship'),
-    relationships: get('relationships'),
-    goals: get('goals'),
-    hobbies: get('hobbies') || get('preferences'),
-    twitter: get('twitter') || get('x') || undefined,
-    document: get('document') || get('document link') || get('doc') || undefined,
+    powers: get('powers'),
+    twitter: get('twitter') || undefined,
+    document: get('document') || undefined,
 
     strength: num('strength'),
     mobility: num('mobility'),
@@ -145,7 +139,7 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
 }
 
 export async function fetchCharacter(characterId: string): Promise<Character | null> {
-  const res = await fetch(CSV_URL);
+  const res = await fetch(characterCsvUrl());
   const text = await res.text();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return null;
@@ -166,7 +160,7 @@ export async function fetchCharacter(characterId: string): Promise<Character | n
 }
 
 export async function fetchAllCharacters(): Promise<Character[]> {
-  const res = await fetch(CSV_URL);
+  const res = await fetch(characterCsvUrl());
   const text = await res.text();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
@@ -326,7 +320,28 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
    WRITE THEME BACK TO GOOGLE SHEET
    Uses a deployed Google Apps Script web app
    ══════════════════════════════════════ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyi9CJYVaUHBAg1MTxExKjND63yQnFrBsBMrE35buB5510AEhDqK8TVs9br9MwrNpc/exec';
+const DEPLOYMENT_ID = 'AKfycbw9WjeQh1n2NZSnp3YSTt6FBhLkOJK1zohN-PYEgbgySGb5c9nl6ACaUwr4O3f_IBkg';
+const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
+
+export async function patchCharacter(
+  characterId: string,
+  fields: Record<string, string>,
+): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({
+      action: 'patch',
+      characterId,
+      ...fields,
+    });
+    const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
+    const data = await res.text();
+    console.log('[patch]', res.status, data);
+    return res.ok;
+  } catch (e) {
+    console.error('[patch]', e);
+    return false;
+  }
+}
 
 export async function updateTheme(characterId: string, theme: string[]): Promise<boolean> {
   try {
@@ -335,26 +350,12 @@ export async function updateTheme(characterId: string, theme: string[]): Promise
       characterId,
       theme: theme.join(','),
     });
-    await fetch(`${APPS_SCRIPT_URL}?${params}`, { mode: 'no-cors' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function updateCharacter(
-  characterId: string,
-  fields: Record<string, string>,
-): Promise<boolean> {
-  try {
-    const params = new URLSearchParams({
-      action: 'updateCharacter',
-      characterId,
-      ...fields,
-    });
-    await fetch(`${APPS_SCRIPT_URL}?${params}`, { mode: 'no-cors' });
-    return true;
-  } catch {
+    const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
+    const data = await res.text();
+    console.log('[updateTheme]', res.status, data);
+    return res.ok;
+  } catch (e) {
+    console.error('[updateTheme]', e);
     return false;
   }
 }

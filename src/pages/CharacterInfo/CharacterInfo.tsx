@@ -21,6 +21,7 @@ import Weight from './icons/Weight';
 import Ethnicity from './icons/Ethnicity';
 import Nationality from './icons/Nationality';
 import Star from './icons/Star';
+import HeartPulse from './icons/HeartPulse';
 import MapPin from './icons/MapPin';
 import Calendar from './icons/Calendar';
 import Person from './icons/Person';
@@ -35,7 +36,7 @@ import './CharacterInfo.scss';
 /* ════ Main ════ */
 
 function CharacterInfo() {
-  const { user, updateUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const [viewed, setViewed] = useState<Character | null>(null);
@@ -361,6 +362,11 @@ function CharacterInfo() {
                 <span className="cs__personal-stat-label">Religion</span>
                 <span className="cs__personal-stat-value">{char.religion || 'Olympian'}</span>
               </div>
+              <div className="cs__personal-stat">
+                <HeartPulse className="cs__personal-stat-icon" />
+                <span className="cs__personal-stat-label">Status</span>
+                <span className="cs__personal-stat-value">Alive</span>
+              </div>
             </div>
             {/* Residence + Birthdate row */}
             <div className="cs__info-row">
@@ -474,7 +480,7 @@ function CharacterInfo() {
           </button>
         )}
         {char.document && (
-          <a className="cs__action-btn" href={char.document} target="_blank" rel="noopener noreferrer" data-tooltip="View Document" data-tooltip-pos="left">
+          <a className="cs__action-btn" href={char.document} target="_blank" rel="noopener noreferrer" data-tooltip="View Document" data-tooltip-pos={isOwnProfile ? 'right' : 'left'}>
             <Document width="16" height="16" />
           </a>
         )}
@@ -490,7 +496,7 @@ function CharacterInfo() {
         <EditCharacterModal
           char={char}
           onClose={() => setEditOpen(false)}
-          onSaved={(patch) => { updateUser(patch); setEditOpen(false); }}
+          onSaved={() => { refreshUser(); setEditOpen(false); }}
         />
       )}
     </div>

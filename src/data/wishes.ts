@@ -2,7 +2,7 @@ import { GID, csvUrl } from '../constants/sheets';
 import type { Wish } from '../types/wish';
 export type { Wish };
 
-const CSV_URL = csvUrl(GID.WISHES);
+const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
@@ -55,7 +55,7 @@ function parseCSV(csv: string): string[][] {
 }
 
 export async function fetchWishes(): Promise<Wish[]> {
-  const res = await fetch(CSV_URL);
+  const res = await fetch(wishesCsvUrl());
   const csv = await res.text();
   const rows = parseCSV(csv);
   // Skip header row, map columns: deity, wish (name), description

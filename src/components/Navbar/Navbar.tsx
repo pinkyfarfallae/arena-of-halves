@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { updateTheme } from '../../data/characters';
-import { THEME_LABELS, CSS_VAR_KEYS } from '../../constants/theme';
+import { THEME_LABELS, CSS_VAR_KEYS, DEITY_THEMES, DEFAULT_THEME } from '../../constants/theme';
 import CloseIcon from '../../icons/Close';
 import MenuToggle from './icons/MenuToggle';
 import Person from './icons/Person';
@@ -13,8 +13,9 @@ import Logout from './icons/Logout';
 import './Navbar.scss';
 
 /* ── Theme Picker Panel ── */
-function ThemePicker({ colors, onClose, onSave }: {
+function ThemePicker({ colors, deityBlood, onClose, onSave }: {
   colors: string[];
+  deityBlood?: string;
   onClose: () => void;
   onSave: (colors: string[]) => void;
 }) {
@@ -25,6 +26,10 @@ function ThemePicker({ colors, onClose, onSave }: {
   const startY = useRef(0);
   const startH = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const deityTheme = deityBlood
+    ? (DEITY_THEMES[deityBlood.toLowerCase().trim()] || DEFAULT_THEME)
+    : DEFAULT_THEME;
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     dragging.current = true;
@@ -60,6 +65,28 @@ function ThemePicker({ colors, onClose, onSave }: {
     applyPreview(next);
   };
 
+  const handleUndo = (index: number) => {
+    const next = [...draft];
+    next[index] = colors[index];
+    setDraft(next);
+    applyPreview(next);
+  };
+
+  const handleUndoAll = () => {
+    setDraft([...colors]);
+    applyPreview(colors);
+  };
+
+  const handleReset = () => {
+    setDraft([...deityTheme]);
+    applyPreview(deityTheme);
+  };
+
+  const handleClose = () => {
+    applyPreview(colors);
+    onClose();
+  };
+
   const handleSave = async () => {
     setSaving(true);
     await onSave(draft);
@@ -78,24 +105,56 @@ function ThemePicker({ colors, onClose, onSave }: {
       </div>
       <div className="tp__header">
         <h3 className="tp__title">Theme Colors</h3>
-        <button className="tp__close" onClick={onClose} data-tooltip="Close" data-tooltip-pos="left">
-          <CloseIcon width="16" height="16" />
-        </button>
+        <div className="tp__header-actions">
+          <button className="tp__reset" onClick={handleUndoAll} data-tooltip="Undo all changes" data-tooltip-pos="bottom">
+            <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+              <path d="M3 6h7a3 3 0 0 1 0 6H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 4L3 6l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Undo All
+          </button>
+          <button className="tp__reset" onClick={handleReset} data-tooltip="Reset to deity theme" data-tooltip-pos="bottom">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+              <path d="M3 12a9 9 0 1 1 2.64 6.36" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M3 7v5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Reset
+          </button>
+          <button className="tp__close" onClick={handleClose} data-tooltip="Close" data-tooltip-pos="left">
+            <CloseIcon width="16" height="16" />
+          </button>
+        </div>
       </div>
       <div className="tp__grid">
-        {THEME_LABELS.map((label: string, i: number) => (
-          <label key={i} className="tp__swatch">
-            <input
-              type="color"
-              className="tp__input"
-              value={draft[i] || '#000000'}
-              onChange={(e) => handleChange(i, e.target.value)}
-            />
-            <span className="tp__color" style={{ background: draft[i] }} />
-            <span className="tp__label">{label}</span>
-            <span className="tp__hex">{draft[i]}</span>
-          </label>
-        ))}
+        {THEME_LABELS.map((label: string, i: number) => {
+          const modified = draft[i] !== colors[i];
+          return (
+            <label key={i} className={`tp__swatch ${modified ? 'tp__swatch--modified' : ''}`}>
+              <input
+                type="color"
+                className="tp__input"
+                value={draft[i] || '#000000'}
+                onChange={(e) => handleChange(i, e.target.value)}
+              />
+              <span className="tp__color" style={{ background: draft[i] }} />
+              <span className="tp__label">{label}</span>
+              <span className="tp__hex">{draft[i]}</span>
+              {modified && (
+                <button
+                  type="button"
+                  className="tp__undo"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUndo(i); }}
+                  data-tooltip="Undo" data-tooltip-pos="top"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" width="10" height="10">
+                    <path d="M3 6h7a3 3 0 0 1 0 6H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M5 4L3 6l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+            </label>
+          );
+        })}
       </div>
       <button className="tp__save" onClick={handleSave} disabled={saving}>
         {saving ? 'Saving…' : 'Save Theme'}
@@ -191,6 +250,7 @@ function Navbar() {
       {user && showThemePicker && (
         <ThemePicker
           colors={[...user.theme]}
+          deityBlood={user.deityBlood}
           onClose={() => setShowThemePicker(false)}
           onSave={async (newColors) => {
             await updateTheme(user.characterId, newColors);
