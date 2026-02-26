@@ -2263,11 +2263,11 @@
 
 /* ── Aliases ── */
 .cs__aliases {
-  padding: 0.5rem 0.8rem;
+  padding: 0.8rem;
   border-bottom: 1px solid color-mix(in srgb, var(--ci-primary) 8%, transparent);
 
   @media (max-width: $bp-mobile) {
-    padding: 0.4rem 0.6rem;
+    padding: 0.6rem;
   }
 }
 
