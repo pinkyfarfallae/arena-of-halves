@@ -6,9 +6,11 @@ export default function TraitBox({ label, raw, variant, icon }: {
   label: string; raw: string; variant: 'primary' | 'accent' | 'mixed'; icon?: ReactNode;
 }) {
   const items = raw
-    ? raw.split(',').map(s => s.trim()).filter(Boolean).map(s => {
-        const [title, ...rest] = s.split(':');
-        return { title: title.trim(), desc: rest.join(':').trim() || '' };
+    ? raw.split(/\s*\/\s*/).filter(Boolean).map(s => {
+        const colonIdx = s.indexOf(':');
+        return colonIdx > 0
+          ? { title: s.substring(0, colonIdx).trim(), desc: s.substring(colonIdx + 1).trim() }
+          : { title: s.trim(), desc: '' };
       })
     : [];
 

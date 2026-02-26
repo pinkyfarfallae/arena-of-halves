@@ -34,6 +34,18 @@
   50% { box-shadow: 0 0 10px color-mix(in srgb, var(--ci-accent) 12%, transparent); }
 }
 
+/* ── Saving overlay ── */
+.cs__saving-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ci-dark, #1a1a2e) 40%, transparent);
+  backdrop-filter: blur(4px);
+}
+
 /* ══════════════════════════════════════
    CHARACTER SHEET
    ══════════════════════════════════════ */
@@ -1147,16 +1159,35 @@
 }
 
 .cs__background-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
   font-size: 0.78rem;
   line-height: 1.7;
   color: color-mix(in srgb, var(--ci-fg) 80%, transparent);
   margin: 0;
-  white-space: pre-wrap;
 
   @media (max-width: $bp-mobile) {
     font-size: 0.7rem;
     line-height: 1.6;
+  }
+}
+
+/* ── Formatted text lines ── */
+.cs__fmt-line {
+  display: block;
+}
+
+.cs__fmt-bullet {
+  padding-left: 0.8rem;
+  position: relative;
+
+  &::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--ci-primary);
   }
 }
 
@@ -1555,12 +1586,14 @@
 }
 
 .cs__appearance-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   font-family: 'Kalam', 'Noto Sans Thai', cursive;
   font-size: 0.88rem;
   line-height: 1.75;
   color: color-mix(in srgb, var(--ci-fg) 80%, transparent);
   margin: 0;
-  white-space: pre-wrap;
   padding-left: 0.5rem;
   border-left: 3px solid var(--ci-primary);
   border-image: linear-gradient(180deg, var(--ci-primary), color-mix(in srgb, var(--ci-accent) 40%, transparent)) 1;

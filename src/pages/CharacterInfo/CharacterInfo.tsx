@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchCharacter, fetchPowers, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { fetchCharacter, fetchPowers, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
 import { DEITY_SVG } from '../../data/deities';
@@ -33,6 +33,26 @@ import LockClosed from './icons/LockClosed';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
 import './CharacterInfo.scss';
 
+/* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
+function FormatText({ text }: { text: string }) {
+  const lines = text.split(/\s*\/\s*|\n/).filter(Boolean);
+  return (
+    <>
+      {lines.map((line, i) => {
+        const bullet = line.match(/^\s*\*\s*(.*)/);
+        const raw = bullet ? bullet[1] : line;
+        const colonIdx = raw.indexOf(':');
+        const content = colonIdx > 0 ? (
+          <><strong>{raw.substring(0, colonIdx).trim()}:</strong> {raw.substring(colonIdx + 1).trim()}</>
+        ) : (
+          <>{raw.trim()}</>
+        );
+        return <span key={i} className={bullet ? 'cs__fmt-line cs__fmt-bullet' : 'cs__fmt-line'}>{content}</span>;
+      })}
+    </>
+  );
+}
+
 /* ════ Main ════ */
 
 function CharacterInfo() {
@@ -49,6 +69,7 @@ function CharacterInfo() {
   const [weaponModal, setWeaponModal] = useState(false);
   const [itemModal, setItemModal] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const isOwnProfile = !id || id === user?.characterId;
   const char = isOwnProfile ? user : viewed;
@@ -169,7 +190,9 @@ function CharacterInfo() {
             </a>
           )}
           <div className="cs__overlay">
-            <h1 className="cs__name">{char.nameEng}</h1>
+            <h1 className="cs__name">{char.nameEng.split(/\\n|\n/).map((part, i) => (
+              i === 0 ? <span key={i}>{part}</span> : <span key={i}><br />{part}</span>
+            ))}</h1>
             {char.nameThai && <p className="cs__name-th">{char.nameThai}</p>}
             <p className="cs__deity">
               {char.sex === 'female' ? 'Daughter' : 'Son'} of {displayDeity} &middot; Cabin {char.cabin}
@@ -408,13 +431,13 @@ function CharacterInfo() {
             {char.personality && (
               <div className="cs__background">
                 <span className="cs__background-label">Personality</span>
-                <p className="cs__background-text">{char.personality}</p>
+                <div className="cs__background-text"><FormatText text={char.personality} /></div>
               </div>
             )}
             {char.background && (
               <div className="cs__background">
                 <span className="cs__background-label">Background</span>
-                <p className="cs__background-text">{char.background}</p>
+                <div className="cs__background-text"><FormatText text={char.background} /></div>
               </div>
             )}
             <div className="cs__identity-row">
@@ -434,7 +457,7 @@ function CharacterInfo() {
               {/* Appearance text */}
               <div className="cs__appearance">
                 <span className="cs__appearance-label">Appearance</span>
-                <p className="cs__appearance-text">{char.appearance || 'No description yet.'}</p>
+                <div className="cs__appearance-text">{char.appearance ? <FormatText text={char.appearance} /> : 'No description yet.'}</div>
               </div>
               {/* Human parent — full width below scrapbook + appearance */}
               {(char.humanParent || char.deityBlood) && (
@@ -496,8 +519,23 @@ function CharacterInfo() {
         <EditCharacterModal
           char={char}
           onClose={() => setEditOpen(false)}
-          onSaved={() => { refreshUser(); setEditOpen(false); }}
+          onSaved={(fields) => {
+            setEditOpen(false);
+            if (Object.keys(fields).length > 0) {
+              setSaving(true);
+              patchCharacter(char.characterId, fields)
+                .then(() => refreshUser())
+                .finally(() => setSaving(false));
+            }
+          }}
         />
+      )}
+
+      {/* Saving overlay */}
+      {saving && (
+        <div className="cs__saving-overlay">
+          <div className="app-loader__ring" />
+        </div>
       )}
     </div>
   );

@@ -1,18 +1,19 @@
 import { useRef, useState } from 'react';
-import { patchCharacter, Character } from '../../../../data/characters';
+import { Character } from '../../../../data/characters';
 import { EDIT_FIELDS, GROUP_ICONS, GROUPS } from '../../constants/editFields';
+import GripDots from '../../icons/GripDots';
 import './EditCharacterModal.scss';
 
 interface Props {
   char: Character;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (fields: Record<string, string>) => void;
 }
 
-/* Parse "Label: description" entries from comma-separated string */
+/* Parse "Label: description" entries from slash-separated string */
 function parseTraits(raw: string): { label: string; desc: string }[] {
   if (!raw.trim()) return [];
-  return raw.split(',').map(s => {
+  return raw.split(/\s*\/\s*/).map(s => {
     const i = s.indexOf(':');
     return i === -1
       ? { label: s.trim(), desc: '' }
@@ -21,7 +22,7 @@ function parseTraits(raw: string): { label: string; desc: string }[] {
 }
 
 function serializeTraits(traits: { label: string; desc: string }[]): string {
-  return traits.map(t => t.desc ? `${t.label}: ${t.desc}` : t.label).join(', ');
+  return traits.map(t => t.desc ? `${t.label}: ${t.desc}` : t.label).join(' / ');
 }
 
 /* Parse comma-separated aliases */
@@ -31,10 +32,32 @@ function parseChips(raw: string): string[] {
 
 const TRAIT_KEYS = new Set(['strengths', 'weaknesses', 'abilities']);
 const ALIAS_KEY = 'aliases';
+const TEXTAREA_KEYS = new Set(EDIT_FIELDS.filter(f => f.type === 'textarea').map(f => f.key));
+
+/* Convert stored format → editable (/ → newline) */
+function toEditable(val: string): string {
+  return val.replace(/\s*\/\s*/g, '\n');
+}
+
+/* Convert editable → stored format (newline → /, normalize - bullets → *) */
+function toStored(val: string): string {
+  return val
+    .split('\n')
+    .map(line => line.replace(/^\s*-\s+/, '* '))
+    .join(' / ');
+}
+
 export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
   const [form, setForm] = useState<Record<string, string>>(() => {
     const f: Record<string, string> = {};
-    EDIT_FIELDS.forEach(field => { f[field.key] = String(char[field.key] ?? ''); });
+    EDIT_FIELDS.forEach(field => {
+      const raw = String(char[field.key] ?? '');
+      if (TEXTAREA_KEYS.has(field.key) && !TRAIT_KEYS.has(field.key)) {
+        f[field.key] = toEditable(raw);
+      } else {
+        f[field.key] = raw.replace(/\s*\\n\s*/g, ' ');
+      }
+    });
     f.image = char.image || '';
     return f;
   });
@@ -136,22 +159,20 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
     });
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setAttempted(true);
     if (!isFormValid) return;
     const fields: Record<string, string> = {};
     EDIT_FIELDS.forEach(f => {
-      const newVal = form[f.key] ?? '';
+      let newVal = form[f.key] ?? '';
+      if (TEXTAREA_KEYS.has(f.key) && !TRAIT_KEYS.has(f.key)) newVal = toStored(newVal);
       const oldVal = String(char[f.key as keyof Character] ?? '');
       if (newVal !== oldVal) fields[f.header] = newVal;
     });
     const newImg = form.image ?? '';
     const oldImg = char.image || '';
     if (newImg !== oldImg) fields['image url'] = newImg;
-    if (Object.keys(fields).length > 0) {
-      await patchCharacter(char.characterId, fields);
-    }
-    onSaved();
+    onSaved(fields);
   };
 
   return (
@@ -263,18 +284,25 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                               <div
                                 key={i}
                                 className={`cs__edit-trait${dragKey.current === f.key && dragIdx === i ? ' cs__edit-trait--dragging' : ''}${dragKey.current === f.key && overIdx === i && dragIdx !== i ? ' cs__edit-trait--over' : ''}`}
-                                draggable
-                                onDragStart={e => { dragKey.current = f.key; setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; }}
                                 onDragOver={e => { e.preventDefault(); if (dragKey.current === f.key) setOverIdx(i); }}
                                 onDrop={e => { e.preventDefault(); if (dragKey.current === f.key && dragIdx !== null) reorderTrait(f.key, dragIdx, i); dragKey.current = null; setDragIdx(null); setOverIdx(null); }}
                                 onDragEnd={() => { dragKey.current = null; setDragIdx(null); setOverIdx(null); }}
                               >
-                                <span className="cs__edit-trait-grip">
-                                  <svg viewBox="0 0 6 14" width="6" height="14" fill="currentColor">
-                                    <circle cx="1.5" cy="2" r="1" /><circle cx="4.5" cy="2" r="1" />
-                                    <circle cx="1.5" cy="7" r="1" /><circle cx="4.5" cy="7" r="1" />
-                                    <circle cx="1.5" cy="12" r="1" /><circle cx="4.5" cy="12" r="1" />
-                                  </svg>
+                                <span
+                                  className="cs__edit-trait-grip"
+                                  draggable
+                                  onDragStart={e => {
+                                    dragKey.current = f.key;
+                                    setDragIdx(i);
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    const row = (e.target as HTMLElement).closest('.cs__edit-trait') as HTMLElement;
+                                    if (row) {
+                                      const rect = row.getBoundingClientRect();
+                                      e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
+                                    }
+                                  }}
+                                >
+                                  <GripDots width="6" height="14" />
                                 </span>
                                 <input
                                   type="text"
@@ -312,13 +340,16 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                           {f.required && <span className="cs__edit-req">*</span>}
                         </label>
                         {f.type === 'textarea' ? (
-                          <textarea
-                            className={`cs__edit-input cs__edit-textarea ${hasError ? 'cs__edit-input--error' : ''}`}
-                            value={form[f.key] ?? ''}
-                            onChange={e => set(f.key, e.target.value)}
-                            rows={3}
-                            placeholder={f.placeholder}
-                          />
+                          <>
+                            <textarea
+                              className={`cs__edit-input cs__edit-textarea ${hasError ? 'cs__edit-input--error' : ''}`}
+                              value={form[f.key] ?? ''}
+                              onChange={e => set(f.key, e.target.value)}
+                              rows={3}
+                              placeholder={f.placeholder}
+                            />
+                            <span className="cs__edit-hint"><b>Note</b>Use * or - at line start for bullets | Press <b>Enter</b> for new line</span>
+                          </>
                         ) : f.type === 'color' ? (
                           <div className="cs__edit-color-wrap">
                             <input

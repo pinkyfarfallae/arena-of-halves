@@ -420,7 +420,7 @@ function Shop() {
           cart={cart}
           totalPrice={totalPrice}
           paySuccess={paySuccess}
-          customerName={user?.nameEng || 'Guest Demigod'}
+          customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
           onPay={handlePay}
           onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
         />

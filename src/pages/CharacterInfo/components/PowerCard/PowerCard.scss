@@ -321,6 +321,9 @@
 }
 
 .pcard__desc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
   font-size: 0.75rem;
   line-height: 1.65;
@@ -344,5 +347,36 @@
   @media (max-width: $bp-mobile) {
     font-size: 0.6rem;
     line-height: 1.45;
+  }
+}
+
+.pcard__line {
+  display: block;
+}
+
+.pcard__bullet {
+  padding-left: 0.8rem;
+  position: relative;
+
+  &::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--pc-color);
+  }
+}
+
+.pcard__desc-label {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ci-fg) 85%, transparent);
+  margin-right: 0.2rem;
+
+  &::after {
+    content: ':';
+    margin-right: 0.25rem;
+  }
+
+  .pcard--ult & {
+    color: color-mix(in srgb, var(--ci-fg) 92%, transparent);
   }
 }
