@@ -1401,12 +1401,13 @@
 }
 
 .wslot__img {
-  width: 100%;
-  height: 100%;
+  width: 80%;
+  height: 80%;
   object-fit: cover;
   border-radius: 3px;
   position: relative;
   z-index: 1;
+  margin: auto;
 }
 
 .wslot__qty {
