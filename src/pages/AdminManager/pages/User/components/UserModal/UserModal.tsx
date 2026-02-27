@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import {
-  createUser, patchCharacter,
+  createUser, editUser,
   type UserRecord, type CreateUserPayload,
 } from '../../../../../../data/characters';
 import { useAuth } from '../../../../../../hooks/useAuth';
 import { DEITY, DEITY_CABIN } from '../../../../../../constants/deities';
 import { Input, Dropdown } from '../../../../../../components/Form';
+import Close from '../../../../../../icons/Close';
+import Male from '../../../../../../icons/Male';
+import Female from '../../../../../../icons/Female';
 import './UserModal.scss';
 import { ROLE } from '../../../../../../constants/role';
+import { SEX } from '../../../../../../constants/sex';
 
 const DEITY_OPTIONS = Object.values(DEITY)
   .filter(d => d !== DEITY.PERSEPHONE && d !== DEITY.HERA)
@@ -16,7 +20,7 @@ const DEITY_OPTIONS = Object.values(DEITY)
 interface CreateProps {
   mode: 'create';
   onClose: () => void;
-  onDone: () => void;
+  onDone: (apiCall: Promise<boolean>) => void;
 }
 
 interface EditProps {
@@ -24,7 +28,7 @@ interface EditProps {
   user: UserRecord;
   isDev: boolean;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (apiCall: Promise<boolean>) => void;
 }
 
 type Props = CreateProps | EditProps;
@@ -63,22 +67,16 @@ export default function UserModal(props: Props) {
     };
   });
 
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
-
   const set = (key: string, value: string) => {
     setForm(f => ({ ...f, [key]: value }));
-    setResult(null);
   };
 
   const canSubmit = isEdit
-    ? !!(form.password ?? '').trim()
+    ? !!(form.password ?? '').trim() && !!(form.role ?? '').trim()
     : CREATE_FIELDS.every(f => (form[f.key] ?? '').trim()) && !!form.deityBlood && !!form.sex;
 
-  const handleSubmit = async () => {
-    if (!canSubmit || saving) return;
-    setSaving(true);
-    setResult(null);
+  const handleSubmit = () => {
+    if (!canSubmit) return;
 
     if (isEdit) {
       const params: Record<string, string> = {};
@@ -88,14 +86,8 @@ export default function UserModal(props: Props) {
         onClose();
         return;
       }
-      const ok = await patchCharacter(props.user.characterId, params);
-      setSaving(false);
-      if (ok) {
-        onDone();
-        onClose();
-      } else {
-        setResult({ ok: false, msg: 'Failed to save. Check console.' });
-      }
+      // Close modal immediately, parent shows loading overlay
+      onDone(editUser(props.user.characterId, params));
     } else {
       const payload: CreateUserPayload = {
         characterId: form.characterId.trim(),
@@ -108,15 +100,8 @@ export default function UserModal(props: Props) {
         sex: form.sex,
         cabin: String(DEITY_CABIN[form.deityBlood] ?? 0),
       };
-      const ok = await createUser(payload);
-      setSaving(false);
-      if (ok) {
-        setResult({ ok: true, msg: `User "${form.nicknameEng.trim()}" created` });
-        setForm({ characterId: '', password: '', nameThai: '', nameEng: '', nicknameThai: '', nicknameEng: '', deityBlood: '', sex: '' });
-        onDone();
-      } else {
-        setResult({ ok: false, msg: 'Failed to create user. Check console.' });
-      }
+      // Close modal immediately, parent shows loading overlay
+      onDone(createUser(payload));
     }
   };
 
@@ -124,11 +109,9 @@ export default function UserModal(props: Props) {
     <div className="um__overlay">
       <div className="um">
         <div className="um__header">
-          <h2 className="um__title">{isEdit ? `Edit ${props.user.characterId}` : 'Create User'}</h2>
+          <h2 className="um__title">{isEdit ? <>Edit <b>{props.user.characterId}</b></> : 'Create User'}</h2>
           <button className="um__close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <Close width={18} height={18} />
           </button>
         </div>
 
@@ -140,7 +123,6 @@ export default function UserModal(props: Props) {
                   label="Password"
                   value={form.password}
                   onChange={v => set('password', v)}
-                  disabled={saving}
                   required
                 />
                 {props.isDev && (
@@ -153,7 +135,7 @@ export default function UserModal(props: Props) {
                       { value: ROLE.ADMIN, label: 'Admin' },
                       { value: ROLE.PLAYER, label: 'Player' },
                     ]}
-                    disabled={saving}
+                    required
                   />
                 )}
               </>
@@ -170,7 +152,6 @@ export default function UserModal(props: Props) {
                       placeholder={ph}
                       value={form[f.key] ?? ''}
                       onChange={v => set(f.key, v)}
-                      disabled={saving}
                       required={f.required}
                     />
                   );
@@ -181,8 +162,6 @@ export default function UserModal(props: Props) {
                   onChange={v => set('deityBlood', v)}
                   options={DEITY_OPTIONS}
                   placeholder="Select deity"
-                  disabled={saving}
-
                   required
                   searchable
                 />
@@ -191,24 +170,18 @@ export default function UserModal(props: Props) {
                   <div className="um__sex-toggle">
                     <button
                       type="button"
-                      className={`um__sex-btn um__sex-btn--male ${form.sex === 'Male' ? 'um__sex-btn--active' : ''}`}
-                      onClick={() => set('sex', 'Male')}
-                      disabled={saving}
+                      className={`um__sex-btn um__sex-btn--male ${form.sex === SEX.MALE ? 'um__sex-btn--active' : ''}`}
+                      onClick={() => set('sex', SEX.MALE)}
                     >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="10.5" cy="13.5" r="5.5" /><path d="M16 8l4-4M20 4v5M20 4h-5" />
-                      </svg>
+                      <Male width={14} height={14} />
                       Male
                     </button>
                     <button
                       type="button"
-                      className={`um__sex-btn um__sex-btn--female ${form.sex === 'Female' ? 'um__sex-btn--active' : ''}`}
-                      onClick={() => set('sex', 'Female')}
-                      disabled={saving}
+                      className={`um__sex-btn um__sex-btn--female ${form.sex === SEX.FEMALE ? 'um__sex-btn--active' : ''}`}
+                      onClick={() => set('sex', SEX.FEMALE)}
                     >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="9" r="5.5" /><path d="M12 14.5V22M9 19h6" />
-                      </svg>
+                      <Female width={14} height={14} />
                       Female
                     </button>
                   </div>
@@ -217,17 +190,12 @@ export default function UserModal(props: Props) {
             )}
           </div>
 
-          {result && (
-            <div className={`um__result ${result.ok ? 'um__result--ok' : 'um__result--err'}`}>
-              {result.msg}
-            </div>
-          )}
         </div>
 
         <div className="um__footer">
           <button className="um__cancel" onClick={onClose}>Cancel</button>
-          <button className="um__submit" onClick={handleSubmit} disabled={!canSubmit || saving}>
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create User'}
+          <button className="um__submit" onClick={handleSubmit} disabled={!canSubmit}>
+            {isEdit ? 'Save Changes' : 'Create User'}
           </button>
         </div>
       </div>

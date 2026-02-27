@@ -11,6 +11,8 @@ import MapIcon from './icons/MapIcon';
 import Palette from './icons/Palette';
 import Shield from './icons/Shield';
 import Logout from './icons/Logout';
+import Undo from './icons/Undo';
+import Reset from './icons/Reset';
 import { ROLE } from '../../constants/role';
 import './Navbar.scss';
 
@@ -109,17 +111,11 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
         <h3 className="tp__title">Theme Colors</h3>
         <div className="tp__header-actions">
           <button className="tp__reset" onClick={handleUndoAll} data-tooltip="Undo all changes" data-tooltip-pos="bottom">
-            <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
-              <path d="M3 6h7a3 3 0 0 1 0 6H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M5 4L3 6l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Undo width={14} height={14} />
             Undo All
           </button>
           <button className="tp__reset" onClick={handleReset} data-tooltip="Reset to deity theme" data-tooltip-pos="bottom">
-            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-              <path d="M3 12a9 9 0 1 1 2.64 6.36" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M3 7v5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Reset width={14} height={14} />
             Reset
           </button>
           <button className="tp__close" onClick={handleClose} data-tooltip="Close" data-tooltip-pos="left">
@@ -148,10 +144,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUndo(i); }}
                   data-tooltip="Undo" data-tooltip-pos="top"
                 >
-                  <svg viewBox="0 0 16 16" fill="none" width="10" height="10">
-                    <path d="M3 6h7a3 3 0 0 1 0 6H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M5 4L3 6l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <Undo width={10} height={10} />
                 </button>
               )}
             </label>

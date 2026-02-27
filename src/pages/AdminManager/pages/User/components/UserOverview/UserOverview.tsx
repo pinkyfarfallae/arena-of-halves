@@ -1,5 +1,6 @@
 import { ROLE } from '../../../../../../constants/role';
 import type { MergedUser } from '../../User';
+import Close from '../../../../../../icons/Close';
 import './UserOverview.scss';
 
 interface Props {
@@ -41,9 +42,7 @@ export default function UserOverview({ user, onClose }: Props) {
         {/* Header */}
         <div className="uo__header">
           <button className="uo__close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <Close width={18} height={18} />
           </button>
         </div>
 

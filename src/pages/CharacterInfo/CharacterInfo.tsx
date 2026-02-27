@@ -32,6 +32,7 @@ import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
 import './CharacterInfo.scss';
+import { SEX } from '../../constants/sex';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -182,7 +183,7 @@ function CharacterInfo() {
       <aside className="cs__left">
         <div className="cs__nick-header">
           <h2 className="cs__nick">{char.nicknameEng}</h2>
-          <p className="cs__nick-sub">{char.nicknameThai || char.nicknameEng} | {char.sex === 'female' ? '♀' : '♂'} | {char.age ? `${char.age} years old` : 'Unknown'}</p>
+          <p className="cs__nick-sub">{char.nicknameThai || char.nicknameEng} | {char.sex === SEX.FEMALE ? '♀' : '♂'} | {char.age ? `${char.age} years old` : 'Unknown'}</p>
         </div>
 
         <div className="cs__portrait">
@@ -203,7 +204,7 @@ function CharacterInfo() {
             ))}</h1>
             {char.nameThai && <p className="cs__name-th">{char.nameThai}</p>}
             <p className="cs__deity">
-              {char.sex === 'female' ? 'Daughter' : 'Son'} of {displayDeity} &middot; Cabin {char.cabin}
+              {char.sex === SEX.FEMALE ? 'Daughter' : 'Son'} of {displayDeity} &middot; Cabin {char.cabin}
             </p>
           </div>
         </div>

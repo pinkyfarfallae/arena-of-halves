@@ -198,4 +198,20 @@
     background: rgba(136, 136, 136, 0.12);
     color: #888;
   }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.45rem;
+  }
+}
+
+/* ── Saving overlay ── */
+.user__saving-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ci-dark, #1a1a2e) 40%, transparent);
+  backdrop-filter: blur(4px);
 }

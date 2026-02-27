@@ -415,6 +415,24 @@ export async function createUser(payload: CreateUserPayload): Promise<boolean> {
   }
 }
 
+export async function editUser(
+  characterId: string,
+  fields: Record<string, string>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'editUser', characterId, fields }),
+    });
+    const data = await res.text();
+    console.log('[editUser]', res.status, data);
+    return res.ok;
+  } catch (e) {
+    console.error('[editUser]', e);
+    return false;
+  }
+}
+
 export async function deleteUser(characterId: string): Promise<boolean> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
