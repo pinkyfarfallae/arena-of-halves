@@ -71,6 +71,14 @@ function CharacterInfo() {
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /* Lock body scroll when modal/overlay is open */
+  useEffect(() => {
+    if (editOpen || saving) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [editOpen, saving]);
+
   const isOwnProfile = !id || id === user?.characterId;
   const char = isOwnProfile ? user : viewed;
 

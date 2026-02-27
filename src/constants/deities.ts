@@ -23,3 +23,28 @@ export const DEITY = {
 } as const;
 
 export type DeityName = typeof DEITY[keyof typeof DEITY];
+
+/** Standard Camp Half-Blood cabin numbers by deity */
+export const DEITY_CABIN: Record<string, number> = {
+  [DEITY.ZEUS]: 1,
+  [DEITY.HERA]: 2,
+  [DEITY.POSEIDON]: 3,
+  [DEITY.DEMETER]: 4,
+  [DEITY.ARES]: 5,
+  [DEITY.ATHENA]: 6,
+  [DEITY.APOLLO]: 7,
+  [DEITY.ARTEMIS]: 8,
+  [DEITY.HEPHAESTUS]: 9,
+  [DEITY.APHRODITE]: 10,
+  [DEITY.HERMES]: 11,
+  [DEITY.DIONYSUS]: 12,
+  [DEITY.HADES]: 13,
+  [DEITY.IRIS]: 14,
+  [DEITY.HYPNOS]: 15,
+  [DEITY.NEMESIS]: 16,
+  [DEITY.NIKE]: 17,
+  [DEITY.HEBE]: 18,
+  [DEITY.TYCHE]: 19,
+  [DEITY.HECATE]: 20,
+  [DEITY.PERSEPHONE]: 21,
+};

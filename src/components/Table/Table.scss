@@ -1,0 +1,218 @@
+@use '../../styles/variables' as *;
+
+.at {
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--ci-bg, #fff);
+  border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
+}
+
+.at__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+
+  /* ── Header ── */
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--ci-primary, #c0a062);
+  }
+
+  th {
+    padding: 0.7rem 1rem;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fff;
+    white-space: nowrap;
+    border-bottom: none;
+  }
+
+  /* ── Body ── */
+  td {
+    padding: 0.65rem 1rem;
+    color: var(--ci-fg, #1a1a1a);
+    border-bottom: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 50%, transparent);
+  }
+
+  tbody {
+    overflow-y: auto;
+  }
+
+  tbody tr {
+    transition: background 0.12s;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ci-accent, #c0a062) 2.5%, transparent);
+    }
+
+    &:last-child td {
+      border-bottom: none;
+    }
+  }
+}
+
+/* ── Action column ── */
+.at__th-actions {
+  width: 1%;
+  text-align: right !important;
+}
+
+.at__actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.at__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
+  border-radius: 50%;
+  background: var(--ci-bg, #fff);
+  color: var(--ci-muted, #888);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--ci-primary, #c0a062);
+    border-color: color-mix(in srgb, var(--ci-primary, #c0a062) 30%, transparent);
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 6%, transparent);
+  }
+}
+
+/* ── Empty / Loading ── */
+.at__empty {
+  text-align: center !important;
+  color: var(--ci-muted, #888);
+  padding: 2.5rem 1rem !important;
+}
+
+.at__loading {
+  text-align: center;
+  color: var(--ci-muted, #888);
+  font-size: 0.82rem;
+  padding: 2.5rem 1rem;
+}
+
+/* ═══════════════════════════════════
+   RESPONSIVE — Card layout on mobile
+   ═══════════════════════════════════ */
+@media (max-width: $bp-mobile) {
+  .at {
+    border: none;
+    border-radius: 0;
+    background: none;
+    overflow: visible;
+    max-height: none;
+  }
+
+  tr {
+    position: relative;
+  }
+
+  .at__table {
+    display: block;
+    overflow-y: auto;
+    max-height: 100%;
+    min-width: calc(100% + 2.5rem);
+    margin: 0 -1.25rem;
+    padding: 0 1.25rem;
+
+    thead {
+      display: none;
+    }
+
+    tbody {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    tbody tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem 0.75rem;
+      padding: 0.85rem;
+      border-radius: 10px;
+      background: var(--ci-bg, #fff);
+      border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
+
+      &:hover {
+        background: var(--ci-bg, #fff);
+      }
+    }
+
+    td {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0;
+      border-bottom: none;
+      font-size: 0.78rem;
+      min-width: 0;
+
+      &::before {
+        content: attr(data-label);
+        font-size: 0.58rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ci-muted, #888);
+      }
+
+      /* First cell = card header, full width, no label */
+      &:first-child {
+        grid-column: 1 / -1;
+        padding-bottom: 0.45rem;
+        margin-bottom: 0.15rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 40%, transparent);
+
+        &::before {
+          display: none;
+        }
+      }
+
+      /* Actions row: full width, right-aligned, separator */
+      &:last-child:has(.at__actions) {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+        align-items: flex-end;
+        margin-top: 0.2rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 40%, transparent);
+
+        &::before {
+          display: none;
+        }
+      }
+    }
+
+    td[data-label="Role"] {
+      display: flex;
+      flex-direction: row;
+      gap: 0.5rem;
+      align-items: center;
+      position: absolute;
+      top: 0.85rem;
+      right: 0.85rem;
+    }
+  }
+
+  .at__actions {
+    justify-content: flex-end;
+  }
+}

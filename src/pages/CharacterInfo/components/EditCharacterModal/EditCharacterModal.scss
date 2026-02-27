@@ -359,6 +359,68 @@
   }
 }
 
+/* ── Sex toggle ── */
+.cs__edit-sex-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cs__edit-sex-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.75rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ci-muted, #8a8a9a);
+  background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 40%, white);
+  border: 1px solid color-mix(in srgb, var(--ci-border, #d4c9a8) 65%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  svg { flex-shrink: 0; }
+
+  &--male:hover {
+    color: #4a8fc2;
+    border-color: #a8d4f5;
+    background: #eef6fc;
+  }
+
+  &--female:hover {
+    color: #c25a8f;
+    border-color: #f5a8cc;
+    background: #fceef5;
+  }
+
+  &--male.cs__edit-sex-btn--active {
+    color: #fff;
+    background: #7ab8e0;
+    border-color: #7ab8e0;
+
+    &:hover {
+      color: #fff ;
+      background: #5ea8d6;
+      border-color: #5ea8d6;
+    }
+  }
+
+  &--female.cs__edit-sex-btn--active {
+    color: #fff;
+    background: #e08ab5;
+    border-color: #e08ab5;
+
+    &:hover {
+      color: #fff;
+      background: #d66fa3;
+      border-color: #d66fa3;
+    }
+  }
+}
+
 /* ── Alias chips ── */
 .cs__edit-chips {
   display: flex;
