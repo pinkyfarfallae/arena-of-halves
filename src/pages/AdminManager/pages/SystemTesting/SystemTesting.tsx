@@ -1,32 +1,16 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import IrisMessage from '../../../IrisMessage/IrisMessage';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
-import './SystemTesting.scss';
 import Close from '../../../../icons/Close';
-
-type ActiveSystem = null | 'iris' | 'dice';
+import './SystemTesting.scss';
 
 const SYSTEMS = [
-  { key: 'iris' as const, label: 'Iris Wish', desc: 'Toss a drachma and receive a divine blessing' },
-  { key: 'dice' as const, label: 'Dice Roller', desc: 'Roll d4 / d6 / d8 / d10 / d12 / d20 / d100' },
+  { path: 'dice', label: 'Dice Roller', desc: 'Roll d4 / d6 / d8 / d10 / d12 / d20 / d100' },
+  { path: 'iris-message', label: 'Iris Wish', desc: 'Toss a drachma and receive a divine blessing' },
 ];
 
 export default function SystemTesting() {
-  const [active, setActive] = useState<ActiveSystem>(null);
-
-  if (active) {
-    return (
-      <div className="st__full">
-        <div className="st__system">
-          {active === 'iris' && <IrisMessage retossable embedded />}
-          {active === 'dice' && <DiceRoller />}
-        </div>
-        <button className="st__back" onClick={() => setActive(null)}>
-          <Close height={18} width={18} />
-        </button>
-      </div>
-    );
-  }
+  const navigate = useNavigate();
 
   return (
     <div className="st">
@@ -34,12 +18,40 @@ export default function SystemTesting() {
       <p className="st__desc">Select a system to test</p>
       <div className="st__grid">
         {SYSTEMS.map(s => (
-          <button key={s.key} className="st__card" onClick={() => setActive(s.key)}>
+          <button key={s.path} className="st__card" onClick={() => navigate(`/admin/testing/${s.path}`)}>
             <span className="st__card-label">{s.label}</span>
             <span className="st__card-desc">{s.desc}</span>
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+export function SystemTestDice() {
+  const navigate = useNavigate();
+  return (
+    <div className="st__full">
+      <div className="st__system">
+        <DiceRoller />
+      </div>
+      <button className="st__back" onClick={() => navigate('/admin/testing')}>
+        <Close height={18} width={18} />
+      </button>
+    </div>
+  );
+}
+
+export function SystemTestIris() {
+  const navigate = useNavigate();
+  return (
+    <div className="st__full">
+      <div className="st__system">
+        <IrisMessage retossable embedded />
+      </div>
+      <button className="st__back" onClick={() => navigate('/admin/testing')}>
+        <Close height={18} width={18} />
+      </button>
     </div>
   );
 }
