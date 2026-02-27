@@ -1,0 +1,201 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Section card ── */
+.admin__section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: var(--ci-surface, #f8f8f8);
+  border: 1px solid var(--ci-border, #e0e0e0);
+}
+
+.admin__section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ci-fg, #1a1a1a);
+  margin: 0 0 0.25rem;
+}
+
+.admin__section-desc {
+  font-size: 0.8rem;
+  color: var(--ci-muted, #888);
+  line-height: 1.45;
+}
+
+/* ── Section header (title + action button) ── */
+.admin__section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* ── Create button ── */
+.admin__create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--ci-primary, #c0a062) 30%, transparent);
+  border-radius: 8px;
+  background: var(--ci-primary, #c0a062);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 90%, transparent);
+  }
+}
+
+/* ── Toolbar (search + filter) ── */
+.user__toolbar {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+
+  @media (max-width: $bp-mobile) {
+    flex-direction: column;
+  }
+}
+
+.user__search {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user__search-icon {
+  position: absolute;
+  left: 0.6rem;
+  color: var(--ci-muted, #888);
+  pointer-events: none;
+}
+
+.user__search-input {
+  width: 100%;
+  height: 100%;
+  padding: 0.45rem 0.6rem 0.45rem 2rem;
+  border: 1px solid var(--ci-border, #e0e0e0);
+  border-radius: 8px;
+  background: var(--ci-bg, #fff);
+  color: var(--ci-fg, #1a1a1a);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--ci-muted, #888) 60%, transparent);
+  }
+
+  &:focus {
+    border-color: var(--ci-primary, #c0a062);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ci-primary, #c0a062) 12%, transparent);
+  }
+}
+
+.user__role-filter {
+  min-width: 105px;
+}
+
+/* ── Table: Avatar ── */
+.user__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ci-primary, #c0a062) 10%, var(--ci-surface, #f8f8f8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  span {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ci-primary, #c0a062);
+  }
+}
+
+/* ── Table: Nickname and Name cell ── */
+.user__nick-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  line-height: 1.25;
+}
+
+.user__name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user__nick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user__nick-eng,
+.user__name-eng {
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ci-fg, #1a1a1a);
+}
+
+.user__nick-thai,
+.user__name-thai {
+  font-family: 'Noto Sans Thai', sans-serif;
+  font-size: 0.68rem;
+  color: var(--ci-muted, #888);
+}
+
+/* ── Role badges ── */
+.user__role {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &--dev {
+    background: rgba(156, 39, 176, 0.1);
+    color: #7b1fa2;
+  }
+
+  &--admin {
+    background: rgba(192, 160, 98, 0.12);
+    color: #8b6914;
+  }
+
+  &--player {
+    background: rgba(136, 136, 136, 0.12);
+    color: #888;
+  }
+}

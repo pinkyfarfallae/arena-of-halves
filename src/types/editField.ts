@@ -4,7 +4,7 @@ export interface EditField {
   key: keyof Character;
   header: string;
   label: string;
-  type: 'text' | 'textarea' | 'color';
+  type: 'text' | 'textarea' | 'color' | 'sex';
   group: string;
   placeholder?: string;
   required?: boolean;

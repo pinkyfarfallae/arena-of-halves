@@ -597,12 +597,7 @@
   padding: 0.6rem 0.8rem;
   border-top: 1px solid var(--ci-border);
 
-  scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ci-primary) 20%, transparent) transparent;
-
-  &::-webkit-scrollbar {
-    width: 5px;
-  }
 
   &::-webkit-scrollbar-track {
     background: transparent;
@@ -610,7 +605,6 @@
 
   &::-webkit-scrollbar-thumb {
     background: color-mix(in srgb, var(--ci-primary) 20%, transparent);
-    border-radius: 3px;
   }
 
   @media (max-width: $bp-medium) {
@@ -1602,17 +1596,12 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ci-primary) 15%, transparent) transparent;
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
   &::-webkit-scrollbar-track {
     background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
     background: color-mix(in srgb, var(--ci-primary) 15%, transparent);
-    border-radius: 2px;
   }
 
   @media (max-width: $bp-medium) {

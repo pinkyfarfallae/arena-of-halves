@@ -108,11 +108,9 @@ $ink-faint: #a08a74;
   max-height: 260px;
   overflow-y: auto;
 
-  &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb {
     background: rgba($wood-plank, 0.2);
-    border-radius: 2px;
   }
 }
 
@@ -224,6 +222,7 @@ $ink-faint: #a08a74;
   text-align: center;
   position: relative;
   overflow: hidden;
+  gap: 1rem;
 }
 
 .checkout__coins {
