@@ -1,0 +1,128 @@
+@use '../../../../styles/variables' as *;
+
+/* ── Selection screen ── */
+.st {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1.25rem;
+}
+
+.st__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ci-fg, #1a1a1a);
+}
+
+.st__desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ci-muted, #888);
+}
+
+.st__grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.st__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 200px;
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--ci-border, #e0e0e0);
+  background: var(--ci-surface, #f8f8f8);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+
+  &:hover {
+    border-color: var(--ci-primary, #6366f1);
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--ci-primary, #6366f1) 12%, transparent);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.st__card-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ci-fg, #1a1a1a);
+}
+
+.st__card-desc {
+  font-size: 0.7rem;
+  color: var(--ci-muted, #888);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── Full-screen system view ── */
+.st__full {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: calc(100vh - $topbar-height);
+  width: calc(100vw - $sidebar-width);
+  margin: -1.25rem -1.5rem;
+
+  @media (max-width: $bp-mobile) {
+    margin: -1rem -0.75rem;
+  }
+}
+
+.st__system {
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  background: var(--ci-surface, #f8f8f8);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.st__dice-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.st__back {
+  position: absolute;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ci-surface, #f8f8f8) 85%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--ci-muted, #888);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  right: 0.75rem;
+  top: 0.75rem;
+
+  &:hover {
+    color: var(--ci-fg, #1a1a1a);
+    background: color-mix(in srgb, var(--ci-surface, #f8f8f8) 15%, transparent);
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--ci-primary, #6366f1) 12%, transparent);
+  }
+}
+
+.st__dice-container {
+  flex: 1;
+  min-height: 0;
+}
