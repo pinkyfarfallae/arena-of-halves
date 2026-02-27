@@ -49,7 +49,7 @@ const TARGET_QUATS: Record<number, THREE.Quaternion> = {
   6: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
 };
 
-const EDGE_RADIUS = 0.04;
+const EDGE_RADIUS = 0.02;
 const SPIN_DURATION = 1.5;
 const SETTLE_DURATION = 0.3;
 const FLASH_DURATION = SETTLE_DURATION;
@@ -161,7 +161,7 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark }:
   const flashing = useRef(false);
   const flashStart = useRef(0);
 
-  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, 0.02)), [primary]);
+  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, -0.35)), [primary]);
   const worldNormal = useRef(new THREE.Vector3());
 
   const geometry = useMemo(() => new THREE.BoxGeometry(S * 2, S * 2, S * 2), []);

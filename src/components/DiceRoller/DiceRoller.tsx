@@ -135,7 +135,7 @@ export default function DiceRoller({ className }: Props) {
             onClick={() => setDie(d)}
             disabled={rolling}
           >
-            d{d}
+            D{d}
           </button>
         ))}
       </div>

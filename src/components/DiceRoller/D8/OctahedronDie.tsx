@@ -9,7 +9,7 @@ interface Props {
   primaryDark: string;
 }
 
-const S = 1.35;
+const S = 1.4;
 
 /* ── Vertices ── */
 const TOP: THREE.Vector3Tuple = [0, S, 0];
