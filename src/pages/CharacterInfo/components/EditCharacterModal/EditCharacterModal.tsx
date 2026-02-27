@@ -332,6 +332,40 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                       );
                     }
 
+                    /* ── Sex toggle ── */
+                    if (f.type === 'sex') {
+                      return (
+                        <div key={f.key} className="cs__edit-field">
+                          <label className="cs__edit-label">
+                            {f.label}
+                            {f.required && <span className="cs__edit-req">*</span>}
+                          </label>
+                          <div className="cs__edit-sex-toggle">
+                            <button
+                              type="button"
+                              className={`cs__edit-sex-btn cs__edit-sex-btn--male ${(form[f.key] ?? '') === 'Male' ? 'cs__edit-sex-btn--active' : ''}`}
+                              onClick={() => set(f.key, 'Male')}
+                            >
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="10.5" cy="13.5" r="5.5" /><path d="M16 8l4-4M20 4v5M20 4h-5" />
+                              </svg>
+                              Male
+                            </button>
+                            <button
+                              type="button"
+                              className={`cs__edit-sex-btn cs__edit-sex-btn--female ${(form[f.key] ?? '') === 'Female' ? 'cs__edit-sex-btn--active' : ''}`}
+                              onClick={() => set(f.key, 'Female')}
+                            >
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="9" r="5.5" /><path d="M12 14.5V22M9 19h6" />
+                              </svg>
+                              Female
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     /* ── Standard fields ── */
                     return (
                       <div key={f.key} className={`cs__edit-field ${f.type === 'textarea' ? 'cs__edit-field--wide' : ''} ${hasError ? 'cs__edit-field--error' : ''}`}>

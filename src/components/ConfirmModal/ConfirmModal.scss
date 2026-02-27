@@ -1,0 +1,99 @@
+@keyframes cm-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cm-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.cm__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ci-dark, #1a1a2e) 50%, transparent);
+  backdrop-filter: blur(4px);
+  animation: cm-overlay-in 0.15s ease-out;
+}
+
+.cm {
+  width: 360px;
+  max-width: calc(100% - 2rem);
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: var(--ci-bg, #fff);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  animation: cm-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.cm__title {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ci-fg, #1a1a1a);
+  margin: 0 0 0.5rem;
+}
+
+.cm__message {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.8rem;
+  color: var(--ci-muted, #888);
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+}
+
+.cm__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.cm__btn {
+  padding: 0.45rem 0.85rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--cancel {
+    color: var(--ci-muted, #888);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
+
+    &:hover:not(:disabled) {
+      color: var(--ci-fg, #1a1a1a);
+      background: var(--ci-surface, #f8f8f8);
+    }
+  }
+
+  &--confirm {
+    color: #fff;
+    background: var(--ci-primary, #c0a062);
+    border: none;
+
+    &:hover:not(:disabled) {
+      background: var(--ci-primary-hover, #d4b06a);
+    }
+  }
+
+  &--danger {
+    color: #fff;
+    background: #e53935;
+    border: none;
+
+    &:hover:not(:disabled) {
+      background: #c62828;
+    }
+  }
+}

@@ -76,7 +76,7 @@ function toDirectImageUrl(raw?: string): string | undefined {
 function rowToCharacter(headers: string[], cols: string[]): Character {
   const get = (name: string) => {
     const idx = headers.indexOf(name);
-    return idx !== -1 ? cols[idx] ?? '' : '';
+    return idx !== -1 ? (cols[idx] ?? '').replace(/\\n/g, '\n') : '';
   };
   const num = (name: string) => parseInt(get(name), 10) || 0;
 
@@ -320,7 +320,7 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
    WRITE THEME BACK TO GOOGLE SHEET
    Uses a deployed Google Apps Script web app
    ══════════════════════════════════════ */
-const DEPLOYMENT_ID = 'AKfycbw9WjeQh1n2NZSnp3YSTt6FBhLkOJK1zohN-PYEgbgySGb5c9nl6ACaUwr4O3f_IBkg';
+const DEPLOYMENT_ID = 'AKfycbzr22iG_zewyMvdst4nTLXPX0wM4uOQer4GflNPmxB0yFOvGTZ7XTWG4gZ6bV7RKp7S';
 const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export async function patchCharacter(
@@ -328,12 +328,10 @@ export async function patchCharacter(
   fields: Record<string, string>,
 ): Promise<boolean> {
   try {
-    const params = new URLSearchParams({
-      action: 'patch',
-      characterId,
-      ...fields,
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'patch', characterId, fields }),
     });
-    const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
     const data = await res.text();
     console.log('[patch]', res.status, data);
     return res.ok;
@@ -345,17 +343,89 @@ export async function patchCharacter(
 
 export async function updateTheme(characterId: string, theme: string[]): Promise<boolean> {
   try {
-    const params = new URLSearchParams({
-      action: 'updateTheme',
-      characterId,
-      theme: theme.join(','),
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updateTheme', characterId, theme: theme.join(',') }),
     });
-    const res = await fetch(`${APPS_SCRIPT_URL}?${params}`);
     const data = await res.text();
     console.log('[updateTheme]', res.status, data);
     return res.ok;
   } catch (e) {
     console.error('[updateTheme]', e);
+    return false;
+  }
+}
+
+/* ══════════════════════════════════════
+   ADMIN — Fetch all users from User tab
+   ══════════════════════════════════════ */
+export interface UserRecord {
+  characterId: string;
+  password: string;
+  role: string;
+}
+
+export async function fetchAllUsers(): Promise<UserRecord[]> {
+  const url = csvUrl(GID.USER);
+  const res = await fetch(url);
+  const text = await res.text();
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const idIdx = headers.indexOf('characterid');
+  const pwIdx = headers.indexOf('password');
+  const roleIdx = headers.indexOf('role');
+  if (idIdx === -1 || pwIdx === -1) return [];
+
+  return lines.slice(1).map(line => {
+    const cols = line.split(',').map(c => c.trim());
+    return {
+      characterId: cols[idIdx] ?? '',
+      password: cols[pwIdx] ?? '',
+      role: roleIdx !== -1 ? (cols[roleIdx] ?? 'player') : 'player',
+    };
+  }).filter(u => u.characterId);
+}
+
+export interface CreateUserPayload {
+  characterId: string;
+  password: string;
+  nameThai: string;
+  nameEng: string;
+  nicknameThai: string;
+  nicknameEng: string;
+  deityBlood: string;
+  sex: string;
+  cabin: string;
+}
+
+export async function createUser(payload: CreateUserPayload): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'createUser', ...payload }),
+    });
+    const data = await res.text();
+    console.log('[createUser]', res.status, data);
+    return res.ok;
+  } catch (e) {
+    console.error('[createUser]', e);
+    return false;
+  }
+}
+
+export async function deleteUser(characterId: string): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteUser', characterId }),
+    });
+    const data = await res.text();
+    console.log('[deleteUser]', res.status, data);
+    return res.ok;
+  } catch (e) {
+    console.error('[deleteUser]', e);
     return false;
   }
 }

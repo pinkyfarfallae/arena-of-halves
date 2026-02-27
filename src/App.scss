@@ -245,3 +245,20 @@
     }
   }
 }
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+  }
+}

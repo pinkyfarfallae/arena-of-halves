@@ -102,6 +102,25 @@
       background: rgba(232, 93, 74, 0.1);
     }
   }
+
+  &--admin {
+    color: var(--ci-accent);
+
+    &:hover {
+      color: var(--ci-accent-dark, var(--ci-accent));
+      background: color-mix(in srgb, var(--ci-accent) 10%, transparent);
+    }
+
+    &.sidebar__icon--active {
+      color: var(--ci-accent);
+      background: color-mix(in srgb, var(--ci-accent) 10%, transparent);
+
+      &::before {
+        background: var(--ci-accent);
+        box-shadow: 0 0 8px color-mix(in srgb, var(--ci-accent) 50%, transparent);
+      }
+    }
+  }
 }
 
 .sidebar__spacer {
@@ -240,6 +259,20 @@
     &--active {
       color: var(--ci-nav-icon, var(--ci-primary, #c0a062));
       background: color-mix(in srgb, var(--ci-nav-icon, var(--ci-primary, #c0a062)) 8%, transparent);
+    }
+
+    &--admin {
+      color: var(--ci-accent);
+
+      &:hover {
+        color: var(--ci-accent-dark, var(--ci-accent));
+        background: color-mix(in srgb, var(--ci-accent) 8%, transparent);
+      }
+
+      &.topbar-menu__item--active {
+        color: var(--ci-accent);
+        background: color-mix(in srgb, var(--ci-accent) 8%, transparent);
+      }
     }
 
     &--logout {
@@ -395,21 +428,6 @@
   overflow-y: auto;
   overflow-x: visible;
   padding: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--ci-primary) 20%, transparent) transparent;
-
-  &::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--ci-primary) 20%, transparent);
-    border-radius: 3px;
-  }
 
   @media (max-width: $bp-medium) {
     grid-template-columns: repeat(3, 1fr);
