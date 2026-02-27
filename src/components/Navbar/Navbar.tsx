@@ -9,7 +9,9 @@ import Person from './icons/Person';
 import People from './icons/People';
 import MapIcon from './icons/MapIcon';
 import Palette from './icons/Palette';
+import Shield from './icons/Shield';
 import Logout from './icons/Logout';
+import { ROLE } from '../../constants/role';
 import './Navbar.scss';
 
 /* ── Theme Picker Panel ── */
@@ -165,12 +167,13 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
 
 /* ── Navbar ── */
 function Navbar() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, role, logout, updateUser } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const isViewingMember = location.pathname.startsWith('/character/');
   const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge';
+  const isAdmin = role === ROLE.ADMIN || role === ROLE.DEVELOPER;
 
   const close = () => setOpen(false);
 
@@ -189,6 +192,12 @@ function Navbar() {
       {/* Mobile dropdown menu */}
       {open && <div className="topbar-backdrop" onClick={close} />}
       <div className={`topbar-menu ${open ? 'topbar-menu--open' : ''}`}>
+        {isAdmin && (
+          <NavLink to="/admin" className={({ isActive }) => `topbar-menu__item topbar-menu__item--admin ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
+            <Shield />
+            <span>Admin Manager</span>
+          </NavLink>
+        )}
         {user?.characterId && (
           <NavLink to="/" end className={({ isActive }) => `topbar-menu__item ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
             <Person />
@@ -220,6 +229,12 @@ function Navbar() {
         </NavLink>
 
         <div className="sidebar__divider" />
+
+        {isAdmin && (
+          <NavLink to="/admin" className={({ isActive }) => `sidebar__icon sidebar__icon--admin ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip="Admin Manager" data-tooltip-pos="right">
+            <Shield />
+          </NavLink>
+        )}
 
         {user?.characterId && (
           <NavLink to="/" end className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip="Character" data-tooltip-pos="right">

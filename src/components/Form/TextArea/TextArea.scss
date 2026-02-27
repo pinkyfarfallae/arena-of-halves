@@ -1,0 +1,27 @@
+.form__textarea {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--ci-border, #e0e0e0);
+  border-radius: 8px;
+  background: var(--ci-bg, #fff);
+  color: var(--ci-fg, #1a1a1a);
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.82rem;
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.45;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--ci-muted, #888) 50%, transparent);
+  }
+
+  &:focus {
+    border-color: var(--ci-primary, #c0a062);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ci-primary, #c0a062) 15%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}

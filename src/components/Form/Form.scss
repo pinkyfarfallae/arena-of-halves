@@ -1,0 +1,27 @@
+/* ── Shared form base (field + label) ── */
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form__label {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ci-muted, #888);
+}
+
+.form__input,
+.form__textarea,
+.form__select,
+.form__dropdown-trigger {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+}
+
+.form__required {
+  color: #e53935;
+  margin-left: 0.15rem;
+}

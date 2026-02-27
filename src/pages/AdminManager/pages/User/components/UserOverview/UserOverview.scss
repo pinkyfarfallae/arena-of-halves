@@ -1,0 +1,303 @@
+@use '../../../../../../styles/variables' as *;
+
+/* ── Animations ── */
+@keyframes uo-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes uo-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ── Overlay ── */
+.uo__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--ci-dark, #1a1a2e) 40%, transparent);
+  backdrop-filter: blur(4px);
+  animation: uo-overlay-in 0.2s ease-out;
+}
+
+/* ── Panel ── */
+.uo {
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--ci-bg, #fff);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  animation: uo-slide-in 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  @media (max-width: $bp-mobile) {
+    width: 100%;
+  }
+}
+
+/* ── Header ── */
+.uo__header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.uo__close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ci-muted, #888);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 6px;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--ci-fg, #1a1a1a);
+    background: color-mix(in srgb, var(--ci-muted, #888) 8%, transparent);
+  }
+}
+
+/* ── Profile ── */
+.uo__profile {
+  display: flex;
+  gap: 1rem;
+  padding: 0 1.25rem 1rem;
+  flex-shrink: 0;
+}
+
+.uo__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--ci-primary, #c0a062) 10%, var(--ci-surface, #f8f8f8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid color-mix(in srgb, var(--ci-primary, #c0a062) 25%, transparent);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  span {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ci-primary, #c0a062);
+  }
+}
+
+.uo__profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: calc(100% - 1rem - 60px);
+  max-width: calc(100% - 1rem - 60px);
+  max-height: fit-content;
+  margin: auto;
+  position: relative;
+
+  .user__role {
+    position: absolute;
+    right: 1rem;
+  }
+}
+
+.uo__name {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ci-fg, #1a1a1a);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.uo__name-thai {
+  font-family: 'Noto Sans Thai', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ci-muted, #888);
+  margin-left: 0.75rem;
+}
+
+.uo__id {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--ci-muted, #888);
+  margin: 0.15rem 0 0;
+}
+
+/* ── Body ── */
+.uo__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1.25rem 1rem;
+}
+
+/* ── Section ── */
+.uo__section {
+  padding: 0.75rem 0;
+
+  &+& {
+    border-top: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 50%, transparent);
+  }
+}
+
+.uo__section-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ci-muted, #888);
+  margin: 0 0 0.5rem;
+}
+
+/* ── Info rows ── */
+.uo__info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.2rem 0;
+  font-family: 'Noto Sans Thai', sans-serif;
+}
+
+.uo__info-label {
+  font-size: 0.75rem;
+  color: var(--ci-muted, #888);
+}
+
+.uo__info-value {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ci-fg, #1a1a1a);
+}
+
+/* ── Combat stats grid ── */
+.uo__stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.uo__stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ci-surface, #f8f8f8) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 40%, transparent);
+}
+
+.uo__stat-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ci-muted, #888);
+}
+
+.uo__stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ci-fg, #1a1a1a);
+}
+
+/* ── Practice stat bars ── */
+.uo__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.uo__bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.uo__bar-label {
+  width: 28px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ci-muted, #888);
+  flex-shrink: 0;
+}
+
+.uo__bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ci-border, #e0e0e0) 40%, transparent);
+  overflow: hidden;
+}
+
+.uo__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--ci-primary, #c0a062);
+  transition: width 0.3s ease;
+}
+
+.uo__bar-value {
+  width: 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ci-fg, #1a1a1a);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Footer ── */
+.uo__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 50%, transparent);
+  flex-shrink: 0;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--ci-primary, #c0a062) 8%, var(--ci-bg, #fff));
+  transition: background 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 16%, var(--ci-bg, #fff));
+
+    .uo__manage-label {
+      color: var(--ci-primary, #c0a062);
+    }
+  }
+}
+
+.uo__manage-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ci-muted, #888);
+}

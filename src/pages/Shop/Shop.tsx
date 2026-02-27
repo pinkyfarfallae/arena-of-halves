@@ -334,7 +334,7 @@ function Shop() {
             {items.length === 0 && (
               <div className="shop__empty">
                 <WingedSandal />
-                <p>Loading wares...</p>
+                <p>Loading wares</p>
               </div>
             )}
           </div>
