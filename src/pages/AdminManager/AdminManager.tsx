@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import User from './pages/User/User';
-import SystemTesting from './pages/SystemTesting/SystemTesting';
+import SystemTesting, { SystemTestDice, SystemTestIris } from './pages/SystemTesting/SystemTesting';
 import './AdminManager.scss';
 
 const TABS = [
@@ -40,6 +40,8 @@ function AdminManager() {
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<User />} />
           <Route path="testing" element={<SystemTesting />} />
+          <Route path="testing/dice" element={<SystemTestDice />} />
+          <Route path="testing/iris-message" element={<SystemTestIris />} />
         </Routes>
       </div>
     </div>

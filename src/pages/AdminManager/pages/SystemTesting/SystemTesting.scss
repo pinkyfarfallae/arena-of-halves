@@ -77,8 +77,13 @@
   width: calc(100vw - $sidebar-width);
   margin: -1.25rem -1.5rem;
 
+  @media (max-width: $bp-medium) {
+    width: 100vw;
+  }
+
   @media (max-width: $bp-mobile) {
     margin: -1rem -0.75rem;
+    height: calc(100vh - (2*$topbar-height));
   }
 }
 
