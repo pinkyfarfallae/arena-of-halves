@@ -2,7 +2,12 @@ import { useRef, useState } from 'react';
 import { Character } from '../../../../data/characters';
 import { EDIT_FIELDS, GROUP_ICONS, GROUPS } from '../../constants/editFields';
 import GripDots from '../../icons/GripDots';
+import Close from '../../../../icons/Close';
+import Male from '../../../../icons/Male';
+import Female from '../../../../icons/Female';
+import Plus from '../../../../icons/Plus';
 import './EditCharacterModal.scss';
+import { SEX } from '../../../../constants/sex';
 
 interface Props {
   char: Character;
@@ -183,9 +188,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
         <div className="cs__edit-header">
           <h2 className="cs__edit-title">Edit Character</h2>
           <button className="cs__edit-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <Close width={18} height={18} />
           </button>
         </div>
 
@@ -324,7 +327,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                               </div>
                             ))}
                             <button type="button" className="cs__edit-trait-add" onClick={() => addTrait(f.key)}>
-                              <svg viewBox="0 0 16 16" width="12" height="12"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                              <Plus width={12} height={12} />
                               Add
                             </button>
                           </div>
@@ -343,22 +346,18 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                           <div className="cs__edit-sex-toggle">
                             <button
                               type="button"
-                              className={`cs__edit-sex-btn cs__edit-sex-btn--male ${(form[f.key] ?? '') === 'Male' ? 'cs__edit-sex-btn--active' : ''}`}
-                              onClick={() => set(f.key, 'Male')}
+                              className={`cs__edit-sex-btn cs__edit-sex-btn--male ${(form[f.key] ?? '') === SEX.MALE ? 'cs__edit-sex-btn--active' : ''}`}
+                              onClick={() => set(f.key, SEX.MALE)}
                             >
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="10.5" cy="13.5" r="5.5" /><path d="M16 8l4-4M20 4v5M20 4h-5" />
-                              </svg>
+                              <Male width={14} height={14} />
                               Male
                             </button>
                             <button
                               type="button"
-                              className={`cs__edit-sex-btn cs__edit-sex-btn--female ${(form[f.key] ?? '') === 'Female' ? 'cs__edit-sex-btn--active' : ''}`}
-                              onClick={() => set(f.key, 'Female')}
+                              className={`cs__edit-sex-btn cs__edit-sex-btn--female ${(form[f.key] ?? '') === SEX.FEMALE ? 'cs__edit-sex-btn--active' : ''}`}
+                              onClick={() => set(f.key, SEX.FEMALE)}
                             >
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="9" r="5.5" /><path d="M12 14.5V22M9 19h6" />
-                              </svg>
+                              <Female width={14} height={14} />
                               Female
                             </button>
                           </div>

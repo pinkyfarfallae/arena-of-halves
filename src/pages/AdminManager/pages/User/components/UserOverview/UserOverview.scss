@@ -138,6 +138,10 @@
   font-weight: 500;
   color: var(--ci-muted, #888);
   margin-left: 0.75rem;
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.75rem;
+  }
 }
 
 .uo__id {
@@ -188,7 +192,7 @@
 }
 
 .uo__info-value {
-  font-size: 0.78rem;
+  font-size: 0.725rem;
   font-weight: 500;
   color: var(--ci-fg, #1a1a1a);
 }

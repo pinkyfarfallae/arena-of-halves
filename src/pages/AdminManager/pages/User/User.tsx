@@ -10,6 +10,11 @@ import { Dropdown } from '../../../../components/Form';
 import UserModal from './components/UserModal/UserModal';
 import UserOverview from './components/UserOverview/UserOverview';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
+import Plus from '../../../../icons/Plus';
+import Search from '../../../../icons/Search';
+import Eye from '../../../../icons/Eye';
+import Pencil from '../../../../icons/Pencil';
+import Trash from '../../../../icons/Trash';
 import './User.scss';
 
 export type MergedUser = UserRecord & Partial<Character>;
@@ -19,6 +24,7 @@ export default function User() {
   const isDev = role === ROLE.DEVELOPER;
   const [users, setUsers] = useState<MergedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<MergedUser | null>(null);
   const [viewUser, setViewUser] = useState<MergedUser | null>(null);
@@ -65,20 +71,26 @@ export default function User() {
     {
       key: 'nicknameEng' as keyof MergedUser & string,
       label: 'Nickname',
-      render: (row) => (
-        <div className="user__nick-cell">
-          <div className="user__avatar">
-            {row.image
-              ? <img src={row.image} alt="" />
-              : <span>{(row.nicknameEng ?? row.characterId ?? '?')[0].toUpperCase()}</span>
-            }
+      render: (row) => {
+        const themeColor = row.theme?.[0];
+        const avatarStyle = themeColor
+          ? { background: `color-mix(in srgb, ${themeColor} 15%, var(--ci-surface, #f8f8f8))`, color: themeColor }
+          : undefined;
+        return (
+          <div className="user__nick-cell">
+            <div className="user__avatar" style={avatarStyle}>
+              {row.image
+                ? <img src={row.image} alt="" />
+                : <span>{(row.nicknameEng ?? row.characterId ?? '?')[0].toUpperCase()}</span>
+              }
+            </div>
+            <div className="user__nick-text">
+              <span className="user__nick-eng">{row.nicknameEng || row.characterId}</span>
+              {row.nicknameThai && <span className="user__nick-thai">{row.nicknameThai}</span>}
+            </div>
           </div>
-          <div className="user__nick-text">
-            <span className="user__nick-eng">{row.nicknameEng || row.characterId}</span>
-            {row.nicknameThai && <span className="user__nick-thai">{row.nicknameThai}</span>}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'nameEng' as keyof MergedUser & string,
@@ -119,19 +131,14 @@ export default function User() {
             <p className="admin__section-desc">{users.length} registered user accounts</p>
           </div>
           <button className="admin__create-btn" onClick={() => setCreateOpen(true)}>
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <Plus width={14} height={14} />
             Create User
           </button>
         </div>
 
         <div className="user__toolbar">
           <div className="user__search">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" className="user__search-icon">
-              <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+            <Search width={14} height={14} className="user__search-icon" />
             <input
               className="user__search-input"
               type="text"
@@ -159,29 +166,15 @@ export default function User() {
           rowKey={(r: MergedUser) => r.characterId}
           actions={[
             {
-              label: () => (
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                  <path d="M1 8s3-5.5 7-5.5S15 8 15 8s-3 5.5-7 5.5S1 8 1 8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-                  <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
-              ),
+              label: () => <Eye width={14} height={14} />,
               onClick: (r: MergedUser) => setViewUser(r),
             },
             {
-              label: () => (
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                  <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              ),
+              label: () => <Pencil width={14} height={14} />,
               onClick: (r: MergedUser) => setEditUser(r),
             },
             {
-              label: () => (
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                  <path d="M2 4h12M5.5 4V2.5a1 1 0 011-1h3a1 1 0 011 1V4M6.5 7v5M9.5 7v5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M3.5 4l.5 9.5a1 1 0 001 .5h6a1 1 0 001-.5L12.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              ),
+              label: () => <Trash width={14} height={14} />,
               onClick: (r: MergedUser) => setDeleteTarget(r),
             },
           ]}
@@ -193,7 +186,11 @@ export default function User() {
         <UserModal
           mode="create"
           onClose={() => setCreateOpen(false)}
-          onDone={loadUsers}
+          onDone={(apiCall) => {
+            setCreateOpen(false);
+            setSaving(true);
+            apiCall.then(() => loadUsers()).finally(() => setSaving(false));
+          }}
         />
       )}
 
@@ -203,7 +200,11 @@ export default function User() {
           user={editUser}
           isDev={isDev}
           onClose={() => setEditUser(null)}
-          onDone={loadUsers}
+          onDone={(apiCall) => {
+            setEditUser(null);
+            setSaving(true);
+            apiCall.then(() => loadUsers()).finally(() => setSaving(false));
+          }}
         />
       )}
 
@@ -222,14 +223,21 @@ export default function User() {
           confirmLabel="Delete"
           danger
           onCancel={() => setDeleteTarget(null)}
-          onConfirm={async () => {
-            const ok = await deleteUser(deleteTarget.characterId);
-            if (ok) {
-              setDeleteTarget(null);
-              loadUsers();
-            }
+          onConfirm={() => {
+            const id = deleteTarget.characterId;
+            setDeleteTarget(null);
+            setSaving(true);
+            deleteUser(id)
+              .then(() => loadUsers())
+              .finally(() => setSaving(false));
           }}
         />
+      )}
+
+      {saving && (
+        <div className="user__saving-overlay">
+          <div className="app-loader__ring" />
+        </div>
       )}
     </>
   );

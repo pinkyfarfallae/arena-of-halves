@@ -57,6 +57,10 @@
   font-weight: 600;
   color: var(--ci-fg, #1a1a1a);
   margin: 0;
+
+  b {
+    margin-left: 0.2rem;
+  }
 }
 
 .um__close {
@@ -214,6 +218,7 @@
 }
 
 .um__cancel {
+  min-width: 98px;
   padding: 0.45rem 0.8rem;
   font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
@@ -233,6 +238,7 @@
 }
 
 .um__submit {
+  min-width: 98px;
   padding: 0.45rem 0.8rem;
   font-family: 'Inter', sans-serif;
   font-size: 0.78rem;
