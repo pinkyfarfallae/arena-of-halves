@@ -1,6 +1,9 @@
 import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
 import { db } from '../firebase';
-import type { BattleRoom, FighterState, Team, Viewer } from '../types/battle';
+import type {
+  BattleRoom, BattleState, FighterState, Team,
+  TurnQueueEntry, Viewer,
+} from '../types/battle';
 import type { Character, Power } from '../types/character';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -191,4 +194,195 @@ export function onRoomChange(arenaId: string, callback: (room: BattleRoom | null
 
 export async function deleteRoom(arenaId: string): Promise<void> {
   await remove(roomRef(arenaId));
+}
+
+/* ══════════════════════════════════════════════════════════
+   BATTLE — turn-based combat
+   ══════════════════════════════════════════════════════════ */
+
+/** Build a SPD-sorted turn queue. TeamA wins ties (room creator advantage). */
+export function buildTurnQueue(room: BattleRoom): TurnQueueEntry[] {
+  const entries: TurnQueueEntry[] = [];
+
+  for (const m of room.teamA?.members || []) {
+    entries.push({ characterId: m.characterId, team: 'teamA', speed: m.speed });
+  }
+  for (const m of room.teamB?.members || []) {
+    entries.push({ characterId: m.characterId, team: 'teamB', speed: m.speed });
+  }
+
+  entries.sort((a, b) => {
+    if (b.speed !== a.speed) return b.speed - a.speed;
+    // tiebreaker: teamA before teamB
+    if (a.team !== b.team) return a.team === 'teamA' ? -1 : 1;
+    return 0;
+  });
+
+  return entries;
+}
+
+/** Find a fighter across both teams by characterId */
+function findFighter(room: BattleRoom, characterId: string): FighterState | undefined {
+  const all = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
+  return all.find((m) => m.characterId === characterId);
+}
+
+/** Find the index of a fighter in teamA or teamB members array */
+function findFighterPath(room: BattleRoom, characterId: string): string | null {
+  const teamAIdx = (room.teamA?.members || []).findIndex((m) => m.characterId === characterId);
+  if (teamAIdx !== -1) return `teamA/members/${teamAIdx}`;
+  const teamBIdx = (room.teamB?.members || []).findIndex((m) => m.characterId === characterId);
+  if (teamBIdx !== -1) return `teamB/members/${teamBIdx}`;
+  return null;
+}
+
+/** Find the next alive fighter index in the queue (skips eliminated) */
+function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom): { index: number; wrapped: boolean } {
+  const len = queue.length;
+  let wrapped = false;
+
+  for (let i = 1; i <= len; i++) {
+    const idx = (fromIndex + i) % len;
+    if (idx <= fromIndex && i > 0) wrapped = true;
+    const entry = queue[idx];
+    const fighter = findFighter(room, entry.characterId);
+    if (fighter && fighter.currentHp > 0) {
+      return { index: idx, wrapped: idx < fromIndex };
+    }
+  }
+
+  // all dead (shouldn't happen — game should end before this)
+  return { index: fromIndex, wrapped: false };
+}
+
+/** Check if all members of a team are eliminated */
+function isTeamEliminated(members: FighterState[]): boolean {
+  return members.every((m) => m.currentHp <= 0);
+}
+
+/* ── start battle ────────────────────────────────────── */
+
+export async function startBattle(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  if (room.status !== 'ready') return;
+
+  const turnQueue = buildTurnQueue(room);
+  if (turnQueue.length === 0) return;
+
+  const first = turnQueue[0];
+  const battle: BattleState = {
+    turnQueue,
+    currentTurnIndex: 0,
+    roundNumber: 1,
+    turn: {
+      attackerId: first.characterId,
+      attackerTeam: first.team,
+      phase: 'select-target',
+    },
+    log: [],
+  };
+
+  await update(roomRef(arenaId), {
+    status: 'battling',
+    battle,
+  });
+}
+
+/* ── select target ───────────────────────────────────── */
+
+export async function selectTarget(arenaId: string, defenderId: string): Promise<void> {
+  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+    defenderId,
+    phase: 'resolving',
+  });
+}
+
+/* ── resolve turn (apply damage, advance) ────────────── */
+
+export async function resolveTurn(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle || !battle.turn || battle.turn.phase !== 'resolving') return;
+
+  const { attackerId, defenderId } = battle.turn;
+  if (!defenderId) return;
+
+  const attacker = findFighter(room, attackerId);
+  const defender = findFighter(room, defenderId);
+  if (!attacker || !defender) return;
+
+  // Apply damage
+  const dmg = attacker.damage;
+  const newHp = Math.max(0, defender.currentHp - dmg);
+
+  // Build update object
+  const updates: Record<string, unknown> = {};
+
+  // Update defender HP
+  const defPath = findFighterPath(room, defenderId);
+  if (defPath) {
+    updates[`${defPath}/currentHp`] = newHp;
+  }
+
+  // Log entry
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId,
+    damage: dmg,
+    defenderHpAfter: newHp,
+    eliminated: newHp <= 0,
+  };
+  const logArr = [...(battle.log || []), logEntry];
+  updates['battle/log'] = logArr;
+
+  // Check win condition — need to check with updated HP
+  const teamAMembers = (room.teamA?.members || []).map((m) =>
+    m.characterId === defenderId ? { ...m, currentHp: newHp } : m,
+  );
+  const teamBMembers = (room.teamB?.members || []).map((m) =>
+    m.characterId === defenderId ? { ...m, currentHp: newHp } : m,
+  );
+
+  if (isTeamEliminated(teamBMembers)) {
+    updates['battle/winner'] = 'teamA';
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done' };
+    updates['status'] = 'finished';
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  if (isTeamEliminated(teamAMembers)) {
+    updates['battle/winner'] = 'teamB';
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done' };
+    updates['status'] = 'finished';
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // Advance to next alive fighter
+  // Build a temporary room with updated HP for nextAliveIndex check
+  const updatedRoom = {
+    ...room,
+    teamA: { ...room.teamA, members: teamAMembers },
+    teamB: { ...room.teamB, members: teamBMembers },
+  };
+  const { index: nextIdx, wrapped } = nextAliveIndex(battle.turnQueue, battle.currentTurnIndex, updatedRoom);
+  const nextEntry = battle.turnQueue[nextIdx];
+
+  updates['battle/currentTurnIndex'] = nextIdx;
+  updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+  updates['battle/turn'] = {
+    attackerId: nextEntry.characterId,
+    attackerTeam: nextEntry.team,
+    phase: 'select-target',
+  };
+
+  await update(roomRef(arenaId), updates);
 }

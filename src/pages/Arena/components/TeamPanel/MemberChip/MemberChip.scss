@@ -16,6 +16,7 @@ $ink-faint: #9a8b76;
   position: relative;
   flex: 1;
   flex-shrink: 0;
+  min-width: 170px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -25,7 +26,46 @@ $ink-faint: #9a8b76;
       color-mix(in srgb, var(--chip-primary, $gold) 8%, transparent) 50%,
       transparent 100%);
   cursor: default;
+  transition: opacity 0.2s, filter 0.2s;
   // NO overflow hidden here — popup must be visible
+
+  /* ── Battle states ── */
+  &--attacker {
+    .mchip__frame {
+      box-shadow:
+        0 0 0 2px var(--chip-primary, $gold),
+        0 0 20px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent);
+    }
+  }
+
+  &--defender {
+    .mchip__frame {
+      box-shadow:
+        0 0 0 2px $crimson-bright,
+        0 0 16px rgba($crimson-bright, 0.3);
+    }
+  }
+
+  &--eliminated {
+    opacity: 0.35;
+    filter: grayscale(0.8);
+    pointer-events: none;
+  }
+
+  &--targetable {
+    cursor: pointer;
+
+    .mchip__frame {
+      animation: target-pulse 1.2s ease-in-out infinite;
+    }
+
+    &:hover .mchip__frame {
+      box-shadow:
+        0 0 0 2px $crimson-bright,
+        0 0 24px rgba($crimson-bright, 0.4);
+      animation: none;
+    }
+  }
 
   &:hover {
     background: linear-gradient(180deg,
@@ -445,6 +485,20 @@ $ink-faint: #9a8b76;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Target pulse animation ── */
+@keyframes target-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba($crimson-bright, 0.3),
+      0 0 8px rgba($crimson-bright, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba($crimson-bright, 0.5),
+      0 0 18px rgba($crimson-bright, 0.25);
+  }
 }
 
 /* ══════════════════════════════════════
