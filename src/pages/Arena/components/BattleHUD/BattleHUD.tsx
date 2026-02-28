@@ -178,6 +178,7 @@ export default function BattleHUD({
               {attacker?.nicknameEng} → {defender?.nicknameEng}
             </span>
             <DiceRoller className="bhud__dice-roller" lockedDie={12} onRollResult={handleAttackRollResult} themeColors={dieColors(attacker)} hidePrompt />
+            <span className="bhud__dice-bonus">dice up: {attacker?.attackDiceUp ?? 0}</span>
           </div>
         </div>
       )}
@@ -200,6 +201,11 @@ export default function BattleHUD({
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng}</span>
             <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.attackRoll} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt />
+            <span className="bhud__dice-bonus">
+              {(attacker?.attackDiceUp ?? 0) > 0
+                ? `+${attacker!.attackDiceUp} → ${turn.attackRoll + attacker!.attackDiceUp}`
+                : turn.attackRoll}
+            </span>
           </div>
         </div>
       )}
@@ -212,6 +218,7 @@ export default function BattleHUD({
               Defending against {attacker?.nicknameEng}
             </span>
             <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={handleDefendRollResult} themeColors={dieColors(defender)} hidePrompt />
+            <span className="bhud__dice-bonus">dice up: {defender?.defendDiceUp ?? 0}</span>
           </div>
         </div>
       )}
@@ -234,6 +241,11 @@ export default function BattleHUD({
             <span className="bhud__dice-label">Defense Roll</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
             <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt />
+            <span className="bhud__dice-bonus">
+              {(defender?.defendDiceUp ?? 0) > 0
+                ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
+                : turn.defendRoll}
+            </span>
           </div>
         </div>
       )}
@@ -279,7 +291,7 @@ export default function BattleHUD({
       {/* Battle log */}
       {log.length > 0 && (
         <div className="bhud__log">
-          {log.slice(-5).reverse().map((entry, i) => {
+          {[...log].reverse().map((entry, i) => {
             const atkFighter = find(teamA, teamB, entry.attackerId);
             const defFighter = find(teamA, teamB, entry.defenderId);
             const atkName = atkFighter?.nicknameEng ?? '???';
@@ -291,9 +303,15 @@ export default function BattleHUD({
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="bhud__log-dice">{entry.attackRoll}</span>
+                {(atkFighter?.attackDiceUp ?? 0) > 0 && (
+                  <span className="bhud__log-bonus">+{atkFighter!.attackDiceUp}={entry.attackRoll + atkFighter!.attackDiceUp}</span>
+                )}
                 <span className="bhud__log-vs">vs</span>
                 <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                 <span className="bhud__log-dice">{entry.defendRoll}</span>
+                {(defFighter?.defendDiceUp ?? 0) > 0 && (
+                  <span className="bhud__log-bonus">+{defFighter!.defendDiceUp}={entry.defendRoll + defFighter!.defendDiceUp}</span>
+                )}
                 <span className="bhud__log-sep">—</span>
                 {entry.missed ? (
                   <span>{defName} blocked {atkName}</span>

@@ -68,6 +68,7 @@ const MOCK_ENEMY: FighterState = {
   characterId: 'mock-enemy-001',
   nicknameEng: 'Shadowbane',
   nicknameThai: 'เงาทมิฬ',
+  sex: 'Male',
   deityBlood: 'Ares',
   theme: MOCK_THEME,
   maxHp: 60,
