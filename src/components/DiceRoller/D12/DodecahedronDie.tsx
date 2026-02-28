@@ -277,7 +277,7 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary }: Prop
   const flashing = useRef(false);
   const flashStart = useRef(0);
 
-  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, 0.25)), [primary]);
+  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, 0.1)), [primary]);
 
   const faceMeshRefs = useRef<(THREE.Mesh | null)[]>(new Array(NUM_FACES).fill(null));
   const worldNormal = useRef(new THREE.Vector3());
