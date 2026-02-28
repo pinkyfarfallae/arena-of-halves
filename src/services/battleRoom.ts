@@ -296,11 +296,29 @@ export async function startBattle(arenaId: string): Promise<void> {
 export async function selectTarget(arenaId: string, defenderId: string): Promise<void> {
   await update(ref(db, `arenas/${arenaId}/battle/turn`), {
     defenderId,
+    phase: 'rolling-attack',
+  });
+}
+
+/* ── submit attack dice roll ─────────────────────────── */
+
+export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
+  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+    attackRoll: roll,
+    phase: 'rolling-defend',
+  });
+}
+
+/* ── submit defend dice roll ─────────────────────────── */
+
+export async function submitDefendRoll(arenaId: string, roll: number): Promise<void> {
+  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+    defendRoll: roll,
     phase: 'resolving',
   });
 }
 
-/* ── resolve turn (apply damage, advance) ────────────── */
+/* ── resolve turn (compare dice, apply damage, advance) ── */
 
 export async function resolveTurn(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
@@ -310,24 +328,31 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const battle = room.battle;
   if (!battle || !battle.turn || battle.turn.phase !== 'resolving') return;
 
-  const { attackerId, defenderId } = battle.turn;
+  const { attackerId, defenderId, attackRoll = 0, defendRoll = 0 } = battle.turn;
   if (!defenderId) return;
 
   const attacker = findFighter(room, attackerId);
   const defender = findFighter(room, defenderId);
   if (!attacker || !defender) return;
 
-  // Apply damage
-  const dmg = attacker.damage;
+  // Compare dice: attacker roll + bonus vs defender roll + bonus
+  const atkTotal = attackRoll + attacker.attackDiceUp;
+  const defTotal = defendRoll + defender.defendDiceUp;
+  const hit = atkTotal > defTotal;
+
+  // Apply damage only if attacker wins the roll
+  const dmg = hit ? attacker.damage : 0;
   const newHp = Math.max(0, defender.currentHp - dmg);
 
   // Build update object
   const updates: Record<string, unknown> = {};
 
-  // Update defender HP
-  const defPath = findFighterPath(room, defenderId);
-  if (defPath) {
-    updates[`${defPath}/currentHp`] = newHp;
+  // Update defender HP (only if hit)
+  if (hit) {
+    const defPath = findFighterPath(room, defenderId);
+    if (defPath) {
+      updates[`${defPath}/currentHp`] = newHp;
+    }
   }
 
   // Log entry
@@ -335,24 +360,27 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     round: battle.roundNumber,
     attackerId,
     defenderId,
+    attackRoll,
+    defendRoll,
     damage: dmg,
-    defenderHpAfter: newHp,
-    eliminated: newHp <= 0,
+    defenderHpAfter: hit ? newHp : defender.currentHp,
+    eliminated: hit && newHp <= 0,
+    missed: !hit,
   };
   const logArr = [...(battle.log || []), logEntry];
   updates['battle/log'] = logArr;
 
   // Check win condition — need to check with updated HP
   const teamAMembers = (room.teamA?.members || []).map((m) =>
-    m.characterId === defenderId ? { ...m, currentHp: newHp } : m,
+    m.characterId === defenderId ? { ...m, currentHp: hit ? newHp : m.currentHp } : m,
   );
   const teamBMembers = (room.teamB?.members || []).map((m) =>
-    m.characterId === defenderId ? { ...m, currentHp: newHp } : m,
+    m.characterId === defenderId ? { ...m, currentHp: hit ? newHp : m.currentHp } : m,
   );
 
   if (isTeamEliminated(teamBMembers)) {
     updates['battle/winner'] = 'teamA';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done' };
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
@@ -360,14 +388,13 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   if (isTeamEliminated(teamAMembers)) {
     updates['battle/winner'] = 'teamB';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done' };
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
   }
 
   // Advance to next alive fighter
-  // Build a temporary room with updated HP for nextAliveIndex check
   const updatedRoom = {
     ...room,
     teamA: { ...room.teamA, members: teamAMembers },

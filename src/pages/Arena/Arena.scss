@@ -383,7 +383,7 @@ $ink-faint: #9a8b76;
     0 0 0 4px rgba(255, 255, 255, 0.9),
     0 0 12px rgba($crimson, 0.2),
     0 0 24px rgba($crimson, 0.1);
-  z-index: 2;
+  z-index: 100;
   animation: arena-vs-pulse 2.5s ease-in-out infinite;
 }
 
@@ -578,44 +578,6 @@ $ink-faint: #9a8b76;
 /* ══════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════ */
-@media (max-width: $bp-medium) {
-  .arena__corner {
-    width: 18px;
-    height: 18px;
-  }
-
-  .arena__diamond {
-    width: 5px;
-    height: 5px;
-  }
-
-  .arena__field {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .arena__half {
-    min-height: 180px;
-  }
-
-  .arena__divider {
-    width: 100%;
-    height: 2px;
-    flex-shrink: 0;
-    background: linear-gradient(to right, transparent 0%, $crimson-bright 15%, rgba($crimson-bright, 0.9) 50%, $crimson-bright 85%, transparent 100%);
-  }
-
-  .arena__vs-ring {
-    position: static;
-    margin: -26px auto;
-  }
-
-  .arena__actions {
-    position: static;
-    background: rgba($sand, 0.6);
-  }
-}
-
 @media (max-width: $bp-compact) {
   .arena__corner {
     width: 14px;

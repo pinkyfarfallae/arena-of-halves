@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { ROLE } from '../../constants/role';
 import { fetchPowers } from '../../data/characters';
 import { createRoom, getRoom, onRoomsList, toFighterState } from '../../services/battleRoom';
 import type { BattleRoom } from '../../types/battle';
@@ -29,7 +30,7 @@ const DECOR = (
 );
 
 function Lobby() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
 
   const [roomName, setRoomName] = useState('');
@@ -249,6 +250,7 @@ function Lobby() {
       {createdArenaId && (
         <ConfigArenaModal
           arenaId={createdArenaId}
+          isDev={role === ROLE.DEVELOPER}
           onClose={() => setCreatedArenaId(null)}
           onEnter={(id) => navigate(id)}
         />

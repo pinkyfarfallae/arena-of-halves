@@ -52,7 +52,7 @@ export interface TurnQueueEntry {
 }
 
 /** Phase within a single turn */
-export type TurnPhase = 'select-target' | 'resolving' | 'done';
+export type TurnPhase = 'select-target' | 'rolling-attack' | 'rolling-defend' | 'resolving' | 'done';
 
 /** State of the current turn */
 export interface TurnState {
@@ -60,6 +60,8 @@ export interface TurnState {
   attackerTeam: 'teamA' | 'teamB';
   defenderId?: string;
   phase: TurnPhase;
+  attackRoll?: number;   // raw D20 result
+  defendRoll?: number;   // raw D20 result
 }
 
 /** A log entry for the battle feed */
@@ -67,9 +69,12 @@ export interface BattleLogEntry {
   round: number;
   attackerId: string;
   defenderId: string;
+  attackRoll: number;
+  defendRoll: number;
   damage: number;
   defenderHpAfter: number;
   eliminated: boolean;
+  missed: boolean;
 }
 
 /** Full battle state stored alongside the room */
@@ -95,6 +100,7 @@ export interface BattleRoom {
   viewers: Record<string, Viewer>;
 
   battle?: BattleState;
+  testMode?: boolean;
 
   createdAt: number;
 }

@@ -6,13 +6,14 @@ $ink: #2c2218;
 $ink-mid: #6b5d4a;
 $ink-faint: #9a8b76;
 $crimson: #a0001b;
+$crimson-bright: #c41e3a;
 
 .bhud {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -35,6 +36,7 @@ $crimson: #a0001b;
   border-radius: 8px;
   padding: 0.4rem 0.7rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 100;
 }
 
 .bhud__round {
@@ -61,85 +63,260 @@ $crimson: #a0001b;
 }
 
 .bhud__phase-label {
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   color: $ink-faint;
 }
 
-/* ── Target selection ── */
-.bhud__targets {
+/* ── Target selection modal ── */
+.bhud__targets-modal {
+  pointer-events: all;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba($gold, 0.2);
-  border-radius: 8px;
-  padding: 0.5rem 0.6rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-.bhud__targets-label {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: $ink-faint;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  border-radius: 10px;
+  padding: 0.7rem 0.7rem 0.6rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba($gold, 0.08);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 280px;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
 }
 
 .bhud__targets-list {
   display: flex;
+  flex-direction: column;
   gap: 0.4rem;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
 .bhud__target-btn {
+  --tc: var(--t-color, #{$gold});
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.5rem;
-  background: rgba($gold, 0.06);
-  border: 1px solid rgba($gold, 0.15);
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: color-mix(in srgb, var(--tc) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tc) 18%, transparent);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
 
   &:hover {
-    background: rgba($gold, 0.14);
-    border-color: rgba($gold, 0.3);
-    box-shadow: 0 0 12px rgba($gold, 0.15);
+    background: color-mix(in srgb, var(--tc) 16%, transparent);
+    border-color: color-mix(in srgb, var(--tc) 35%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tc) 20%, transparent);
   }
 }
 
 .bhud__target-img {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 5px;
   object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--tc) 30%, transparent);
 }
 
 .bhud__target-initial {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: rgba($gold, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tc) 12%, #f5ede4);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: $ink-faint;
+  color: var(--tc);
+  flex-shrink: 0;
+}
+
+.bhud__target-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
 .bhud__target-name {
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: $ink;
+  color: var(--tc);
 }
 
 .bhud__target-hp {
-  font-size: 0.45rem;
+  width: fit-content;
+  font-size: 0.55rem;
   color: $ink-faint;
   font-family: 'DM Mono', monospace;
+}
+
+/* ══════════════════════════════════════
+   DICE ROLLING — positioned on player's half
+   ══════════════════════════════════════ */
+.bhud__dice-zone {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  pointer-events: none;
+  animation: bhud-fade-in 0.2s ease-out;
+
+  // Left half: from sidebar to content center
+  &--left {
+    left: $sidebar-width;
+    width: calc((100vw - #{$sidebar-width}) / 2);
+  }
+  // Right half: from content center to right edge
+  &--right {
+    right: 0;
+    width: calc((100vw - #{$sidebar-width}) / 2);
+  }
+}
+
+@keyframes bhud-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.bhud__dice-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 10px;
+  padding: 0.5rem 0.4rem 0.3rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba($gold, 0.08);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 220px;
+  max-height: calc(100vh - 6rem);
+  overflow: hidden;
+}
+
+@keyframes bhud-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.bhud__dice-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: $ink;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bhud__dice-sub {
+  font-size: 0.55rem;
+  color: $ink-faint;
+  margin-top: -2px;
+  margin-bottom: 2px;
+}
+
+/* DiceRoller embedded inside modal — override default sizes */
+.bhud__dice-roller {
+  width: 100%;
+  height: 180px;
+  border-radius: 6px;
+  overflow: hidden;
+
+  .dr__display {
+    min-height: unset;
+    padding-bottom: 0;
+    gap: 6px;
+    transform: scale(0.55);
+    transform-origin: center center;
+
+    &::after {
+      width: 400px;
+      height: 400px;
+    }
+  }
+
+  .dr__prompt {
+    display: none;
+  }
+
+  .dr__result {
+    font-size: 1.2rem;
+    padding: 0.15rem 0.4rem;
+  }
+}
+
+/* ── Waiting spinner (used inside dice modal) ── */
+.bhud__roll-waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba($gold, 0.15);
+  border-top-color: $gold;
+  border-radius: 50%;
+  animation: bhud-spin 0.8s linear infinite;
+  margin: 0.4rem 0;
+}
+
+@keyframes bhud-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Roll result card (opponent's result) ── */
+.bhud__roll-result {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba($gold, 0.08);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.bhud__roll-result-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bhud__roll-result-name {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: $ink;
+}
+
+.bhud__roll-result-val {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: $ink;
+  font-family: 'DM Mono', monospace;
+  line-height: 1;
+  margin: 0.2rem 0;
+}
+
+.bhud__roll-result-bonus {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: $gold-dark;
 }
 
 /* ── Resolve phase ── */
@@ -153,36 +330,74 @@ $crimson: #a0001b;
   border-radius: 8px;
   padding: 0.5rem 0.7rem;
   box-shadow: 0 4px 20px rgba($crimson, 0.08);
+
+  &--miss {
+    border-color: rgba($gold, 0.2);
+    box-shadow: 0 4px 20px rgba($gold, 0.08);
+  }
 }
 
 .bhud__resolve-info {
   display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bhud__resolve-rolls {
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
-.bhud__resolve-atk {
+.bhud__resolve-roll {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.bhud__resolve-roll-label {
+  font-size: 0.4rem;
   font-weight: 700;
-  font-size: 0.6rem;
-  color: $ink;
-}
-
-.bhud__resolve-arrow {
   color: $ink-faint;
-  font-size: 0.6rem;
+  text-transform: uppercase;
 }
 
-.bhud__resolve-def {
-  font-weight: 700;
-  font-size: 0.6rem;
+.bhud__resolve-roll-val {
+  font-size: 0.65rem;
+  font-weight: 800;
   color: $ink;
+  font-family: 'DM Mono', monospace;
+}
+
+.bhud__resolve-roll-bonus {
+  font-size: 0.45rem;
+  font-weight: 600;
+  color: $gold-dark;
+}
+
+.bhud__resolve-roll-total {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink-mid;
+}
+
+.bhud__resolve-vs {
+  font-size: 0.4rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
 }
 
 .bhud__resolve-dmg {
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: $crimson;
-  margin-left: 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: $crimson-bright;
+}
+
+.bhud__resolve-miss {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: $gold-dark;
 }
 
 .bhud__resolve-btn {
@@ -246,6 +461,8 @@ $crimson: #a0001b;
 
 /* ── Battle log ── */
 .bhud__log {
+  position: relative;
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -257,23 +474,51 @@ $crimson: #a0001b;
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.45rem;
+  font-size: 0.75rem;
   color: $ink-mid;
-  padding: 0.15rem 0.3rem;
+  padding: 0.35rem 0.7rem;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 4px;
+  z-index: 100;
 }
 
 .bhud__log-round {
   font-weight: 700;
   color: $gold-dark;
-  font-size: 0.4rem;
+  font-size: 0.55rem;
+}
+
+.bhud__log-name {
+  font-weight: 700;
+  color: $ink;
+}
+
+.bhud__log-dice {
+  font-weight: 800;
+  color: $ink;
+  font-family: 'DM Mono', monospace;
+}
+
+.bhud__log-vs {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: $ink-faint;
+  text-transform: uppercase;
+}
+
+.bhud__log-sep {
+  color: $ink-faint;
+}
+
+.bhud__log-hit {
+  font-weight: 800;
+  color: $crimson-bright;
 }
 
 .bhud__log-ko {
   font-weight: 800;
   color: $crimson;
-  font-size: 0.42rem;
+  font-size: 0.6rem;
 }
 
 /* ── Responsive ── */
@@ -286,7 +531,15 @@ $crimson: #a0001b;
     padding: 0.3rem 0.5rem;
   }
 
-  .bhud__targets {
-    padding: 0.4rem 0.5rem;
+  .bhud__targets-modal {
+    width: 220px;
+  }
+
+  .bhud__dice-modal {
+    width: 180px;
+  }
+
+  .bhud__dice-roller {
+    height: 150px;
   }
 }

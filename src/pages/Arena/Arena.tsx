@@ -11,50 +11,21 @@ import {
   toFighterState,
   startBattle,
   selectTarget,
+  submitAttackRoll,
+  submitDefendRoll,
   resolveTurn,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
+import type { Theme25 } from '../../types/character';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import ChevronLeft from '../../icons/ChevronLeft';
+import CopyIcon from './icons/CopyIcon';
+import LinkIcon from './icons/LinkIcon';
+import CheckIcon from './icons/CheckIcon';
 import './Arena.scss';
 
 type Role = 'teamA' | 'teamB' | 'viewer';
-
-/* ── Decorative elements ── */
-const DECOR = (
-  <>
-    <div className="arena__corner arena__corner--tl" />
-    <div className="arena__corner arena__corner--tr" />
-    <div className="arena__corner arena__corner--bl" />
-    <div className="arena__corner arena__corner--br" />
-    <div className="arena__diamond arena__diamond--tl" />
-    <div className="arena__diamond arena__diamond--bl" />
-    <div className="arena__diamond arena__diamond--ml" />
-    <div className="arena__diamond arena__diamond--mr" />
-  </>
-);
-
-/* ── Inline copy / link SVG icons ── */
-const CopyIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="9" y="9" width="13" height="13" rx="2" />
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-  </svg>
-);
-
-const LinkIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
 
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
@@ -85,6 +56,38 @@ function buildHalfStyle(
 
   return { background: bg } as React.CSSProperties;
 }
+
+/* ── MOCK ENEMY — remove after testing ── */
+const MOCK_THEME: Theme25 = [
+  '#8B0000','#5C0000','#C04040','#FF4444','#1a1210','#f5ede4',
+  '#2a2018','#9a8b76','#3d3228','#a01010','#ff666640','#352a20',
+  '#221a14','#00000033','#ff444420','#00000060','#9a8b76','#f5ede4',
+  '#6B0000','#CC3333','#5C0000','#8B0000','#CC3333','#FF4444','#FF4444',
+];
+const MOCK_ENEMY: FighterState = {
+  characterId: 'mock-enemy-001',
+  nicknameEng: 'Shadowbane',
+  nicknameThai: 'เงาทมิฬ',
+  deityBlood: 'Ares',
+  theme: MOCK_THEME,
+  maxHp: 60,
+  currentHp: 60,
+  damage: 1,
+  attackDiceUp: 2,
+  defendDiceUp: 1,
+  speed: 14,
+  rerollsLeft: 1,
+  passiveSkillPoint: 'unlock',
+  skillPoint: 'lock',
+  ultimateSkillPoint: 'lock',
+  powers: [
+    { deity: 'Ares', type: 'Passive', name: 'Battle Fury', description: '', status: 'Passive', available: true },
+    { deity: 'Ares', type: 'Skill', name: 'War Cry', description: '', status: '1st Skill', available: true },
+    { deity: 'Ares', type: 'Skill', name: 'Blood Rush', description: '', status: '2nd Skill', available: false },
+    { deity: 'Ares', type: 'Skill', name: 'Godslayer', description: '', status: 'Ultimate', available: false },
+  ],
+};
+/* ── END MOCK ── */
 
 function Arena() {
   const { arenaId } = useParams<{ arenaId: string }>();
@@ -168,6 +171,53 @@ function Arena() {
     join();
   }, [join]);
 
+  /* ── Test mode: auto-join mock enemy to teamB ── */
+  useEffect(() => {
+    if (!room || !arenaId || !room.testMode) return;
+    if (room.status !== 'waiting') return;
+    const teamBMembers = room.teamB?.members || [];
+    if (teamBMembers.length > 0) return;
+
+    joinRoom(arenaId, MOCK_ENEMY);
+  }, [room, arenaId]);
+
+  /* ── Test mode: auto-play for mock enemy ────── */
+  useEffect(() => {
+    if (!room || !arenaId || !room.testMode) return;
+    if (room.status !== 'battling' || !room.battle?.turn) return;
+
+    const turn = room.battle.turn;
+    const mockId = MOCK_ENEMY.characterId;
+
+    // Mock enemy's turn to select target → pick random alive opponent
+    if (turn.phase === 'select-target' && turn.attackerId === mockId) {
+      const teamAAlive = (room.teamA?.members || []).filter(m => m.currentHp > 0);
+      if (teamAAlive.length > 0) {
+        const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
+        const timer = setTimeout(() => selectTarget(arenaId, target.characterId), 600);
+        return () => clearTimeout(timer);
+      }
+    }
+
+    // Mock enemy needs to roll attack dice (D12)
+    // Delay enough for the waiting spinner to show briefly
+    if (turn.phase === 'rolling-attack' && turn.attackerId === mockId) {
+      const roll = Math.floor(Math.random() * 12) + 1;
+      const timer = setTimeout(() => submitAttackRoll(arenaId, roll), 1800);
+      return () => clearTimeout(timer);
+    }
+
+    // Mock enemy needs to roll defend dice (D12)
+    // Must wait longer than defendReady (2800ms) so the attack result
+    // dice animation plays, defend UI appears, then mock submits
+    if (turn.phase === 'rolling-defend' && turn.defenderId === mockId) {
+      const roll = Math.floor(Math.random() * 12) + 1;
+      const timer = setTimeout(() => submitDefendRoll(arenaId, roll), 4500);
+      return () => clearTimeout(timer);
+    }
+
+  }, [room, arenaId, user?.characterId]);
+
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
     return () => {
@@ -200,7 +250,7 @@ function Arena() {
   if (error) {
     return (
       <div className="arena">
-        {DECOR}
+
         <div className="arena__state">
           <p className="arena__state-msg">{error}</p>
           <Link to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</Link>
@@ -212,7 +262,7 @@ function Arena() {
   if (!room) {
     return (
       <div className="arena">
-        {DECOR}
+
         <div className="arena__state">
           <div className="arena__state-loader"><div className="app-loader__ring" /></div>
         </div>
@@ -236,14 +286,20 @@ function Arena() {
     if (arenaId) await selectTarget(arenaId, defenderId);
   };
 
+  const handleSubmitAttackRoll = async (roll: number) => {
+    if (arenaId) await submitAttackRoll(arenaId, roll);
+  };
+
+  const handleSubmitDefendRoll = async (roll: number) => {
+    if (arenaId) await submitDefendRoll(arenaId, roll);
+  };
+
   const handleResolveTurn = async () => {
     if (arenaId) await resolveTurn(arenaId);
   };
 
   return (
     <div className="arena">
-      {DECOR}
-
       {/* ── Toast notification ── */}
       {toast && (
         <div className="arena__toast" key={toast}>
@@ -255,7 +311,7 @@ function Arena() {
       <header className="arena__bar">
         <Link to="/arena" className="arena__bar-back">
           <ChevronLeft width={15} height={15} />
-          Lobby
+          Leave Arena
         </Link>
 
         <div className="arena__bar-title">
@@ -346,6 +402,8 @@ function Arena() {
             teamB={teamBMembers}
             myId={user?.characterId}
             onSelectTarget={handleSelectTarget}
+            onSubmitAttackRoll={handleSubmitAttackRoll}
+            onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
           />
         )}
@@ -363,9 +421,6 @@ function Arena() {
             Close Room
           </button>
         )}
-        <Link to="/arena" className="arena__action-btn arena__action-btn--secondary">
-          Leave Arena
-        </Link>
       </div>
     </div>
   );
