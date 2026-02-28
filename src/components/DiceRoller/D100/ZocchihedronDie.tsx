@@ -7,38 +7,70 @@ interface Props {
   onResult: (result: number) => void;
   primary: string;
   primaryDark: string;
-  maxResult?: number;
-  faceLabels?: string[];
 }
 
 /* ── Geometry ──
-   Pentagonal bipyramid: 2 poles + 5 equatorial = 7 vertices, 10 triangular faces, 15 edges.
-   Clean isometric shape — same approach as D8 (octahedron) but with pentagonal cross-section.
+   Zocchihedron: 100 triangular faces on a sphere.
+   2 poles + 5 rings of 10 vertices = 52 vertices, 100 faces, 150 edges.
+   Equal-area latitude bands so each face covers ~the same solid angle.
 */
-const H = 1.65;  // pole half-height
-const R = 1.5;  // equatorial radius
+const S = 1.55;
 
-const DEG72 = (2 * Math.PI) / 5;
+// Equal-area bands: sin(φ) at each ring latitude
+const RING_SIN = [4 / 5, 2 / 5, 0, -2 / 5, -4 / 5];
+const RING_Y = RING_SIN.map(s => S * s);
+const RING_R = RING_SIN.map(s => S * Math.sqrt(1 - s * s));
 
-const TOP: THREE.Vector3Tuple = [0, H, 0];
-const BOT: THREE.Vector3Tuple = [0, -H, 0];
+// Alternate rings offset by 18° for better triangle shape
+const RING_OFFSET = [0, Math.PI / 10, 0, Math.PI / 10, 0];
+const STEP = (2 * Math.PI) / 10;
 
-const EQ: THREE.Vector3Tuple[] = Array.from({ length: 5 }, (_, i) => {
-  const a = i * DEG72;
-  return [R * Math.cos(a), 0, R * Math.sin(a)] as THREE.Vector3Tuple;
-});
+const TOP: THREE.Vector3Tuple = [0, S, 0];
+const BOT: THREE.Vector3Tuple = [0, -S, 0];
 
-const ALL_VERTS: THREE.Vector3Tuple[] = [TOP, BOT, ...EQ];
+const RINGS: THREE.Vector3Tuple[][] = [];
+for (let r = 0; r < 5; r++) {
+  const ring: THREE.Vector3Tuple[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = i * STEP + RING_OFFSET[r];
+    ring.push([RING_R[r] * Math.cos(a), RING_Y[r], RING_R[r] * Math.sin(a)]);
+  }
+  RINGS.push(ring);
+}
 
-/* ── 10 triangular faces (CCW from outside) ── */
-const FACES: THREE.Vector3Tuple[][] = [
-  // Upper 5
-  ...Array.from({ length: 5 }, (_, i) => [TOP, EQ[(i + 1) % 5], EQ[i]]),
-  // Lower 5
-  ...Array.from({ length: 5 }, (_, i) => [BOT, EQ[i], EQ[(i + 1) % 5]]),
-];
+// Index layout: TOP=0, ring0=1..10, ring1=11..20, ..., ring4=41..50, BOT=51
+const ALL_VERTS: THREE.Vector3Tuple[] = [TOP, ...RINGS.flat(), BOT];
 
-const FACE_VALUES = [1, 3, 5, 7, 9, 2, 4, 6, 8, 10];
+function ri(ring: number, i: number): number {
+  return 1 + ring * 10 + ((i % 10) + 10) % 10;
+}
+
+const NUM_FACES = 100;
+const FACE_IDX: number[][] = [];
+
+// Top cap: 10 triangles
+for (let i = 0; i < 10; i++) {
+  FACE_IDX.push([0, ri(0, i + 1), ri(0, i)]);
+}
+
+// 4 bands × 20 triangles each
+for (let r = 0; r < 4; r++) {
+  const shift = RING_OFFSET[r + 1] > RING_OFFSET[r] ? 0 : 1;
+  for (let i = 0; i < 10; i++) {
+    const j = i + shift;
+    FACE_IDX.push([ri(r, i), ri(r + 1, j), ri(r, i + 1)]);
+    FACE_IDX.push([ri(r + 1, j), ri(r + 1, j + 1), ri(r, i + 1)]);
+  }
+}
+
+// Bottom cap: 10 triangles
+for (let i = 0; i < 10; i++) {
+  FACE_IDX.push([51, ri(4, i), ri(4, i + 1)]);
+}
+
+const FACES: THREE.Vector3Tuple[][] = FACE_IDX.map(
+  idx => idx.map(i => ALL_VERTS[i]),
+);
 
 function computeNormal(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, c: THREE.Vector3Tuple): THREE.Vector3 {
   const va = new THREE.Vector3(...a);
@@ -49,28 +81,66 @@ function computeNormal(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, c: THREE.Ve
 
 const NORMALS = FACES.map(f => computeNormal(f[0], f[1], f[2]));
 
-/* ── 15 edges ── */
-const EDGE_PAIRS: [THREE.Vector3Tuple, THREE.Vector3Tuple][] = [
-  ...Array.from({ length: 5 }, (_, i) => [TOP, EQ[i]] as [THREE.Vector3Tuple, THREE.Vector3Tuple]),
-  ...Array.from({ length: 5 }, (_, i) => [BOT, EQ[i]] as [THREE.Vector3Tuple, THREE.Vector3Tuple]),
-  ...Array.from({ length: 5 }, (_, i) => [EQ[i], EQ[(i + 1) % 5]] as [THREE.Vector3Tuple, THREE.Vector3Tuple]),
-];
+const CENTROIDS = FACES.map(verts => new THREE.Vector3(
+  (verts[0][0] + verts[1][0] + verts[2][0]) / 3,
+  (verts[0][1] + verts[1][1] + verts[2][1]) / 3,
+  (verts[0][2] + verts[1][2] + verts[2][2]) / 3,
+));
 
-/* ── Target quaternions with full basis ── */
-const TARGET_QUATS: THREE.Quaternion[] = FACES.map((verts, fi) => {
+// Verify normals point outward; flip winding if needed
+(() => {
+  FACES.forEach((verts, fi) => {
+    if (CENTROIDS[fi].dot(NORMALS[fi]) < 0) {
+      const tmp = verts[1];
+      verts[1] = verts[2];
+      verts[2] = tmp;
+      const tmpIdx = FACE_IDX[fi][1];
+      FACE_IDX[fi][1] = FACE_IDX[fi][2];
+      FACE_IDX[fi][2] = tmpIdx;
+      NORMALS[fi].negate();
+    }
+  });
+})();
+
+/* ── Face values: 1–100 ── */
+const FACE_VALUES = Array.from({ length: NUM_FACES }, (_, i) => i + 1);
+
+/* ── 150 edges ── */
+const EDGE_PAIRS: [THREE.Vector3Tuple, THREE.Vector3Tuple][] = (() => {
+  const set = new Set<string>();
+  const pairs: [THREE.Vector3Tuple, THREE.Vector3Tuple][] = [];
+  FACE_IDX.forEach(idx => {
+    for (let i = 0; i < 3; i++) {
+      const a = idx[i], b = idx[(i + 1) % 3];
+      const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+      if (!set.has(key)) {
+        set.add(key);
+        pairs.push([ALL_VERTS[a], ALL_VERTS[b]]);
+      }
+    }
+  });
+  return pairs;
+})();
+
+/* ── Per-face "up" on face plane (projected world-Y) ── */
+const FACE_UP: THREE.Vector3[] = FACES.map((_, fi) => {
   const normal = NORMALS[fi];
-  const cx = (verts[0][0] + verts[1][0] + verts[2][0]) / 3;
-  const cy = (verts[0][1] + verts[1][1] + verts[2][1]) / 3;
-  const cz = (verts[0][2] + verts[1][2] + verts[2][2]) / 3;
-  const up = new THREE.Vector3(
-    verts[0][0] - cx, verts[0][1] - cy, verts[0][2] - cz,
-  ).normalize();
-  const right = new THREE.Vector3().crossVectors(up, normal).normalize();
-  const m = new THREE.Matrix4().makeBasis(right, up, normal).transpose();
-  return new THREE.Quaternion().setFromRotationMatrix(m);
+  const up = new THREE.Vector3(0, 1, 0).sub(normal.clone().multiplyScalar(normal.y));
+  if (up.lengthSq() < 0.001) up.set(1, 0, 0);
+  return up.normalize();
 });
 
-const EDGE_RADIUS = 0.035;
+/* ── Target quaternions ── */
+const TARGET_QUATS: Record<number, THREE.Quaternion> = {};
+FACES.forEach((_, fi) => {
+  const normal = NORMALS[fi];
+  const up = FACE_UP[fi];
+  const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+  const m = new THREE.Matrix4().makeBasis(right, up, normal).transpose();
+  TARGET_QUATS[FACE_VALUES[fi]] = new THREE.Quaternion().setFromRotationMatrix(m);
+});
+
+const EDGE_RADIUS = 0.012;
 const SPIN_DURATION = 1.5;
 const SETTLE_DURATION = 0.3;
 const FLASH_DURATION = SETTLE_DURATION;
@@ -111,7 +181,10 @@ function darken(color: string, ratio: number): string {
 
 /* ── Geometry / texture builders ── */
 
-function makeFaceGeo(verts: THREE.Vector3Tuple[], normal: THREE.Vector3): THREE.BufferGeometry {
+function makeFaceGeo(
+  verts: THREE.Vector3Tuple[], normal: THREE.Vector3,
+  centroid: THREE.Vector3, localUp: THREE.Vector3,
+): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array([...verts[0], ...verts[1], ...verts[2]]);
   const norms = new Float32Array([
@@ -119,7 +192,21 @@ function makeFaceGeo(verts: THREE.Vector3Tuple[], normal: THREE.Vector3): THREE.
     normal.x, normal.y, normal.z,
     normal.x, normal.y, normal.z,
   ]);
-  const uvs = new Float32Array([0.5, 1.0, 0.0, 0.0, 1.0, 0.0]);
+
+  // Orient UVs so text reads upright relative to world Y
+  const localRight = new THREE.Vector3().crossVectors(localUp, normal).normalize();
+  const proj: [number, number][] = verts.map(v => {
+    const d = new THREE.Vector3(v[0] - centroid.x, v[1] - centroid.y, v[2] - centroid.z);
+    return [d.dot(localRight), d.dot(localUp)] as [number, number];
+  });
+  const maxExt = Math.max(...proj.flatMap(p => [Math.abs(p[0]), Math.abs(p[1])])) || 1;
+  const s = 0.45 / maxExt;
+  const uvs = new Float32Array(6);
+  for (let i = 0; i < 3; i++) {
+    uvs[i * 2] = 0.5 + proj[i][0] * s;
+    uvs[i * 2 + 1] = 0.5 + proj[i][1] * s;
+  }
+
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(norms, 3));
   geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
@@ -127,7 +214,7 @@ function makeFaceGeo(verts: THREE.Vector3Tuple[], normal: THREE.Vector3): THREE.
 }
 
 function makeFaceTexture(label: string, primary: string): THREE.CanvasTexture {
-  const size = 512;
+  const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -138,10 +225,11 @@ function makeFaceTexture(label: string, primary: string): THREE.CanvasTexture {
 
   const textColor = contrastText(primary);
   ctx.fillStyle = textColor;
-  ctx.font = `bold ${label.length > 2 ? 100 : 140}px sans-serif`;
+  const fontSize = label.length > 2 ? 32 : label.length > 1 ? 42 : 56;
+  ctx.font = `bold ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, size / 2, size * 2 / 3);
+  ctx.fillText(label, size / 2, size / 2);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
@@ -152,7 +240,7 @@ function makeEdgeCylinder(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, radius: 
   const va = new THREE.Vector3(...a);
   const vb = new THREE.Vector3(...b);
   const height = va.distanceTo(vb);
-  const geo = new THREE.CylinderGeometry(radius, radius, height, 8, 1);
+  const geo = new THREE.CylinderGeometry(radius, radius, height, 4, 1);
 
   const tA = (a[1] - MIN_Y) / (MAX_Y - MIN_Y);
   const tB = (b[1] - MIN_Y) / (MAX_Y - MIN_Y);
@@ -183,10 +271,7 @@ function edgeTransform(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple): { pos: THR
 
 /* ── Component ── */
 
-export default function TrapezohedronDie({
-  rollTrigger, onResult, primary,
-  faceLabels,
-}: Props) {
+export default function ZocchihedronDie({ rollTrigger, onResult, primary }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const prevTrigger = useRef(rollTrigger);
   const hasReported = useRef(false);
@@ -195,7 +280,7 @@ export default function TrapezohedronDie({
   const spinStart = useRef(0);
   const spinAxis = useRef(new THREE.Vector3(1, 1, 0).normalize());
   const spinSpeed = useRef(8);
-  const targetFaceIdx = useRef(0);
+  const targetResult = useRef(0);
   const targetQuat = useRef(new THREE.Quaternion());
   const settleStartQuat = useRef(new THREE.Quaternion());
   const settleStart = useRef(0);
@@ -203,18 +288,17 @@ export default function TrapezohedronDie({
   const flashing = useRef(false);
   const flashStart = useRef(0);
 
-  const labels = faceLabels ?? FACE_VALUES.map(String);
-  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, 0.35)), [primary]);
+  const edgeBaseColor = useMemo(() => new THREE.Color(darken(primary, 0.3)), [primary]);
 
-  const faceMeshRefs = useRef<(THREE.Mesh | null)[]>(new Array(10).fill(null));
+  const faceMeshRefs = useRef<(THREE.Mesh | null)[]>(new Array(NUM_FACES).fill(null));
   const worldNormal = useRef(new THREE.Vector3());
 
   const faceData = useMemo(() =>
     FACES.map((verts, fi) => ({
-      geometry: makeFaceGeo(verts, NORMALS[fi]),
-      texture: makeFaceTexture(labels[fi], primary),
+      geometry: makeFaceGeo(verts, NORMALS[fi], CENTROIDS[fi], FACE_UP[fi]),
+      texture: makeFaceTexture(String(FACE_VALUES[fi]), primary),
     })),
-    [primary, labels],
+    [primary],
   );
 
   const edges = useMemo(() =>
@@ -225,7 +309,7 @@ export default function TrapezohedronDie({
     [edgeBaseColor],
   );
 
-  const sphereGeo = useMemo(() => new THREE.SphereGeometry(EDGE_RADIUS, 8, 8), []);
+  const sphereGeo = useMemo(() => new THREE.SphereGeometry(EDGE_RADIUS, 4, 4), []);
 
   // Roll trigger
   useEffect(() => {
@@ -251,8 +335,8 @@ export default function TrapezohedronDie({
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetFaceIdx.current = Math.floor(Math.random() * 10);
-    targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
+    targetResult.current = Math.floor(Math.random() * NUM_FACES) + 1;
+    targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
   }, [rollTrigger]);
 
   // Tint faces based on camera-facing direction + flash
@@ -270,7 +354,10 @@ export default function TrapezohedronDie({
       groupRef.current.scale.setScalar(scalePunch);
     }
 
-    for (let i = 0; i < 10; i++) {
+    const settled = hasReported.current && !spinning.current;
+    const resultFaceIdx = settled ? targetResult.current - 1 : -1;
+
+    for (let i = 0; i < NUM_FACES; i++) {
       const mesh = faceMeshRefs.current[i];
       if (!mesh) continue;
       worldNormal.current.copy(NORMALS[i]).applyQuaternion(groupRef.current.quaternion);
@@ -278,6 +365,9 @@ export default function TrapezohedronDie({
       let brightness = 0.55 + 0.45 * Math.max(0, dot);
       if (flash > 0) {
         brightness = brightness + (2.0 - brightness) * flash * 0.6;
+      }
+      if (settled && i !== resultFaceIdx) {
+        brightness *= 0.5;
       }
       (mesh.material as THREE.MeshBasicMaterial).color.setScalar(brightness);
     }
@@ -321,7 +411,7 @@ export default function TrapezohedronDie({
           hasReported.current = true;
           flashing.current = true;
           flashStart.current = performance.now() / 1000;
-          onResult(FACE_VALUES[targetFaceIdx.current]);
+          onResult(targetResult.current);
         }
       }
     }
