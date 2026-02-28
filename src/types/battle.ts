@@ -28,7 +28,7 @@ export interface FighterState {
 }
 
 /** Battle room statuses */
-export type RoomStatus = 'waiting' | 'ready' | 'battling' | 'finished';
+export type RoomStatus = 'configuring' | 'waiting' | 'ready' | 'battling' | 'finished';
 
 /** Who is viewing */
 export interface Viewer {
