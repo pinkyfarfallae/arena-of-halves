@@ -145,13 +145,3 @@
   35% { transform: scale(1.1) rotate(30deg); opacity: 0.9; }
   100% { transform: scale(0) rotate(50deg); opacity: 0; }
 }
-
-.dr__d20-loading {
-  width: 320px;
-  height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ci-muted, #ffffff);
-  font-size: 0.85rem;
-}
