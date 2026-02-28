@@ -1,0 +1,55 @@
+@use '../../../styles/variables' as *;
+
+.dr__loading {
+  width: 320px;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: dr-float 3s ease-in-out infinite;
+
+  &__shape {
+    width: 80px;
+    height: 80px;
+    border: 3px solid var(--ci-muted, rgba(255, 255, 255, 0.35));
+    border-radius: 6px;
+    transform: rotate(45deg);
+    animation: dr-loading-pulse 1.4s ease-in-out infinite;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border: 2px solid var(--ci-muted, rgba(255, 255, 255, 0.2));
+      border-radius: 3px;
+    }
+  }
+
+  /* ground shadow */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 35px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse,
+        color-mix(in srgb, var(--ci-fg, #000) 16%, transparent),
+        transparent 70%);
+  }
+}
+
+@keyframes dr-loading-pulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(45deg) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: rotate(45deg) scale(1.08);
+  }
+}

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { DieRendererProps } from '../types';
 import { useAuth } from '../../../hooks/useAuth';
+import LoadingDice from '../LoadingDice/LoadingDice';
 import './D6Die.scss';
 
 const D6Scene = lazy(() => import('./D6Scene'));
@@ -40,7 +41,7 @@ export default function D6Die({ rolling, onResult, onRollEnd, onClick }: DieRend
   };
 
   return (
-    <Suspense fallback={<div className="dr__d6-loading">Loading…</div>}>
+    <Suspense fallback={<LoadingDice />}>
       <div className="dr__d6-canvas">
         <D6Scene
           rollTrigger={rollTrigger}
