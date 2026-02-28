@@ -1,0 +1,292 @@
+@use '../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
+$crimson: #a0001b;
+
+.bhud {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  pointer-events: none;
+
+  > * {
+    pointer-events: all;
+  }
+}
+
+/* ── Top bar: round + turn info ── */
+.bhud__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba($gold, 0.15);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.bhud__round {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: $gold-dark;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.bhud__turn-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.bhud__attacker-name {
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: $ink;
+  white-space: nowrap;
+}
+
+.bhud__phase-label {
+  font-size: 0.55rem;
+  color: $ink-faint;
+}
+
+/* ── Target selection ── */
+.bhud__targets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.bhud__targets-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bhud__targets-list {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.bhud__target-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  background: rgba($gold, 0.06);
+  border: 1px solid rgba($gold, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    background: rgba($gold, 0.14);
+    border-color: rgba($gold, 0.3);
+    box-shadow: 0 0 12px rgba($gold, 0.15);
+  }
+}
+
+.bhud__target-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.bhud__target-initial {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba($gold, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink-faint;
+}
+
+.bhud__target-name {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: $ink;
+}
+
+.bhud__target-hp {
+  font-size: 0.45rem;
+  color: $ink-faint;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Resolve phase ── */
+.bhud__resolve {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba($crimson, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  box-shadow: 0 4px 20px rgba($crimson, 0.08);
+}
+
+.bhud__resolve-info {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bhud__resolve-atk {
+  font-weight: 700;
+  font-size: 0.6rem;
+  color: $ink;
+}
+
+.bhud__resolve-arrow {
+  color: $ink-faint;
+  font-size: 0.6rem;
+}
+
+.bhud__resolve-def {
+  font-weight: 700;
+  font-size: 0.6rem;
+  color: $ink;
+}
+
+.bhud__resolve-dmg {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: $crimson;
+  margin-left: 0.2rem;
+}
+
+.bhud__resolve-btn {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: #fff;
+  background: $gold-dark;
+  border: none;
+  border-radius: 5px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 0.15s;
+
+  &:hover {
+    background: $gold;
+  }
+}
+
+/* ── Waiting ── */
+.bhud__waiting {
+  text-align: center;
+  font-size: 0.6rem;
+  color: $ink-faint;
+  padding: 0.4rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  border: 1px solid rgba($gold, 0.1);
+}
+
+/* ── Winner ── */
+.bhud__winner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba($gold, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba($gold, 0.12);
+  text-align: center;
+}
+
+.bhud__winner-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $gold-dark;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.bhud__winner-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: $ink;
+}
+
+/* ── Battle log ── */
+.bhud__log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.bhud__log-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.45rem;
+  color: $ink-mid;
+  padding: 0.15rem 0.3rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
+
+.bhud__log-round {
+  font-weight: 700;
+  color: $gold-dark;
+  font-size: 0.4rem;
+}
+
+.bhud__log-ko {
+  font-weight: 800;
+  color: $crimson;
+  font-size: 0.42rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: $bp-medium) {
+  .bhud {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .bhud__bar {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .bhud__targets {
+    padding: 0.4rem 0.5rem;
+  }
+}

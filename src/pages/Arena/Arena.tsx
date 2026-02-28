@@ -9,8 +9,12 @@ import {
   leaveViewer,
   deleteRoom,
   toFighterState,
+  startBattle,
+  selectTarget,
+  resolveTurn,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
+import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import ChevronLeft from '../../icons/ChevronLeft';
 import './Arena.scss';
@@ -221,6 +225,20 @@ function Arena() {
   const teamBMembers = room.teamB?.members || [];
   const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
+  const battle = room.battle;
+  const isBattling = room.status === 'battling' || room.status === 'finished';
+
+  const handleStartBattle = async () => {
+    if (arenaId) await startBattle(arenaId);
+  };
+
+  const handleSelectTarget = async (defenderId: string) => {
+    if (arenaId) await selectTarget(arenaId, defenderId);
+  };
+
+  const handleResolveTurn = async () => {
+    if (arenaId) await resolveTurn(arenaId);
+  };
 
   return (
     <div className="arena">
@@ -285,7 +303,13 @@ function Arena() {
           className="arena__half arena__half--left"
           style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, 'left') : undefined}
         >
-          <TeamPanel members={teamAMembers} side="left" />
+          <TeamPanel
+            members={teamAMembers}
+            side="left"
+            battle={battle}
+            myId={user?.characterId}
+            onSelectTarget={handleSelectTarget}
+          />
         </div>
 
         <div className="arena__divider">
@@ -300,17 +324,40 @@ function Arena() {
           style={teamBMembers.length ? buildHalfStyle(teamBMembers, teamAMembers, 'right') : undefined}
         >
           {teamBMembers.length > 0 ? (
-            <TeamPanel members={teamBMembers} side="right" />
+            <TeamPanel
+              members={teamBMembers}
+              side="right"
+              battle={battle}
+              myId={user?.characterId}
+              onSelectTarget={handleSelectTarget}
+            />
           ) : (
             <div className="arena__empty-slot">
               <span>Awaiting Challenger…</span>
             </div>
           )}
         </div>
+
+        {/* Battle HUD overlay */}
+        {isBattling && battle && (
+          <BattleHUD
+            battle={battle}
+            teamA={teamAMembers}
+            teamB={teamBMembers}
+            myId={user?.characterId}
+            onSelectTarget={handleSelectTarget}
+            onResolve={handleResolveTurn}
+          />
+        )}
       </div>
 
       {/* ── Footer actions ── */}
       <div className="arena__actions">
+        {isCreator && room.status === 'ready' && (
+          <button className="arena__action-btn arena__action-btn--primary" onClick={handleStartBattle}>
+            Start Battle
+          </button>
+        )}
         {isCreator && room.status === 'waiting' && (
           <button className="arena__action-btn arena__action-btn--danger" onClick={handleClose}>
             Close Room

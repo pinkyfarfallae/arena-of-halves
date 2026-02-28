@@ -9,7 +9,16 @@ import './MemberChip.scss';
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
 
-export default function MemberChip({ fighter }: { fighter: FighterState }) {
+interface Props {
+  fighter: FighterState;
+  isAttacker?: boolean;
+  isDefender?: boolean;
+  isEliminated?: boolean;
+  isTargetable?: boolean;
+  onSelect?: () => void;
+}
+
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, onSelect }: Props) {
   const hpPct = Math.min((fighter.currentHp / fighter.maxHp) * 100, 100);
   const deityLabel = DEITY_DISPLAY_OVERRIDES[fighter.characterId] || fighter.deityBlood;
   const deityIcon = DEITY_SVG[deityLabel.toLowerCase()];
@@ -19,10 +28,20 @@ export default function MemberChip({ fighter }: { fighter: FighterState }) {
     .map((s) => powers.find((p) => p.status === s))
     .filter(Boolean);
 
+  const chipClass = [
+    'mchip',
+    isAttacker && 'mchip--attacker',
+    isDefender && 'mchip--defender',
+    isEliminated && 'mchip--eliminated',
+    isTargetable && 'mchip--targetable',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
-      className="mchip"
+      className={chipClass}
       style={{ '--chip-primary': fighter.theme[0], '--chip-accent': fighter.theme[1] } as React.CSSProperties}
+      onClick={isTargetable && onSelect ? onSelect : undefined}
+      role={isTargetable ? 'button' : undefined}
     >
       {/* Body — clips pattern, fades edges with gradient */}
       <div className="mchip__body">

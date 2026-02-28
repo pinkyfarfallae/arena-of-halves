@@ -449,6 +449,15 @@ $ink-faint: #9a8b76;
     &:hover { background: rgba($gold, 0.12); color: $ink; }
   }
 
+  &--primary {
+    background: linear-gradient(145deg, $gold, darken($gold, 8%));
+    color: #fff;
+    border: 1px solid rgba($gold-dark, 0.3);
+    box-shadow: 0 2px 8px rgba($gold, 0.2);
+
+    &:hover { background: linear-gradient(145deg, lighten($gold, 4%), $gold); }
+  }
+
   &--danger {
     background: $crimson-soft;
     color: $crimson-bright;

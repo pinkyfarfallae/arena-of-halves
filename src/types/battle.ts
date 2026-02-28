@@ -42,6 +42,46 @@ export interface Team {
   maxSize: number;
 }
 
+/* ── Battle / Turn system ── */
+
+/** A single entry in the SPD-sorted turn queue */
+export interface TurnQueueEntry {
+  characterId: string;
+  team: 'teamA' | 'teamB';
+  speed: number;
+}
+
+/** Phase within a single turn */
+export type TurnPhase = 'select-target' | 'resolving' | 'done';
+
+/** State of the current turn */
+export interface TurnState {
+  attackerId: string;
+  attackerTeam: 'teamA' | 'teamB';
+  defenderId?: string;
+  phase: TurnPhase;
+}
+
+/** A log entry for the battle feed */
+export interface BattleLogEntry {
+  round: number;
+  attackerId: string;
+  defenderId: string;
+  damage: number;
+  defenderHpAfter: number;
+  eliminated: boolean;
+}
+
+/** Full battle state stored alongside the room */
+export interface BattleState {
+  turnQueue: TurnQueueEntry[];
+  currentTurnIndex: number;
+  roundNumber: number;
+  turn?: TurnState;
+  log: BattleLogEntry[];
+  winner?: 'teamA' | 'teamB';
+}
+
 /** The battle room stored in Firebase */
 export interface BattleRoom {
   arenaId: string;
@@ -53,6 +93,8 @@ export interface BattleRoom {
   teamB: Team;
 
   viewers: Record<string, Viewer>;
+
+  battle?: BattleState;
 
   createdAt: number;
 }
