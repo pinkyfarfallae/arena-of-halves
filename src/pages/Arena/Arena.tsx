@@ -370,7 +370,7 @@ function Arena() {
 
         <div className="arena__divider">
           <div className="arena__vs-ring">
-            <span className="arena__vs">VS</span>
+            <span className="arena__vs">{battle?.roundNumber ? `R${battle.roundNumber}` : 'VS'}</span>
           </div>
         </div>
 

@@ -44,6 +44,24 @@ $ink-faint: #9a8b76;
         0 0 0 2px $crimson-bright,
         0 0 16px rgba($crimson-bright, 0.3);
     }
+
+    .mchip__bg {
+      filter: brightness(0.85);
+    }
+  }
+
+  &--spotlight {
+    .mchip__frame {
+      box-shadow:
+        0 0 0 2px var(--chip-primary, $gold),
+        0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
+        0 0 48px color-mix(in srgb, var(--chip-primary, $gold) 20%, transparent);
+      animation: spotlight-pulse 1.8s ease-in-out infinite;
+    }
+
+    .mchip__bg {
+      filter: brightness(1.15) contrast(1.05);
+    }
   }
 
   &--eliminated {
@@ -178,6 +196,38 @@ $ink-faint: #9a8b76;
   z-index: 3;
   opacity: 0.4;
   transition: opacity 0.2s;
+}
+
+/* ── Target crosshair badge ── */
+.mchip__target-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  z-index: 4;
+  opacity: 0.6;
+  color: $crimson-bright;
+  filter: drop-shadow(0 0 6px rgba($crimson-bright, 0.6));
+  animation: target-badge-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@keyframes target-badge-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 /* ── Full background image ── */
@@ -498,6 +548,22 @@ $ink-faint: #9a8b76;
     box-shadow:
       0 0 0 2px rgba($crimson-bright, 0.5),
       0 0 18px rgba($crimson-bright, 0.25);
+  }
+}
+
+/* ── Spotlight pulse animation ── */
+@keyframes spotlight-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px var(--chip-primary, $gold),
+      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
+      0 0 48px color-mix(in srgb, var(--chip-primary, $gold) 20%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2.5px var(--chip-primary, $gold),
+      0 0 32px color-mix(in srgb, var(--chip-primary, $gold) 55%, transparent),
+      0 0 64px color-mix(in srgb, var(--chip-primary, $gold) 30%, transparent);
   }
 }
 

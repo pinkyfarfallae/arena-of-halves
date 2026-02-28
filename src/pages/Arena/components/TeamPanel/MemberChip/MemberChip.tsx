@@ -15,10 +15,11 @@ interface Props {
   isDefender?: boolean;
   isEliminated?: boolean;
   isTargetable?: boolean;
+  isSpotlight?: boolean;
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, onSelect }: Props) {
   const hpPct = Math.min((fighter.currentHp / fighter.maxHp) * 100, 100);
   const deityLabel = DEITY_DISPLAY_OVERRIDES[fighter.characterId] || fighter.deityBlood;
   const deityIcon = DEITY_SVG[deityLabel.toLowerCase()];
@@ -34,6 +35,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     isDefender && 'mchip--defender',
     isEliminated && 'mchip--eliminated',
     isTargetable && 'mchip--targetable',
+    isSpotlight && 'mchip--spotlight',
   ].filter(Boolean).join(' ');
 
   return (
@@ -69,6 +71,19 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
 
         <div className="mchip__inner-border" />
+
+        {/* Target crosshair badge — shown when selected as defend target */}
+        {isDefender && (
+          <div className="mchip__target-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+            </svg>
+          </div>
+        )}
 
         <div className="mchip__overlay">
           <span className="mchip__name">{fighter.nicknameEng}</span>
