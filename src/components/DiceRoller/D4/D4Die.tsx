@@ -8,7 +8,7 @@ const D4Scene = lazy(() => import('./D4Scene'));
 
 const WINK_COUNT = 8;
 
-export default function D4Die({ rolling, onResult, onRollEnd, onClick }: DieRendererProps) {
+export default function D4Die({ rolling, onResult, onRollEnd, onClick, fixedResult, themeColors }: DieRendererProps) {
   const [rollTrigger, setRollTrigger] = useState(0);
   const [showWinks, setShowWinks] = useState(false);
   const winksFinished = useRef(0);
@@ -16,8 +16,8 @@ export default function D4Die({ rolling, onResult, onRollEnd, onClick }: DieRend
   const { user } = useAuth();
 
   // Character theme colors (index 0 = primary, index 18 = primary-dark)
-  const primary = user?.theme[0] ?? '#c0a062';
-  const primaryDark = user?.theme[18] ?? '#8a6d3b';
+  const primary = themeColors?.primary ?? user?.theme[0] ?? '#c0a062';
+  const primaryDark = themeColors?.primaryDark ?? user?.theme[18] ?? '#8a6d3b';
 
   useEffect(() => {
     if (rolling && !prevRolling.current) {
@@ -49,6 +49,7 @@ export default function D4Die({ rolling, onResult, onRollEnd, onClick }: DieRend
           onClick={onClick}
           primary={primary}
           primaryDark={primaryDark}
+          fixedResult={fixedResult}
         />
         {showWinks && Array.from({ length: WINK_COUNT }, (_, i) => (
           <div

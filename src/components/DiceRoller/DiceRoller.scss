@@ -248,6 +248,12 @@ $die-edge:       #c4b69e;
 /* ── Die wrapper + shimmer sweep ── */
 .dr__die-wrap {
   position: relative;
+
+  &--disabled,
+  &--disabled * {
+    cursor: default !important;
+    pointer-events: none !important;
+  }
 }
 
 

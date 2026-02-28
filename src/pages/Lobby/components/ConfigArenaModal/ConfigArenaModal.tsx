@@ -8,12 +8,14 @@ import './ConfigArenaModal.scss';
 
 interface Props {
   arenaId: string;
+  isDev?: boolean;
   onClose: () => void;
   onEnter: (arenaId: string) => void;
 }
 
-export default function ConfigArenaModal({ arenaId, onClose, onEnter }: Props) {
+export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: Props) {
   const [teamSize, setTeamSize] = useState(1);
+  const [testMode, setTestMode] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
@@ -46,6 +48,12 @@ export default function ConfigArenaModal({ arenaId, onClose, onEnter }: Props) {
   const handleEnter = async () => {
     await update(ref(db, `arenas/${arenaId}`), { status: 'waiting' });
     onEnter(arenaId);
+  };
+
+  const handleTestMode = async () => {
+    const next = !testMode;
+    setTestMode(next);
+    await update(ref(db, `arenas/${arenaId}`), { testMode: next || null });
   };
 
   const handleTeamSize = async (size: number) => {
@@ -102,6 +110,15 @@ export default function ConfigArenaModal({ arenaId, onClose, onEnter }: Props) {
             </button>
           ))}
         </div>
+
+        {isDev && (
+          <button
+            className={`cam__btn cam__btn--test ${testMode ? 'cam__btn--test-active' : ''}`}
+            onClick={handleTestMode}
+          >
+            {testMode ? 'Testing Mode: ON' : 'Testing Mode'}
+          </button>
+        )}
 
         <button
           className="cam__btn cam__btn--enter"

@@ -7,6 +7,7 @@ interface Props {
   onResult: (result: number) => void;
   primary: string;
   primaryDark: string;
+  fixedResult?: number;
 }
 
 const FACE_RESULTS = [1, 2, 3, 4];
@@ -182,9 +183,9 @@ const TARGET_QUATS = FACES.map((verts, fi) => {
   return new THREE.Quaternion().setFromRotationMatrix(m);
 });
 
-export default function TetrahedronDie({ rollTrigger, onResult, primary, primaryDark }: Props) {
+export default function TetrahedronDie({ rollTrigger, onResult, primary, primaryDark, fixedResult }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const prevTrigger = useRef(rollTrigger);
+  const prevTrigger = useRef(0);
   const hasReported = useRef(false);
 
   const spinning = useRef(false);
@@ -248,7 +249,7 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = Math.floor(Math.random() * 4) + 1;
+    targetResult.current = fixedResult ?? (Math.floor(Math.random() * 4) + 1);
     const faceIndex = FACE_RESULTS.indexOf(targetResult.current);
     targetQuat.current.copy(TARGET_QUATS[faceIndex]);
   }, [rollTrigger]);

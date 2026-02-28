@@ -184,7 +184,7 @@ function edgeTransform(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple): { pos: THR
 
 export default function OctahedronDie({ rollTrigger, onResult, primary, primaryDark }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const prevTrigger = useRef(rollTrigger);
+  const prevTrigger = useRef(0);
   const hasReported = useRef(false);
 
   const spinning = useRef(false);
