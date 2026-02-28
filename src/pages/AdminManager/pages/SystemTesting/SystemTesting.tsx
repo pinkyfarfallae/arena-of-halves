@@ -5,8 +5,31 @@ import Close from '../../../../icons/Close';
 import './SystemTesting.scss';
 
 const SYSTEMS = [
-  { path: 'dice', label: 'Dice Roller', desc: 'Roll d4 / d6 / d8 / d10 / d12 / d20 / d100' },
-  { path: 'iris-message', label: 'Iris Wish', desc: 'Toss a drachma and receive a divine blessing' },
+  {
+    path: 'dice',
+    label: 'Dice Roller',
+    icon: (
+      <svg viewBox="0 0 48 48" fill="none" className="st__icon">
+        <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="2.5" />
+        <circle cx="16.5" cy="16.5" r="2.5" fill="currentColor" />
+        <circle cx="31.5" cy="16.5" r="2.5" fill="currentColor" />
+        <circle cx="24" cy="24" r="2.5" fill="currentColor" />
+        <circle cx="16.5" cy="31.5" r="2.5" fill="currentColor" />
+        <circle cx="31.5" cy="31.5" r="2.5" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    path: 'iris-message',
+    label: 'Iris Wish',
+    icon: (
+      <svg viewBox="0 0 48 48" fill="none" className="st__icon">
+        <circle cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="2.5" />
+        <circle cx="24" cy="24" r="11" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+        <path d="M24 10v28M16 14l16 20M32 14L16 34" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 export default function SystemTesting() {
@@ -15,12 +38,12 @@ export default function SystemTesting() {
   return (
     <div className="st">
       <h2 className="st__title">System Testing</h2>
-      <p className="st__desc">Select a system to test</p>
+
       <div className="st__grid">
         {SYSTEMS.map(s => (
           <button key={s.path} className="st__card" onClick={() => navigate(`/admin/testing/${s.path}`)}>
+            <div className="st__card-icon">{s.icon}</div>
             <span className="st__card-label">{s.label}</span>
-            <span className="st__card-desc">{s.desc}</span>
           </button>
         ))}
       </div>

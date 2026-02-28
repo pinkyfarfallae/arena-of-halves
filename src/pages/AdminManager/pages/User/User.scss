@@ -23,6 +23,7 @@
   font-size: 0.8rem;
   color: var(--ci-muted, #888);
   line-height: 1.45;
+  white-space: nowrap;
 }
 
 /* ── Section header (title + action button) ── */
@@ -55,6 +56,17 @@
 
   &:hover {
     background: color-mix(in srgb, var(--ci-primary, #c0a062) 90%, transparent);
+  }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0;
+    aspect-ratio: 1/1;
+    max-height: 28.8px;
+    min-height: 28.8px;
+    padding: 0;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
   }
 }
 
