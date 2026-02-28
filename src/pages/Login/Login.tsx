@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import Omega from './icons/Omega';
+import Lightning from '../../icons/Lightning';
+import Warning from './icons/Warning';
+import Swords from '../../icons/Swords';
 import './Login.scss';
 
 const BG_ELEMENTS = (
@@ -56,7 +60,7 @@ function Login() {
       <div className="login">
         {BG_ELEMENTS}
         <div className="login__card">
-          <div className="login__omega">&#937;</div>
+          <div className="login__omega"><Omega width={28} height={28} /></div>
           <h1 className="login__title">Welcome, Half-Blood</h1>
           <p className="login__subtitle">Signed in as <strong>{user?.characterId}</strong></p>
 
@@ -64,7 +68,7 @@ function Login() {
             Leave Camp
           </button>
 
-          <p className="login__footer">&#x26A1; Safe travels, demigod &#x26A1;</p>
+          <p className="login__footer"><Lightning width={12} height={12} /> Safe travels, demigod <Lightning width={12} height={12} /></p>
         </div>
       </div>
     );
@@ -75,7 +79,7 @@ function Login() {
       {BG_ELEMENTS}
 
       <div className={`login__card ${shake ? 'login__card--shake' : ''}`}>
-        <div className="login__omega">&#937;</div>
+        <div className="login__omega"><Omega width={28} height={28} /></div>
 
         <h1 className="login__title">Camp Half-Blood</h1>
         <p className="login__subtitle">Identify yourself, demigod</p>
@@ -107,14 +111,14 @@ function Login() {
             />
           </div>
 
-          {error && <p className="login__error">&#x26A0; {error}</p>}
+          {error && <p className="login__error"><Warning width={14} height={14} /> {error}</p>}
 
           <button type="submit" className="login__btn">
-            Enter Camp &#x2694;
+            Enter Camp <Swords width={14} height={14} />
           </button>
         </form>
 
-        <p className="login__footer">&#x26A1; Arena of Halves &#x26A1;</p>
+        <p className="login__footer"><Lightning width={12} height={12} /> Arena of Halves <Lightning width={12} height={12} /></p>
       </div>
     </div>
   );

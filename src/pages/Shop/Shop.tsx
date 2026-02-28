@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import Drachma from '../../icons/Drachma';
 import { ShopItem, CartItem, fetchShopItems } from './shopData';
 import CheckoutModal from './components/CheckoutModal/CheckoutModal';
-import ChevronLeft from './icons/ChevronLeft';
+import ChevronLeft from '../../icons/ChevronLeft';
 import Caduceus from './icons/Caduceus';
 import Cart from './icons/Cart';
 import SearchIcon from '../../icons/Search';
@@ -199,7 +199,7 @@ function Shop() {
                             </button>
                           )}
                           <div className="item__row">
-                            <h3 className="item__name">{item.name}</h3>
+                            <h3 className="item__name">{item.name.replace(/\\n/g, '\n')}</h3>
                           </div>
                           <div className="item__price">{item.price.toFixed(0)} <Drachma /></div>
                           {cart.find(c => c.itemId === item.itemId) ? (
