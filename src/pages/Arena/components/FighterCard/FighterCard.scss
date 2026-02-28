@@ -1,0 +1,245 @@
+/* ══════════════════════════════════════
+   FIGHTER CARD — Dark Colosseum
+   ══════════════════════════════════════ */
+
+$crimson: #c41e3a;
+$blood: #8b0000;
+$gold: #c0a062;
+$gold-dim: rgba(192, 160, 98, 0.45);
+$ivory: #e8dcc8;
+$ivory-mid: rgba(232, 220, 200, 0.65);
+$ivory-faint: rgba(232, 220, 200, 0.30);
+
+.fcard {
+  width: 100%;
+  max-width: 320px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: rgba(10, 8, 6, 0.85);
+  border: 1px solid color-mix(in srgb, var(--ci-primary) 25%, transparent);
+  border-radius: 12px;
+  position: relative;
+  animation: fcard-border-pulse 3s ease-in-out infinite;
+
+  /* ── Header (avatar + name) ── */
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  &__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid color-mix(in srgb, var(--ci-primary) 40%, transparent);
+    flex-shrink: 0;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--ci-primary) 20%, transparent);
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in srgb, var(--ci-primary) 18%, transparent);
+      color: $ivory;
+      font-family: 'Cinzel', serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+    }
+  }
+
+  &__name-group {
+    text-align: left;
+    min-width: 0;
+  }
+
+  &__name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: $ivory;
+    margin: 0;
+    line-height: 1.2;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--ci-primary) 35%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__deity {
+    font-family: 'Philosopher', sans-serif;
+    font-size: 0.7rem;
+    color: $gold-dim;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── HP Bar ── */
+  &__hp {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__hp-track {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  &__hp-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, $blood, $crimson 60%, #e63050);
+    box-shadow: 0 0 8px rgba($crimson, 0.5);
+    transition: width 0.6s ease;
+  }
+
+  &__hp-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: $ivory-mid;
+    white-space: nowrap;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ── Combat Stats Grid ── */
+  &__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 0.3rem 0.45rem;
+    min-width: 44px;
+  }
+
+  &__stat-val {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: $gold;
+    line-height: 1.1;
+  }
+
+  &__stat-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.48rem;
+    font-weight: 600;
+    color: $gold-dim;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Skill Points ── */
+  &__skill-points {
+    display: flex;
+    gap: 0.35rem;
+    justify-content: center;
+  }
+
+  &__sp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    flex: 1;
+  }
+
+  &__sp-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.42rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: $gold-dim;
+    letter-spacing: 0.06em;
+  }
+
+  &__sp-val {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    color: $gold;
+  }
+
+  /* ── Powers list ── */
+  &__powers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  &__power {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 0.3rem 0.55rem;
+  }
+
+  &__power-icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  &__power-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    min-width: 0;
+  }
+
+  &__power-tag {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.42rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: $gold-dim;
+    letter-spacing: 0.06em;
+  }
+
+  &__power-name {
+    font-family: 'Philosopher', sans-serif;
+    font-size: 0.75rem;
+    color: $ivory-mid;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ── Pulsing border glow ── */
+@keyframes fcard-border-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--ci-primary) 12%, transparent),
+      inset 0 0 8px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 20px color-mix(in srgb, var(--ci-primary) 22%, transparent),
+      0 0 40px color-mix(in srgb, var(--ci-primary) 8%, transparent),
+      inset 0 0 8px rgba(0, 0, 0, 0.3);
+  }
+}

@@ -10,6 +10,8 @@ import IrisMessage from './pages/IrisMessage/IrisMessage';
 import Shop from './pages/Shop/Shop';
 import Forge from './pages/Forge/Forge';
 import AdminManager from './pages/AdminManager/AdminManager';
+import Lobby from './pages/Lobby/Lobby';
+import Arena from './pages/Arena/Arena';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -71,6 +73,8 @@ function AppRoutes() {
           <Route path="/iris-message" element={<IrisMessage />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/craft-forge" element={<Forge />} />
+          <Route path="/arena" element={<Lobby />} />
+          <Route path="/arena/:arenaId" element={<Arena />} />
           <Route path="/admin/*" element={<AdminManager />} />
           <Route path="/character/:id" element={<CharacterInfo />} />
           <Route path="*" element={<Navigate to="/" replace />} />
