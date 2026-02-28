@@ -504,7 +504,7 @@ $ink-faint: #9a8b76;
   background: color-mix(in srgb, var(--chip-primary, $gold) 5%, transparent);
   border: 1px solid color-mix(in srgb, var(--chip-primary, $gold) 10%, transparent);
   border-radius: 5px;
-  padding: 0.15rem 0.35rem;
+  padding: 0.35rem;
 }
 
 .mchip__power-icon {

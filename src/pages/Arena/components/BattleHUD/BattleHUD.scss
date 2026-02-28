@@ -438,7 +438,64 @@ $crimson-bright: #c41e3a;
   border: 1px solid rgba($gold, 0.1);
 }
 
-/* ── Winner ── */
+/* ── Result badges (winner / loser) ── */
+.bhud__result-badge {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.2rem 1.5rem;
+  text-align: center;
+  opacity: 0.5;
+  backdrop-filter: blur(16px);
+  animation: bhud-scale-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  &--winner {
+    .bhud__result-icon {
+      color: $gold;
+    }
+
+    .bhud__result-label {
+      color: $gold-dark;
+    }
+  }
+
+  &--loser {
+
+    .bhud__result-icon {
+      color: $ink-faint;
+    }
+
+    .bhud__result-label {
+      color: $ink-faint;
+    }
+  }
+}
+
+.bhud__result-icon {
+  width: 50%;
+  height: 50%;
+}
+
+.bhud__result-label {
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.bhud__result-names {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: $ink-mid;
+}
+
+/* ── Winner bottom bar ── */
 .bhud__winner {
   display: flex;
   flex-direction: column;

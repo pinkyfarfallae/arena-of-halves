@@ -2,6 +2,8 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../constants/theme';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
+import Crown from './icons/Crown';
+import Skull from './icons/Skull';
 import './BattleHUD.scss';
 
 interface Props {
@@ -96,13 +98,39 @@ export default function BattleHUD({
 
   /* ── Winner ── */
   if (winner) {
-    const winTeam = winner === 'teamA' ? teamA : teamB;
-    const winNames = winTeam.map((f) => f.nicknameEng).join(' & ');
+    const isTeamAWinner = winner === 'teamA';
+    const winTeam = isTeamAWinner ? teamA : teamB;
+    const loseTeam = isTeamAWinner ? teamB : teamA;
+    const winSide = isTeamAWinner ? 'left' : 'right';
+    const loseSide = isTeamAWinner ? 'right' : 'left';
+    const winNames = [...winTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
+    const loseNames = [...loseTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
+
     return (
       <div className="bhud">
+        {/* Side result icons */}
+        <div className={`bhud__dice-zone bhud__dice-zone--${winSide}`}>
+          <div className="bhud__result-badge bhud__result-badge--winner">
+            <Crown className="bhud__result-icon" />
+            <span className="bhud__result-label">Victory</span>
+            <div className="bhud__result-names">
+              {winNames.map((name) => <span key={name}>{name}</span>)}
+            </div>
+          </div>
+        </div>
+        <div className={`bhud__dice-zone bhud__dice-zone--${loseSide}`}>
+          <div className="bhud__result-badge bhud__result-badge--loser">
+            <Skull className="bhud__result-icon" />
+            <span className="bhud__result-label">Defeat</span>
+            <div className="bhud__result-names">
+              {loseNames.map((name) => <span key={name}>{name}</span>)}
+            </div>
+          </div>
+        </div>
+        {/* Bottom winner bar */}
         <div className="bhud__winner">
           <span className="bhud__winner-label">Victory</span>
-          <span className="bhud__winner-name">{winNames}</span>
+          <span className="bhud__winner-name">{winNames.join(' & ')}</span>
         </div>
       </div>
     );
