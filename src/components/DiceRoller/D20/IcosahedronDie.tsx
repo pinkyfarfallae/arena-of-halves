@@ -314,7 +314,7 @@ export default function IcosahedronDie({ rollTrigger, onResult, primary }: Props
       flash = 1 - ft;
       if (ft >= 1) flashing.current = false;
 
-      const scalePunch = 1 + 0.15 * Math.sin(ft * Math.PI);
+      const scalePunch = 1 + 0.08 * Math.sin(ft * Math.PI);
       groupRef.current.scale.setScalar(scalePunch);
     }
 

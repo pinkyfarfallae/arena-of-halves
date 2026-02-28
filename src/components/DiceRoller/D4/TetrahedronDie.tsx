@@ -266,7 +266,7 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
       if (ft >= 1) flashing.current = false;
 
       // Scale punch: 1 → 1.15 → 1 (quick pop out then back)
-      const scalePunch = 1 + 0.15 * Math.sin(ft * Math.PI);
+      const scalePunch = 1 + 0.08 * Math.sin(ft * Math.PI);
       groupRef.current.scale.setScalar(scalePunch);
     }
 
