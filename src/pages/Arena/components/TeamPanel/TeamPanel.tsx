@@ -47,6 +47,9 @@ export default function TeamPanel({ members, side, battle, myId, onSelectTarget 
         const isDefender = turn?.defenderId === m.characterId;
         const isEliminated = m.currentHp <= 0;
         const isTargetable = !!(canSelectTarget && !isEliminated);
+        const isSpotlight =
+          (isAttacker && (turn?.phase === 'select-target' || turn?.phase === 'rolling-attack')) ||
+          (isDefender && turn?.phase === 'rolling-defend');
 
         return (
           <MemberChip
@@ -56,6 +59,7 @@ export default function TeamPanel({ members, side, battle, myId, onSelectTarget 
             isDefender={isDefender}
             isEliminated={isEliminated}
             isTargetable={isTargetable}
+            isSpotlight={!!isSpotlight}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
           />
         );
