@@ -5,6 +5,7 @@ export interface FighterState {
   characterId: string;
   nicknameEng: string;
   nicknameThai: string;
+  sex: string;
   deityBlood: string;
   image?: string;
   theme: Theme25;

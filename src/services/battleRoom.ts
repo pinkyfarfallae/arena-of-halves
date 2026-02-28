@@ -24,6 +24,7 @@ export function toFighterState(character: Character, powers: Power[]): FighterSt
     characterId: character.characterId,
     nicknameEng: character.nicknameEng,
     nicknameThai: character.nicknameThai,
+    sex: character.sex,
     deityBlood: character.deityBlood,
     image: character.image,
     theme: character.theme,
