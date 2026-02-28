@@ -10,26 +10,24 @@ import {
   deleteRoom,
   toFighterState,
 } from '../../services/battleRoom';
-import type { BattleRoom } from '../../types/battle';
-import { applyTheme } from '../../App';
-import FighterCard from './components/FighterCard/FighterCard';
+import type { BattleRoom, FighterState } from '../../types/battle';
+import TeamPanel from './components/TeamPanel/TeamPanel';
 import ChevronLeft from '../../icons/ChevronLeft';
 import './Arena.scss';
 
 type Role = 'teamA' | 'teamB' | 'viewer';
 
-/* ── Atmospheric background ── */
-const ATMOS = (
+/* ── Decorative elements ── */
+const DECOR = (
   <>
-    <div className="arena__stars" />
-    <div className="arena__stars arena__stars--mid" />
-    <div className="arena__embers">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <span key={i} className="arena__ember" />
-      ))}
-    </div>
-    <div className="arena__mist" />
-    <div className="arena__mist arena__mist--reverse" />
+    <div className="arena__corner arena__corner--tl" />
+    <div className="arena__corner arena__corner--tr" />
+    <div className="arena__corner arena__corner--bl" />
+    <div className="arena__corner arena__corner--br" />
+    <div className="arena__diamond arena__diamond--tl" />
+    <div className="arena__diamond arena__diamond--bl" />
+    <div className="arena__diamond arena__diamond--ml" />
+    <div className="arena__diamond arena__diamond--mr" />
   </>
 );
 
@@ -54,6 +52,36 @@ const CheckIcon = () => (
   </svg>
 );
 
+/* ── Build gradient background from all members' theme colors ── */
+function buildHalfStyle(
+  members: FighterState[],
+  otherMembers: FighterState[],
+  side: 'left' | 'right',
+): React.CSSProperties {
+  const primaries = members.map((m) => m.theme[0]);
+  const otherPrimaries = otherMembers.map((m) => m.theme[0]);
+
+  // Same-theme detection: all primaries match across both sides
+  const allSame =
+    primaries.length > 0 &&
+    otherPrimaries.length > 0 &&
+    primaries.every((c) => otherPrimaries.includes(c)) &&
+    otherPrimaries.every((c) => primaries.includes(c));
+
+  const opacity = allSame ? (side === 'left' ? 18 : 8) : 14;
+
+  const stops = primaries.map(
+    (c) => `color-mix(in srgb, ${c} ${opacity}%, transparent)`,
+  );
+
+  const bg =
+    stops.length === 1
+      ? stops[0]
+      : `linear-gradient(to bottom, ${stops.join(', ')})`;
+
+  return { background: bg } as React.CSSProperties;
+}
+
 function Arena() {
   const { arenaId } = useParams<{ arenaId: string }>();
   const [searchParams] = useSearchParams();
@@ -66,6 +94,7 @@ function Arena() {
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -151,7 +180,8 @@ function Arena() {
     const text = type === 'code' ? (arenaId || '') : viewerLink;
     await navigator.clipboard.writeText(text);
     setCopied(type);
-    setTimeout(() => setCopied(null), 2000);
+    setToast(type === 'code' ? 'Room code copied!' : 'Viewer link copied!');
+    setTimeout(() => { setCopied(null); setToast(null); }, 2000);
   };
 
   /* ── Close room (teamA creator only) ────────── */
@@ -166,7 +196,7 @@ function Arena() {
   if (error) {
     return (
       <div className="arena">
-        {ATMOS}
+        {DECOR}
         <div className="arena__state">
           <p className="arena__state-msg">{error}</p>
           <Link to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</Link>
@@ -178,7 +208,7 @@ function Arena() {
   if (!room) {
     return (
       <div className="arena">
-        {ATMOS}
+        {DECOR}
         <div className="arena__state">
           <div className="arena__state-loader"><div className="app-loader__ring" /></div>
         </div>
@@ -194,7 +224,14 @@ function Arena() {
 
   return (
     <div className="arena">
-      {ATMOS}
+      {DECOR}
+
+      {/* ── Toast notification ── */}
+      {toast && (
+        <div className="arena__toast" key={toast}>
+          <CheckIcon /> {toast}
+        </div>
+      )}
 
       {/* ── Top bar ── */}
       <header className="arena__bar">
@@ -205,12 +242,7 @@ function Arena() {
 
         <div className="arena__bar-title">
           <span className="arena__bar-name">{room.roomName}</span>
-          <span className="arena__bar-code">{room.arenaId}</span>
         </div>
-
-        <span className={`arena__bar-status arena__bar-status--${room.status}`}>
-          {room.status}
-        </span>
 
         <span className="arena__bar-spacer" />
 
@@ -230,22 +262,20 @@ function Arena() {
           <button
             className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
             onClick={() => handleCopy('code')}
-            title="Copy room code"
+            data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
+            data-tooltip-pos="bottom"
           >
             {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
           </button>
           <button
             className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
             onClick={() => handleCopy('link')}
-            title="Copy viewer link"
+            data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+            data-tooltip-pos="bottom"
           >
             {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
           </button>
         </div>
-
-        {room.status === 'waiting' && isCreator && (
-          <span className="arena__bar-hint">Awaiting challenger…</span>
-        )}
       </header>
 
       {/* ── Battle field ── */}
@@ -253,11 +283,9 @@ function Arena() {
         {/* Team A */}
         <div
           className="arena__half arena__half--left"
-          style={teamAMembers[0] ? applyTheme(teamAMembers[0].theme) : undefined}
+          style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, 'left') : undefined}
         >
-          {teamAMembers.map((f) => (
-            <FighterCard key={f.characterId} fighter={f} side="left" />
-          ))}
+          <TeamPanel members={teamAMembers} side="left" />
         </div>
 
         <div className="arena__divider">
@@ -269,12 +297,10 @@ function Arena() {
         {/* Team B */}
         <div
           className={`arena__half arena__half--right ${!teamBFull ? 'arena__half--empty' : ''}`}
-          style={teamBMembers[0] ? applyTheme(teamBMembers[0].theme) : undefined}
+          style={teamBMembers.length ? buildHalfStyle(teamBMembers, teamAMembers, 'right') : undefined}
         >
           {teamBMembers.length > 0 ? (
-            teamBMembers.map((f) => (
-              <FighterCard key={f.characterId} fighter={f} side="right" />
-            ))
+            <TeamPanel members={teamBMembers} side="right" />
           ) : (
             <div className="arena__empty-slot">
               <span>Awaiting Challenger…</span>

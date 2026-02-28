@@ -87,7 +87,7 @@ export async function createRoom(
   const room: BattleRoom = {
     arenaId,
     roomName,
-    status: 'waiting',
+    status: 'configuring',
     teamSize: size,
     teamA: { members: [fighter], maxSize: size },
     teamB: { members: [], maxSize: size },
@@ -166,7 +166,9 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
       return;
     }
     const data = snap.val() as Record<string, BattleRoom>;
-    const rooms = Object.values(data).sort((a, b) => b.createdAt - a.createdAt);
+    const rooms = Object.values(data)
+      .filter((r) => r.status !== 'configuring')
+      .sort((a, b) => b.createdAt - a.createdAt);
     callback(rooms);
   });
 

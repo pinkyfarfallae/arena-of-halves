@@ -9,6 +9,7 @@ import ChevronLeft from '../../icons/ChevronLeft';
 import ArrowRight from './icons/ArrowRight';
 import AresHelmet from './icons/AresHelmet';
 import Colosseum from './icons/Colosseum';
+import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -33,9 +34,10 @@ function Lobby() {
 
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
+  const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onRoomsList(setActiveRooms);
@@ -44,17 +46,17 @@ function Lobby() {
 
   const handleCreate = async () => {
     if (!user) return;
-    setLoading(true);
+    setLoading('create');
     setError('');
     try {
       const powers = await fetchPowers(user.deityBlood);
       const fighter = toFighterState(user, powers);
       const arenaId = await createRoom(fighter, roomName || undefined);
-      navigate(arenaId);
+      setCreatedArenaId(arenaId);
     } catch {
       setError('Failed to create room. Try again.');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -63,7 +65,7 @@ function Lobby() {
       setError('Enter a room code.');
       return;
     }
-    setLoading(true);
+    setLoading('join');
     setError('');
     try {
       const code = joinCode.trim().toUpperCase();
@@ -76,7 +78,7 @@ function Lobby() {
     } catch {
       setError('Failed to join room. Try again.');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -150,15 +152,15 @@ function Lobby() {
                     maxLength={40}
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
-                    disabled={loading}
+                    disabled={!!loading}
                   />
                 </div>
                 <button
                   className="lobby__btn lobby__btn--create"
                   onClick={handleCreate}
-                  disabled={loading}
+                  disabled={!!loading}
                 >
-                  {loading ? 'Creating...' : 'Create Room'}
+                  {loading === 'create' ? 'Creating...' : 'Create Room'}
                 </button>
               </div>
 
@@ -186,15 +188,15 @@ function Lobby() {
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                    disabled={loading}
+                    disabled={!!loading}
                   />
                 </div>
                 <button
                   className="lobby__btn lobby__btn--join"
                   onClick={handleJoin}
-                  disabled={loading || !joinCode.trim()}
+                  disabled={!!loading || !joinCode.trim()}
                 >
-                  {loading ? 'Joining...' : 'Join Room'}
+                  {loading === 'join' ? 'Joining...' : 'Join Room'}
                 </button>
               </div>
             </div>
@@ -243,6 +245,14 @@ function Lobby() {
           </div>
         </div>
       </div>
+
+      {createdArenaId && (
+        <ConfigArenaModal
+          arenaId={createdArenaId}
+          onClose={() => setCreatedArenaId(null)}
+          onEnter={(id) => navigate(id)}
+        />
+      )}
     </div>
   );
 }

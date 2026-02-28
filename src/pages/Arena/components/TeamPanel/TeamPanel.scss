@@ -1,0 +1,25 @@
+@use '../../../../styles/variables' as *;
+
+/* ══════════════════════════════════════
+   TEAM PANEL — container for member chips
+   ══════════════════════════════════════ */
+
+.team-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: $bp-medium) {
+  .team-panel {
+    gap: 0.4rem;
+    padding: 0.45rem 0.5rem;
+  }
+}

@@ -1,19 +1,26 @@
 @use '../../styles/variables' as *;
 
 /* ══════════════════════════════════════
-   THE ARENA — Dark Colosseum
+   THE ARENA — Sunlit Colosseum
    ══════════════════════════════════════ */
 
-// Palette
-$crimson: #c41e3a;
-$crimson-glow: rgba(196, 30, 58, 0.6);
-$blood: #8b0000;
-$gold: #c0a062;
-$gold-dim: rgba(192, 160, 98, 0.25);
-$gold-border: rgba(192, 160, 98, 0.18);
-$ivory: #e8dcc8;
-$ivory-mid: rgba(232, 220, 200, 0.65);
-$ivory-faint: rgba(232, 220, 200, 0.30);
+// Palette — warm sandstone light theme (matches Lobby)
+$sand: #f5ece0;
+$sand-warm: #ede2d2;
+$sand-deep: #ddd0bc;
+$stone: #c4b49a;
+$stone-dark: #a89878;
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$gold-light: #e2d1a0;
+$gold-pale: rgba(201, 168, 76, 0.08);
+$gold-border: rgba(201, 168, 76, 0.25);
+$crimson: #a0001b;
+$crimson-bright: #c41e3a;
+$crimson-soft: rgba(196, 30, 58, 0.06);
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
 
 /* ── Page ── */
 .arena {
@@ -23,11 +30,46 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 100%, rgba($blood, 0.12) 0%, transparent 55%),
-    radial-gradient(ellipse at 20% 0%, #0f1a2e 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 10%, #1a0f2e 0%, transparent 50%),
-    linear-gradient(to bottom, #05080f 0%, #0a0f1a 40%, #12100d 100%);
+  background: radial-gradient(ellipse at 50% -10%, #faf4ea 0%, $sand 50%, $sand-warm 100%);
+
+  // Stone block texture
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      repeating-linear-gradient(0deg,
+        transparent, transparent 80px,
+        rgba(160, 140, 110, 0.06) 80px,
+        rgba(255, 255, 255, 0.06) 81px,
+        transparent 81px, transparent 82px),
+      repeating-linear-gradient(90deg,
+        transparent, transparent 120px,
+        rgba(160, 140, 110, 0.04) 120px,
+        rgba(255, 255, 255, 0.04) 121px,
+        transparent 121px, transparent 240px),
+      repeating-linear-gradient(-25deg,
+        transparent, transparent 40px,
+        rgba(180, 160, 130, 0.025) 40px,
+        rgba(255, 255, 255, 0.025) 41px,
+        transparent 41px, transparent 100px);
+  }
+
+  // Warm golden glow from top center
+  &::after {
+    content: '';
+    position: absolute;
+    top: -15%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    height: 45%;
+    background: radial-gradient(ellipse, rgba($gold, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
 
   @media (max-width: $bp-medium) {
     height: calc(100vh - #{$topbar-height});
@@ -35,91 +77,101 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 }
 
 /* ══════════════════════════════════════
-   ATMOSPHERIC LAYERS
+   DECORATIVE ELEMENTS
    ══════════════════════════════════════ */
 
-.arena__stars {
+// Corner ornaments — L-shaped gold marks
+.arena__corner {
   position: absolute;
-  inset: 0;
+  width: 26px;
+  height: 26px;
   pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(1px 1px at 10% 15%, rgba(255, 200, 200, 0.5), transparent),
-    radial-gradient(1px 1px at 25% 35%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1.5px 1.5px at 40% 8%, rgba(255, 220, 220, 0.6), transparent),
-    radial-gradient(1px 1px at 55% 42%, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1px 1px at 65% 18%, rgba(255, 200, 200, 0.5), transparent),
-    radial-gradient(1.5px 1.5px at 78% 52%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 88% 28%, rgba(255, 220, 220, 0.55), transparent),
-    radial-gradient(1px 1px at 15% 62%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1.5px 1.5px at 35% 78%, rgba(255, 200, 200, 0.45), transparent),
-    radial-gradient(1px 1px at 72% 72%, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1px 1px at 92% 85%, rgba(255, 220, 220, 0.4), transparent),
-    radial-gradient(1px 1px at 82% 5%, rgba(255, 200, 200, 0.5), transparent);
-  animation: arena-twinkle 4s ease-in-out infinite alternate;
+  z-index: 3;
 
-  &--mid {
-    opacity: 0.5;
-    background-image:
-      radial-gradient(1px 1px at 12% 28%, rgba(200, 180, 180, 0.5), transparent),
-      radial-gradient(1.5px 1.5px at 30% 12%, rgba(200, 180, 180, 0.4), transparent),
-      radial-gradient(1px 1px at 58% 65%, rgba(255, 200, 160, 0.5), transparent),
-      radial-gradient(1px 1px at 75% 38%, rgba(200, 180, 180, 0.6), transparent),
-      radial-gradient(1px 1px at 42% 92%, rgba(255, 200, 160, 0.4), transparent),
-      radial-gradient(1px 1px at 20% 75%, rgba(200, 180, 180, 0.5), transparent);
-    animation: arena-twinkle 6s ease-in-out 1s infinite alternate;
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: $gold;
+    opacity: 0.4;
+  }
+
+  &::before {
+    height: 2px;
+    width: 100%;
+    top: 0;
+  }
+
+  &::after {
+    width: 2px;
+    height: 100%;
+    left: 0;
+  }
+
+  &--tl { top: 0.6rem; left: 2.25rem; }
+
+  &--tr {
+    top: 0.6rem;
+    right: 2.25rem;
+    &::before { right: 0; left: auto; }
+    &::after { right: 0; left: auto; }
+  }
+
+  &--bl {
+    bottom: 0.6rem;
+    left: 2.25rem;
+    &::before { bottom: 0; top: auto; }
+    &::after { bottom: 0; top: auto; }
+  }
+
+  &--br {
+    bottom: 0.6rem;
+    right: 2.25rem;
+    &::before { bottom: 0; top: auto; right: 0; left: auto; }
+    &::after { bottom: 0; top: auto; right: 0; left: auto; }
   }
 }
 
-.arena__embers {
+// Pulsing diamond accents
+.arena__diamond {
   position: absolute;
-  inset: 0;
+  width: 6px;
+  height: 6px;
+  background: $gold;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
   pointer-events: none;
-  z-index: 0;
-}
+  z-index: 3;
+  animation: arena-diamond-pulse 3s ease-in-out infinite;
 
-.arena__ember {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0;
-  animation: arena-rise linear infinite;
-
-  @for $i from 1 through 8 {
-    &:nth-child(#{$i}) {
-      $size: 2px + random(3) * 1px;
-      width: $size;
-      height: $size;
-      left: 30% + random(40) * 1%;
-      bottom: random(8) * 1%;
-      background: nth(
-        (#ff8c32 #ffad42 #ff6a1a #ffc857 #ff5e2b #ffad42 #ff8c32 #ffc857),
-        $i
-      );
-      box-shadow: 0 0 #{3 + random(4)}px currentColor;
-      animation-duration: #{4 + random(5)}s;
-      animation-delay: #{random(50) / 10}s;
-    }
+  &--tl {
+    top: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    --diamond-base: translateX(-50%);
   }
-}
 
-.arena__mist {
-  position: absolute;
-  bottom: 0;
-  left: -50%;
-  width: 200%;
-  height: 30%;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse at 25% 80%, rgba($blood, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 60%, rgba(140, 160, 190, 0.04) 0%, transparent 45%),
-    radial-gradient(ellipse at 80% 90%, rgba($blood, 0.04) 0%, transparent 40%);
-  animation: arena-drift 20s ease-in-out infinite;
+  &--bl {
+    bottom: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    animation-delay: 1.5s;
+    --diamond-base: translateX(-50%);
+  }
 
-  &--reverse {
-    bottom: 5%;
-    opacity: 0.5;
-    animation: arena-drift 25s ease-in-out 5s infinite reverse;
+  &--ml {
+    top: 50%;
+    left: 2.25rem;
+    transform: translateY(-50%);
+    animation-delay: 0.75s;
+    --diamond-base: translateY(-50%);
+  }
+
+  &--mr {
+    top: 50%;
+    right: 2.25rem;
+    transform: translateY(-50%);
+    animation-delay: 2.25s;
+    --diamond-base: translateY(-50%);
   }
 }
 
@@ -132,12 +184,27 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   gap: 0.6rem;
   height: $topbar-height;
   padding: 0 0.75rem;
-  background: rgba(5, 8, 15, 0.85);
+  background: rgba(255, 255, 255, 0.85);
   border-bottom: 1px solid $gold-border;
   backdrop-filter: blur(8px);
   flex-shrink: 0;
   z-index: 10;
   position: relative;
+
+  // Tooltip overrides for consistent look
+  [data-tooltip]::after {
+    background: $ink;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  [data-tooltip]::before {
+    border-bottom-color: $ink;
+  }
+
+  [data-tooltip-pos="bottom"]::before {
+    border-bottom-color: $ink;
+  }
 }
 
 .arena__bar-back {
@@ -147,7 +214,7 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   font-family: 'Inter', sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
-  color: $ivory-mid;
+  color: $ink-faint;
   text-decoration: none;
   padding: 0.25rem 0.5rem 0.25rem 0.2rem;
   border-radius: 6px;
@@ -158,8 +225,8 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   svg { width: 15px; height: 15px; }
 
   &:hover {
-    color: $gold;
-    background: rgba($gold, 0.08);
+    color: $gold-dark;
+    background: $gold-pale;
   }
 }
 
@@ -171,12 +238,11 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 }
 
 .arena__bar-name {
-  font-family: 'Cinzel', serif;
   font-size: 0.9rem;
   font-weight: 900;
-  color: $gold;
-  letter-spacing: 0.04em;
-  text-shadow: 0 0 16px rgba($gold, 0.25);
+  color: $crimson;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -184,52 +250,6 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   @media (max-width: $bp-compact) {
     max-width: 140px;
     font-size: 0.8rem;
-  }
-}
-
-.arena__bar-code {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.6rem;
-  font-weight: 500;
-  color: $ivory-faint;
-  letter-spacing: 0.1em;
-  flex-shrink: 0;
-}
-
-.arena__bar-status {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.52rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 0.12rem 0.45rem;
-  border-radius: 20px;
-  flex-shrink: 0;
-
-  &--waiting {
-    color: $gold;
-    background: rgba($gold, 0.12);
-    border: 1px solid rgba($gold, 0.2);
-    animation: arena-shimmer 2.5s ease-in-out infinite;
-  }
-
-  &--ready {
-    color: #2ecc71;
-    background: rgba(#2ecc71, 0.12);
-    border: 1px solid rgba(#2ecc71, 0.2);
-  }
-
-  &--battling {
-    color: $crimson;
-    background: rgba($crimson, 0.15);
-    border: 1px solid rgba($crimson, 0.3);
-    animation: arena-pulse 1.5s ease-in-out infinite;
-  }
-
-  &--finished {
-    color: $ivory-mid;
-    background: rgba($ivory, 0.06);
-    border: 1px solid rgba($ivory, 0.1);
   }
 }
 
@@ -251,21 +271,21 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   letter-spacing: 0.06em;
   padding: 0.12rem 0.4rem;
   border-radius: 12px;
-  color: $ivory-mid;
-  background: rgba($ivory, 0.06);
-  border: 1px solid rgba($ivory, 0.1);
+  color: $ink-mid;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 
   &--spectator {
-    color: rgba(#9b59b6, 0.9);
-    background: rgba(#9b59b6, 0.12);
-    border-color: rgba(#9b59b6, 0.2);
+    color: #7c3aed;
+    background: rgba(#7c3aed, 0.08);
+    border-color: rgba(#7c3aed, 0.12);
   }
 }
 
 .arena__bar-viewers {
   font-family: 'Inter', sans-serif;
   font-size: 0.6rem;
-  color: $ivory-faint;
+  color: $ink-faint;
 }
 
 .arena__bar-share {
@@ -283,8 +303,8 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   height: 28px;
   border-radius: 6px;
   border: 1px solid $gold-border;
-  background: rgba($gold, 0.05);
-  color: $ivory-mid;
+  background: $gold-pale;
+  color: $ink-mid;
   cursor: pointer;
   transition: all 0.15s;
   padding: 0;
@@ -292,27 +312,16 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   svg { width: 14px; height: 14px; }
 
   &:hover {
-    color: $gold;
+    color: $gold-dark;
     background: rgba($gold, 0.12);
     border-color: rgba($gold, 0.3);
   }
 
   &--copied {
-    color: #2ecc71;
-    border-color: rgba(#2ecc71, 0.3);
-    background: rgba(#2ecc71, 0.1);
+    color: #16a34a;
+    border-color: rgba(#16a34a, 0.2);
+    background: rgba(#16a34a, 0.06);
   }
-}
-
-.arena__bar-hint {
-  font-family: 'Philosopher', sans-serif;
-  font-size: 0.65rem;
-  color: $ivory-faint;
-  font-style: italic;
-  animation: arena-shimmer 2.5s ease-in-out infinite;
-  white-space: nowrap;
-
-  @media (max-width: $bp-compact) { display: none; }
 }
 
 /* ══════════════════════════════════════
@@ -328,32 +337,13 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 
 .arena__half {
   flex: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 1.25rem 0.75rem;
-  overflow-y: auto;
   position: relative;
-  background: linear-gradient(180deg, rgba(8, 6, 4, 0.92) 0%, rgba(12, 8, 6, 0.88) 100%);
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    background: rgba($gold, 0.15);
-    border-radius: 2px;
-  }
-
-  &--left {
-    box-shadow: inset 12px 0 40px color-mix(in srgb, var(--ci-primary, $crimson) 10%, transparent);
-  }
-
-  &--right {
-    box-shadow: inset -12px 0 40px color-mix(in srgb, var(--ci-primary, $crimson) 10%, transparent);
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &--empty {
-    background: linear-gradient(180deg, rgba(6, 4, 3, 0.95) 0%, rgba(10, 6, 4, 0.90) 100%);
-    box-shadow: none;
+    background: rgba($sand-warm, 0.5) !important;
   }
 }
 
@@ -363,9 +353,9 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    $crimson 15%,
-    rgba($crimson, 0.9) 50%,
-    $crimson 85%,
+    $crimson-bright 15%,
+    rgba($crimson-bright, 0.9) 50%,
+    $crimson-bright 85%,
     transparent 100%
   );
   display: flex;
@@ -374,8 +364,8 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   position: relative;
   flex-shrink: 0;
   box-shadow:
-    0 0 12px $crimson-glow,
-    0 0 30px rgba($crimson, 0.2);
+    0 0 8px rgba($crimson, 0.15),
+    0 0 20px rgba($crimson, 0.08);
   animation: arena-divider-breathe 3s ease-in-out infinite;
 }
 
@@ -387,13 +377,12 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle, #1a0505 0%, #0a0505 70%);
-  border: 2px solid $crimson;
+  background: radial-gradient(circle, #fff 0%, $sand 70%);
+  border: 2px solid $crimson-bright;
   box-shadow:
-    0 0 0 4px rgba(5, 8, 15, 0.9),
-    0 0 20px $crimson-glow,
-    0 0 40px rgba($crimson, 0.25),
-    inset 0 0 12px rgba($blood, 0.4);
+    0 0 0 4px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba($crimson, 0.2),
+    0 0 24px rgba($crimson, 0.1);
   z-index: 2;
   animation: arena-vs-pulse 2.5s ease-in-out infinite;
 }
@@ -402,11 +391,8 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   font-family: 'Cinzel', serif;
   font-size: 0.85rem;
   font-weight: 900;
-  color: $crimson;
+  color: $crimson-bright;
   letter-spacing: 0.05em;
-  text-shadow:
-    0 0 8px $crimson-glow,
-    0 0 18px rgba($crimson, 0.3);
 }
 
 .arena__empty-slot {
@@ -418,7 +404,7 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 
   span {
     font-family: 'Philosopher', sans-serif;
-    color: $ivory-faint;
+    color: $ink-faint;
     font-size: 0.95rem;
     font-style: italic;
     animation: arena-pulse 2.5s ease-in-out infinite;
@@ -437,7 +423,7 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: linear-gradient(to top, rgba(5, 8, 15, 0.9), transparent);
+  background: linear-gradient(to top, rgba($sand, 0.9), transparent);
   z-index: 5;
   pointer-events: none;
 }
@@ -456,19 +442,50 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   text-decoration: none;
 
   &--secondary {
-    background: rgba($ivory, 0.06);
-    color: $ivory-mid;
-    border: 1px solid rgba($ivory, 0.12);
+    background: $gold-pale;
+    color: $ink-mid;
+    border: 1px solid rgba($gold, 0.18);
 
-    &:hover { background: rgba($ivory, 0.1); color: $ivory; }
+    &:hover { background: rgba($gold, 0.12); color: $ink; }
   }
 
   &--danger {
-    background: rgba($crimson, 0.12);
-    color: rgba($crimson, 0.9);
-    border: 1px solid rgba($crimson, 0.2);
+    background: $crimson-soft;
+    color: $crimson-bright;
+    border: 1px solid rgba($crimson, 0.12);
 
-    &:hover { background: rgba($crimson, 0.2); color: $crimson; }
+    &:hover { background: rgba($crimson, 0.12); color: $crimson; }
+  }
+}
+
+/* ══════════════════════════════════════
+   TOAST NOTIFICATION
+   ══════════════════════════════════════ */
+.arena__toast {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0 0 6px 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(145deg, $crimson-bright, darken($crimson-bright, 6%));
+  border: 1px solid rgba($gold, 0.25);
+  border-top: none;
+  box-shadow: 0 4px 20px rgba($crimson, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: arena-toast-enter 0.3s ease-out forwards;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
   }
 }
 
@@ -487,7 +504,7 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 
 .arena__state-msg {
   font-family: 'Philosopher', sans-serif;
-  color: $crimson;
+  color: $crimson-bright;
   font-size: 0.95rem;
 }
 
@@ -501,35 +518,29 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
 /* ══════════════════════════════════════
    KEYFRAMES
    ══════════════════════════════════════ */
-@keyframes arena-twinkle {
-  0%   { opacity: 0.4; }
-  100% { opacity: 1; }
-}
-
-@keyframes arena-rise {
-  0% { opacity: 0; transform: translateY(0) translateX(0) scale(1); }
-  10% { opacity: 0.8; }
-  50% { opacity: 0.5; }
-  100% { opacity: 0; transform: translateY(-65vh) translateX(#{-15 + random(30)}px) scale(0.2); }
-}
-
-@keyframes arena-drift {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(8%); }
+@keyframes arena-diamond-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1) var(--diamond-base, translateX(-50%));
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5) var(--diamond-base, translateX(-50%));
+  }
 }
 
 @keyframes arena-divider-breathe {
-  0%, 100% { box-shadow: 0 0 12px $crimson-glow, 0 0 30px rgba($crimson, 0.2); }
-  50%      { box-shadow: 0 0 20px rgba($crimson, 0.8), 0 0 50px rgba($crimson, 0.3); }
+  0%, 100% { box-shadow: 0 0 8px rgba($crimson, 0.15), 0 0 20px rgba($crimson, 0.08); }
+  50%      { box-shadow: 0 0 14px rgba($crimson, 0.25), 0 0 32px rgba($crimson, 0.12); }
 }
 
 @keyframes arena-vs-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 4px rgba(5,8,15,0.9), 0 0 20px $crimson-glow, 0 0 40px rgba($crimson,0.25), inset 0 0 12px rgba($blood,0.4);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 12px rgba($crimson,0.2), 0 0 24px rgba($crimson,0.1);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(5,8,15,0.9), 0 0 28px rgba($crimson,0.85), 0 0 55px rgba($crimson,0.35), inset 0 0 18px rgba($blood,0.55);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 18px rgba($crimson,0.3), 0 0 36px rgba($crimson,0.15);
     transform: scale(1.05);
   }
 }
@@ -544,26 +555,45 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
   50%      { opacity: 1; }
 }
 
+@keyframes arena-toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 /* ══════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════ */
 @media (max-width: $bp-medium) {
+  .arena__corner {
+    width: 18px;
+    height: 18px;
+  }
+
+  .arena__diamond {
+    width: 5px;
+    height: 5px;
+  }
+
   .arena__field {
     flex-direction: column;
     overflow-y: auto;
   }
 
   .arena__half {
-    overflow-y: visible;
-    padding: 1.25rem 0.75rem;
-    &--left, &--right { box-shadow: none; }
+    min-height: 180px;
   }
 
   .arena__divider {
     width: 100%;
     height: 2px;
     flex-shrink: 0;
-    background: linear-gradient(to right, transparent 0%, $crimson 15%, rgba($crimson, 0.9) 50%, $crimson 85%, transparent 100%);
+    background: linear-gradient(to right, transparent 0%, $crimson-bright 15%, rgba($crimson-bright, 0.9) 50%, $crimson-bright 85%, transparent 100%);
   }
 
   .arena__vs-ring {
@@ -571,10 +601,26 @@ $ivory-faint: rgba(232, 220, 200, 0.30);
     margin: -26px auto;
   }
 
-  .arena__embers, .arena__mist { display: none; }
-
   .arena__actions {
     position: static;
-    background: rgba(5, 8, 15, 0.6);
+    background: rgba($sand, 0.6);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .arena__corner {
+    width: 14px;
+    height: 14px;
+    &--tl, &--tr { top: 0.4rem; }
+    &--bl, &--br { bottom: 0.4rem; }
+    &--tl, &--bl { left: 1rem; }
+    &--tr, &--br { right: 1rem; }
+  }
+
+  .arena__diamond {
+    width: 4px;
+    height: 4px;
+    &--ml { left: 1rem; }
+    &--mr { right: 1rem; }
   }
 }
