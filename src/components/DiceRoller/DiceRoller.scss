@@ -22,6 +22,8 @@ $die-edge:       #c4b69e;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  container-type: inline-size;
+  container-name: dr;
 
   /* Animated pastel gradient background */
   &::before {
@@ -125,7 +127,7 @@ $die-edge:       #c4b69e;
     opacity: 0.5;
   }
 
-  @media (max-width: $bp-mobile) {
+  @container dr (max-width: 460px) {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -191,7 +193,7 @@ $die-edge:       #c4b69e;
     cursor: default;
   }
 
-  @media (max-width: $bp-mobile) {
+  @container dr (max-width: 460px) {
     padding: 4px 12px;
     font-size: 0.75rem;
   }
@@ -210,7 +212,7 @@ $die-edge:       #c4b69e;
   position: relative;
   padding-bottom: 3rem;
 
-  @media (max-width: $bp-mobile) {
+  @container dr (max-width: 460px) {
     transform: scale(0.75);
     transform-origin: center center;
   }
@@ -416,7 +418,7 @@ $die-edge:       #c4b69e;
     animation: dr-tap-bob 2.5s ease-in-out infinite;
   }
 
-  @media (max-width: $bp-medium) {
+  @container dr (max-width: 900px) {
     bottom: 3rem;
   }
 }
