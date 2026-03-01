@@ -249,6 +249,7 @@
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
+  -webkit-tap-highlight-color: transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
