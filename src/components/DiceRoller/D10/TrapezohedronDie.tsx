@@ -9,6 +9,7 @@ interface Props {
   primaryDark: string;
   maxResult?: number;
   faceLabels?: string[];
+  fixedResult?: number;
 }
 
 /* ── Geometry ──
@@ -185,10 +186,10 @@ function edgeTransform(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple): { pos: THR
 
 export default function TrapezohedronDie({
   rollTrigger, onResult, primary,
-  faceLabels,
+  faceLabels, fixedResult,
 }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const prevTrigger = useRef(rollTrigger);
+  const prevTrigger = useRef(0);
   const hasReported = useRef(false);
 
   const spinning = useRef(false);
@@ -251,7 +252,9 @@ export default function TrapezohedronDie({
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetFaceIdx.current = Math.floor(Math.random() * 10);
+    targetFaceIdx.current = fixedResult != null
+      ? FACE_VALUES.indexOf(fixedResult)
+      : Math.floor(Math.random() * 10);
     targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
   }, [rollTrigger]);
 
@@ -266,7 +269,7 @@ export default function TrapezohedronDie({
       flash = 1 - ft;
       if (ft >= 1) flashing.current = false;
 
-      const scalePunch = 1 + 0.15 * Math.sin(ft * Math.PI);
+      const scalePunch = 1 + 0.08 * Math.sin(ft * Math.PI);
       groupRef.current.scale.setScalar(scalePunch);
     }
 

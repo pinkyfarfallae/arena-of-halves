@@ -1,0 +1,342 @@
+/* ══════════════════════════════════════
+   CONFIG ARENA MODAL
+   ══════════════════════════════════════ */
+
+$sand-warm: #ede2d2;
+$stone: #c4b49a;
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$gold-pale: rgba(201, 168, 76, 0.08);
+$gold-border: rgba(201, 168, 76, 0.25);
+$crimson: #a0001b;
+$crimson-bright: #c41e3a;
+$crimson-soft: rgba(196, 30, 58, 0.06);
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
+
+@keyframes cam-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cam-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Overlay ── */
+.cam__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba($ink, 0.35);
+  backdrop-filter: blur(4px);
+  animation: cam-overlay-in 0.15s ease-out;
+}
+
+/* ── Modal card ── */
+.cam {
+  width: 380px;
+  max-width: calc(100% - 2rem);
+  padding: 1.5rem;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid $gold-border;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba($gold, 0.06);
+  animation: cam-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+
+  // Inner double-border frame
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgba($gold, 0.12);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+}
+
+/* ── Close button ── */
+.cam__close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: $ink-faint;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  z-index: 1;
+
+  &:hover {
+    color: $ink;
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+/* ── Title ── */
+.cam__title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: $crimson;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  svg {
+    color: $crimson-bright;
+    flex-shrink: 0;
+  }
+
+  &--success {
+    color: $gold-dark;
+    svg { color: $gold-dark; }
+  }
+}
+
+/* ── Label ── */
+.cam__label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.15rem;
+}
+
+/* ── Input ── */
+.cam__input {
+  width: 100%;
+  height: 37.5px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 3px;
+  border: 1px solid rgba($gold, 0.2);
+  background: rgba($sand-warm, 0.5);
+  color: $ink;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &::placeholder {
+    color: $stone;
+    font-size: 0.68rem;
+    font-weight: 400;
+  }
+
+  &:focus {
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba($gold, 0.1);
+    background: #fff;
+  }
+}
+
+/* ── Team size selector ── */
+.cam__sizes {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cam__size {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1.5px solid rgba($gold, 0.2);
+  border-radius: 3px;
+  background: transparent;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: $ink-mid;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: rgba($gold, 0.4);
+    background: $gold-pale;
+  }
+
+  &--active {
+    border-color: $crimson-bright;
+    background: $crimson-soft;
+    color: $crimson-bright;
+    box-shadow: 0 0 0 1px rgba($crimson, 0.08);
+
+    &:hover {
+      border-color: $crimson-bright;
+      background: $crimson-soft;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Error ── */
+.cam__error {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: $crimson-bright;
+  text-align: center;
+  padding: 0.5rem 0.85rem;
+  background: $crimson-soft;
+  border: 1px solid rgba($crimson, 0.12);
+  border-radius: 3px;
+  margin: 0;
+}
+
+/* ── Buttons ── */
+.cam__btn {
+  width: 100%;
+  padding: 0.6rem 1.25rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+
+  &:active { transform: scale(0.98); }
+
+  &--create {
+    background: linear-gradient(145deg, $crimson-bright, darken($crimson-bright, 6%));
+    color: #fff;
+    box-shadow: 0 2px 10px rgba($crimson, 0.25);
+    margin-top: 0.25rem;
+
+    &:hover {
+      box-shadow: 0 4px 18px rgba($crimson, 0.15), 0 0 24px rgba($crimson, 0.05);
+      background: linear-gradient(145deg, darken($crimson-bright, 4%), darken($crimson-bright, 10%));
+    }
+  }
+
+  &--test {
+    background: transparent;
+    color: $ink-faint;
+    border: 1px dashed rgba($ink-faint, 0.3);
+    margin-top: 0.25rem;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+
+    &:hover {
+      border-color: rgba($ink-faint, 0.5);
+      color: $ink-mid;
+    }
+  }
+
+  &--test-active {
+    color: #16a34a;
+    border-color: rgba(#16a34a, 0.3);
+    background: rgba(#16a34a, 0.04);
+
+    &:hover {
+      border-color: rgba(#16a34a, 0.5);
+      color: #16a34a;
+    }
+  }
+
+  &--enter {
+    background: linear-gradient(145deg, $gold-dark, darken($gold-dark, 8%));
+    color: #fff;
+    box-shadow: 0 2px 10px rgba($gold-dark, 0.2);
+    margin-top: 0.5rem;
+
+    &:hover {
+      box-shadow: 0 4px 18px rgba($gold-dark, 0.3);
+      background: linear-gradient(145deg, darken($gold-dark, 6%), darken($gold-dark, 14%));
+    }
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none;
+  }
+}
+
+/* ── Copy row ── */
+.cam__copy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba($sand-warm, 0.5);
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 3px;
+  padding: 0.45rem 0.55rem;
+}
+
+.cam__code {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: $ink;
+  letter-spacing: 0.25em;
+  text-align: center;
+}
+
+.cam__link {
+  flex: 1;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.55rem;
+  color: $ink-mid;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cam__copy {
+  flex-shrink: 0;
+  padding: 0.3rem 0.65rem;
+  border-radius: 3px;
+  border: 1px solid $gold-border;
+  background: $gold-pale;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: $gold-dark;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 58px;
+  max-width: 58px;
+
+  &:hover {
+    background: rgba($gold, 0.12);
+    border-color: rgba($gold, 0.35);
+  }
+
+  &--done {
+    color: #16a34a;
+    border-color: rgba(#16a34a, 0.2);
+    background: rgba(#16a34a, 0.06);
+  }
+}

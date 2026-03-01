@@ -7,6 +7,7 @@ interface Props {
   onResult: (result: number) => void;
   primary: string;
   primaryDark: string;
+  fixedResult?: number;
 }
 
 /** Cube half-size */
@@ -144,9 +145,9 @@ function edgeTransform(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple): { pos: THR
 
 /* ── Component ── */
 
-export default function CubeDie({ rollTrigger, onResult, primary, primaryDark }: Props) {
+export default function CubeDie({ rollTrigger, onResult, primary, primaryDark, fixedResult }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const prevTrigger = useRef(rollTrigger);
+  const prevTrigger = useRef(0);
   const hasReported = useRef(false);
 
   const spinning = useRef(false);
@@ -205,7 +206,7 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark }:
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = Math.floor(Math.random() * 6) + 1;
+    targetResult.current = fixedResult ?? (Math.floor(Math.random() * 6) + 1);
     targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
   }, [rollTrigger]);
 
@@ -220,7 +221,7 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark }:
       flash = 1 - ft;
       if (ft >= 1) flashing.current = false;
 
-      const scalePunch = 1 + 0.15 * Math.sin(ft * Math.PI);
+      const scalePunch = 1 + 0.08 * Math.sin(ft * Math.PI);
       groupRef.current.scale.setScalar(scalePunch);
     }
 

@@ -632,6 +632,7 @@ $ink-faint: #a08a74;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: pre-line;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;

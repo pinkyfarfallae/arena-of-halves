@@ -35,13 +35,7 @@ function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: bo
       style={{ left: `${location.x}%`, top: `${location.y}%`, '--pin-color': location.color } as React.CSSProperties}
       onMouseLeave={() => setOpen(false)}
     >
-      <button className="life__marker" onClick={() => {
-        if (location.actionPaths?.[0]) {
-          navigate(location.actionPaths[0]);
-        } else {
-          setOpen(o => !o);
-        }
-      }}>
+      <button className="life__marker" onClick={() => setOpen(o => !o)}>
         <LocationIcon type={location.icon} />
       </button>
       <span className="life__pin-label">{location.name}</span>

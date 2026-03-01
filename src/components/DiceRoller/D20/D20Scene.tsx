@@ -7,9 +7,10 @@ interface Props {
   onClick: () => void;
   primary: string;
   primaryDark: string;
+  fixedResult?: number;
 }
 
-export default function D20Scene({ rollTrigger, onResult, onClick, primary, primaryDark }: Props) {
+export default function D20Scene({ rollTrigger, onResult, onClick, primary, primaryDark, fixedResult }: Props) {
   return (
     <Canvas
       flat
@@ -26,6 +27,7 @@ export default function D20Scene({ rollTrigger, onResult, onClick, primary, prim
         onResult={onResult}
         primary={primary}
         primaryDark={primaryDark}
+        fixedResult={fixedResult}
       />
     </Canvas>
   );
