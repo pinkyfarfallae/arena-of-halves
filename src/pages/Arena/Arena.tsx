@@ -59,10 +59,10 @@ function buildHalfStyle(
 
 /* ── MOCK ENEMY — remove after testing ── */
 const MOCK_THEME: Theme25 = [
-  '#8B0000','#5C0000','#C04040','#FF4444','#1a1210','#f5ede4',
-  '#2a2018','#9a8b76','#3d3228','#a01010','#ff666640','#352a20',
-  '#221a14','#00000033','#ff444420','#00000060','#9a8b76','#f5ede4',
-  '#6B0000','#CC3333','#5C0000','#8B0000','#CC3333','#FF4444','#FF4444',
+  '#8B0000', '#5C0000', '#C04040', '#FF4444', '#1a1210', '#f5ede4',
+  '#2a2018', '#9a8b76', '#3d3228', '#a01010', '#ff666640', '#352a20',
+  '#221a14', '#00000033', '#ff444420', '#00000060', '#9a8b76', '#f5ede4',
+  '#6B0000', '#CC3333', '#5C0000', '#8B0000', '#CC3333', '#FF4444', '#FF4444',
 ];
 const MOCK_ENEMY: FighterState = {
   characterId: 'mock-enemy-001',
@@ -263,9 +263,10 @@ function Arena() {
   if (!room) {
     return (
       <div className="arena">
-
         <div className="arena__state">
-          <div className="arena__state-loader"><div className="app-loader__ring" /></div>
+          <div className="arena__state-loader">
+            <div className="app-loader__ring" />
+          </div>
         </div>
       </div>
     );

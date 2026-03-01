@@ -77,7 +77,7 @@ $ink-faint: #9a8b76;
       animation: target-pulse 1.2s ease-in-out infinite;
     }
 
-    &:hover .mchip__frame {
+    &.mchip--hovered .mchip__frame {
       box-shadow:
         0 0 0 2px $crimson-bright,
         0 0 24px rgba($crimson-bright, 0.4);
@@ -85,7 +85,7 @@ $ink-faint: #9a8b76;
     }
   }
 
-  &:hover {
+  &--hovered {
     background: linear-gradient(180deg,
         color-mix(in srgb, var(--chip-accent, $gold-dark) 23%, transparent) 0%,
         color-mix(in srgb, var(--chip-primary, $gold) 17%, transparent) 50%,
@@ -104,12 +104,6 @@ $ink-faint: #9a8b76;
 
     .mchip__inner-border {
       opacity: 0.7;
-    }
-
-    .mchip__popup {
-      opacity: 1;
-      pointer-events: all;
-      transform: translateX(-50%) translateY(0);
     }
   }
 }
@@ -322,10 +316,6 @@ $ink-faint: #9a8b76;
    HOVER POPUP — detailed stat panel
    ══════════════════════════════════════ */
 .mchip__popup {
-  position: absolute;
-  top: calc(100% - 2rem + 5px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
   width: 220px;
   padding: 0.5rem;
   background:
@@ -342,21 +332,17 @@ $ink-faint: #9a8b76;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  z-index: 9999;
+  pointer-events: all;
 
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  z-index: 60;
-
-  // Invisible bridge so mouse can travel from chip to popup
-  &::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 0;
-    right: 0;
-    height: 12px;
+  &--visible {
+    animation: bhud-popup-in 0.15s ease-out;
   }
+}
+
+@keyframes bhud-popup-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ── Popup header ── */
@@ -609,14 +595,14 @@ $ink-faint: #9a8b76;
     min-width: unset;
     align-items: center;
     background: linear-gradient(90deg,
-      color-mix(in srgb, var(--chip-accent, $gold-dark) 25%, transparent) 0%,
-      color-mix(in srgb, var(--chip-primary, $gold) 14%, transparent) 40%,
+      color-mix(in srgb, var(--chip-accent, $gold-dark) 14%, transparent) 0%,
+      color-mix(in srgb, var(--chip-primary, $gold) 8%, transparent) 50%,
       transparent 100%);
 
-    &:hover {
+    &.mchip--hovered {
       background: linear-gradient(90deg,
-        color-mix(in srgb, var(--chip-accent, $gold-dark) 35%, transparent) 0%,
-        color-mix(in srgb, var(--chip-primary, $gold) 20%, transparent) 40%,
+        color-mix(in srgb, var(--chip-accent, $gold-dark) 13%, transparent) 0%,
+        color-mix(in srgb, var(--chip-primary, $gold) 17%, transparent) 50%,
         transparent 100%);
     }
   }
@@ -637,6 +623,7 @@ $ink-faint: #9a8b76;
     border-radius: 7px;
     margin: auto 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
   }
 
   .mchip__inner-border {
@@ -662,13 +649,6 @@ $ink-faint: #9a8b76;
 
   .mchip__popup {
     padding: 0.4rem;
-    top: 50%;
-    left: 85px;
-    transform: translateY(-50%);
-  }
-
-  .mchip:hover .mchip__popup {
-    transform: translateY(-50%);
   }
 
   .mchip__skills {
@@ -702,7 +682,7 @@ $ink-faint: #9a8b76;
     animation: target-pulse-compact 1.2s ease-in-out infinite;
   }
 
-  .mchip--targetable:hover .mchip__frame {
+  .mchip--targetable.mchip--hovered .mchip__frame {
     box-shadow:
       0 0 0 1px $crimson-bright,
       0 0 12px rgba($crimson-bright, 0.3);
