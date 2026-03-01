@@ -26,6 +26,8 @@ interface Props {
   themeColors?: { primary: string; primaryDark: string };
   /** Called when a roll finishes with the result number */
   onRollResult?: (n: number) => void;
+  /** Called when the roll animation fully ends */
+  onRollEnd?: () => void;
 }
 
 const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
@@ -38,7 +40,7 @@ const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
   100: D100Die,
 };
 
-export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult }: Props) {
+export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult, onRollEnd: onRollEndProp }: Props) {
   const { user } = useAuth();
   const accent = accentColor ?? user?.theme[9] ?? '#b8860b';
   const [die, setDie] = useState<Die>(lockedDie ?? 20);
@@ -69,7 +71,8 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
 
   const handleRollEnd = useCallback(() => {
     setRolling(false);
-  }, []);
+    onRollEndProp?.();
+  }, [onRollEndProp]);
 
   const DieComponent = DIE_COMPONENTS[die];
 
@@ -120,7 +123,7 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
         {/* Persistent glow pulse behind die */}
         <div className={`dr__result-glow${!rolling && history.length > 0 ? ' dr__result-glow--visible' : ''}`} />
         {/* Big result number — blooms behind die with bloom */}
-        {rollCount > 0 && (
+        {!rolling && rollCount > 0 && (
           <span
             key={`result-${rollCount}`}
             className="dr__result-text"

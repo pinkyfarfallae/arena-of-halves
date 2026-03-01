@@ -8,12 +8,12 @@ import './ConfigArenaModal.scss';
 
 interface Props {
   arenaId: string;
-  isDev?: boolean;
+  isAdmin?: boolean;
   onClose: () => void;
   onEnter: (arenaId: string) => void;
 }
 
-export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: Props) {
+export default function ConfigArenaModal({ arenaId, isAdmin, onClose, onEnter }: Props) {
   const [teamSize, setTeamSize] = useState(1);
   const [testMode, setTestMode] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
@@ -66,7 +66,7 @@ export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: P
   };
 
   return (
-    <div className="cam__overlay" onClick={handleClose}>
+    <div className="cam__overlay">
       <div className="cam" onClick={(e) => e.stopPropagation()}>
         <button className="cam__close" onClick={handleClose}>
           <Close width={16} height={16} />
@@ -111,7 +111,7 @@ export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: P
           ))}
         </div>
 
-        {isDev && (
+        {isAdmin && (
           <button
             className={`cam__btn cam__btn--test ${testMode ? 'cam__btn--test-active' : ''}`}
             onClick={handleTestMode}

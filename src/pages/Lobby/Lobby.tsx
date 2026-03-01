@@ -261,7 +261,7 @@ function Lobby() {
       {createdArenaId && (
         <ConfigArenaModal
           arenaId={createdArenaId}
-          isDev={role === ROLE.DEVELOPER}
+          isAdmin={role === ROLE.DEVELOPER || role === ROLE.ADMIN}
           onClose={() => setCreatedArenaId(null)}
           onEnter={(id) => navigate(id)}
         />
