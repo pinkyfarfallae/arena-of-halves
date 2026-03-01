@@ -174,7 +174,7 @@ function CharacterInfo() {
   while (itemSlots.length < SLOT_MIN) itemSlots.push({ name: '', quantity: 0 });
 
   const orderedPowers = ['Passive', '1st Skill', '2nd Skill', 'Ultimate']
-    .map(s => powers.find(p => p.status === s))
+    .map(s => powers.find(p => p.type === s))
     .filter(Boolean) as Power[];
 
   return (
@@ -301,7 +301,7 @@ function CharacterInfo() {
               {loadingPowers ? (
                 <div className="cs__powers-loader"><div className="app-loader__ring" /></div>
               ) : orderedPowers.length > 0 ? (
-                orderedPowers.map((p, i) => <PowerCard key={p.status} power={p} index={i} />)
+                orderedPowers.map((p, i) => <PowerCard key={p.type} power={p} index={i} />)
               ) : (
                 <p className="cs__ptext cs__ptext--empty">{'\u2014'}</p>
               )}

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { fetchPowers } from '../../data/characters';
 import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
+import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import type { BattleRoom } from '../../types/battle';
 import Swords from '../../icons/Swords';
 import ChevronLeft from '../../icons/ChevronLeft';
@@ -11,7 +12,9 @@ import ArrowRight from './icons/ArrowRight';
 import AresHelmet from './icons/AresHelmet';
 import Colosseum from './icons/Colosseum';
 import Trash from '../../icons/Trash';
+import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
+import BattleLogModal from './components/BattleLogModal/BattleLogModal';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -40,6 +43,7 @@ function Lobby() {
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
+  const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
 
   useEffect(() => {
     const unsub = onRoomsList(setActiveRooms);
@@ -51,7 +55,8 @@ function Lobby() {
     setLoading('create');
     setError('');
     try {
-      const powers = await fetchPowers(user.deityBlood);
+      const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
+      const powers = await fetchPowers(powerDeity);
       const fighter = toFighterState(user, powers);
       const arenaId = await createRoom(fighter, roomName || undefined);
       setCreatedArenaId(arenaId);
@@ -231,7 +236,19 @@ function Lobby() {
                       <span className={`lobby__room-status lobby__room-status--${room.status}`}>
                         {statusLabel(room.status)}
                       </span>
-                      <span className="lobby__room-code">{room.arenaId}</span>
+                      {room.status === 'finished' ? (
+                        <span
+                          className="lobby__room-log"
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setLogRoom(room); }}
+                        >
+                          <Eye width={12} height={12} />
+                          Log
+                        </span>
+                      ) : (
+                        <span className="lobby__room-code">{room.arenaId}</span>
+                      )}
                       {role === ROLE.DEVELOPER && (
                         <span
                           className="lobby__room-delete"
@@ -264,6 +281,13 @@ function Lobby() {
           isDev={role === ROLE.DEVELOPER}
           onClose={() => setCreatedArenaId(null)}
           onEnter={(id) => navigate(id)}
+        />
+      )}
+
+      {logRoom && (
+        <BattleLogModal
+          room={logRoom}
+          onClose={() => setLogRoom(null)}
         />
       )}
     </div>

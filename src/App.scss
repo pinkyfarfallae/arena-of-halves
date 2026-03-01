@@ -134,7 +134,7 @@
     content: attr(data-tooltip);
     position: absolute;
     z-index: 100;
-    white-space: nowrap;
+    white-space: pre;
     pointer-events: none;
     opacity: 0;
     font-family: 'Inter', sans-serif;

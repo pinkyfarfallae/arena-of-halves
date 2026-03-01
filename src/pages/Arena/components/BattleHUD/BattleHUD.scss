@@ -18,6 +18,7 @@ $crimson-bright: #c41e3a;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.6rem 0.8rem;
+  height: 7rem;
   pointer-events: none;
 
   >* {
@@ -281,6 +282,12 @@ $crimson-bright: #c41e3a;
 }
 
 /* ── Waiting spinner (used inside dice modal) ── */
+.bhud__dice-roller--waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .bhud__roll-waiting-spinner {
   width: 24px;
   height: 24px;
@@ -288,7 +295,6 @@ $crimson-bright: #c41e3a;
   border-top-color: $gold;
   border-radius: 50%;
   animation: bhud-spin 0.8s linear infinite;
-  margin: 0.4rem 0;
 }
 
 @keyframes bhud-spin {
@@ -345,6 +351,11 @@ $crimson-bright: #c41e3a;
 
 /* ── Resolve phase ── */
 .bhud__resolve {
+  position: absolute;
+  bottom: 100%;
+  left: 0.8rem;
+  right: 0.8rem;
+  margin-bottom: 0.3rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -354,10 +365,16 @@ $crimson-bright: #c41e3a;
   border-radius: 8px;
   padding: 0.5rem 0.7rem;
   box-shadow: 0 4px 20px rgba($crimson, 0.08);
+  z-index: 61;
 
   &--miss {
     border-color: rgba($gold, 0.2);
     box-shadow: 0 4px 20px rgba($gold, 0.08);
+  }
+
+  &--exit {
+    animation: bhud-slide-out 0.25s ease-out forwards;
+    pointer-events: none;
   }
 }
 
@@ -444,6 +461,11 @@ $crimson-bright: #c41e3a;
 
 /* ── Waiting ── */
 .bhud__waiting {
+  position: absolute;
+  bottom: 100%;
+  left: 0.8rem;
+  right: 0.8rem;
+  margin-bottom: 0.3rem;
   text-align: center;
   font-size: 0.6rem;
   color: $ink-faint;
@@ -452,6 +474,24 @@ $crimson-bright: #c41e3a;
   backdrop-filter: blur(8px);
   border-radius: 8px;
   border: 1px solid rgba($gold, 0.1);
+  z-index: 61;
+
+  &--exit {
+    animation: bhud-slide-out 0.25s ease-out forwards;
+    pointer-events: none;
+  }
+}
+
+@keyframes bhud-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 /* ── Result badges (winner / loser) ── */
@@ -549,6 +589,21 @@ $crimson-bright: #c41e3a;
   gap: 0.15rem;
   max-height: 100px;
   overflow-y: auto;
+  flex: 1;
+}
+
+.bhud__log-empty {
+  font-size: 0.6rem;
+  color: darken($ink-faint, 0.5);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  opacity: 0.5;
+  flex: 1;
+  min-height: 100%;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
 }
 
 .bhud__log-entry {
@@ -644,6 +699,11 @@ $crimson-bright: #c41e3a;
 
   .bhud__dice-roller {
     height: 150px;
+
+    .dr__display {
+      transform: scale(0.4);
+      transform-origin: center center;
+    }
   }
 
   /* Sidebar hidden — remove offset */
@@ -666,7 +726,14 @@ $crimson-bright: #c41e3a;
     left: auto;
     right: auto;
     flex-shrink: 0;
+    height: 5.5rem;
     padding: 0.3rem 0.5rem;
+  }
+
+  .bhud__resolve,
+  .bhud__waiting {
+    left: 0.5rem;
+    right: 0.5rem;
   }
 
   .bhud__log {
@@ -718,22 +785,20 @@ $crimson-bright: #c41e3a;
     font-size: 0.65rem;
   }
 
-  .bhud__roll-waiting-spinner {
-    width: 18px;
-    height: 18px;
-  }
+  /* Dice zones: each half = (100vh - topbar - bhud) / 2 */
+  $compact-half: calc(50vh - #{$topbar-height} - 2.75rem);
 
-  /* Dice zones: equal height matching arena halves (subtract bars + bhud) */
   .bhud__dice-zone--left {
     left: auto;
     right: 0;
-    top: calc(#{$topbar-height} * 2);
+    top: calc(2 * #{$topbar-height});
     bottom: auto;
-    height: calc(50vh - #{$topbar-height} - 3.5rem);
+    height: #{$compact-half};
     width: calc(100vw - 90px);
     padding-right: 10px;
 
-    .bhud__dice-modal {
+    .bhud__dice-modal,
+    .bhud__targets-modal {
       margin-top: -1rem;
     }
   }
@@ -741,10 +806,15 @@ $crimson-bright: #c41e3a;
   .bhud__dice-zone--right {
     left: auto;
     right: 0;
-    top: calc(#{$topbar-height} + 50vh - 3.5rem);
+    top: calc(2 * #{$topbar-height} + #{$compact-half});
     bottom: auto;
-    height: calc(50vh - #{$topbar-height} - 3.5rem);
+    height: #{$compact-half};
     width: calc(100vw - 90px);
     padding-right: 10px;
+
+    .bhud__dice-modal,
+    .bhud__targets-modal {
+      margin-top: 0;
+    }
   }
 }

@@ -111,9 +111,9 @@
    ══════════════════════════════════ */
 .life__card {
   position: absolute;
-  top: 50%;
-  left: calc(100% + 8px);
-  transform: translateY(-50%) translateX(6px);
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
   width: 230px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -130,63 +130,6 @@
   &::before {
     content: '';
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -16px;
-    width: 16px;
-  }
-
-  .life__pin--left &::before {
-    left: auto;
-    right: -16px;
-  }
-
-  /* Show on hover (desktop) */
-  .life__pin:hover & {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(-50%) translateX(0);
-  }
-
-  /* Show on click (mobile) */
-  &--open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(-50%) translateX(0);
-  }
-
-  /* Near right edge: card goes left */
-  .life__pin--left & {
-    left: auto;
-    right: calc(100% + 8px);
-    transform: translateY(-50%) translateX(-6px);
-
-    &--open {
-      transform: translateY(-50%) translateX(0);
-    }
-  }
-
-  .life__pin--left:hover & {
-    transform: translateY(-50%) translateX(0);
-  }
-
-  /* Near bottom: card goes above pin */
-  .life__pin--above & {
-    top: auto;
-    bottom: calc(100% + 14px);
-    left: 50%;
-    transform: translateX(-50%) translateY(6px);
-
-    &--open {
-      transform: translateX(-50%) translateY(0);
-    }
-  }
-
-  .life__pin--above:hover & {
-    transform: translateX(-50%) translateY(0);
-  }
-
-  .life__pin--above &::before {
     top: auto;
     bottom: -16px;
     left: 0;
@@ -195,40 +138,43 @@
     height: 16px;
   }
 
-  /* Near left edge: card goes right */
-  .life__pin--right & {
-    left: calc(100% + 8px);
-    transform: translateY(-50%) translateX(6px);
+  /* Show on hover (desktop) */
+  .life__pin:hover & {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Show on click (mobile) */
+  &--open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Near top edge: card goes below pin instead */
+  .life__pin--below & {
+    bottom: auto;
+    top: calc(100% + 14px);
+    transform: translateX(-50%) translateY(-6px);
 
     &--open {
-      transform: translateY(-50%) translateX(0);
+      transform: translateX(-50%) translateY(0);
     }
   }
 
-  .life__pin--right:hover & {
-    transform: translateY(-50%) translateX(0);
+  .life__pin--below:hover & {
+    transform: translateX(-50%) translateY(0);
   }
 
-  /* Above + left edge: card above, aligned left */
-  .life__pin--above.life__pin--right & {
-    top: auto;
-    bottom: calc(100% + 14px);
-    left: 0;
-    transform: translateY(6px);
-
-    &--open {
-      transform: translateY(0);
-    }
+  .life__pin--below &::before {
+    bottom: auto;
+    top: -16px;
+    height: 16px;
   }
 
-  .life__pin--above.life__pin--right:hover & {
-    transform: translateY(0);
-  }
-
-  /* Above + right edge: card above, aligned right */
-  .life__pin--above.life__pin--left & {
-    top: auto;
-    bottom: calc(100% + 14px);
+  /* Near right edge: shift card left */
+  .life__pin--left & {
     left: auto;
     right: 0;
     transform: translateY(6px);
@@ -238,7 +184,54 @@
     }
   }
 
-  .life__pin--above.life__pin--left:hover & {
+  .life__pin--left:hover & {
+    transform: translateY(0);
+  }
+
+  /* Near left edge: shift card right */
+  .life__pin--right & {
+    left: 0;
+    transform: translateY(6px);
+
+    &--open {
+      transform: translateY(0);
+    }
+  }
+
+  .life__pin--right:hover & {
+    transform: translateY(0);
+  }
+
+  /* Below + right edge */
+  .life__pin--below.life__pin--left & {
+    bottom: auto;
+    top: calc(100% + 14px);
+    left: auto;
+    right: 0;
+    transform: translateY(-6px);
+
+    &--open {
+      transform: translateY(0);
+    }
+  }
+
+  .life__pin--below.life__pin--left:hover & {
+    transform: translateY(0);
+  }
+
+  /* Below + left edge */
+  .life__pin--below.life__pin--right & {
+    bottom: auto;
+    top: calc(100% + 14px);
+    left: 0;
+    transform: translateY(-6px);
+
+    &--open {
+      transform: translateY(0);
+    }
+  }
+
+  .life__pin--below.life__pin--right:hover & {
     transform: translateY(0);
   }
 }

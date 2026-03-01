@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPowers } from '../../data/characters';
+import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
+import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import {
   onRoomChange,
   joinRoom,
@@ -16,13 +18,14 @@ import {
   resolveTurn,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
-import type { Theme25 } from '../../types/character';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import ChevronLeft from '../../icons/ChevronLeft';
+import BattleLogModal from '../Lobby/components/BattleLogModal/BattleLogModal';
 import CopyIcon from './icons/CopyIcon';
 import LinkIcon from './icons/LinkIcon';
 import CheckIcon from './icons/CheckIcon';
+import Eye from '../../icons/Eye';
 import './Arena.scss';
 
 type Role = 'teamA' | 'teamB' | 'viewer';
@@ -57,38 +60,6 @@ function buildHalfStyle(
   return { background: bg } as React.CSSProperties;
 }
 
-/* ── MOCK ENEMY — remove after testing ── */
-const MOCK_THEME: Theme25 = [
-  '#8B0000','#5C0000','#C04040','#FF4444','#1a1210','#f5ede4',
-  '#2a2018','#9a8b76','#3d3228','#a01010','#ff666640','#352a20',
-  '#221a14','#00000033','#ff444420','#00000060','#9a8b76','#f5ede4',
-  '#6B0000','#CC3333','#5C0000','#8B0000','#CC3333','#FF4444','#FF4444',
-];
-const MOCK_ENEMY: FighterState = {
-  characterId: 'mock-enemy-001',
-  nicknameEng: 'Shadowbane',
-  nicknameThai: 'เงาทมิฬ',
-  sex: 'Male',
-  deityBlood: 'Ares',
-  theme: MOCK_THEME,
-  maxHp: 60,
-  currentHp: 60,
-  damage: 1,
-  attackDiceUp: 2,
-  defendDiceUp: 1,
-  speed: 14,
-  rerollsLeft: 1,
-  passiveSkillPoint: 'unlock',
-  skillPoint: 'lock',
-  ultimateSkillPoint: 'lock',
-  powers: [
-    { deity: 'Ares', type: 'Passive', name: 'Battle Fury', description: '', status: 'Passive', available: true },
-    { deity: 'Ares', type: 'Skill', name: 'War Cry', description: '', status: '1st Skill', available: true },
-    { deity: 'Ares', type: 'Skill', name: 'Blood Rush', description: '', status: '2nd Skill', available: false },
-    { deity: 'Ares', type: 'Skill', name: 'Godslayer', description: '', status: 'Ultimate', available: false },
-  ],
-};
-/* ── END MOCK ── */
 
 function Arena() {
   const { arenaId } = useParams<{ arenaId: string }>();
@@ -103,6 +74,8 @@ function Arena() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+  const [npcEnemy, setNpcEnemy] = useState<FighterState | null>(null);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -144,7 +117,8 @@ function Arena() {
     const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
     if (!watchOnly && room.status === 'waiting' && !teamBFull) {
       try {
-        const powers = await fetchPowers(user.deityBlood);
+        const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
+        const powers = await fetchPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
@@ -172,26 +146,36 @@ function Arena() {
     join();
   }, [join]);
 
-  /* ── Test mode: auto-join mock enemy to teamB ── */
+  /* ── Test mode: fetch selected NPC and auto-join to teamB ── */
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
     if (room.status !== 'waiting') return;
     const teamBMembers = room.teamB?.members || [];
     if (teamBMembers.length > 0) return;
 
-    joinRoom(arenaId, MOCK_ENEMY);
+    let cancelled = false;
+    fetchNPCs().then((npcs) => {
+      if (cancelled) return;
+      // Use the NPC selected in config, or fall back to random
+      const npcId = room.npcId;
+      const npc = (npcId && npcs.find((n) => n.characterId === npcId)) || pickRandomNPC(npcs);
+      if (!npc) return;
+      setNpcEnemy(npc);
+      joinRoom(arenaId, npc);
+    });
+    return () => { cancelled = true; };
   }, [room, arenaId]);
 
-  /* ── Test mode: auto-play for mock enemy ────── */
+  /* ── Test mode: auto-play for NPC enemy ────── */
   useEffect(() => {
-    if (!room || !arenaId || !room.testMode) return;
+    if (!room || !arenaId || !room.testMode || !npcEnemy) return;
     if (room.status !== 'battling' || !room.battle?.turn) return;
 
     const turn = room.battle.turn;
-    const mockId = MOCK_ENEMY.characterId;
+    const npcId = npcEnemy.characterId;
 
-    // Mock enemy's turn to select target → pick random alive opponent
-    if (turn.phase === 'select-target' && turn.attackerId === mockId) {
+    // NPC's turn to select target → pick random alive opponent
+    if (turn.phase === 'select-target' && turn.attackerId === npcId) {
       const teamAAlive = (room.teamA?.members || []).filter(m => m.currentHp > 0);
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
@@ -200,24 +184,21 @@ function Arena() {
       }
     }
 
-    // Mock enemy needs to roll attack dice (D12)
-    // Delay enough for the waiting spinner to show briefly
-    if (turn.phase === 'rolling-attack' && turn.attackerId === mockId) {
+    // NPC needs to roll attack dice (D12)
+    if (turn.phase === 'rolling-attack' && turn.attackerId === npcId) {
       const roll = Math.floor(Math.random() * 12) + 1;
       const timer = setTimeout(() => submitAttackRoll(arenaId, roll), 1800);
       return () => clearTimeout(timer);
     }
 
-    // Mock enemy needs to roll defend dice (D12)
-    // Must wait longer than defendReady (2800ms) so the attack result
-    // dice animation plays, defend UI appears, then mock submits
-    if (turn.phase === 'rolling-defend' && turn.defenderId === mockId) {
+    // NPC needs to roll defend dice (D12)
+    if (turn.phase === 'rolling-defend' && turn.defenderId === npcId) {
       const roll = Math.floor(Math.random() * 12) + 1;
       const timer = setTimeout(() => submitDefendRoll(arenaId, roll), 4500);
       return () => clearTimeout(timer);
     }
 
-  }, [room, arenaId, user?.characterId]);
+  }, [room, arenaId, npcEnemy]);
 
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
@@ -263,9 +244,10 @@ function Arena() {
   if (!room) {
     return (
       <div className="arena">
-
         <div className="arena__state">
-          <div className="arena__state-loader"><div className="app-loader__ring" /></div>
+          <div className="arena__state-loader">
+            <div className="app-loader__ring" />
+          </div>
         </div>
       </div>
     );
@@ -333,24 +315,47 @@ function Arena() {
           )}
         </div>
 
-        <div className="arena__bar-share">
-          <button
-            className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
-            onClick={() => handleCopy('code')}
-            data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
-            data-tooltip-pos="bottom"
-          >
-            {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
-          </button>
-          <button
-            className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
-            onClick={() => handleCopy('link')}
-            data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
-            data-tooltip-pos="bottom"
-          >
-            {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
-          </button>
-        </div>
+        {room.status === 'finished' ? (
+          <div className="arena__bar-share">
+            <button
+              className="arena__share-btn"
+              onClick={() => setShowLog(true)}
+              data-tooltip="Log"
+              data-tooltip-pos="bottom"
+            >
+              <Eye width={14} height={14} />
+            </button>
+            <button
+              className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy('link')}
+              data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+              data-tooltip-pos="bottom"
+            >
+              {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
+            </button>
+          </div>
+        ) : (
+          <div className="arena__bar-share">
+            {room.status === 'waiting' && (
+              <button
+                className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
+                onClick={() => handleCopy('code')}
+                data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
+                data-tooltip-pos="bottom"
+              >
+                {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            )}
+            <button
+              className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy('link')}
+              data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+              data-tooltip-pos="bottom"
+            >
+              {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ── Battle field ── */}
@@ -423,6 +428,10 @@ function Arena() {
           </button>
         )}
       </div>
+
+      {showLog && room && (
+        <BattleLogModal room={room} onClose={() => setShowLog(false)} />
+      )}
     </div>
   );
 }
