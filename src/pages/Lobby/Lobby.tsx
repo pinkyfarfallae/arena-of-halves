@@ -3,13 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { fetchPowers } from '../../data/characters';
-import { createRoom, getRoom, onRoomsList, toFighterState } from '../../services/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
 import type { BattleRoom } from '../../types/battle';
 import Swords from '../../icons/Swords';
 import ChevronLeft from '../../icons/ChevronLeft';
 import ArrowRight from './icons/ArrowRight';
 import AresHelmet from './icons/AresHelmet';
 import Colosseum from './icons/Colosseum';
+import Trash from '../../icons/Trash';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import './Lobby.scss';
 
@@ -231,6 +232,16 @@ function Lobby() {
                         {statusLabel(room.status)}
                       </span>
                       <span className="lobby__room-code">{room.arenaId}</span>
+                      {role === ROLE.DEVELOPER && (
+                        <span
+                          className="lobby__room-delete"
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); deleteRoom(room.arenaId); }}
+                        >
+                          <Trash width={14} height={14} />
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

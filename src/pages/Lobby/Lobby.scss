@@ -1100,6 +1100,23 @@ $ink-faint: #9a8b76;
   flex-shrink: 0;
 }
 
+.lobby__room-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.25rem;
+  border-radius: 3px;
+  color: $stone;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: $crimson-bright;
+    background: $crimson-soft;
+  }
+}
+
 /* ── Empty state ── */
 .lobby__empty {
   display: flex;
