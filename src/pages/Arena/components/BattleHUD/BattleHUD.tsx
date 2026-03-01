@@ -239,9 +239,9 @@ export default function BattleHUD({
                   onClick={() => onSelectTarget(t.characterId)}
                 >
                   {t.image ? (
-                    <img className="bhud__target-img" src={t.image} alt="" />
+                    <img className="bhud__target-img" src={t.image} alt="" referrerPolicy="no-referrer" />
                   ) : (
-                    <span className="bhud__target-initial">{t.nicknameEng.charAt(0)}</span>
+                    <span className="bhud__target-initial" style={{ background: t.theme[0], color: t.theme[9] }}>{t.nicknameEng.charAt(0)}</span>
                   )}
                   <div className="bhud__target-info">
                     <span className="bhud__target-name">{t.nicknameEng}</span>

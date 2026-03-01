@@ -80,7 +80,7 @@ export default function User() {
           <div className="user__nick-cell">
             <div className="user__avatar" style={avatarStyle}>
               {row.image
-                ? <img src={row.image} alt="" />
+                ? <img src={row.image} alt="" referrerPolicy="no-referrer" />
                 : <span>{(row.nicknameEng ?? row.characterId ?? '?')[0].toUpperCase()}</span>
               }
             </div>
