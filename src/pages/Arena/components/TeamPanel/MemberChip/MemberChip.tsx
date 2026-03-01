@@ -26,7 +26,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   const powers = fighter.powers || [];
   const orderedPowers = ['Passive', '1st Skill', '2nd Skill', 'Ultimate']
-    .map((s) => powers.find((p) => p.status === s))
+    .map((s) => powers.find((p) => p.type === s))
     .filter(Boolean);
 
   const chipClass = [
@@ -151,9 +151,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         <div className="mchip__powers">
           {orderedPowers.map((p) => {
             if (!p) return null;
-            const meta = POWER_META[p.status] || { icon: '◇', tag: p.status.toUpperCase(), cls: '' };
+            const meta = POWER_META[p.type] || { icon: '◇', tag: p.type.toUpperCase(), cls: '' };
             return (
-              <div className="mchip__power" key={p.status}>
+              <div className="mchip__power" key={p.type}>
                 <span className="mchip__power-icon">{meta.icon}</span>
                 <div className="mchip__power-info">
                   <span className="mchip__power-tag">{meta.tag}</span>
