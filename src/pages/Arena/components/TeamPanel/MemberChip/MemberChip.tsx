@@ -189,7 +189,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         <div className="mchip__inner-border" />
 
         {/* Target crosshair badge — shown when selected as defend target */}
-        {isDefender && (
+        {isDefender && !isEliminated && (
           <div className="mchip__target-badge">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <circle cx="12" cy="12" r="4" />

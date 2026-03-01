@@ -2,8 +2,8 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../constants/theme';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
-import WinBadge from './icons/Crown';
-import LoseBadge from './icons/Skull';
+import WinBadge from './icons/Winner';
+import LoseBadge from './icons/Loser';
 import './BattleHUD.scss';
 
 /** Keep element rendered during a fade-out exit animation. */
