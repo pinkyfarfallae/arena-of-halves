@@ -344,7 +344,7 @@ function Arena() {
             <button
               className="arena__share-btn"
               onClick={() => setShowLog(true)}
-              data-tooltip={"Battle\nlog"}
+              data-tooltip={"Log"}
               data-tooltip-pos="bottom"
             >
               <Eye width={14} height={14} />
