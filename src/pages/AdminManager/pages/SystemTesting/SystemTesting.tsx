@@ -37,8 +37,6 @@ export default function SystemTesting() {
 
   return (
     <div className="st">
-      <h2 className="st__title">System Testing</h2>
-
       <div className="st__grid">
         {SYSTEMS.map(s => (
           <button key={s.path} className="st__card" onClick={() => navigate(`/admin/testing/${s.path}`)}>

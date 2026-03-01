@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { DICE, type Die, type HistoryEntry, type DieRendererProps } from './types';
 import D4Die from './D4/D4Die';
@@ -12,6 +12,20 @@ import './DiceRoller.scss';
 
 interface Props {
   className?: string;
+  /** Lock to a specific die type (hides the selector row) */
+  lockedDie?: Die;
+  /** Hide the "Tap to roll" prompt */
+  hidePrompt?: boolean;
+  /** Auto-roll on mount */
+  autoRoll?: boolean;
+  /** Override the displayed result number (for showing opponent's roll) */
+  fixedResult?: number;
+  /** Override accent color (for showing opponent's roll in their theme) */
+  accentColor?: string;
+  /** Override 3D die colors (primary + primaryDark) */
+  themeColors?: { primary: string; primaryDark: string };
+  /** Called when a roll finishes with the result number */
+  onRollResult?: (n: number) => void;
 }
 
 const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
@@ -24,13 +38,22 @@ const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
   100: D100Die,
 };
 
-export default function DiceRoller({ className }: Props) {
+export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult }: Props) {
   const { user } = useAuth();
-  const accent = user?.theme[9] ?? '#b8860b';
-  const [die, setDie] = useState<Die>(20);
+  const accent = accentColor ?? user?.theme[9] ?? '#b8860b';
+  const [die, setDie] = useState<Die>(lockedDie ?? 20);
   const [rolling, setRolling] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [rollCount, setRollCount] = useState(0);
+  const autoRolled = useRef(false);
+
+  // Auto-roll on mount
+  useEffect(() => {
+    if (autoRoll && !autoRolled.current) {
+      autoRolled.current = true;
+      setRolling(true);
+    }
+  }, [autoRoll]);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -38,9 +61,11 @@ export default function DiceRoller({ className }: Props) {
   }, [rolling]);
 
   const handleResult = useCallback((n: number) => {
-    setHistory(h => [{ die, result: n }, ...h].slice(0, 5));
+    const val = fixedResult ?? n;
+    setHistory(h => [{ die, result: val }, ...h].slice(0, 5));
     setRollCount(c => c + 1);
-  }, [die]);
+    onRollResult?.(val);
+  }, [die, fixedResult, onRollResult]);
 
   const handleRollEnd = useCallback(() => {
     setRolling(false);
@@ -105,40 +130,46 @@ export default function DiceRoller({ className }: Props) {
           </span>
         )}
         {/* White wink sparkles on result */}
-        {rollCount > 0 && [1,2,3,4,5,6].map(i => (
+        {rollCount > 0 && [1, 2, 3, 4, 5, 6].map(i => (
           <span key={`wink-${rollCount}-${i}`} className={`dr__wink dr__wink--${i}`} />
         ))}
         <span className="dr__twinkle dr__twinkle--tl" />
         <span className="dr__twinkle dr__twinkle--tr" />
         <span className="dr__twinkle dr__twinkle--bl" />
         <span className="dr__twinkle dr__twinkle--br" />
-        <div className="dr__die-wrap">
+        <div className={`dr__die-wrap${autoRoll ? ' dr__die-wrap--disabled' : ''}`}>
           <DieComponent
             key={die}
             rolling={rolling}
             onResult={handleResult}
             onRollEnd={handleRollEnd}
-            onClick={roll}
+            onClick={autoRoll ? () => {} : roll}
+            fixedResult={fixedResult}
+            themeColors={themeColors}
           />
           <div className="dr__die-shimmer" />
         </div>
-        <span className={`dr__tap-prompt${!rolling ? ' dr__tap-prompt--visible' : ''}`}>
-          Tap to roll
-        </span>
+        {!hidePrompt && (
+          <span className={`dr__tap-prompt${!rolling ? ' dr__tap-prompt--visible' : ''}`}>
+            Tap to roll
+          </span>
+        )}
       </div>
 
-      <div className="dr__dice-row">
-        {DICE.map(d => (
-          <button
-            key={d}
-            className={`dr__die-btn${d === die ? ' dr__die-btn--active' : ''}`}
-            onClick={() => setDie(d)}
-            disabled={rolling}
-          >
-            D{d}
-          </button>
-        ))}
-      </div>
+      {!lockedDie && (
+        <div className="dr__dice-row">
+          {DICE.map(d => (
+            <button
+              key={d}
+              className={`dr__die-btn${d === die ? ' dr__die-btn--active' : ''}`}
+              onClick={() => setDie(d)}
+              disabled={rolling}
+            >
+              D{d}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

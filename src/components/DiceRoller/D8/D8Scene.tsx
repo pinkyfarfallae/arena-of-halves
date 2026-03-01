@@ -7,9 +7,10 @@ interface Props {
   onClick: () => void;
   primary: string;
   primaryDark: string;
+  fixedResult?: number;
 }
 
-export default function D8Scene({ rollTrigger, onResult, onClick, primary, primaryDark }: Props) {
+export default function D8Scene({ rollTrigger, onResult, onClick, primary, primaryDark, fixedResult }: Props) {
   return (
     <Canvas
       flat

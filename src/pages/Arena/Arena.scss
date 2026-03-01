@@ -1,71 +1,628 @@
+@use '../../styles/variables' as *;
+
+/* ══════════════════════════════════════
+   THE ARENA — Sunlit Colosseum
+   ══════════════════════════════════════ */
+
+// Palette — warm sandstone light theme (matches Lobby)
+$sand: #f5ece0;
+$sand-warm: #ede2d2;
+$sand-deep: #ddd0bc;
+$stone: #c4b49a;
+$stone-dark: #a89878;
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$gold-light: #e2d1a0;
+$gold-pale: rgba(201, 168, 76, 0.08);
+$gold-border: rgba(201, 168, 76, 0.25);
+$crimson: #a0001b;
+$crimson-bright: #c41e3a;
+$crimson-soft: rgba(196, 30, 58, 0.06);
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
+
+/* ── Page ── */
 .arena {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% -10%, #faf4ea 0%, $sand 50%, $sand-warm 100%);
 
-  &__title {
-    font-family: 'Cinzel', serif;
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--ci-fg);
-    margin-bottom: 0.5rem;
-    text-shadow: 0 0 20px color-mix(in srgb, var(--ci-primary) 15%, transparent);
-    transition: color 0.4s;
+  // Stone block texture
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      repeating-linear-gradient(0deg,
+        transparent, transparent 80px,
+        rgba(160, 140, 110, 0.06) 80px,
+        rgba(255, 255, 255, 0.06) 81px,
+        transparent 81px, transparent 82px),
+      repeating-linear-gradient(90deg,
+        transparent, transparent 120px,
+        rgba(160, 140, 110, 0.04) 120px,
+        rgba(255, 255, 255, 0.04) 121px,
+        transparent 121px, transparent 240px),
+      repeating-linear-gradient(-25deg,
+        transparent, transparent 40px,
+        rgba(180, 160, 130, 0.025) 40px,
+        rgba(255, 255, 255, 0.025) 41px,
+        transparent 41px, transparent 100px);
   }
 
-  &__desc {
+  // Warm golden glow from top center
+  &::after {
+    content: '';
+    position: absolute;
+    top: -15%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    height: 45%;
+    background: radial-gradient(ellipse, rgba($gold, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @media (max-width: $bp-medium) {
+    height: calc(100vh - #{$topbar-height});
+  }
+}
+
+/* ══════════════════════════════════════
+   DECORATIVE ELEMENTS
+   ══════════════════════════════════════ */
+
+// Corner ornaments — L-shaped gold marks
+.arena__corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  pointer-events: none;
+  z-index: 3;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: $gold;
+    opacity: 0.4;
+  }
+
+  &::before {
+    height: 2px;
+    width: 100%;
+    top: 0;
+  }
+
+  &::after {
+    width: 2px;
+    height: 100%;
+    left: 0;
+  }
+
+  &--tl { top: 0.6rem; left: 2.25rem; }
+
+  &--tr {
+    top: 0.6rem;
+    right: 2.25rem;
+    &::before { right: 0; left: auto; }
+    &::after { right: 0; left: auto; }
+  }
+
+  &--bl {
+    bottom: 0.6rem;
+    left: 2.25rem;
+    &::before { bottom: 0; top: auto; }
+    &::after { bottom: 0; top: auto; }
+  }
+
+  &--br {
+    bottom: 0.6rem;
+    right: 2.25rem;
+    &::before { bottom: 0; top: auto; right: 0; left: auto; }
+    &::after { bottom: 0; top: auto; right: 0; left: auto; }
+  }
+}
+
+// Pulsing diamond accents
+.arena__diamond {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: $gold;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  pointer-events: none;
+  z-index: 3;
+  animation: arena-diamond-pulse 3s ease-in-out infinite;
+
+  &--tl {
+    top: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    --diamond-base: translateX(-50%);
+  }
+
+  &--bl {
+    bottom: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    animation-delay: 1.5s;
+    --diamond-base: translateX(-50%);
+  }
+
+  &--ml {
+    top: 50%;
+    left: 2.25rem;
+    transform: translateY(-50%);
+    animation-delay: 0.75s;
+    --diamond-base: translateY(-50%);
+  }
+
+  &--mr {
+    top: 50%;
+    right: 2.25rem;
+    transform: translateY(-50%);
+    animation-delay: 2.25s;
+    --diamond-base: translateY(-50%);
+  }
+}
+
+/* ══════════════════════════════════════
+   TOP BAR
+   ══════════════════════════════════════ */
+.arena__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: $topbar-height;
+  padding: 0 0.75rem;
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid $gold-border;
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  z-index: 10;
+  position: relative;
+
+  // Tooltip overrides for consistent look
+  [data-tooltip]::after {
+    background: $ink;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  [data-tooltip]::before {
+    border-bottom-color: $ink;
+  }
+
+  [data-tooltip-pos="bottom"]::before {
+    border-bottom-color: $ink;
+  }
+}
+
+.arena__bar-back {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: $ink-faint;
+  text-decoration: none;
+  padding: 0.25rem 0.5rem 0.25rem 0.2rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  svg { width: 15px; height: 15px; }
+
+  &:hover {
+    color: $gold-dark;
+    background: $gold-pale;
+  }
+}
+
+.arena__bar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.arena__bar-name {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: $crimson;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @media (max-width: $bp-compact) {
+    max-width: 140px;
+    font-size: 0.8rem;
+  }
+}
+
+.arena__bar-spacer { flex: 1; }
+
+.arena__bar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+
+  @media (max-width: $bp-mobile) { display: none; }
+}
+
+.arena__bar-badge {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 12px;
+  color: $ink-mid;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+
+  &--spectator {
+    color: #7c3aed;
+    background: rgba(#7c3aed, 0.08);
+    border-color: rgba(#7c3aed, 0.12);
+  }
+}
+
+.arena__bar-viewers {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  color: $ink-faint;
+}
+
+.arena__bar-share {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.arena__share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid $gold-border;
+  background: $gold-pale;
+  color: $ink-mid;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+
+  svg { width: 14px; height: 14px; }
+
+  &:hover {
+    color: $gold-dark;
+    background: rgba($gold, 0.12);
+    border-color: rgba($gold, 0.3);
+  }
+
+  &--copied {
+    color: #16a34a;
+    border-color: rgba(#16a34a, 0.2);
+    background: rgba(#16a34a, 0.06);
+  }
+}
+
+/* ══════════════════════════════════════
+   BATTLE FIELD
+   ══════════════════════════════════════ */
+.arena__field {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.arena__half {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--empty {
+    background: rgba($sand-warm, 0.5) !important;
+  }
+}
+
+/* ── VS Divider ── */
+.arena__divider {
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    $crimson-bright 15%,
+    rgba($crimson-bright, 0.9) 50%,
+    $crimson-bright 85%,
+    transparent 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 8px rgba($crimson, 0.15),
+    0 0 20px rgba($crimson, 0.08);
+  animation: arena-divider-breathe 3s ease-in-out infinite;
+}
+
+.arena__vs-ring {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, #fff 0%, $sand 70%);
+  border: 2px solid $crimson-bright;
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba($crimson, 0.2),
+    0 0 24px rgba($crimson, 0.1);
+  z-index: 100;
+  animation: arena-vs-pulse 2.5s ease-in-out infinite;
+}
+
+.arena__vs {
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: $crimson-bright;
+  letter-spacing: 0.05em;
+}
+
+.arena__empty-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+
+  span {
     font-family: 'Philosopher', sans-serif;
-    color: var(--ci-muted);
-    margin-bottom: 2rem;
-    font-size: 1.05rem;
-    transition: color 0.4s;
+    color: $ink-faint;
+    font-size: 0.95rem;
+    font-style: italic;
+    animation: arena-pulse 2.5s ease-in-out infinite;
+  }
+}
+
+/* ══════════════════════════════════════
+   FOOTER ACTIONS
+   ══════════════════════════════════════ */
+.arena__actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(to top, rgba($sand, 0.9), transparent);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.arena__action-btn {
+  pointer-events: all;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+
+  &--secondary {
+    background: $gold-pale;
+    color: $ink-mid;
+    border: 1px solid rgba($gold, 0.18);
+
+    &:hover { background: rgba($gold, 0.12); color: $ink; }
   }
 
-  &__field {
-    display: flex;
-    height: 300px;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 25px color-mix(in srgb, var(--ci-primary) 10%, transparent);
-    border: 1px solid var(--ci-border);
-    transition: box-shadow 0.4s, border-color 0.4s;
+  &--primary {
+    background: linear-gradient(145deg, $gold, darken($gold, 8%));
+    color: #fff;
+    border: 1px solid rgba($gold-dark, 0.3);
+    box-shadow: 0 2px 8px rgba($gold, 0.2);
+
+    &:hover { background: linear-gradient(145deg, lighten($gold, 4%), $gold); }
   }
 
-  &__half {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Cinzel', serif;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--ci-light);
-    transition: flex 0.3s ease;
+  &--danger {
+    background: $crimson-soft;
+    color: $crimson-bright;
+    border: 1px solid rgba($crimson, 0.12);
 
-    &:hover {
-      flex: 1.2;
-    }
+    &:hover { background: rgba($crimson, 0.12); color: $crimson; }
+  }
+}
 
-    &--left {
-      background: linear-gradient(135deg, var(--ci-primary), var(--ci-primary-dark));
-    }
+/* ══════════════════════════════════════
+   TOAST NOTIFICATION
+   ══════════════════════════════════════ */
+.arena__toast {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0 0 6px 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(145deg, $crimson-bright, darken($crimson-bright, 6%));
+  border: 1px solid rgba($gold, 0.25);
+  border-top: none;
+  box-shadow: 0 4px 20px rgba($crimson, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: arena-toast-enter 0.3s ease-out forwards;
 
-    &--right {
-      background: linear-gradient(135deg, var(--ci-accent), var(--ci-accent-dark));
-    }
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+}
+
+/* ══════════════════════════════════════
+   ERROR / LOADING
+   ══════════════════════════════════════ */
+.arena__state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 1;
+}
+
+.arena__state-msg {
+  font-family: 'Philosopher', sans-serif;
+  color: $crimson-bright;
+  font-size: 0.95rem;
+}
+
+.arena__state-loader {
+  .app-loader__ring {
+    border-color: $gold-border;
+    border-top-color: $gold;
+  }
+}
+
+/* ══════════════════════════════════════
+   KEYFRAMES
+   ══════════════════════════════════════ */
+@keyframes arena-diamond-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1) var(--diamond-base, translateX(-50%));
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5) var(--diamond-base, translateX(-50%));
+  }
+}
+
+@keyframes arena-divider-breathe {
+  0%, 100% { box-shadow: 0 0 8px rgba($crimson, 0.15), 0 0 20px rgba($crimson, 0.08); }
+  50%      { box-shadow: 0 0 14px rgba($crimson, 0.25), 0 0 32px rgba($crimson, 0.12); }
+}
+
+@keyframes arena-vs-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 12px rgba($crimson,0.2), 0 0 24px rgba($crimson,0.1);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 18px rgba($crimson,0.3), 0 0 36px rgba($crimson,0.15);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes arena-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+@keyframes arena-shimmer {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1; }
+}
+
+@keyframes arena-toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════ */
+@media (max-width: $bp-compact) {
+  .arena__corner {
+    width: 14px;
+    height: 14px;
+    &--tl, &--tr { top: 0.4rem; }
+    &--bl, &--br { bottom: 0.4rem; }
+    &--tl, &--bl { left: 1rem; }
+    &--tr, &--br { right: 1rem; }
   }
 
-  &__divider {
-    width: 3px;
-    background: color-mix(in srgb, var(--ci-light) 30%, transparent);
+  .arena__diamond {
+    width: 4px;
+    height: 4px;
+    &--ml { left: 1rem; }
+    &--mr { right: 1rem; }
   }
 
-  &__actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
+  /* ── Stacked layout: halves top/bottom ── */
+  .arena__field {
+    flex-direction: column;
+  }
+
+  .arena__divider {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      $crimson-bright 15%,
+      rgba($crimson-bright, 0.9) 50%,
+      $crimson-bright 85%,
+      transparent 100%
+    );
+  }
+
+  .arena__vs-ring {
+    width: 36px;
+    height: 36px;
+  }
+
+  .arena__vs {
+    font-size: 0.65rem;
+  }
+
+  .arena__half--right {
+    mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
   }
 }

@@ -1,0 +1,37 @@
+@use '../../../../styles/variables' as *;
+
+/* ══════════════════════════════════════
+   TEAM PANEL — container for member chips
+   ══════════════════════════════════════ */
+
+.team-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: $bp-medium) {
+  .team-panel {
+    gap: 0.4rem;
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .team-panel--left,
+  .team-panel--right {
+    flex-direction: column;
+    bottom: 0;
+    right: auto;
+    width: auto;
+    padding: 0;
+    gap: 0.3rem;
+    background: transparent !important;
+  }
+}

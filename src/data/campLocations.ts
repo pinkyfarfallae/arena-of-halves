@@ -71,6 +71,9 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     x: 75, y: 50,
     size: 'lg',
     tags: ['training', 'combat'],
+    actionLabels: ['Enter Battle'],
+    actionIcons: ['battle'],
+    actionPaths: ['/arena'],
   },
   {
     id: 'forge',

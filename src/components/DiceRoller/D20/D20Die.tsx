@@ -8,7 +8,7 @@ const D20Scene = lazy(() => import('./D20Scene'));
 
 const WINK_COUNT = 8;
 
-export default function D20Die({ rolling, onResult, onRollEnd, onClick }: DieRendererProps) {
+export default function D20Die({ rolling, onResult, onRollEnd, onClick, fixedResult, themeColors }: DieRendererProps) {
   const [rollTrigger, setRollTrigger] = useState(0);
   const [showWinks, setShowWinks] = useState(false);
   const winksFinished = useRef(0);
@@ -16,8 +16,8 @@ export default function D20Die({ rolling, onResult, onRollEnd, onClick }: DieRen
   const { user } = useAuth();
 
   // Accent color (index 3 = accent, index 19 = accent-dark)
-  const primary = user?.theme[3] ?? '#b8860b';
-  const primaryDark = user?.theme[19] ?? '#8a6d3b';
+  const primary = themeColors?.primary ?? user?.theme[3] ?? '#b8860b';
+  const primaryDark = themeColors?.primaryDark ?? user?.theme[19] ?? '#8a6d3b';
 
   useEffect(() => {
     if (rolling && !prevRolling.current) {
@@ -49,6 +49,7 @@ export default function D20Die({ rolling, onResult, onRollEnd, onClick }: DieRen
           onClick={onClick}
           primary={primary}
           primaryDark={primaryDark}
+          fixedResult={fixedResult}
         />
         {showWinks && Array.from({ length: WINK_COUNT }, (_, i) => (
           <div
