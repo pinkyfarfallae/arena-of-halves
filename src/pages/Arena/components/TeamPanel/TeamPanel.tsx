@@ -19,8 +19,8 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   );
   const gradient =
     stops.length === 1
-      ? `linear-gradient(180deg, ${stops[0]} 0%, transparent 100%)`
-      : `linear-gradient(90deg, ${stops.join(', ')})`;
+      ? `linear-gradient(var(--tp-dir, 180deg), ${stops[0]} 0%, transparent 100%)`
+      : `linear-gradient(var(--tp-dir, 90deg), ${stops.join(', ')})`;
 
   return {
     background: `${gradient}`,

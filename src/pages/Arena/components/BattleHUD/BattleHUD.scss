@@ -20,7 +20,7 @@ $crimson-bright: #c41e3a;
   padding: 0.6rem 0.8rem;
   pointer-events: none;
 
-  > * {
+  >* {
     pointer-events: all;
   }
 }
@@ -177,6 +177,7 @@ $crimson-bright: #c41e3a;
     left: $sidebar-width;
     width: calc((100vw - #{$sidebar-width}) / 2);
   }
+
   // Right half: from content center to right edge
   &--right {
     right: 0;
@@ -185,8 +186,13 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .bhud__dice-modal {
@@ -204,13 +210,21 @@ $crimson-bright: #c41e3a;
     0 0 0 1px rgba($gold, 0.08);
   animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
   width: 220px;
+  margin-top: 2rem;
   max-height: calc(100vh - 6rem);
   overflow: visible;
 }
 
 @keyframes bhud-scale-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .bhud__dice-label {
@@ -278,7 +292,9 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Roll result card (opponent's result) ── */
@@ -582,6 +598,21 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
 }
 
+@media (max-width: $bp-compact) {
+  .bhud__log-entry {
+    flex-wrap: wrap;
+    gap: 0.15rem 0.3rem;
+  }
+
+  .bhud__log-sep {
+    flex-basis: 100%;
+    height: 0;
+    overflow: hidden;
+    font-size: 0;
+    line-height: 0;
+  }
+}
+
 .bhud__log-hit {
   font-weight: 800;
   color: $crimson-bright;
@@ -613,5 +644,107 @@ $crimson-bright: #c41e3a;
 
   .bhud__dice-roller {
     height: 150px;
+  }
+
+  /* Sidebar hidden — remove offset */
+  .bhud__dice-zone--left {
+    left: 0;
+    width: 50vw;
+  }
+
+  .bhud__dice-zone--right {
+    width: 50vw;
+  }
+}
+
+@media (max-width: $bp-compact) {
+
+  /* Log + bar as normal flex item so halves don't include its height */
+  .bhud {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    flex-shrink: 0;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .bhud__log {
+    max-height: 60px;
+  }
+
+  .bhud__dice-modal {
+    width: 150px;
+    padding: 0.35rem 0.3rem 0.25rem;
+    border-radius: 8px;
+    gap: 0.2rem;
+  }
+
+  .bhud__dice-label {
+    font-size: 0.5rem;
+  }
+
+  .bhud__dice-sub {
+    font-size: 0.45rem;
+  }
+
+  .bhud__dice-roller {
+    height: 110px;
+
+    .dr__display {
+      transform: scale(0.3);
+    }
+
+    .dr__result {
+      font-size: 0.85rem;
+      padding: 0.1rem 0.25rem;
+    }
+  }
+
+  .bhud__dice-bonus {
+    font-size: 0.5rem;
+  }
+
+  .bhud__roll-result {
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+  }
+
+  .bhud__roll-result-val {
+    font-size: 1.8rem;
+  }
+
+  .bhud__roll-result-name {
+    font-size: 0.65rem;
+  }
+
+  .bhud__roll-waiting-spinner {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Dice zones: equal height matching arena halves (subtract bars + bhud) */
+  .bhud__dice-zone--left {
+    left: auto;
+    right: 0;
+    top: calc(#{$topbar-height} * 2);
+    bottom: auto;
+    height: calc(50vh - #{$topbar-height} - 3.5rem);
+    width: calc(100vw - 90px);
+    padding-right: 10px;
+
+    .bhud__dice-modal {
+      margin-top: -1rem;
+    }
+  }
+
+  .bhud__dice-zone--right {
+    left: auto;
+    right: 0;
+    top: calc(#{$topbar-height} + 50vh - 3.5rem);
+    bottom: auto;
+    height: calc(50vh - #{$topbar-height} - 3.5rem);
+    width: calc(100vw - 90px);
+    padding-right: 10px;
   }
 }
