@@ -67,7 +67,6 @@ $ink-faint: #9a8b76;
   &--eliminated {
     opacity: 0.35;
     filter: grayscale(0.8);
-    pointer-events: none;
   }
 
   &--targetable {

@@ -1,0 +1,252 @@
+/* ══════════════════════════════════════
+   BATTLE LOG MODAL
+   ══════════════════════════════════════ */
+
+$sand-warm: #ede2d2;
+$stone: #c4b49a;
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$gold-pale: rgba(201, 168, 76, 0.08);
+$gold-border: rgba(201, 168, 76, 0.25);
+$crimson: #a0001b;
+$crimson-bright: #c41e3a;
+$crimson-soft: rgba(196, 30, 58, 0.06);
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
+
+@keyframes blm-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes blm-scale-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Overlay ── */
+.blm__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba($ink, 0.35);
+  backdrop-filter: blur(4px);
+  animation: blm-overlay-in 0.15s ease-out;
+}
+
+/* ── Modal card ── */
+.blm {
+  width: 440px;
+  max-width: calc(100% - 2rem);
+  max-height: 80vh;
+  padding: 1.5rem;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid $gold-border;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba($gold, 0.06);
+  animation: blm-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgba($gold, 0.12);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+}
+
+/* ── Close button ── */
+.blm__close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: $ink-faint;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  z-index: 1;
+
+  &:hover {
+    color: $ink;
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+/* ── Title ── */
+.blm__title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: $crimson;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  svg {
+    color: $crimson-bright;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Matchup ── */
+.blm__matchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.blm__team {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: $ink;
+}
+
+.blm__vs {
+  font-family: 'Cinzel', serif;
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+}
+
+/* ── Winner ── */
+.blm__winner {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: $gold-dark;
+  text-align: center;
+  padding: 0.35rem 0.75rem;
+  background: $gold-pale;
+  border: 1px solid rgba($gold, 0.15);
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Log list ── */
+.blm__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  overflow-y: auto;
+  max-height: 50vh;
+  padding-right: 0.25rem;
+
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba($gold, 0.2);
+    border-radius: 2px;
+  }
+}
+
+.blm__entry {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 2px;
+  background: rgba($sand-warm, 0.35);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.blm__round {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink-faint;
+  min-width: 1.6em;
+  flex-shrink: 0;
+}
+
+.blm__name {
+  font-weight: 700;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.blm__dice {
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  font-size: 0.6rem;
+  color: $ink;
+  background: rgba(#fff, 0.7);
+  padding: 0 0.25rem;
+  border-radius: 2px;
+  border: 1px solid rgba($gold, 0.15);
+}
+
+.blm__bonus {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.5rem;
+  color: $gold-dark;
+  font-weight: 600;
+}
+
+.blm__vs-sm {
+  font-size: 0.48rem;
+  font-weight: 700;
+  color: $stone;
+  text-transform: uppercase;
+}
+
+.blm__sep {
+  color: $stone;
+  font-size: 0.55rem;
+}
+
+.blm__hit {
+  font-weight: 800;
+  color: $crimson-bright;
+  font-size: 0.58rem;
+}
+
+.blm__block {
+  font-weight: 700;
+  color: $ink-faint;
+  font-size: 0.58rem;
+}
+
+.blm__ko {
+  font-weight: 800;
+  color: $crimson;
+  font-size: 0.55rem;
+  padding: 0 0.3rem;
+  background: $crimson-soft;
+  border-radius: 2px;
+}
+
+.blm__empty {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  color: $ink-faint;
+  text-align: center;
+  padding: 2rem 0;
+}

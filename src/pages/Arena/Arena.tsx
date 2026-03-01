@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPowers } from '../../data/characters';
+import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import {
   onRoomChange,
   joinRoom,
@@ -20,9 +21,11 @@ import type { Theme25 } from '../../types/character';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import ChevronLeft from '../../icons/ChevronLeft';
+import BattleLogModal from '../Lobby/components/BattleLogModal/BattleLogModal';
 import CopyIcon from './icons/CopyIcon';
 import LinkIcon from './icons/LinkIcon';
 import CheckIcon from './icons/CheckIcon';
+import Eye from '../../icons/Eye';
 import './Arena.scss';
 
 type Role = 'teamA' | 'teamB' | 'viewer';
@@ -103,6 +106,7 @@ function Arena() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -144,7 +148,8 @@ function Arena() {
     const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
     if (!watchOnly && room.status === 'waiting' && !teamBFull) {
       try {
-        const powers = await fetchPowers(user.deityBlood);
+        const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
+        const powers = await fetchPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
@@ -334,24 +339,37 @@ function Arena() {
           )}
         </div>
 
-        <div className="arena__bar-share">
-          <button
-            className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
-            onClick={() => handleCopy('code')}
-            data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
-            data-tooltip-pos="bottom"
-          >
-            {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
-          </button>
-          <button
-            className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
-            onClick={() => handleCopy('link')}
-            data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
-            data-tooltip-pos="bottom"
-          >
-            {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
-          </button>
-        </div>
+        {room.status === 'finished' ? (
+          <div className="arena__bar-share">
+            <button
+              className="arena__share-btn"
+              onClick={() => setShowLog(true)}
+              data-tooltip="Battle log"
+              data-tooltip-pos="bottom"
+            >
+              <Eye width={14} height={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="arena__bar-share">
+            <button
+              className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy('code')}
+              data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
+              data-tooltip-pos="bottom"
+            >
+              {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
+            </button>
+            <button
+              className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy('link')}
+              data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+              data-tooltip-pos="bottom"
+            >
+              {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ── Battle field ── */}
@@ -424,6 +442,10 @@ function Arena() {
           </button>
         )}
       </div>
+
+      {showLog && room && (
+        <BattleLogModal room={room} onClose={() => setShowLog(false)} />
+      )}
     </div>
   );
 }
