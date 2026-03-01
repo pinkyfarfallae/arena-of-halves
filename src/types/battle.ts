@@ -102,6 +102,7 @@ export interface BattleRoom {
 
   battle?: BattleState;
   testMode?: boolean;
+  npcId?: string;
 
   createdAt: number;
 }

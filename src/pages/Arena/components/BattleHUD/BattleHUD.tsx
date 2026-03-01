@@ -2,9 +2,34 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../constants/theme';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
-import Crown from './icons/Crown';
-import Skull from './icons/Skull';
+import WinBadge from './icons/Winner';
+import LoseBadge from './icons/Loser';
 import './BattleHUD.scss';
+
+/** Keep element rendered during a fade-out exit animation. */
+function useFadeTransition(visible: boolean, ms = 250) {
+  const [show, setShow] = useState(false);
+  const [exit, setExit] = useState(false);
+  const showRef = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      showRef.current = true;
+      setShow(true);
+      setExit(false);
+    } else if (showRef.current) {
+      setExit(true);
+      const t = setTimeout(() => {
+        showRef.current = false;
+        setShow(false);
+        setExit(false);
+      }, ms);
+      return () => clearTimeout(t);
+    }
+  }, [visible, ms]);
+
+  return [show, exit] as const;
+}
 
 interface Props {
   battle: BattleState;
@@ -61,40 +86,78 @@ export default function BattleHUD({
     setTimeout(() => onSubmitDefendRoll(n), 1500);
   }, [onSubmitDefendRoll]);
 
+  /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
+  const [atkRollDone, setAtkRollDone] = useState(false);
+  const [defRollDone, setDefRollDone] = useState(false);
+
+  // Reset when phase changes
+  useEffect(() => { setAtkRollDone(false); }, [turn?.phase]);
+  useEffect(() => { setDefRollDone(false); }, [turn?.phase]);
+
   /* ── Sequencing: wait for opponent's dice to finish before next step ── */
   const [defendReady, setDefendReady] = useState(false);
   const [resolveReady, setResolveReady] = useState(false);
 
-  // When rolling-defend starts, wait for attack result dice to animate (only when opponent attacked)
+  // Reset ready flags when phase changes
+  useEffect(() => { if (turn?.phase === 'rolling-defend') setDefendReady(false); }, [turn?.phase]);
+  useEffect(() => { if (turn?.phase === 'resolving') setResolveReady(false); }, [turn?.phase]);
+
+  // If I attacked, no attack replay to wait for → short delay
   useEffect(() => {
-    if (turn?.phase === 'rolling-defend') {
-      setDefendReady(false);
-      // If I attacked, no attack replay to wait for → short delay
-      // If opponent attacked, wait for their attack result autoRoll to finish
-      const delay = turn.attackerId === myId ? 500 : 2800;
-      const timer = setTimeout(() => setDefendReady(true), delay);
-      return () => clearTimeout(timer);
+    if (turn?.phase === 'rolling-defend' && turn.attackerId === myId) {
+      const t = setTimeout(() => setDefendReady(true), 500);
+      return () => clearTimeout(t);
     }
   }, [turn?.phase, turn?.attackerId, myId]);
 
-  // When resolving starts, wait for defend result dice to animate (only when opponent defended)
+  // If opponent attacked, wait for their roll animation to end + 2s viewing time
   useEffect(() => {
-    if (turn?.phase === 'resolving') {
-      setResolveReady(false);
-      // If I defended, no replay to wait for → short delay
-      // If opponent defended, wait for their defend result autoRoll to finish
-      const delay = turn.defenderId === myId ? 500 : 2800;
-      const timer = setTimeout(() => setResolveReady(true), delay);
-      return () => clearTimeout(timer);
+    if (atkRollDone && turn?.phase === 'rolling-defend') {
+      const t = setTimeout(() => setDefendReady(true), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [atkRollDone, turn?.phase]);
+
+  // If I defended, no replay to wait for → short delay
+  useEffect(() => {
+    if (turn?.phase === 'resolving' && turn.defenderId === myId) {
+      const t = setTimeout(() => setResolveReady(true), 500);
+      return () => clearTimeout(t);
     }
   }, [turn?.phase, turn?.defenderId, myId]);
+
+  // If opponent defended, wait for their roll animation to end + 2s viewing time
+  useEffect(() => {
+    if (defRollDone && turn?.phase === 'resolving') {
+      const t = setTimeout(() => setResolveReady(true), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [defRollDone, turn?.phase]);
 
   /* ── Auto-resolve after showing result (only after resolve is ready) ── */
   useEffect(() => {
     if (turn?.phase !== 'resolving' || !resolveReady) return;
-    const timer = setTimeout(() => onResolve(), 2500);
+    const timer = setTimeout(() => onResolve(), 3500);
     return () => clearTimeout(timer);
   }, [turn?.phase, resolveReady, onResolve]);
+
+  /* ── Fade transitions for resolve & waiting panels ── */
+  const resolveVisible = turn?.phase === 'resolving' && resolveReady && !!attacker && !!defender;
+  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target');
+  const [showResolve, resolveExiting] = useFadeTransition(resolveVisible, 250);
+  const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
+
+  // Cache resolve data so content doesn't flicker during exit animation
+  const resolveCache = useRef({ atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0, isHit: false, damage: 0 });
+  if (resolveVisible && turn && attacker && defender) {
+    const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp;
+    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp;
+    resolveCache.current = {
+      atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
+      atkBonus: attacker.attackDiceUp, defBonus: defender.defendDiceUp,
+      atkTotal: at, defTotal: dt, isHit: at > dt, damage: attacker.damage,
+    };
+  }
 
   /* ── Winner ── */
   if (winner) {
@@ -111,7 +174,7 @@ export default function BattleHUD({
         {/* Side result icons */}
         <div className={`bhud__dice-zone bhud__dice-zone--${winSide}`}>
           <div className="bhud__result-badge bhud__result-badge--winner">
-            <Crown className="bhud__result-icon" />
+            <WinBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Victory</span>
             <div className="bhud__result-names">
               {winNames.map((name) => <span key={name}>{name}</span>)}
@@ -120,7 +183,7 @@ export default function BattleHUD({
         </div>
         <div className={`bhud__dice-zone bhud__dice-zone--${loseSide}`}>
           <div className="bhud__result-badge bhud__result-badge--loser">
-            <Skull className="bhud__result-icon" />
+            <LoseBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Defeat</span>
             <div className="bhud__result-names">
               {loseNames.map((name) => <span key={name}>{name}</span>)}
@@ -137,11 +200,6 @@ export default function BattleHUD({
   }
 
   if (!turn) return null;
-
-  /* ── Resolve info ── */
-  const atkTotal = (turn.attackRoll ?? 0) + (attacker?.attackDiceUp ?? 0);
-  const defTotal = (turn.defendRoll ?? 0) + (defender?.defendDiceUp ?? 0);
-  const hit = atkTotal > defTotal;
 
   const atkSide = turn.attackerTeam === 'teamA' ? 'left' : 'right';
   const defSide = turn.attackerTeam === 'teamA' ? 'right' : 'left';
@@ -216,7 +274,9 @@ export default function BattleHUD({
           <div className="bhud__dice-modal">
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} → {defender?.nicknameEng}</span>
-            <div className="bhud__roll-waiting-spinner" />
+            <div className="bhud__dice-roller bhud__dice-roller--waiting">
+              <div className="bhud__roll-waiting-spinner" />
+            </div>
           </div>
         </div>
       )}
@@ -228,11 +288,13 @@ export default function BattleHUD({
           <div className="bhud__dice-modal">
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng}</span>
-            <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.attackRoll} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt />
+            <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.attackRoll} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt onRollEnd={() => setAtkRollDone(true)} />
             <span className="bhud__dice-bonus">
-              {(attacker?.attackDiceUp ?? 0) > 0
-                ? `+${attacker!.attackDiceUp} → ${turn.attackRoll + attacker!.attackDiceUp}`
-                : turn.attackRoll}
+              {!atkRollDone
+                ? 'rolling...'
+                : (attacker?.attackDiceUp ?? 0) > 0
+                  ? `+${attacker!.attackDiceUp} → ${turn.attackRoll + attacker!.attackDiceUp}`
+                  : turn.attackRoll}
             </span>
           </div>
         </div>
@@ -256,7 +318,9 @@ export default function BattleHUD({
           <div className="bhud__dice-modal">
             <span className="bhud__dice-label">Defense Roll</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <div className="bhud__roll-waiting-spinner" />
+            <div className="bhud__dice-roller bhud__dice-roller--waiting">
+              <div className="bhud__roll-waiting-spinner" />
+            </div>
           </div>
         </div>
       )}
@@ -268,58 +332,64 @@ export default function BattleHUD({
           <div className="bhud__dice-modal">
             <span className="bhud__dice-label">Defense Roll</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt />
+            <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt onRollEnd={() => setDefRollDone(true)} />
             <span className="bhud__dice-bonus">
-              {(defender?.defendDiceUp ?? 0) > 0
-                ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
-                : turn.defendRoll}
+              {!defRollDone
+                ? 'rolling...'
+                : (defender?.defendDiceUp ?? 0) > 0
+                  ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
+                  : turn.defendRoll}
             </span>
           </div>
         </div>
       )}
-      {/* Resolve bar — only after defend result finishes */}
-      {turn.phase === 'resolving' && resolveReady && attacker && defender && (
-        <div className={`bhud__resolve ${hit ? '' : 'bhud__resolve--miss'}`}>
-          <div className="bhud__resolve-info">
-            <div className="bhud__resolve-rolls">
-              <span className="bhud__resolve-roll">
-                <span className="bhud__resolve-roll-label">ATK</span>
-                <span className="bhud__resolve-roll-val">{turn.attackRoll ?? 0}</span>
-                {(attacker.attackDiceUp > 0) && (
-                  <span className="bhud__resolve-roll-bonus">+{attacker.attackDiceUp}</span>
-                )}
-                <span className="bhud__resolve-roll-total">= {atkTotal}</span>
-              </span>
-              <span className="bhud__resolve-vs">vs</span>
-              <span className="bhud__resolve-roll">
-                <span className="bhud__resolve-roll-label">DEF</span>
-                <span className="bhud__resolve-roll-val">{turn.defendRoll ?? 0}</span>
-                {(defender.defendDiceUp > 0) && (
-                  <span className="bhud__resolve-roll-bonus">+{defender.defendDiceUp}</span>
-                )}
-                <span className="bhud__resolve-roll-total">= {defTotal}</span>
-              </span>
+      {/* Resolve bar — only after defend result finishes, with exit fade */}
+      {showResolve && (() => {
+        const rc = resolveCache.current;
+        return (
+          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+            <div className="bhud__resolve-info">
+              <div className="bhud__resolve-rolls">
+                <span className="bhud__resolve-roll">
+                  <span className="bhud__resolve-roll-label">ATK</span>
+                  <span className="bhud__resolve-roll-val">{rc.atkRoll}</span>
+                  {rc.atkBonus > 0 && (
+                    <span className="bhud__resolve-roll-bonus">+{rc.atkBonus}</span>
+                  )}
+                  <span className="bhud__resolve-roll-total">= {rc.atkTotal}</span>
+                </span>
+                <span className="bhud__resolve-vs">vs</span>
+                <span className="bhud__resolve-roll">
+                  <span className="bhud__resolve-roll-label">DEF</span>
+                  <span className="bhud__resolve-roll-val">{rc.defRoll}</span>
+                  {rc.defBonus > 0 && (
+                    <span className="bhud__resolve-roll-bonus">+{rc.defBonus}</span>
+                  )}
+                  <span className="bhud__resolve-roll-total">= {rc.defTotal}</span>
+                </span>
+              </div>
+              {rc.isHit ? (
+                <span className="bhud__resolve-dmg">-{rc.damage} DMG</span>
+              ) : (
+                <span className="bhud__resolve-miss">BLOCKED!</span>
+              )}
             </div>
-            {hit ? (
-              <span className="bhud__resolve-dmg">-{attacker.damage} DMG</span>
-            ) : (
-              <span className="bhud__resolve-miss">BLOCKED!</span>
-            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Waiting for opponent to select target */}
-      {!isMyTurn && turn.phase === 'select-target' && (
-        <div className="bhud__waiting">
+      {showWaiting && (
+        <div className={`bhud__waiting ${waitingExiting ? 'bhud__waiting--exit' : ''}`}>
           Waiting for {attacker?.nicknameEng ?? '...'}...
         </div>
       )}
 
       {/* Battle log */}
-      {log.length > 0 && (
-        <div className="bhud__log">
-          {[...log].reverse().map((entry, i) => {
+      <div className="bhud__log">
+        {log.length === 0 ? (
+          <div className="bhud__log-empty">No actions yet</div>
+        ) : [...log].reverse().map((entry, i) => {
             const atkFighter = find(teamA, teamB, entry.attackerId);
             const defFighter = find(teamA, teamB, entry.defenderId);
             const atkName = atkFighter?.nicknameEng ?? '???';
@@ -350,8 +420,7 @@ export default function BattleHUD({
               </div>
             );
           })}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

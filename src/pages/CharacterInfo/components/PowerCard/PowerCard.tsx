@@ -31,7 +31,7 @@ function FormatDesc({ text }: { text: string }) {
 }
 
 export default function PowerCard({ power, index }: { power: Power; index: number }) {
-  const meta = POWER_META[power.status] || { icon: '◇', tag: power.status.toUpperCase(), cls: '' };
+  const meta = POWER_META[power.type] || { icon: '◇', tag: power.type.toUpperCase(), cls: '' };
 
   return (
     <div className={`pcard ${meta.cls}`} style={{ animationDelay: `${index * 0.1}s` }}>

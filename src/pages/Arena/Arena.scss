@@ -224,6 +224,19 @@ $ink-faint: #9a8b76;
 
   svg { width: 15px; height: 15px; }
 
+  @media (max-width: $bp-compact) {
+    font-size: 0;
+    gap: 0;
+    width: 23px;
+    height: 23px;
+    min-width: 23px;
+    min-height: 23px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   &:hover {
     color: $gold-dark;
     background: $gold-pale;
@@ -622,7 +635,7 @@ $ink-faint: #9a8b76;
   }
 
   .arena__half--right {
-    mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
   }
 }

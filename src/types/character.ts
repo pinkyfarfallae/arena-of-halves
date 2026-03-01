@@ -3,10 +3,9 @@ export type Theme25 = [string, string, string, string, string, string, string, s
 
 export interface Power {
   deity: string;
-  type: string;       // Passive | Skill
+  type: string;       // Passive | 1st Skill | 2nd Skill | Ultimate
   name: string;
   description: string;
-  status: string;      // Passive | 1st Skill | 2nd Skill | Ultimate
   available: boolean;
 }
 

@@ -186,6 +186,7 @@ export async function fetchPowers(deity: string): Promise<Power[]> {
   if (lines.length < 2) return [];
 
   const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const TYPE_ORDER = ['Passive', '1st Skill', '2nd Skill', 'Ultimate'];
 
   const powers: Power[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -197,11 +198,10 @@ export async function fetchPowers(deity: string): Promise<Power[]> {
     if (get('deity').toLowerCase() === deity.toLowerCase()) {
       powers.push({
         deity: get('deity'),
-        type: get('type'),
+        type: get('type') || TYPE_ORDER[powers.length] || '',
         name: get('name'),
         description: get('description'),
-        status: get('status'),
-        available: get('available').toUpperCase() === 'TRUE',
+        available: true,
       });
     }
   }
