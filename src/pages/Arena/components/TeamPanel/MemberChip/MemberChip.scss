@@ -605,16 +605,47 @@ $ink-faint: #9a8b76;
 
 @media (max-width: $bp-compact) {
   .mchip {
-    width: 80px;
+    width: 90px;
+    min-width: unset;
+    align-items: center;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--chip-accent, $gold-dark) 25%, transparent) 0%,
+      color-mix(in srgb, var(--chip-primary, $gold) 14%, transparent) 40%,
+      transparent 100%);
+
+    &:hover {
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--chip-accent, $gold-dark) 35%, transparent) 0%,
+        color-mix(in srgb, var(--chip-primary, $gold) 20%, transparent) 40%,
+        transparent 100%);
+    }
+  }
+
+  .mchip__body {
+    -webkit-mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%),
+      linear-gradient(90deg, black 0%, black 50%, transparent 100%);
+    mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%),
+      linear-gradient(90deg, black 0%, black 50%, transparent 100%);
+    -webkit-mask-composite: destination-in;
+    mask-composite: intersect;
   }
 
   .mchip__frame {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
+    border-width: 0.5px !important;
+    border-radius: 7px;
+    margin: auto 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .mchip__inner-border {
+    border-width: 0.5px;
+    border-radius: 5px;
   }
 
   .mchip__name {
-    font-size: 0.46rem;
+    font-size: 0.42rem;
   }
 
   .mchip__hp-label {
@@ -626,6 +657,84 @@ $ink-faint: #9a8b76;
   }
 
   .mchip__overlay {
-    padding: 0.2rem 0.3rem;
+    padding: 0 0.3rem 0.35rem;
+  }
+
+  .mchip__popup {
+    padding: 0.4rem;
+    top: 50%;
+    left: 85px;
+    transform: translateY(-50%);
+  }
+
+  .mchip:hover .mchip__popup {
+    transform: translateY(-50%);
+  }
+
+  .mchip__skills {
+    width: 100%;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* ── Compact battle states — thinner borders & smaller glows ── */
+  .mchip--attacker .mchip__frame {
+    box-shadow:
+      0 0 0 1px var(--chip-primary, $gold),
+      0 0 10px color-mix(in srgb, var(--chip-primary, $gold) 25%, transparent);
+  }
+
+  .mchip--defender .mchip__frame {
+    box-shadow:
+      0 0 0 1px $crimson-bright,
+      0 0 8px rgba($crimson-bright, 0.25);
+  }
+
+  .mchip--spotlight .mchip__frame {
+    box-shadow:
+      0 0 0 1px var(--chip-primary, $gold),
+      0 0 12px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent),
+      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 15%, transparent);
+    animation: spotlight-pulse-compact 1.8s ease-in-out infinite;
+  }
+
+  .mchip--targetable .mchip__frame {
+    animation: target-pulse-compact 1.2s ease-in-out infinite;
+  }
+
+  .mchip--targetable:hover .mchip__frame {
+    box-shadow:
+      0 0 0 1px $crimson-bright,
+      0 0 12px rgba($crimson-bright, 0.3);
+    animation: none;
+  }
+}
+
+/* ── Compact keyframe variants ── */
+@keyframes target-pulse-compact {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0.5px rgba($crimson-bright, 0.3),
+      0 0 4px rgba($crimson-bright, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba($crimson-bright, 0.5),
+      0 0 10px rgba($crimson-bright, 0.2);
+  }
+}
+
+@keyframes spotlight-pulse-compact {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px var(--chip-primary, $gold),
+      0 0 12px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent),
+      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 15%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px var(--chip-primary, $gold),
+      0 0 16px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
+      0 0 32px color-mix(in srgb, var(--chip-primary, $gold) 22%, transparent);
   }
 }

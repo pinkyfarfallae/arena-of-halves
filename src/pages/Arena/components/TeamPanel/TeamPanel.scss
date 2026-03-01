@@ -22,3 +22,16 @@
     gap: 0.4rem;
   }
 }
+
+@media (max-width: $bp-compact) {
+  .team-panel--left,
+  .team-panel--right {
+    flex-direction: column;
+    bottom: 0;
+    right: auto;
+    width: auto;
+    padding: 0;
+    gap: 0.3rem;
+    background: transparent !important;
+  }
+}

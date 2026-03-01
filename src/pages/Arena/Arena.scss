@@ -593,4 +593,36 @@ $ink-faint: #9a8b76;
     &--ml { left: 1rem; }
     &--mr { right: 1rem; }
   }
+
+  /* ── Stacked layout: halves top/bottom ── */
+  .arena__field {
+    flex-direction: column;
+  }
+
+  .arena__divider {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      $crimson-bright 15%,
+      rgba($crimson-bright, 0.9) 50%,
+      $crimson-bright 85%,
+      transparent 100%
+    );
+  }
+
+  .arena__vs-ring {
+    width: 36px;
+    height: 36px;
+  }
+
+  .arena__vs {
+    font-size: 0.65rem;
+  }
+
+  .arena__half--right {
+    mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+  }
 }
