@@ -13,10 +13,9 @@ const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, orderedPowers, chipRef, onEnter, onLeave }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave }: {
   fighter: FighterState;
   deityLabel: string;
-  orderedPowers: (import('../../../../../types/character').Power | undefined)[];
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
@@ -98,15 +97,15 @@ function PopupPanel({ fighter, deityLabel, orderedPowers, chipRef, onEnter, onLe
       </div>
 
       <div className="mchip__powers">
-        {orderedPowers.map((p) => {
-          if (!p) return null;
-          const meta = POWER_META[p.type] || { icon: '◇', tag: p.type.toUpperCase(), cls: '' };
+        {(['Passive', '1st Skill', '2nd Skill', 'Ultimate'] as const).map((type) => {
+          const p = (fighter.powers || []).find((pw) => pw.type === type);
+          const meta = POWER_META[type] || { icon: '◇', tag: type.toUpperCase(), cls: '' };
           return (
-            <div className="mchip__power" key={p.type}>
+            <div className={`mchip__power${p ? '' : ' mchip__power--locked'}`} key={type}>
               <span className="mchip__power-icon">{meta.icon}</span>
               <div className="mchip__power-info">
                 <span className="mchip__power-tag">{meta.tag}</span>
-                <span className="mchip__power-name">{p.name}</span>
+                <span className="mchip__power-name">{p ? p.name : '—'}</span>
               </div>
             </div>
           );
@@ -144,18 +143,13 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const deityLabel = DEITY_DISPLAY_OVERRIDES[fighter.characterId] || fighter.deityBlood;
   const deityIcon = DEITY_SVG[deityLabel.toLowerCase()];
 
-  const powers = fighter.powers || [];
-  const orderedPowers = ['Passive', '1st Skill', '2nd Skill', 'Ultimate']
-    .map((s) => powers.find((p) => p.type === s))
-    .filter(Boolean);
-
   const chipClass = [
     'mchip',
     hovered && 'mchip--hovered',
     isAttacker && 'mchip--attacker',
     isDefender && 'mchip--defender',
     isEliminated && 'mchip--eliminated',
-    isTargetable && 'mchip--targetable',
+    isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
   ].filter(Boolean).join(' ');
 
@@ -164,8 +158,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       ref={chipRef}
       className={chipClass}
       style={{ '--chip-primary': fighter.theme[0], '--chip-accent': fighter.theme[1] } as React.CSSProperties}
-      onClick={isTargetable && onSelect ? onSelect : undefined}
-      role={isTargetable ? 'button' : undefined}
+      onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
+      role={isTargetable && !isEliminated ? 'button' : undefined}
     >
       {/* Body — clips pattern, fades edges with gradient */}
       <div className="mchip__body">
@@ -222,11 +216,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Hover stat popup — rendered via portal to escape stacking contexts */}
-      {hovered && !isEliminated && chipRef.current && createPortal(
+      {hovered && chipRef.current && createPortal(
         <PopupPanel
           fighter={fighter}
           deityLabel={deityLabel}
-          orderedPowers={orderedPowers}
           chipRef={chipRef}
           onEnter={handleEnter}
           onLeave={handleLeave}

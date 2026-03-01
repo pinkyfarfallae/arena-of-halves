@@ -1100,6 +1100,30 @@ $ink-faint: #9a8b76;
   flex-shrink: 0;
 }
 
+.lobby__room-log {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+  border: 1px solid rgba($gold, 0.2);
+  background: $gold-pale;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $gold-dark;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba($gold, 0.12);
+    border-color: rgba($gold, 0.35);
+  }
+}
+
 .lobby__room-delete {
   display: flex;
   align-items: center;

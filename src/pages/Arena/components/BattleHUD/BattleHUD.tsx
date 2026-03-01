@@ -2,8 +2,8 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../constants/theme';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
-import Crown from './icons/Crown';
-import Skull from './icons/Skull';
+import WinBadge from './icons/Crown';
+import LoseBadge from './icons/Skull';
 import './BattleHUD.scss';
 
 /** Keep element rendered during a fade-out exit animation. */
@@ -174,7 +174,7 @@ export default function BattleHUD({
         {/* Side result icons */}
         <div className={`bhud__dice-zone bhud__dice-zone--${winSide}`}>
           <div className="bhud__result-badge bhud__result-badge--winner">
-            <Crown className="bhud__result-icon" />
+            <WinBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Victory</span>
             <div className="bhud__result-names">
               {winNames.map((name) => <span key={name}>{name}</span>)}
@@ -183,7 +183,7 @@ export default function BattleHUD({
         </div>
         <div className={`bhud__dice-zone bhud__dice-zone--${loseSide}`}>
           <div className="bhud__result-badge bhud__result-badge--loser">
-            <Skull className="bhud__result-icon" />
+            <LoseBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Defeat</span>
             <div className="bhud__result-names">
               {loseNames.map((name) => <span key={name}>{name}</span>)}
