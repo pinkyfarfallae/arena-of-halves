@@ -1199,7 +1199,7 @@
     }
   }
 
-  @media (max-width: $bp-mobile) {
+  @media (max-width: $bp-compact) {
     flex-direction: column;
 
     .cs__residence:first-child {

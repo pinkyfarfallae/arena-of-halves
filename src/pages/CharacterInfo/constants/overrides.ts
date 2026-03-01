@@ -6,5 +6,6 @@ export const DEITY_DISPLAY_OVERRIDES: Record<string, string> = {
 };
 
 export const POWER_OVERRIDES: Record<string, string> = {
-  [CHARACTER.ROSABELLA]: DEITY.DEMETER,
+  [CHARACTER.ROSABELLA]: DEITY.PERSEPHONE,
 };
+

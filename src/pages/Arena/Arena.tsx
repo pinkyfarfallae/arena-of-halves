@@ -82,10 +82,10 @@ const MOCK_ENEMY: FighterState = {
   skillPoint: 'lock',
   ultimateSkillPoint: 'lock',
   powers: [
-    { deity: 'Ares', type: 'Passive', name: 'Battle Fury', description: '', status: 'Passive', available: true },
-    { deity: 'Ares', type: 'Skill', name: 'War Cry', description: '', status: '1st Skill', available: true },
-    { deity: 'Ares', type: 'Skill', name: 'Blood Rush', description: '', status: '2nd Skill', available: false },
-    { deity: 'Ares', type: 'Skill', name: 'Godslayer', description: '', status: 'Ultimate', available: false },
+    { deity: 'Ares', type: 'Passive', name: 'Battle Fury', description: '', available: true },
+    { deity: 'Ares', type: '1st Skill', name: 'War Cry', description: '', available: true },
+    { deity: 'Ares', type: '2nd Skill', name: 'Blood Rush', description: '', available: false },
+    { deity: 'Ares', type: 'Ultimate', name: 'Godslayer', description: '', available: false },
   ],
 };
 /* ── END MOCK ── */
