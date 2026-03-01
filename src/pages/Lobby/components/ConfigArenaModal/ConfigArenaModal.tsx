@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import { deleteRoom } from '../../../../services/battleRoom';
@@ -27,7 +27,7 @@ function NpcOption({ npc }: { npc: FighterState }) {
       {npc.image && !imgErr ? (
         <img className="cam__npc-avatar" src={npc.image} alt="" referrerPolicy="no-referrer" onError={() => setImgErr(true)} />
       ) : (
-        <div className="cam__npc-avatar cam__npc-avatar--placeholder">
+        <div className="cam__npc-avatar cam__npc-avatar--placeholder" style={{ background: npc.theme[0], color: npc.theme[9] }}>
           {npc.nicknameEng.charAt(0)}
         </div>
       )}
@@ -60,10 +60,22 @@ export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: P
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<FighterState | null>(null);
   const [npcDropdownOpen, setNpcDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchNPCs().then(setNpcs);
   }, []);
+
+  useEffect(() => {
+    if (!npcDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setNpcDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [npcDropdownOpen]);
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
@@ -175,10 +187,10 @@ export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: P
           </button>
         </div>
 
-        {gameMode === 'npc' && npcs.length > 0 && (
+        {gameMode === 'npc' && (
           <>
             <label className="cam__label">Select Opponent</label>
-            <div className="cam__npc-select">
+            <div className="cam__npc-select" ref={dropdownRef}>
               <button
                 className="cam__npc-trigger"
                 onClick={() => setNpcDropdownOpen(!npcDropdownOpen)}
@@ -186,7 +198,7 @@ export default function ConfigArenaModal({ arenaId, isDev, onClose, onEnter }: P
                 {selectedNpc ? (
                   <NpcOption npc={selectedNpc} />
                 ) : (
-                  <span className="cam__npc-placeholder">Choose an NPC...</span>
+                  <span className="cam__npc-placeholder">Choose an NPC</span>
                 )}
                 <ChevronDown width={14} height={14} className={`cam__npc-chevron ${npcDropdownOpen ? 'cam__npc-chevron--open' : ''}`} />
               </button>

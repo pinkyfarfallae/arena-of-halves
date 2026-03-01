@@ -48,9 +48,9 @@ export default function UserOverview({ user, onClose }: Props) {
 
         {/* Profile */}
         <div className="uo__profile">
-          <div className="uo__avatar">
+          <div className="uo__avatar" style={user.theme?.[0] ? { background: `color-mix(in srgb, ${user.theme[0]} 15%, var(--ci-surface, #f8f8f8))`, color: user.theme[0] } : undefined}>
             {user.image
-              ? <img src={user.image} alt="" />
+              ? <img src={user.image} alt="" referrerPolicy="no-referrer" />
               : <span>{(user.nicknameEng ?? user.characterId ?? '?')[0].toUpperCase()}</span>
             }
           </div>

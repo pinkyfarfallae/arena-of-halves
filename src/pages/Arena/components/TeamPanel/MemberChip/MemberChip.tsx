@@ -179,9 +179,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {/* Card frame — outside body so it's not masked */}
       <div className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
         {fighter.image ? (
-          <img className="mchip__bg" src={fighter.image} alt="" />
+          <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
         ) : (
-          <div className="mchip__bg mchip__bg--placeholder">
+          <div className="mchip__bg mchip__bg--placeholder" style={{ background: fighter.theme[0], color: fighter.theme[9] }}>
             {fighter.nicknameEng.charAt(0)}
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPowers } from '../../data/characters';
@@ -75,7 +75,6 @@ function Arena() {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
-  const [npcEnemy, setNpcEnemy] = useState<FighterState | null>(null);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -147,58 +146,88 @@ function Arena() {
   }, [join]);
 
   /* ── Test mode: fetch selected NPC and auto-join to teamB ── */
+  const npcJoining = useRef(false);
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
     if (room.status !== 'waiting') return;
     const teamBMembers = room.teamB?.members || [];
     if (teamBMembers.length > 0) return;
+    if (npcJoining.current) return;
 
+    npcJoining.current = true;
     let cancelled = false;
     fetchNPCs().then((npcs) => {
       if (cancelled) return;
-      // Use the NPC selected in config, or fall back to random
       const npcId = room.npcId;
       const npc = (npcId && npcs.find((n) => n.characterId === npcId)) || pickRandomNPC(npcs);
       if (!npc) return;
-      setNpcEnemy(npc);
       joinRoom(arenaId, npc);
-    });
+    }).finally(() => { npcJoining.current = false; });
     return () => { cancelled = true; };
   }, [room, arenaId]);
 
   /* ── Test mode: auto-play for NPC enemy ────── */
+  const npcPhaseRef = useRef<string | null>(null);
+  const npcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer on unmount only
+  useEffect(() => () => { if (npcTimerRef.current) clearTimeout(npcTimerRef.current); }, []);
+
   useEffect(() => {
-    if (!room || !arenaId || !room.testMode || !npcEnemy) return;
+    if (!room || !arenaId || !room.testMode) return;
     if (room.status !== 'battling' || !room.battle?.turn) return;
 
     const turn = room.battle.turn;
-    const npcId = npcEnemy.characterId;
+    const toArr = <T,>(v: T[] | Record<string, T> | undefined): T[] =>
+      !v ? [] : Array.isArray(v) ? v : Object.values(v);
+    const teamBIds = new Set(toArr(room.teamB?.members).map(m => m.characterId));
+    const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
+
+    // Same phase already being handled — let the pending timer fire
+    if (npcPhaseRef.current === phaseKey) return;
+
+    // New phase — cancel any pending timer from old phase
+    if (npcTimerRef.current) { clearTimeout(npcTimerRef.current); npcTimerRef.current = null; }
+
+    const schedule = (fn: () => void, delay: number) => {
+      npcPhaseRef.current = phaseKey;
+      npcTimerRef.current = setTimeout(() => {
+        npcPhaseRef.current = null;
+        npcTimerRef.current = null;
+        fn();
+      }, delay);
+    };
 
     // NPC's turn to select target → pick random alive opponent
-    if (turn.phase === 'select-target' && turn.attackerId === npcId) {
-      const teamAAlive = (room.teamA?.members || []).filter(m => m.currentHp > 0);
+    if (turn.phase === 'select-target' && teamBIds.has(turn.attackerId)) {
+      const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        const timer = setTimeout(() => selectTarget(arenaId, target.characterId), 600);
-        return () => clearTimeout(timer);
+        schedule(() => selectTarget(arenaId, target.characterId), 600);
       }
+      return;
     }
 
     // NPC needs to roll attack dice (D12)
-    if (turn.phase === 'rolling-attack' && turn.attackerId === npcId) {
+    if (turn.phase === 'rolling-attack' && teamBIds.has(turn.attackerId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
-      const timer = setTimeout(() => submitAttackRoll(arenaId, roll), 1800);
-      return () => clearTimeout(timer);
+      schedule(() => submitAttackRoll(arenaId, roll), 1800);
+      return;
     }
 
     // NPC needs to roll defend dice (D12)
-    if (turn.phase === 'rolling-defend' && turn.defenderId === npcId) {
+    if (turn.phase === 'rolling-defend' && turn.defenderId && teamBIds.has(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
-      const timer = setTimeout(() => submitDefendRoll(arenaId, roll), 4500);
-      return () => clearTimeout(timer);
+      schedule(() => submitDefendRoll(arenaId, roll), 4500);
+      return;
     }
 
-  }, [room, arenaId, npcEnemy]);
+    // Fallback: auto-resolve if stuck in resolving phase (BattleHUD animation didn't fire)
+    if (turn.phase === 'resolving') {
+      schedule(() => resolveTurn(arenaId), 8000);
+    }
+
+  }, [room, arenaId]);
 
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
