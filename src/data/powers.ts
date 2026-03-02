@@ -28,7 +28,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Beyond the Cloud',
       description:
-        'มอบความเร็ว 2 หน่วยและอัตราคริคิคอล 25% ให้กับตนเองเป็นเวลา 2 รอบ',
+        'มอบความเร็ว 2 หน่วย เป็นเวลา 2 เทิร์น และเพิ่มโอกาสการใช้คริติคอลสำเร็จอีก 25% ให้กับตนเองเพื่อใช้พลังคริติคอลนั้นในเทิร์นถัดไป',
       available: true,
       effect: 'buff',
       target: 'self',

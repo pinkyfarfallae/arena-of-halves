@@ -43,6 +43,16 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
   const num = (name: string) => parseInt(get(name), 10) || 0;
 
   const hp = num('hp');
+  const strength = num('strength');
+  
+  // Calculate critical rate based on strength
+  let criticalRate = 25; // default 25%
+  if (strength > 3 && strength < 5) {
+    criticalRate = 50; // 50% if 3 < strength < 5
+  } else if (strength === 5) {
+    criticalRate = 75; // 75% if strength === 5
+  }
+  
   return {
     characterId: get('npcid'),
     nicknameEng: get('nickname (eng)'),
@@ -64,6 +74,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     technique: num('technique'),
     quota: 0,
     maxQuota: num('technique') < 3 ? 2 : 3,
+    criticalRate,
   };
 }
 

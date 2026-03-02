@@ -30,6 +30,9 @@ export interface FighterState {
   quota: number;
   maxQuota: number;
 
+  /* Critical hit rate (0-100) */
+  criticalRate: number;
+
   /* Powers from deity */
   powers: PowerDefinition[];
 }

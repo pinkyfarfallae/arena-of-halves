@@ -26,6 +26,14 @@ function generateArenaId(): string {
 
 /** Build a FighterState snapshot from a Character + their Powers */
 export function toFighterState(character: Character, powers: PowerDefinition[]): FighterState {
+  // Calculate critical rate based on strength
+  let criticalRate = 25; // default 25%
+  if (character.strength > 3 && character.strength < 5) {
+    criticalRate = 50; // 50% if 3 < strength < 5
+  } else if (character.strength === 5) {
+    criticalRate = 75; // 75% if strength === 5
+  }
+
   return {
     characterId: character.characterId,
     nicknameEng: character.nicknameEng,
@@ -50,6 +58,7 @@ export function toFighterState(character: Character, powers: PowerDefinition[]):
     technique: character.technique,
     quota: 0,
     maxQuota: character.technique < 3 ? 2 : 3,
+    criticalRate,
 
     powers,
   };
