@@ -1,4 +1,5 @@
-import { Power, Theme25 } from './character';
+import { Theme25 } from './character';
+import type { PowerDefinition, ActiveEffect } from './power';
 
 /** Fighter's combat snapshot at battle start */
 export interface FighterState {
@@ -24,8 +25,13 @@ export interface FighterState {
   skillPoint: string;
   ultimateSkillPoint: string;
 
+  /* Power quota */
+  technique: number;
+  quota: number;
+  maxQuota: number;
+
   /* Powers from deity */
-  powers: Power[];
+  powers: PowerDefinition[];
 }
 
 /** Battle room statuses */
@@ -53,7 +59,13 @@ export interface TurnQueueEntry {
 }
 
 /** Phase within a single turn */
-export type TurnPhase = 'select-target' | 'rolling-attack' | 'rolling-defend' | 'resolving' | 'done';
+export type TurnPhase =
+  | 'select-target'
+  | 'select-action'    // choose normal attack or use a power
+  | 'rolling-attack'
+  | 'rolling-defend'
+  | 'resolving'
+  | 'done';
 
 /** State of the current turn */
 export interface TurnState {
@@ -61,8 +73,13 @@ export interface TurnState {
   attackerTeam: 'teamA' | 'teamB';
   defenderId?: string;
   phase: TurnPhase;
-  attackRoll?: number;   // raw D20 result
-  defendRoll?: number;   // raw D20 result
+  attackRoll?: number;
+  defendRoll?: number;
+
+  /* Power usage */
+  action?: 'attack' | 'power';
+  usedPowerIndex?: number;
+  usedPowerName?: string;
 }
 
 /** A log entry for the battle feed */
@@ -76,6 +93,7 @@ export interface BattleLogEntry {
   defenderHpAfter: number;
   eliminated: boolean;
   missed: boolean;
+  powerUsed?: string;
 }
 
 /** Full battle state stored alongside the room */
@@ -85,6 +103,7 @@ export interface BattleState {
   roundNumber: number;
   turn?: TurnState;
   log: BattleLogEntry[];
+  activeEffects: ActiveEffect[];
   winner?: 'teamA' | 'teamB';
 }
 

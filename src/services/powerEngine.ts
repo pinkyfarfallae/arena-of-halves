@@ -1,0 +1,279 @@
+import type { BattleRoom, BattleState, FighterState } from '../types/battle';
+import type { ActiveEffect, PowerDefinition, ModStat } from '../types/power';
+import { getQuotaCost } from '../types/power';
+
+/* ── helpers ─────────────────────────────────────────── */
+
+function findFighter(room: BattleRoom, id: string): FighterState | undefined {
+  const all = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
+  return all.find(m => m.characterId === id);
+}
+
+function findFighterPath(room: BattleRoom, id: string): string | null {
+  const aIdx = (room.teamA?.members || []).findIndex(m => m.characterId === id);
+  if (aIdx !== -1) return `teamA/members/${aIdx}`;
+  const bIdx = (room.teamB?.members || []).findIndex(m => m.characterId === id);
+  if (bIdx !== -1) return `teamB/members/${bIdx}`;
+  return null;
+}
+
+function makeEffectId(sourceId: string, powerName: string): string {
+  return `${sourceId}_${powerName}_${Date.now()}`;
+}
+
+/* ── stat modifiers from active effects ──────────────── */
+
+/** Sum all active buff/debuff values for a given fighter + stat */
+export function getStatModifier(
+  effects: ActiveEffect[],
+  fighterId: string,
+  stat: ModStat,
+): number {
+  return (effects || [])
+    .filter(e => e.targetId === fighterId && e.modStat === stat)
+    .reduce((sum, e) => sum + (e.effectType === 'buff' ? e.value : -e.value), 0);
+}
+
+/** Get total shield value on a fighter */
+export function getShieldValue(effects: ActiveEffect[], fighterId: string): number {
+  return (effects || [])
+    .filter(e => e.targetId === fighterId && e.effectType === 'shield')
+    .reduce((sum, e) => sum + e.value, 0);
+}
+
+/** Get total reflect % on a fighter */
+export function getReflectPercent(effects: ActiveEffect[], fighterId: string): number {
+  return (effects || [])
+    .filter(e => e.targetId === fighterId && e.effectType === 'reflect')
+    .reduce((sum, e) => sum + e.value, 0);
+}
+
+/** Check if a fighter is stunned */
+export function isStunned(effects: ActiveEffect[], fighterId: string): boolean {
+  return (effects || []).some(e => e.targetId === fighterId && e.effectType === 'stun' && e.turnsRemaining > 0);
+}
+
+/** Check if a fighter has any unlocked active (non-passive) powers they can afford */
+export function getAffordablePowers(fighter: FighterState): { power: PowerDefinition; index: number }[] {
+  const result: { power: PowerDefinition; index: number }[] = [];
+  for (let i = 0; i < fighter.powers.length; i++) {
+    const p = fighter.powers[i];
+    if (p.type === 'Passive') continue;
+
+    // Check unlock
+    if (p.type === 'Ultimate' && fighter.ultimateSkillPoint !== 'unlock') continue;
+    if ((p.type === '1st Skill' || p.type === '2nd Skill') && fighter.skillPoint !== 'unlock') continue;
+
+    // Check quota
+    const cost = getQuotaCost(p.type);
+    if (fighter.quota < cost) continue;
+
+    result.push({ power: p, index: i });
+  }
+  return result;
+}
+
+/* ── apply a single power effect ─────────────────────── */
+
+/**
+ * Apply a power's effect. Returns a partial Firebase update object
+ * keyed by paths relative to `arenas/{arenaId}`.
+ */
+export function applyPowerEffect(
+  room: BattleRoom,
+  attackerId: string,
+  defenderId: string,
+  power: PowerDefinition,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+
+  const targetId = power.target === 'self' ? attackerId : defenderId;
+  const target = findFighter(room, targetId);
+  const attacker = findFighter(room, attackerId);
+  if (!target || !attacker) return updates;
+
+  const targetPath = findFighterPath(room, targetId);
+  const attackerPath = findFighterPath(room, attackerId);
+
+  switch (power.effect) {
+    case 'damage': {
+      const newHp = Math.max(0, target.currentHp - power.value);
+      if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
+      break;
+    }
+
+    case 'heal': {
+      const newHp = Math.min(target.maxHp, target.currentHp + power.value);
+      if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
+      break;
+    }
+
+    case 'lifesteal': {
+      const newTargetHp = Math.max(0, target.currentHp - power.value);
+      if (targetPath) updates[`${targetPath}/currentHp`] = newTargetHp;
+      const healAmount = Math.floor(power.value * 0.5);
+      const newAttackerHp = Math.min(attacker.maxHp, attacker.currentHp + healAmount);
+      if (attackerPath) updates[`${attackerPath}/currentHp`] = newAttackerHp;
+      break;
+    }
+
+    case 'buff':
+    case 'debuff': {
+      const eff: ActiveEffect = {
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: power.effect,
+        sourceId: attackerId,
+        targetId,
+        value: power.value,
+        turnsRemaining: power.duration,
+      };
+      if (power.modStat) eff.modStat = power.modStat;
+      effects.push(eff);
+      break;
+    }
+
+    case 'shield': {
+      effects.push({
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: 'shield',
+        sourceId: attackerId,
+        targetId,
+        value: power.value,
+        turnsRemaining: power.duration || 3,
+      });
+      break;
+    }
+
+    case 'dot': {
+      effects.push({
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: 'dot',
+        sourceId: attackerId,
+        targetId,
+        value: power.value,
+        turnsRemaining: power.duration,
+      });
+      break;
+    }
+
+    case 'stun': {
+      effects.push({
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: 'stun',
+        sourceId: attackerId,
+        targetId,
+        value: 0,
+        turnsRemaining: power.duration || 1,
+      });
+      break;
+    }
+
+    case 'reflect': {
+      effects.push({
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: 'reflect',
+        sourceId: attackerId,
+        targetId: attackerId, // reflect is always on self
+        value: power.value,
+        turnsRemaining: power.duration || 2,
+      });
+      break;
+    }
+
+    case 'cleanse': {
+      // Remove all debuff + dot + stun effects from self
+      const cleaned = effects.filter(e =>
+        !(e.targetId === attackerId && (e.effectType === 'debuff' || e.effectType === 'dot' || e.effectType === 'stun')),
+      );
+      effects.length = 0;
+      effects.push(...cleaned);
+      break;
+    }
+
+    case 'reroll_grant': {
+      if (attackerPath) {
+        updates[`${attackerPath}/rerollsLeft`] = attacker.rerollsLeft + power.value;
+      }
+      break;
+    }
+  }
+
+  updates['battle/activeEffects'] = effects;
+  return updates;
+}
+
+/* ── tick effects at end of resolving phase ───────────── */
+
+/**
+ * Process DOT damage, decrement durations, remove expired.
+ * Returns Firebase update paths.
+ */
+export function tickEffects(
+  room: BattleRoom,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+
+  // Process DOT damage
+  for (const e of effects) {
+    if (e.effectType === 'dot' && e.turnsRemaining > 0) {
+      const target = findFighter(room, e.targetId);
+      if (target) {
+        const path = findFighterPath(room, e.targetId);
+        const newHp = Math.max(0, target.currentHp - e.value);
+        if (path) updates[`${path}/currentHp`] = newHp;
+      }
+    }
+  }
+
+  // Decrement durations, remove expired (skip turnsRemaining 999 = permanent passives)
+  const remaining = effects
+    .map(e => e.turnsRemaining >= 999 ? e : { ...e, turnsRemaining: e.turnsRemaining - 1 })
+    .filter(e => e.turnsRemaining > 0);
+
+  // Consume 1 stun turn (stun prevents action, then wears off)
+  updates['battle/activeEffects'] = remaining;
+  return updates;
+}
+
+/* ── apply passives at battle start ──────────────────── */
+
+/**
+ * Collect passive effects for all fighters who have passive unlocked.
+ * Returns the initial activeEffects array.
+ */
+export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
+  const effects: ActiveEffect[] = [];
+  const allMembers = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
+
+  for (const fighter of allMembers) {
+    if (fighter.passiveSkillPoint !== 'unlock') continue;
+    const passive = fighter.powers.find(p => p.type === 'Passive');
+    if (!passive) continue;
+
+    // Only buff/debuff passives make sense as permanent effects
+    if (passive.effect === 'buff' || passive.effect === 'debuff') {
+      const eff: ActiveEffect = {
+        id: makeEffectId(fighter.characterId, passive.name),
+        powerName: passive.name,
+        effectType: passive.effect,
+        sourceId: fighter.characterId,
+        targetId: fighter.characterId, // passive always targets self
+        value: passive.value,
+        turnsRemaining: 999,
+      };
+      if (passive.modStat) eff.modStat = passive.modStat;
+      effects.push(eff);
+    }
+  }
+
+  return effects;
+}

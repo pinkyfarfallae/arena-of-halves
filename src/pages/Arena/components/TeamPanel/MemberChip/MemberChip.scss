@@ -311,6 +311,30 @@ $ink-faint: #9a8b76;
   white-space: nowrap;
 }
 
+/* ── Quota pips (below frame, inside chip) ── */
+.mchip__quota {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 0.65rem;
+}
+
+.mchip__quota-pip {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--chip-primary, $gold) 70%, transparent);
+  background: transparent;
+  transition: background 0.3s, box-shadow 0.3s;
+
+  &--filled {
+    background: var(--chip-primary, $gold);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--chip-primary, $gold) 60%, transparent);
+  }
+}
+
 /* ══════════════════════════════════════
    HOVER POPUP — detailed stat panel
    ══════════════════════════════════════ */

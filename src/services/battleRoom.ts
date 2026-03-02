@@ -4,7 +4,14 @@ import type {
   BattleRoom, BattleState, FighterState, Team,
   TurnQueueEntry, Viewer,
 } from '../types/battle';
-import type { Character, Power } from '../types/character';
+import type { Character } from '../types/character';
+import type { PowerDefinition } from '../types/power';
+import { getQuotaCost } from '../types/power';
+import {
+  getStatModifier, getReflectPercent,
+  isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
+  getAffordablePowers,
+} from './powerEngine';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -19,7 +26,7 @@ function generateArenaId(): string {
 }
 
 /** Build a FighterState snapshot from a Character + their Powers */
-export function toFighterState(character: Character, powers: Power[]): FighterState {
+export function toFighterState(character: Character, powers: PowerDefinition[]): FighterState {
   return {
     characterId: character.characterId,
     nicknameEng: character.nicknameEng,
@@ -40,6 +47,10 @@ export function toFighterState(character: Character, powers: Power[]): FighterSt
     passiveSkillPoint: character.passiveSkillPoint,
     skillPoint: character.skillPoint,
     ultimateSkillPoint: character.ultimateSkillPoint,
+
+    technique: character.technique,
+    quota: 0,
+    maxQuota: character.technique < 3 ? 2 : 3,
 
     powers,
   };
@@ -274,6 +285,7 @@ export async function startBattle(arenaId: string): Promise<void> {
   if (turnQueue.length === 0) return;
 
   const first = turnQueue[0];
+  const passiveEffects = buildPassiveEffects(room);
   const battle: BattleState = {
     turnQueue,
     currentTurnIndex: 0,
@@ -284,6 +296,7 @@ export async function startBattle(arenaId: string): Promise<void> {
       phase: 'select-target',
     },
     log: [],
+    activeEffects: passiveEffects,
   };
 
   await update(roomRef(arenaId), {
@@ -295,28 +308,182 @@ export async function startBattle(arenaId: string): Promise<void> {
 /* ── select target ───────────────────────────────────── */
 
 export async function selectTarget(arenaId: string, defenderId: string): Promise<void> {
-  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
-    defenderId,
-    phase: 'rolling-attack',
-  });
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn) return;
+
+  const attacker = findFighter(room, battle.turn.attackerId);
+  const hasPowers = attacker ? getAffordablePowers(attacker).length > 0 : false;
+
+  if (hasPowers) {
+    // Attacker has usable powers — let them choose action
+    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+      defenderId,
+      phase: 'select-action',
+    });
+  } else {
+    // No usable powers — skip straight to attack dice
+    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+      defenderId,
+      action: 'attack',
+      phase: 'rolling-attack',
+    });
+  }
+}
+
+/* ── select action (attack or use power) ─────────────── */
+
+export async function selectAction(
+  arenaId: string,
+  action: 'attack' | 'power',
+  powerIndex?: number,
+): Promise<void> {
+  if (action === 'attack') {
+    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+      action: 'attack',
+      phase: 'rolling-attack',
+    });
+    return;
+  }
+
+  // --- Use a power ---
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn || powerIndex == null) return;
+
+  const { attackerId, defenderId } = battle.turn;
+  if (!defenderId) return;
+
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+
+  const power = attacker.powers?.[powerIndex];
+  if (!power) return;
+
+  const cost = getQuotaCost(power.type);
+  if (attacker.quota < cost) return; // insufficient quota
+
+  // Deduct quota
+  const atkPath = findFighterPath(room, attackerId);
+  const updates: Record<string, unknown> = {};
+  if (atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
+
+  if (power.skipDice) {
+    // Unblockable power — apply immediately, skip dice
+    const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
+    Object.assign(updates, effectUpdates);
+
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: power.effect === 'damage' || power.effect === 'lifesteal' ? power.value : 0,
+      defenderHpAfter: (() => {
+        const defender = findFighter(room, defenderId);
+        if (!defender) return 0;
+        if (power.effect === 'damage' || power.effect === 'lifesteal') {
+          return Math.max(0, defender.currentHp - power.value);
+        }
+        return defender.currentHp;
+      })(),
+      eliminated: (() => {
+        const defender = findFighter(room, defenderId);
+        if (!defender) return false;
+        if (power.effect === 'damage' || power.effect === 'lifesteal') {
+          return defender.currentHp - power.value <= 0;
+        }
+        return false;
+      })(),
+      missed: false,
+      powerUsed: power.name,
+    };
+    updates['battle/log'] = [...(battle.log || []), logEntry];
+
+    updates['battle/turn'] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      defenderId,
+      phase: 'resolving',
+      action: 'power',
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+    };
+  } else {
+    // Normal power — go through dice rolling
+    updates['battle/turn'] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      defenderId,
+      phase: 'rolling-attack',
+      action: 'power',
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+    };
+  }
+
+  await update(roomRef(arenaId), updates);
 }
 
 /* ── submit attack dice roll ─────────────────────────── */
 
 export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
-  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
-    attackRoll: roll,
-    phase: 'rolling-defend',
-  });
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn) return;
+
+  const updates: Record<string, unknown> = {
+    'battle/turn/attackRoll': roll,
+    'battle/turn/phase': 'rolling-defend',
+  };
+
+  // Quota gain: roll + attackDiceUp + buff modifiers >= 11
+  const attacker = findFighter(room, battle.turn.attackerId);
+  if (attacker) {
+    const buffMod = getStatModifier(battle.activeEffects || [], attacker.characterId, 'attackDiceUp');
+    const total = roll + attacker.attackDiceUp + buffMod;
+    if (total >= 11 && attacker.quota < attacker.maxQuota) {
+      const atkPath = findFighterPath(room, attacker.characterId);
+      if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + 1;
+    }
+  }
+
+  await update(roomRef(arenaId), updates);
 }
 
 /* ── submit defend dice roll ─────────────────────────── */
 
 export async function submitDefendRoll(arenaId: string, roll: number): Promise<void> {
-  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
-    defendRoll: roll,
-    phase: 'resolving',
-  });
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn) return;
+
+  const updates: Record<string, unknown> = {
+    'battle/turn/defendRoll': roll,
+    'battle/turn/phase': 'resolving',
+  };
+
+  // Quota gain: roll + defendDiceUp + buff modifiers >= 11
+  const defender = battle.turn.defenderId ? findFighter(room, battle.turn.defenderId) : undefined;
+  if (defender) {
+    const buffMod = getStatModifier(battle.activeEffects || [], defender.characterId, 'defendDiceUp');
+    const total = roll + defender.defendDiceUp + buffMod;
+    if (total >= 11 && defender.quota < defender.maxQuota) {
+      const defPath = findFighterPath(room, defender.characterId);
+      if (defPath) updates[`${defPath}/quota`] = defender.quota + 1;
+    }
+  }
+
+  await update(roomRef(arenaId), updates);
 }
 
 /* ── resolve turn (compare dice, apply damage, advance) ── */
@@ -329,59 +496,129 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const battle = room.battle;
   if (!battle || !battle.turn || battle.turn.phase !== 'resolving') return;
 
-  const { attackerId, defenderId, attackRoll = 0, defendRoll = 0 } = battle.turn;
+  const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = battle.turn;
   if (!defenderId) return;
 
   const attacker = findFighter(room, attackerId);
   const defender = findFighter(room, defenderId);
   if (!attacker || !defender) return;
 
-  // Compare dice: attacker roll + bonus vs defender roll + bonus
-  const atkTotal = attackRoll + attacker.attackDiceUp;
-  const defTotal = defendRoll + defender.defendDiceUp;
-  const hit = atkTotal > defTotal;
-
-  // Apply damage only if attacker wins the roll
-  const dmg = hit ? attacker.damage : 0;
-  const newHp = Math.max(0, defender.currentHp - dmg);
-
-  // Build update object
   const updates: Record<string, unknown> = {};
+  const activeEffects = battle.activeEffects || [];
 
-  // Update defender HP (only if hit)
-  if (hit) {
-    const defPath = findFighterPath(room, defenderId);
-    if (defPath) {
-      updates[`${defPath}/currentHp`] = newHp;
+  let dmg = 0;
+  let hit = false;
+  let defenderHpAfter = defender.currentHp;
+
+  // Resolve power that went through dice rolling
+  const { usedPowerIndex } = battle.turn;
+  const usedPower = action === 'power' && usedPowerIndex != null
+    ? attacker.powers?.[usedPowerIndex]
+    : undefined;
+
+  if (action === 'power' && usedPower && !usedPower.skipDice) {
+    // Power with dice — compare rolls, apply effect on hit
+    const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
+    const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
+    const atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
+    const defTotal = defendRoll + defender.defendDiceUp + defBuff;
+    hit = atkTotal > defTotal;
+
+    if (hit) {
+      const effectUpdates = applyPowerEffect(room, attackerId, defenderId, usedPower, battle);
+      Object.assign(updates, effectUpdates);
+
+      if (usedPower.effect === 'damage' || usedPower.effect === 'lifesteal') {
+        dmg = usedPower.value;
+        defenderHpAfter = Math.max(0, defender.currentHp - usedPower.value);
+      }
     }
+
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId,
+      attackRoll,
+      defendRoll,
+      damage: dmg,
+      defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
+      eliminated: hit && defenderHpAfter <= 0,
+      missed: !hit,
+      powerUsed: usedPower.name,
+    };
+    updates['battle/log'] = [...(battle.log || []), logEntry];
+
+  } else if (action !== 'power') {
+    // Normal attack: compare dice with active effect modifiers
+    const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
+    const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
+    const atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
+    const defTotal = defendRoll + defender.defendDiceUp + defBuff;
+    hit = atkTotal > defTotal;
+
+    if (hit) {
+      const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
+      const rawDmg = Math.max(0, attacker.damage + dmgBuff);
+
+      // Shield absorption
+      let shieldRemaining = rawDmg;
+      const shieldEffects = (activeEffects).filter(
+        e => e.targetId === defenderId && e.effectType === 'shield',
+      );
+      for (const se of shieldEffects) {
+        const absorbed = Math.min(se.value, shieldRemaining);
+        se.value -= absorbed;
+        shieldRemaining -= absorbed;
+      }
+      dmg = shieldRemaining;
+
+      // Reflect
+      const reflectPct = getReflectPercent(activeEffects, defenderId);
+      if (reflectPct > 0 && dmg > 0) {
+        const reflectDmg = Math.floor(dmg * reflectPct / 100);
+        const atkPath = findFighterPath(room, attackerId);
+        if (atkPath) {
+          updates[`${atkPath}/currentHp`] = Math.max(0, attacker.currentHp - reflectDmg);
+        }
+      }
+
+      defenderHpAfter = Math.max(0, defender.currentHp - dmg);
+      const defPath = findFighterPath(room, defenderId);
+      if (defPath) updates[`${defPath}/currentHp`] = defenderHpAfter;
+    }
+
+    // Log entry for normal attack
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId,
+      attackRoll,
+      defendRoll,
+      damage: dmg,
+      defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
+      eliminated: hit && defenderHpAfter <= 0,
+      missed: !hit,
+    };
+    updates['battle/log'] = [...(battle.log || []), logEntry];
   }
+  // skipDice powers: effect + log already written in selectAction()
 
-  // Log entry
-  const logEntry = {
-    round: battle.roundNumber,
-    attackerId,
-    defenderId,
-    attackRoll,
-    defendRoll,
-    damage: dmg,
-    defenderHpAfter: hit ? newHp : defender.currentHp,
-    eliminated: hit && newHp <= 0,
-    missed: !hit,
+  // Tick active effects (DOT damage, decrement durations)
+  const effectUpdates = tickEffects(room, battle);
+  Object.assign(updates, effectUpdates);
+
+  // Build updated HP map for win condition check
+  const getHp = (m: FighterState) => {
+    const path = findFighterPath(room, m.characterId);
+    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+    return m.currentHp;
   };
-  const logArr = [...(battle.log || []), logEntry];
-  updates['battle/log'] = logArr;
-
-  // Check win condition — need to check with updated HP
-  const teamAMembers = (room.teamA?.members || []).map((m) =>
-    m.characterId === defenderId ? { ...m, currentHp: hit ? newHp : m.currentHp } : m,
-  );
-  const teamBMembers = (room.teamB?.members || []).map((m) =>
-    m.characterId === defenderId ? { ...m, currentHp: hit ? newHp : m.currentHp } : m,
-  );
+  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
   if (isTeamEliminated(teamBMembers)) {
     updates['battle/winner'] = 'teamA';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll };
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
@@ -389,7 +626,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   if (isTeamEliminated(teamAMembers)) {
     updates['battle/winner'] = 'teamB';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll };
+    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
@@ -404,13 +641,32 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const { index: nextIdx, wrapped } = nextAliveIndex(battle.turnQueue, battle.currentTurnIndex, updatedRoom);
   const nextEntry = battle.turnQueue[nextIdx];
 
-  updates['battle/currentTurnIndex'] = nextIdx;
-  updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-  updates['battle/turn'] = {
-    attackerId: nextEntry.characterId,
-    attackerTeam: nextEntry.team,
-    phase: 'select-target',
-  };
+  // Skip stunned fighters
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  if (nextFighter && isStunned(updates['battle/activeEffects'] as typeof activeEffects || activeEffects, nextEntry.characterId)) {
+    // Stunned: consume the stun turn and advance again
+    updates['battle/currentTurnIndex'] = nextIdx;
+    updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+
+    const afterStunRoom = { ...updatedRoom };
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(battle.turnQueue, nextIdx, afterStunRoom);
+    const skipEntry = battle.turnQueue[skipIdx];
+    updates['battle/currentTurnIndex'] = skipIdx;
+    if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
+    updates['battle/turn'] = {
+      attackerId: skipEntry.characterId,
+      attackerTeam: skipEntry.team,
+      phase: 'select-target',
+    };
+  } else {
+    updates['battle/currentTurnIndex'] = nextIdx;
+    updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    updates['battle/turn'] = {
+      attackerId: nextEntry.characterId,
+      attackerTeam: nextEntry.team,
+      phase: 'select-target',
+    };
+  }
 
   await update(roomRef(arenaId), updates);
 }

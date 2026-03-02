@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchCharacter, fetchPowers, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
 import { DEITY_SVG } from '../../data/deities';
@@ -102,10 +103,8 @@ function CharacterInfo() {
   useEffect(() => {
     if (!powerDeity) return;
     setLoadingPowers(true);
-    fetchPowers(powerDeity)
-      .then(setPowers)
-      .catch(() => setPowers([]))
-      .finally(() => setLoadingPowers(false));
+    setPowers(getPowers(powerDeity));
+    setLoadingPowers(false);
   }, [powerDeity]);
 
   useEffect(() => {
