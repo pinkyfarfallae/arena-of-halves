@@ -28,13 +28,17 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Beyond the Cloud',
       description:
-        'มอบความเร็ว 2 หน่วย เป็นเวลา 2 เทิร์น และเพิ่มโอกาสการใช้คริติคอลสำเร็จอีก 25% ให้กับตนเองเพื่อใช้พลังคริติคอลนั้นในเทิร์นถัดไป',
+        'สำหรับเทิร์นปัจจุบันจะยังคงโจมตีได้ตามปกติ และจะมอบความเร็ว 2 หน่วย เป็นเวลา 2 เทิร์นนับตั้งแต่เทิร์นถัดไป รวมถึงจะเพิ่มโอกาสการใช้คริติคอลสำเร็จอีก 25% ให้กับตนเองเพื่อใช้พลังคริติคอลนั้นในเทิร์นถัดไปเช่นกัน',
       available: true,
       effect: 'buff',
       target: 'self',
       value: 2,
       duration: 2,
       modStat: 'speed',
+      effects: [
+        { effect: 'buff', target: 'self', value: 2, duration: 2, modStat: 'speed' },
+        { effect: 'buff', target: 'self', value: 25, duration: 2, modStat: 'criticalRate' },
+      ],
     },
     {
       deity: 'Zeus',
@@ -47,6 +51,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       target: 'enemy',
       value: 0,
       duration: 0,
+      skipDice: true,
     },
     {
       deity: 'Zeus',

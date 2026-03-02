@@ -1,5 +1,9 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
+import { ref, update } from 'firebase/database';
+import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
+import { checkCritical, getWinningFaces } from '../../../../services/battleRoom';
+import { getStatModifier } from '../../../../services/powerEngine';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
 import TargetSelectModal from './components/TargetSelectModal';
@@ -33,6 +37,7 @@ function useFadeTransition(visible: boolean, ms = 250) {
 }
 
 interface Props {
+  arenaId?: string;
   battle: BattleState;
   teamA: FighterState[];
   teamB: FighterState[];
@@ -42,6 +47,7 @@ interface Props {
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
+  onResolveVisible?: (visible: boolean) => void;
 }
 
 /** Find a fighter across both teams */
@@ -50,8 +56,8 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  battle, teamA, teamB, myId,
-  onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve,
+  arenaId, battle, teamA, teamB, myId,
+  onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -138,36 +144,234 @@ export default function BattleHUD({
     }
   }, [defRollDone, turn?.phase]);
 
-  /* ── Auto-resolve after showing result (only after resolve is ready) ── */
+  /* ── D4 critical hit check ── */
+  const [critReady, setCritReady] = useState(false);
+  const [critEligible, setCritEligible] = useState(false);
+  const [critRollResult, setCritRollResult] = useState(0);
+  const critRef = useRef({ effectiveCrit: 0, winFaces: [] as number[], isCrit: false, critRoll: 0 });
+  const critInitKey = useRef('');
+  const critSubmitted = useRef(false);
+
+  // Reset crit state on phase change
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady) return;
+    setCritReady(false);
+    setCritEligible(false);
+    setCritRollResult(0);
+    critInitKey.current = '';
+    critSubmitted.current = false;
+    critRef.current = { effectiveCrit: 0, winFaces: [], isCrit: false, critRoll: 0 };
+  }, [turn?.phase]);
+
+  // Compute crit eligibility when resolve is ready
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !attacker || !defender || !turn.defenderId) return;
+    const key = `${turn.attackerId}:${turn.defenderId}:${turn.attackRoll}:${turn.defendRoll}`;
+    if (critInitKey.current === key) return;
+    critInitKey.current = key;
+
+    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    if (isSkipDice) {
+      setCritReady(true);
+      return;
+    }
+    // Self-buff powers (e.g. Beyond the Cloud) still do normal attacks → allow crit
+    const usedPowerDef = turn.action === 'power' && turn.usedPowerIndex != null
+      ? attacker?.powers?.[turn.usedPowerIndex] : undefined;
+    if (turn.action === 'power' && usedPowerDef?.target !== 'self') {
+      setCritReady(true);
+      return;
+    }
+
+    const ae = battle.activeEffects || [];
+    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
+    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
+    const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+
+    if (atkTotal <= defTotal || atkTotal < 10) {
+      setCritReady(true);
+      return;
+    }
+
+    const critBuff = getStatModifier(ae, turn.attackerId, 'criticalRate');
+    const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
+
+    if (effectiveCrit <= 0) {
+      setCritReady(true);
+      return;
+    }
+
+    if (effectiveCrit >= 100) {
+      critRef.current = { effectiveCrit, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0 });
+      setCritEligible(true);
+      setCritReady(true);
+      return;
+    }
+
+    const winFaces = getWinningFaces(effectiveCrit);
+
+    if (isMyTurn) {
+      // Player: manual D4 roll
+      critRef.current = { effectiveCrit, winFaces, isCrit: false, critRoll: 0 };
+      setCritEligible(true);
+    } else if (turn.critRoll != null && turn.critRoll > 0) {
+      // PvP: opponent already rolled before we got here
+      critRef.current = { effectiveCrit, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+      setCritRollResult(turn.critRoll);
+      setCritEligible(true);
+      setTimeout(() => setCritReady(true), 3500);
+    } else {
+      // NPC: compute crit now, show replay immediately (no waiting)
+      const crit = checkCritical(effectiveCrit);
+      critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll });
+      setCritRollResult(crit.critRoll);
+      setCritEligible(true);
+      setTimeout(() => setCritReady(true), 3500);
+    }
+  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn]);
+
+  // Player rolls D4 manually (isMyTurn)
+  const handleCritRollResult = useCallback((roll: number) => {
+    if (critSubmitted.current) return;
+    critSubmitted.current = true;
+    const cd = critRef.current;
+    const isCrit = cd.winFaces.includes(roll);
+    critRef.current = { ...cd, isCrit, critRoll: roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit, critRoll: roll });
+    setTimeout(() => setCritReady(true), 1500);
+  }, [arenaId]);
+
+  // PvP watcher: opponent rolled D4 after we entered resolving
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || critReady || !critEligible) return;
+    if (isMyTurn) return;
+    if (critRollResult > 0) return; // Already have result (NPC or early PvP)
+    if (turn?.critRoll == null) return;
+    critRef.current = { ...critRef.current, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+    setCritRollResult(turn.critRoll);
+    const t = setTimeout(() => setCritReady(true), 3500);
+    return () => clearTimeout(t);
+  }, [turn?.phase, resolveReady, critReady, critEligible, isMyTurn, critRollResult, turn?.critRoll, turn?.isCrit]);
+
+  /* ── Thunderbolt chain D4 check ── */
+  const [chainReady, setChainReady] = useState(false);
+  const [chainEligible, setChainEligible] = useState(false);
+  const [chainRollResult, setChainRollResult] = useState(0);
+  const chainRef = useRef({ winFaces: [] as number[], success: false, roll: 0 });
+  const chainSubmitted = useRef(false);
+
+  // Reset chain state on phase change
+  useEffect(() => {
+    setChainReady(false);
+    setChainEligible(false);
+    setChainRollResult(0);
+    chainSubmitted.current = false;
+    chainRef.current = { winFaces: [], success: false, roll: 0 };
+  }, [turn?.phase]);
+
+  // Compute chain eligibility when crit check is done
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !critReady) return;
+    if (turn.usedPowerName !== 'Thunderbolt') {
+      setChainReady(true);
+      return;
+    }
+    const winFaces = turn.chainWinFaces || getWinningFaces(50);
+    chainRef.current = { winFaces, success: false, roll: 0 };
+
+    if (isMyTurn) {
+      // Player: manual D4 roll
+      setChainEligible(true);
+    } else if (turn.chainRoll != null && turn.chainRoll > 0) {
+      // PvP: opponent already rolled
+      chainRef.current = { winFaces, success: !!turn.chainSuccess, roll: turn.chainRoll };
+      setChainRollResult(turn.chainRoll);
+      setChainEligible(true);
+      setTimeout(() => setChainReady(true), 3500);
+    } else {
+      // NPC: compute chain now
+      const roll = Math.ceil(Math.random() * 4);
+      const success = winFaces.includes(roll);
+      chainRef.current = { winFaces, success, roll };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { chainRoll: roll, chainSuccess: success });
+      setChainRollResult(roll);
+      setChainEligible(true);
+      setTimeout(() => setChainReady(true), 3500);
+    }
+  }, [turn?.phase, resolveReady, critReady, turn?.usedPowerName, turn?.chainWinFaces, turn?.chainRoll, turn?.chainSuccess, arenaId, isMyTurn]);
+
+  // Player rolls chain D4 manually
+  const handleChainRollResult = useCallback((roll: number) => {
+    if (chainSubmitted.current) return;
+    chainSubmitted.current = true;
+    const cr = chainRef.current;
+    const success = cr.winFaces.includes(roll);
+    chainRef.current = { ...cr, success, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { chainRoll: roll, chainSuccess: success });
+    setTimeout(() => setChainReady(true), 1500);
+  }, [arenaId]);
+
+  // PvP watcher: opponent rolled chain D4 after we entered resolving
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || chainReady || !chainEligible) return;
+    if (isMyTurn) return;
+    if (chainRollResult > 0) return;
+    if (turn?.chainRoll == null) return;
+    chainRef.current = { ...chainRef.current, success: !!turn.chainSuccess, roll: turn.chainRoll };
+    setChainRollResult(turn.chainRoll);
+    const t = setTimeout(() => setChainReady(true), 3500);
+    return () => clearTimeout(t);
+  }, [turn?.phase, resolveReady, critReady, chainReady, chainEligible, isMyTurn, chainRollResult, turn?.chainRoll, turn?.chainSuccess]);
+
+  /* ── Auto-resolve after showing result (only after crit + chain check done) ── */
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || !chainReady) return;
     const timer = setTimeout(() => onResolve(), 3500);
     return () => clearTimeout(timer);
-  }, [turn?.phase, resolveReady, onResolve]);
+  }, [turn?.phase, resolveReady, critReady, chainReady, onResolve]);
 
   /* ── Fade transitions for resolve & waiting panels ── */
-  const resolveVisible = turn?.phase === 'resolving' && resolveReady && !!attacker && !!defender;
+  const resolveVisible = turn?.phase === 'resolving' && resolveReady && critReady && chainReady && !!attacker && !!defender;
   const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target');
+
+  // Signal parent when resolve becomes visible (for hit effects)
+  useEffect(() => {
+    onResolveVisible?.(resolveVisible);
+  }, [resolveVisible, onResolveVisible]);
   const [showResolve, resolveExiting] = useFadeTransition(resolveVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
 
   // Cache resolve data so content doesn't flicker during exit animation
-  const resolveCache = useRef({ atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0, isHit: false, damage: 0, isPower: false, powerName: '' });
+  const resolveCache = useRef({ atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0, isHit: false, damage: 0, isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0 });
   if (resolveVisible && turn && attacker && defender) {
     const isSkipDicePower = turn.action === 'power' && !turn.attackRoll;
     if (isSkipDicePower) {
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
         isHit: true, damage: 0, isPower: true, powerName: turn.usedPowerName ?? 'Power',
+        critEligible: false, isCrit: false, critRoll: 0,
       };
     } else {
-      const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp;
-      const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp;
+      const activeEffects = battle.activeEffects || [];
+      const atkBuff = getStatModifier(activeEffects, turn.attackerId, 'attackDiceUp');
+      const defBuff = getStatModifier(activeEffects, turn.defenderId!, 'defendDiceUp');
+      const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
+      const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+      const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
+      let damage = Math.max(0, attacker.damage + dmgBuff);
+
+      // Read crit result from critRef (already determined by D4 roll)
+      const cd = critRef.current;
+      if (cd.isCrit) damage *= 2;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
-        atkBonus: attacker.attackDiceUp, defBonus: defender.defendDiceUp,
-        atkTotal: at, defTotal: dt, isHit: at > dt, damage: attacker.damage,
+        atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
+        atkTotal: at, defTotal: dt, isHit: at > dt, damage,
         isPower: turn.action === 'power', powerName: turn.usedPowerName ?? '',
+        critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
       };
     }
   }
@@ -214,6 +418,16 @@ export default function BattleHUD({
 
   const atkSide = turn.attackerTeam === 'teamA' ? 'left' : 'right';
   const defSide = turn.attackerTeam === 'teamA' ? 'right' : 'left';
+
+  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy shocks)
+  const disabledPowerNames = (() => {
+    const disabled = new Set<string>();
+    const ae = battle.activeEffects || [];
+    const enemyIds = new Set(opposingTeam?.map(f => f.characterId) ?? []);
+    const hasEnemyShock = ae.some(e => e.tag === 'shock' && enemyIds.has(e.targetId));
+    if (!hasEnemyShock) disabled.add('Jolt Arc');
+    return disabled;
+  })();
 
   return (
     <div className="bhud">
@@ -262,6 +476,7 @@ export default function BattleHUD({
             themeColor={attacker?.theme[0]}
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
+            disabledPowerNames={disabledPowerNames}
             onSelectAction={onSelectAction}
           />
         </div>
@@ -285,6 +500,16 @@ export default function BattleHUD({
           defRollDone={defRollDone}
           defendReady={defendReady}
           resolveReady={resolveReady}
+          critEligible={critEligible}
+          critReady={critReady}
+          critWinFaces={critRef.current.winFaces}
+          critRollResult={critRollResult}
+          onCritRollResult={handleCritRollResult}
+          chainEligible={chainEligible}
+          chainReady={chainReady}
+          chainWinFaces={chainRef.current.winFaces}
+          chainRollResult={chainRollResult}
+          onChainRollResult={handleChainRollResult}
         />
       )}
 
@@ -326,7 +551,14 @@ export default function BattleHUD({
                 </span>
               </div>
               {rc.isHit ? (
-                <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
+                <>
+                  {rc.critEligible && (
+                    <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
+                      {rc.critRoll > 0 && <>D4: {rc.critRoll} &mdash; </>}{rc.isCrit ? 'CRIT!' : 'NO CRIT'}
+                    </span>
+                  )}
+                  <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
+                </>
               ) : (
                 <span className="bhud__resolve-miss">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>
               )}

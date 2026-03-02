@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
@@ -13,12 +13,13 @@ const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }: {
   fighter: FighterState;
   deityLabel: string;
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
+  statMods?: Record<string, number>;
 }) {
   const rect = chipRef.current?.getBoundingClientRect();
   if (!rect) return null;
@@ -59,17 +60,23 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave }: {
 
       <div className="mchip__stats">
         {([
-          ['DMG', fighter.damage],
-          ['+ATK', fighter.attackDiceUp],
-          ['+DEF', fighter.defendDiceUp],
-          ['SPD', fighter.speed],
-          ['REROLL', fighter.rerollsLeft],
-        ] as [string, number][]).map(([label, val]) => (
-          <div className="mchip__stat" key={label}>
-            <span className="mchip__stat-lbl">{label}</span>
-            <span className="mchip__stat-val">{val}</span>
-          </div>
-        ))}
+          ['DMG', fighter.damage, statMods?.damage],
+          ['+ATK', fighter.attackDiceUp, statMods?.attackDiceUp],
+          ['+DEF', fighter.defendDiceUp, statMods?.defendDiceUp],
+          ['SPD', fighter.speed, statMods?.speed],
+          ['REROLL', fighter.rerollsLeft, undefined],
+        ] as [string, number, number | undefined][]).map(([label, base, mod]) => {
+          const m = mod ?? 0;
+          return (
+            <div className={`mchip__stat${m > 0 ? ' mchip__stat--buffed' : m < 0 ? ' mchip__stat--debuffed' : ''}`} key={label}>
+              <span className="mchip__stat-lbl">{label}</span>
+              <span className="mchip__stat-val">
+                {base + m}
+                {m !== 0 && <span className="mchip__stat-mod">{m > 0 ? `+${m}` : m}</span>}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mchip__skills">
@@ -115,6 +122,81 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave }: {
   );
 }
 
+export interface EffectPip {
+  powerName: string;
+  sourceName: string;
+  sourceTheme: [string, string];
+  turnsLeft: number;
+  /** Number of stacked instances of this same power from the same source */
+  count: number;
+}
+
+/** Hover tooltip for effect pips — positioned via portal above all stacking contexts */
+function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    const el = tipRef.current;
+    if (!el) return;
+    const tipW = el.offsetWidth;
+    const tipH = el.offsetHeight;
+    // Position to the left of the pip
+    let left = rect.left - tipW - 6;
+    let top = rect.top + rect.height / 2 - tipH / 2;
+    // If overflows left, flip to right
+    if (left < 4) left = rect.right + 6;
+    // Clamp vertical
+    top = Math.max(4, Math.min(top, window.innerHeight - tipH - 4));
+    setPos({ top, left });
+  }, [rect]);
+
+  return createPortal(
+    <div
+      ref={tipRef}
+      className="mchip__pip-tooltip"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        '--pip-c1': pip.sourceTheme[0],
+        '--pip-c2': pip.sourceTheme[1],
+      } as React.CSSProperties}
+    >
+      <span className="mchip__pip-tooltip-name">{pip.powerName}</span>
+      <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
+      <div className="mchip__pip-tooltip-meta">
+        {pip.count > 1 && <span className="mchip__pip-tooltip-stacks">{pip.count} stack{pip.count > 1 ? 's' : ''}</span>}
+        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft === 999 ? 'unlimited' : `${pip.turnsLeft * pip.count} turn${pip.turnsLeft * pip.count > 1 ? 's' : ''}`}</span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Single effect pip dot with hover-to-show tooltip */
+function EffectPipDot({ pip }: { pip: EffectPip }) {
+  const dotRef = useRef<HTMLDivElement>(null);
+  const [hoverRect, setHoverRect] = useState<DOMRect | null>(null);
+
+  const onEnter = useCallback(() => {
+    if (dotRef.current) setHoverRect(dotRef.current.getBoundingClientRect());
+  }, []);
+  const onLeave = useCallback(() => setHoverRect(null), []);
+
+  return (
+    <>
+      <div
+        ref={dotRef}
+        className="mchip__effect-pip"
+        style={{ background: `linear-gradient(135deg, ${pip.sourceTheme[0]}, ${pip.sourceTheme[1]})` }}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+      />
+      {hoverRect && <EffectPipTooltip pip={pip} rect={hoverRect} />}
+    </>
+  );
+}
+
 interface Props {
   fighter: FighterState;
   isAttacker?: boolean;
@@ -122,13 +204,64 @@ interface Props {
   isEliminated?: boolean;
   isTargetable?: boolean;
   isSpotlight?: boolean;
+  isCrit?: boolean;
+  isHit?: boolean;
+  isShockHit?: boolean;
+  isThunderboltHit?: boolean;
+  isShocked?: boolean;
+  turnOrder?: number;
+  effectPips?: EffectPip[];
+  /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
+  statMods?: Record<string, number>;
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, turnOrder, effectPips, statMods, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
+
+  /* ── Hit flash: vibrate + red overlay (driven by isHit prop) ── */
+  const [isHitActive, setIsHitActive] = useState(false);
+  const prevIsHitRef = useRef(false);
+
+  useEffect(() => {
+    if (isHit && !prevIsHitRef.current) {
+      setIsHitActive(true);
+      const timer = setTimeout(() => setIsHitActive(false), 1500);
+      prevIsHitRef.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isHit) prevIsHitRef.current = false;
+  }, [isHit]);
+
+  /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
+  const [isShockHitActive, setIsShockHitActive] = useState(false);
+  const prevIsShockHitRef = useRef(false);
+
+  useEffect(() => {
+    if (isShockHit && !prevIsShockHitRef.current) {
+      setIsShockHitActive(true);
+      const timer = setTimeout(() => setIsShockHitActive(false), 1500);
+      prevIsShockHitRef.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isShockHit) prevIsShockHitRef.current = false;
+  }, [isShockHit]);
+
+  /* ── Thunderbolt hit: massive lightning strike ── */
+  const [isThunderboltActive, setIsThunderboltActive] = useState(false);
+  const prevIsThunderboltRef = useRef(false);
+
+  useEffect(() => {
+    if (isThunderboltHit && !prevIsThunderboltRef.current) {
+      setIsThunderboltActive(true);
+      const timer = setTimeout(() => setIsThunderboltActive(false), 2000);
+      prevIsThunderboltRef.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isThunderboltHit) prevIsThunderboltRef.current = false;
+  }, [isThunderboltHit]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -151,6 +284,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     isEliminated && 'mchip--eliminated',
     isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
+    isHitActive && 'mchip--hit',
+    isShockHitActive && 'mchip--shock-hit',
+    isThunderboltActive && 'mchip--thunderbolt',
+    isShocked && 'mchip--shocked',
   ].filter(Boolean).join(' ');
 
   return (
@@ -217,10 +354,24 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
       {/* Critical rate bar — outside frame */}
       <div className="mchip__critical">
-        <div className="mchip__crit-label">CRIT</div>
+        <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
         <div className="mchip__crit-bar">
-          <div className="mchip__crit-fill" style={{ height: `${fighter.criticalRate}%` }} />
+          <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
         </div>
+      </div>
+
+      {/* Turn order + active effect pips */}
+      <div className="mchip__powerside">
+        {turnOrder != null && (
+          <div className="mchip__order">{turnOrder}</div>
+        )}
+        {effectPips && effectPips.length > 0 && (
+          <div className="mchip__effected-powers">
+            {effectPips.map((ep, idx) => (
+              <EffectPipDot key={idx} pip={ep} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Quota pips — below frame, inside chip */}
@@ -240,6 +391,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           chipRef={chipRef}
           onEnter={handleEnter}
           onLeave={handleLeave}
+          statMods={statMods}
         />,
         document.body,
       )}

@@ -234,6 +234,26 @@ $ink-faint: #9a8b76;
   font-size: 0.58rem;
 }
 
+.blm__crit {
+  font-weight: 800;
+  color: $gold-dark;
+  font-size: 0.55rem;
+  padding: 0 0.3rem;
+  background: $gold-pale;
+  border: 1px solid rgba($gold, 0.25);
+  border-radius: 2px;
+}
+
+.blm__crit-miss {
+  font-weight: 700;
+  color: $ink-faint;
+  font-size: 0.55rem;
+  padding: 0 0.3rem;
+  background: rgba($ink-faint, 0.06);
+  border: 1px solid rgba($ink-faint, 0.15);
+  border-radius: 2px;
+}
+
 .blm__ko {
   font-weight: 800;
   color: $crimson;

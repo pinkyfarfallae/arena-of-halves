@@ -86,6 +86,34 @@ export function applyPowerEffect(
   power: PowerDefinition,
   battle: BattleState,
 ): Record<string, unknown> {
+  // Multi-effect powers: iterate sub-effects, merge updates
+  if (power.effects && power.effects.length > 0) {
+    let combined: Record<string, unknown> = {};
+    let effectsCopy = [...(battle.activeEffects || [])];
+
+    for (const sub of power.effects) {
+      const subPower = {
+        ...power,
+        effect: sub.effect,
+        target: sub.target,
+        value: sub.value,
+        duration: sub.duration,
+        modStat: sub.modStat,
+        effects: undefined, // prevent recursion
+      } as PowerDefinition;
+      const subUpdates = applyPowerEffect(room, attackerId, defenderId, subPower, {
+        ...battle,
+        activeEffects: effectsCopy,
+      });
+      if (subUpdates['battle/activeEffects']) {
+        effectsCopy = subUpdates['battle/activeEffects'] as ActiveEffect[];
+      }
+      Object.assign(combined, subUpdates);
+    }
+    combined['battle/activeEffects'] = effectsCopy;
+    return combined;
+  }
+
   const updates: Record<string, unknown> = {};
   const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
@@ -242,6 +270,130 @@ export function tickEffects(
   // Consume 1 stun turn (stun prevents action, then wears off)
   updates['battle/activeEffects'] = remaining;
   return updates;
+}
+
+/* ── Zeus: Lightning Reflex passive ─────────────────── */
+
+/**
+ * Apply Lightning Reflex shock on successful attack.
+ * If target already has shock → bonus damage (100% of baseDamage) + remove all shocks.
+ * Otherwise → apply new shock DOT (value 0, permanent).
+ */
+export function applyLightningReflexPassive(
+  room: BattleRoom,
+  attackerId: string,
+  defenderId: string,
+  battle: BattleState,
+  baseDamage: number,
+): { updates: Record<string, unknown>; bonusDamage: number } {
+  const updates: Record<string, unknown> = {};
+  const effects = [...(battle.activeEffects || [])];
+
+  const attacker = findFighter(room, attackerId);
+  if (!attacker || attacker.passiveSkillPoint !== 'unlock') return { updates, bonusDamage: 0 };
+
+  const passive = attacker.powers.find(p => p.type === 'Passive' && p.name === 'Lightning Reflex');
+  if (!passive) return { updates, bonusDamage: 0 };
+
+  const existingShocks = effects.filter(
+    e => e.targetId === defenderId && e.tag === 'shock',
+  );
+
+  if (existingShocks.length > 0) {
+    // Double-shock: bonus damage = baseDamage, remove all shocks on defender
+    const cleaned = effects.filter(
+      e => !(e.targetId === defenderId && e.tag === 'shock'),
+    );
+    updates['battle/activeEffects'] = cleaned;
+    return { updates, bonusDamage: baseDamage };
+  }
+
+  // First shock: apply permanent DOT with tag
+  effects.push({
+    id: makeEffectId(attackerId, 'Lightning Reflex'),
+    powerName: 'Lightning Reflex',
+    effectType: 'dot',
+    sourceId: attackerId,
+    targetId: defenderId,
+    value: 0,
+    turnsRemaining: 999,
+    tag: 'shock',
+  });
+  updates['battle/activeEffects'] = effects;
+  return { updates, bonusDamage: 0 };
+}
+
+/* ── Zeus: Jolt Arc — AoE shock detonation ─────────── */
+
+/**
+ * Detonate all shock DOTs on all enemies. Each shock stack deals
+ * attacker.damage to the target. All shocks are removed.
+ */
+export function applyJoltArc(
+  room: BattleRoom,
+  attackerId: string,
+  battle: BattleState,
+): { updates: Record<string, unknown>; aoeDamageMap: Record<string, number> } {
+  const updates: Record<string, unknown> = {};
+  const effects = [...(battle.activeEffects || [])];
+  const aoeDamageMap: Record<string, number> = {};
+
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return { updates, aoeDamageMap };
+
+  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+  const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
+
+  for (const enemy of enemies) {
+    if (enemy.currentHp <= 0) continue;
+
+    const shockCount = effects.filter(
+      e => e.targetId === enemy.characterId && e.tag === 'shock',
+    ).length;
+
+    if (shockCount > 0) {
+      const dmg = shockCount * attacker.damage;
+      const newHp = Math.max(0, enemy.currentHp - dmg);
+      const path = findFighterPath(room, enemy.characterId);
+      if (path) updates[`${path}/currentHp`] = newHp;
+      aoeDamageMap[enemy.characterId] = dmg;
+    }
+  }
+
+  // Remove ALL shock DOTs
+  const cleaned = effects.filter(e => e.tag !== 'shock');
+  updates['battle/activeEffects'] = cleaned;
+  return { updates, aoeDamageMap };
+}
+
+/* ── Zeus: Thunderbolt — chain AoE ─────────────────── */
+
+/**
+ * Apply Thunderbolt chain: -1 damage to all enemies EXCEPT primary target.
+ */
+export function applyThunderboltChain(
+  room: BattleRoom,
+  attackerId: string,
+  defenderId: string,
+  battle: BattleState,
+): { updates: Record<string, unknown>; aoeDamageMap: Record<string, number> } {
+  const updates: Record<string, unknown> = {};
+  const aoeDamageMap: Record<string, number> = {};
+
+  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+  const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
+
+  for (const enemy of enemies) {
+    if (enemy.characterId === defenderId) continue;
+    if (enemy.currentHp <= 0) continue;
+
+    const newHp = Math.max(0, enemy.currentHp - 1);
+    const path = findFighterPath(room, enemy.characterId);
+    if (path) updates[`${path}/currentHp`] = newHp;
+    aoeDamageMap[enemy.characterId] = 1;
+  }
+
+  return { updates, aoeDamageMap };
 }
 
 /* ── apply passives at battle start ──────────────────── */

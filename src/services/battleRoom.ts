@@ -5,14 +5,57 @@ import type {
   TurnQueueEntry, Viewer,
 } from '../types/battle';
 import type { Character } from '../types/character';
-import type { PowerDefinition } from '../types/power';
+import type { PowerDefinition, ActiveEffect } from '../types/power';
 import { getQuotaCost } from '../types/power';
 import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
+  applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
 } from './powerEngine';
 
 /* ── helpers ─────────────────────────────────────────── */
+
+/**
+ * Roll a D4 to check for critical hit.
+ * - 0%   → no crit, no roll
+ * - 25%  → 1 winning face (always 4)
+ * - 50%  → 2 randomly chosen winning faces
+ * - 75%  → 3 randomly chosen winning faces
+ * - 100% → auto crit, no roll
+ */
+export function checkCritical(critRate: number): { isCrit: boolean; critRoll: number } {
+  if (critRate <= 0) return { isCrit: false, critRoll: 0 };
+  if (critRate >= 100) return { isCrit: true, critRoll: 0 };
+
+  const roll = Math.ceil(Math.random() * 4); // 1-4
+  const winCount = Math.round(critRate / 25); // 1, 2, or 3
+
+  if (winCount === 1) return { isCrit: roll === 4, critRoll: roll };
+
+  // Randomly pick which faces are winners
+  const pool = [1, 2, 3, 4];
+  const winners: number[] = [];
+  for (let i = 0; i < winCount; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    winners.push(pool.splice(idx, 1)[0]);
+  }
+
+  return { isCrit: winners.includes(roll), critRoll: roll };
+}
+
+/** Pre-generate which D4 faces will count as a crit for a given rate. */
+export function getWinningFaces(critRate: number): number[] {
+  if (critRate <= 0) return [];
+  if (critRate >= 100) return [1, 2, 3, 4];
+  const winCount = Math.round(critRate / 25);
+  const pool = [1, 2, 3, 4];
+  const winners: number[] = [];
+  for (let i = 0; i < winCount; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    winners.push(pool.splice(idx, 1)[0]);
+  }
+  return winners;
+}
 
 /** Generate a 6-char uppercase room code */
 function generateArenaId(): string {
@@ -221,14 +264,16 @@ export async function deleteRoom(arenaId: string): Promise<void> {
    ══════════════════════════════════════════════════════════ */
 
 /** Build a SPD-sorted turn queue. TeamA wins ties (room creator advantage). */
-export function buildTurnQueue(room: BattleRoom): TurnQueueEntry[] {
+export function buildTurnQueue(room: BattleRoom, effects?: ActiveEffect[]): TurnQueueEntry[] {
   const entries: TurnQueueEntry[] = [];
 
   for (const m of room.teamA?.members || []) {
-    entries.push({ characterId: m.characterId, team: 'teamA', speed: m.speed });
+    const spdMod = effects ? getStatModifier(effects, m.characterId, 'speed') : 0;
+    entries.push({ characterId: m.characterId, team: 'teamA', speed: m.speed + spdMod });
   }
   for (const m of room.teamB?.members || []) {
-    entries.push({ characterId: m.characterId, team: 'teamB', speed: m.speed });
+    const spdMod = effects ? getStatModifier(effects, m.characterId, 'speed') : 0;
+    entries.push({ characterId: m.characterId, team: 'teamB', speed: m.speed + spdMod });
   }
 
   entries.sort((a, b) => {
@@ -363,49 +408,137 @@ export async function selectAction(
   if (atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
 
   if (power.skipDice) {
-    // Unblockable power — apply immediately, skip dice
-    const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
-    Object.assign(updates, effectUpdates);
+    // ── Jolt Arc: detonate all shocks on all enemies ──
+    if (power.name === 'Jolt Arc') {
+      const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
+      Object.assign(updates, joltUpdates);
 
-    const logEntry = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: power.effect === 'damage' || power.effect === 'lifesteal' ? power.value : 0,
-      defenderHpAfter: (() => {
-        const defender = findFighter(room, defenderId);
-        if (!defender) return 0;
-        if (power.effect === 'damage' || power.effect === 'lifesteal') {
-          return Math.max(0, defender.currentHp - power.value);
-        }
-        return defender.currentHp;
-      })(),
-      eliminated: (() => {
-        const defender = findFighter(room, defenderId);
-        if (!defender) return false;
-        if (power.effect === 'damage' || power.effect === 'lifesteal') {
-          return defender.currentHp - power.value <= 0;
-        }
-        return false;
-      })(),
-      missed: false,
-      powerUsed: power.name,
-    };
-    updates['battle/log'] = [...(battle.log || []), logEntry];
+      const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
+      const logEntry = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: totalDmg,
+        defenderHpAfter: (() => {
+          const defender = findFighter(room, defenderId);
+          if (!defender) return 0;
+          const defDmg = aoeDamageMap[defenderId] || 0;
+          return Math.max(0, defender.currentHp - defDmg);
+        })(),
+        eliminated: (() => {
+          const defender = findFighter(room, defenderId);
+          if (!defender) return false;
+          const defDmg = aoeDamageMap[defenderId] || 0;
+          return defender.currentHp - defDmg <= 0;
+        })(),
+        missed: totalDmg === 0,
+        powerUsed: power.name,
+        aoeDamageMap: Object.keys(aoeDamageMap).length > 0 ? aoeDamageMap : undefined,
+      };
+      updates['battle/log'] = [...(battle.log || []), logEntry];
 
-    updates['battle/turn'] = {
-      attackerId,
-      attackerTeam: battle.turn.attackerTeam,
-      defenderId,
-      phase: 'resolving',
-      action: 'power',
-      usedPowerIndex: powerIndex,
-      usedPowerName: power.name,
-    };
+      updates['battle/turn'] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        defenderId,
+        phase: 'resolving',
+        action: 'power',
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+      };
+
+    // ── Thunderbolt: -3 primary, then D4 chain check ──
+    } else if (power.name === 'Thunderbolt') {
+      const defender = findFighter(room, defenderId);
+      const defPath = findFighterPath(room, defenderId);
+      const defHpAfter = defender ? Math.max(0, defender.currentHp - power.value) : 0;
+      if (defPath && defender) updates[`${defPath}/currentHp`] = defHpAfter;
+
+      const chainWinFaces = getWinningFaces(50);
+
+      const logEntry = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: power.value,
+        defenderHpAfter: defHpAfter,
+        eliminated: defHpAfter <= 0,
+        missed: false,
+        powerUsed: power.name,
+      };
+      updates['battle/log'] = [...(battle.log || []), logEntry];
+
+      updates['battle/turn'] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        defenderId,
+        phase: 'resolving',
+        action: 'power',
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+        chainWinFaces,
+      };
+
+    // ── Generic skipDice power ──
+    } else {
+      const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
+      Object.assign(updates, effectUpdates);
+
+      const logEntry = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: power.effect === 'damage' || power.effect === 'lifesteal' ? power.value : 0,
+        defenderHpAfter: (() => {
+          const defender = findFighter(room, defenderId);
+          if (!defender) return 0;
+          if (power.effect === 'damage' || power.effect === 'lifesteal') {
+            return Math.max(0, defender.currentHp - power.value);
+          }
+          return defender.currentHp;
+        })(),
+        eliminated: (() => {
+          const defender = findFighter(room, defenderId);
+          if (!defender) return false;
+          if (power.effect === 'damage' || power.effect === 'lifesteal') {
+            return defender.currentHp - power.value <= 0;
+          }
+          return false;
+        })(),
+        missed: false,
+        powerUsed: power.name,
+      };
+      updates['battle/log'] = [...(battle.log || []), logEntry];
+
+      updates['battle/turn'] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        defenderId,
+        phase: 'resolving',
+        action: 'power',
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+      };
+    }
   } else {
-    // Normal power — go through dice rolling
+    // Non-skipDice power — go through dice rolling
+    // For self-buff powers (e.g. Beyond the Cloud), apply buffs NOW
+    // so they're active during resolution. +1 duration to offset
+    // the decrement in tickEffects at end of this turn.
+    if (power.target === 'self' && (power.effect === 'buff' || power.effects)) {
+      const adjusted = power.effects
+        ? { ...power, effects: power.effects.map(e => ({ ...e, duration: e.duration + 1 })) }
+        : { ...power, duration: power.duration + 1 };
+      const effectUpdates = applyPowerEffect(room, attackerId, defenderId, adjusted as PowerDefinition, battle);
+      Object.assign(updates, effectUpdates);
+    }
+
     updates['battle/turn'] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
@@ -483,7 +616,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   if (!snap.exists()) return;
 
   const room = snap.val() as BattleRoom;
-  const battle = room.battle;
+  let battle = room.battle;
   if (!battle || !battle.turn || battle.turn.phase !== 'resolving') return;
 
   const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = battle.turn;
@@ -506,8 +639,12 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     ? attacker.powers?.[usedPowerIndex]
     : undefined;
 
-  if (action === 'power' && usedPower && !usedPower.skipDice) {
-    // Power with dice — compare rolls, apply effect on hit
+  // Self-buff power (e.g. Beyond the Cloud): buffs already applied in selectAction().
+  // Treat as normal attack for damage calculation.
+  const isSelfBuffPower = action === 'power' && usedPower && !usedPower.skipDice && usedPower.target === 'self';
+
+  if (action === 'power' && usedPower && !usedPower.skipDice && !isSelfBuffPower) {
+    // Power with dice (damage/enemy-target) — compare rolls, apply effect on hit
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
     const atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
@@ -538,7 +675,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     };
     updates['battle/log'] = [...(battle.log || []), logEntry];
 
-  } else if (action !== 'power') {
+  } else if (action !== 'power' || isSelfBuffPower) {
     // Normal attack: compare dice with active effect modifiers
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
@@ -546,9 +683,41 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
 
+    let isCrit = false;
+    let critRoll = 0;
+    let shockBonusDamage = 0;
+
     if (hit) {
       const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
-      const rawDmg = Math.max(0, attacker.damage + dmgBuff);
+      let rawDmg = Math.max(0, attacker.damage + dmgBuff);
+
+      // Critical hit: read from turn state (written by BattleHUD) or compute fallback
+      if (atkTotal >= 10) {
+        if (battle.turn.critRoll != null && battle.turn.critRoll > 0) {
+          isCrit = !!battle.turn.isCrit;
+          critRoll = battle.turn.critRoll;
+        } else if (battle.turn.isCrit) {
+          // 100% crit rate — auto crit with no roll
+          isCrit = true;
+          critRoll = 0;
+        } else {
+          // Fallback: compute crit if BattleHUD didn't write (e.g. stale client)
+          const critBuff = getStatModifier(activeEffects, attackerId, 'criticalRate');
+          const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
+          const crit = checkCritical(effectiveCrit);
+          isCrit = crit.isCrit;
+          critRoll = crit.critRoll;
+        }
+        if (isCrit) rawDmg *= 2;
+      }
+
+      // Lightning Reflex passive: apply shock or detonate for bonus damage (only on pure normal attacks)
+      if (!isSelfBuffPower) {
+        const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, rawDmg);
+        rawDmg += shockResult.bonusDamage;
+        shockBonusDamage = shockResult.bonusDamage;
+        Object.assign(updates, shockResult.updates);
+      }
 
       // Shield absorption
       let shieldRemaining = rawDmg;
@@ -577,7 +746,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       if (defPath) updates[`${defPath}/currentHp`] = defenderHpAfter;
     }
 
-    // Log entry for normal attack
+    // Log entry for normal attack (or self-buff power + attack)
     const logEntry = {
       round: battle.roundNumber,
       attackerId,
@@ -588,10 +757,33 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
       eliminated: hit && defenderHpAfter <= 0,
       missed: !hit,
+      ...(critRoll > 0 && { isCrit, critRoll }),
+      ...(shockBonusDamage > 0 && { shockDamage: shockBonusDamage }),
+      ...(isSelfBuffPower && usedPower && { powerUsed: usedPower.name }),
     };
     updates['battle/log'] = [...(battle.log || []), logEntry];
   }
   // skipDice powers: effect + log already written in selectAction()
+
+  // Thunderbolt chain: if D4 succeeded, apply -1 AoE to other enemies
+  const turn = battle.turn;
+  if (turn.usedPowerName === 'Thunderbolt' && turn.chainSuccess && defenderId) {
+    const { updates: chainUpdates, aoeDamageMap } = applyThunderboltChain(room, attackerId, defenderId, battle);
+    Object.assign(updates, chainUpdates);
+    // Append chain AoE info to the last log entry
+    const existingLog = [...(battle.log || [])];
+    if (existingLog.length > 0) {
+      existingLog[existingLog.length - 1].aoeDamageMap = aoeDamageMap;
+      updates['battle/log'] = existingLog;
+    }
+  }
+
+  // Sync accumulated activeEffects changes so tickEffects sees them
+  // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain
+  //  all write to updates['battle/activeEffects'] but tickEffects reads from battle)
+  if (updates['battle/activeEffects']) {
+    battle = { ...battle, activeEffects: updates['battle/activeEffects'] as ActiveEffect[] };
+  }
 
   // Tick active effects (DOT damage, decrement durations)
   const effectUpdates = tickEffects(room, battle);
@@ -608,7 +800,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   if (isTeamEliminated(teamBMembers)) {
     updates['battle/winner'] = 'teamA';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
+    updates['battle/turn'] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
@@ -616,20 +808,28 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   if (isTeamEliminated(teamAMembers)) {
     updates['battle/winner'] = 'teamB';
-    updates['battle/turn'] = { attackerId, attackerTeam: battle.turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
+    updates['battle/turn'] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
   }
 
-  // Advance to next alive fighter
+  // Rebuild turn queue with effective speeds (base + active buff/debuff modifiers)
+  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
   const updatedRoom = {
     ...room,
     teamA: { ...room.teamA, members: teamAMembers },
     teamB: { ...room.teamB, members: teamBMembers },
   };
-  const { index: nextIdx, wrapped } = nextAliveIndex(battle.turnQueue, battle.currentTurnIndex, updatedRoom);
-  const nextEntry = battle.turnQueue[nextIdx];
+  const updatedQueue = buildTurnQueue(updatedRoom as BattleRoom, latestEffects);
+  updates['battle/turnQueue'] = updatedQueue;
+
+  // Find where the current attacker is in the new queue to advance from there
+  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+  const nextEntry = updatedQueue[nextIdx];
 
   // Skip stunned fighters
   const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
@@ -639,8 +839,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
 
     const afterStunRoom = { ...updatedRoom };
-    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(battle.turnQueue, nextIdx, afterStunRoom);
-    const skipEntry = battle.turnQueue[skipIdx];
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom);
+    const skipEntry = updatedQueue[skipIdx];
     updates['battle/currentTurnIndex'] = skipIdx;
     if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
     updates['battle/turn'] = {

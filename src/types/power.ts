@@ -13,7 +13,21 @@ export type EffectType =
 
 export type TargetType = 'enemy' | 'self';
 
-export type ModStat = 'attackDiceUp' | 'defendDiceUp' | 'damage' | 'speed';
+export type ModStat =
+  | 'attackDiceUp'
+  | 'defendDiceUp'
+  | 'damage'
+  | 'speed'
+  | 'criticalRate';
+
+/** A single mechanical effect entry (used inside the effects[] array). */
+export interface PowerEffect {
+  effect: EffectType;
+  target: TargetType;
+  value: number;
+  duration: number; // 0 = instant, 999 = permanent (passive)
+  modStat?: ModStat;
+}
 
 /** Power with mechanical effect data from the spreadsheet */
 export interface PowerDefinition {
@@ -23,12 +37,16 @@ export interface PowerDefinition {
   description: string;
   available: boolean;
 
-  /* Effect columns */
+  /* Primary effect columns (single-effect shorthand) */
   effect: EffectType;
   target: TargetType;
   value: number;
   duration: number; // 0 = instant, 999 = permanent (passive)
   modStat?: ModStat;
+
+  /** Full effect list for multi-effect powers. When present, the engine
+   *  should iterate this array instead of the single-effect fields above. */
+  effects?: PowerEffect[];
 
   /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
   skipDice?: boolean;
@@ -44,6 +62,8 @@ export interface ActiveEffect {
   value: number;
   modStat?: ModStat;
   turnsRemaining: number;
+  /** Semantic tag for special mechanics (e.g. 'shock' for Lightning Reflex) */
+  tag?: string;
 }
 
 /** Quota cost by power type */

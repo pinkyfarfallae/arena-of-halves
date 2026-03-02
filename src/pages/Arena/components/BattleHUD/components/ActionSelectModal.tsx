@@ -13,6 +13,8 @@ interface Props {
   themeColor?: string;
   themeColorDark?: string;
   side?: 'left' | 'right';
+  /** Power names that are conditionally disabled (e.g. Jolt Arc when no shocks) */
+  disabledPowerNames?: Set<string>;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number) => void;
 }
 
@@ -50,7 +52,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', onSelectAction }: Props) {
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, onSelectAction }: Props) {
   const [showPowerPicker, setShowPowerPicker] = useState(false);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -123,7 +125,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
               (p.type === 'Ultimate' && attacker.ultimateSkillPoint === 'unlock') ||
               ((p.type === '1st Skill' || p.type === '2nd Skill') && attacker.skillPoint === 'unlock');
             const canAfford = attacker.quota >= cost;
-            const usable = unlocked && canAfford;
+            const usable = unlocked && canAfford && !disabledPowerNames?.has(p.name);
             const selected = selectedPowerIdx === realIdx;
             return (
               <div key={idx} className="bhud__power-item">

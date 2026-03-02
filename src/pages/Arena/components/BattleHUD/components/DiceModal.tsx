@@ -25,6 +25,18 @@ interface Props {
   defRollDone: boolean;
   defendReady: boolean;
   resolveReady: boolean;
+  /* D4 crit check */
+  critEligible?: boolean;
+  critReady?: boolean;
+  critWinFaces?: number[];
+  critRollResult?: number;
+  onCritRollResult?: (roll: number) => void;
+  /* Thunderbolt chain D4 check */
+  chainEligible?: boolean;
+  chainReady?: boolean;
+  chainWinFaces?: number[];
+  chainRollResult?: number;
+  onChainRollResult?: (roll: number) => void;
 }
 
 /** CSS custom properties for modal theming */
@@ -38,6 +50,8 @@ export default function DiceModal({
   isMyTurn, isMyDefend, atkSide, defSide,
   onAttackRoll, onDefendRoll, onAtkRollDone, onDefRollDone,
   atkRollDone, defRollDone, defendReady, resolveReady,
+  critEligible, critReady, critWinFaces, critRollResult, onCritRollResult,
+  chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult,
 }: Props) {
   const { phase } = turn;
   const atkTheme = themeStyle(attacker);
@@ -130,6 +144,76 @@ export default function DiceModal({
                   ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
                   : turn.defendRoll}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── D4 CRITICAL CHECK — after defend replay, before resolve bar ── */}
+      {phase === 'resolving' && resolveReady && !critReady && critEligible && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={atkTheme}>
+            <span className="bhud__dice-label">Critical Check</span>
+            <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4</span>
+            {isMyTurn ? (
+              <DiceRoller
+                key="crit-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollResult={onCritRollResult}
+                themeColors={dieColors(attacker)}
+                hidePrompt
+              />
+            ) : (critRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`crit-replay-${critRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={critRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(attacker)}
+              />
+            ) : (
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            )}
+            <span className="bhud__dice-bonus">critical: {critWinFaces?.sort((a, b) => a - b).join(', ') || '—'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── D4 THUNDERBOLT CHAIN CHECK — after crit, before resolve bar ── */}
+      {phase === 'resolving' && resolveReady && critReady && !chainReady && chainEligible && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={atkTheme}>
+            <span className="bhud__dice-label">Thunderbolt Chain</span>
+            <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (50%)</span>
+            {isMyTurn ? (
+              <DiceRoller
+                key="chain-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollResult={onChainRollResult}
+                themeColors={dieColors(attacker)}
+                hidePrompt
+              />
+            ) : (chainRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`chain-replay-${chainRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={chainRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(attacker)}
+              />
+            ) : (
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            )}
+            <span className="bhud__dice-bonus">chain: {chainWinFaces?.sort((a, b) => a - b).join(', ') || '—'}</span>
           </div>
         </div>
       )}
