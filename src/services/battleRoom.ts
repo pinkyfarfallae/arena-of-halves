@@ -10,7 +10,6 @@ import { getQuotaCost } from '../types/power';
 import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
-  getAffordablePowers,
 } from './powerEngine';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -308,29 +307,11 @@ export async function startBattle(arenaId: string): Promise<void> {
 /* ── select target ───────────────────────────────────── */
 
 export async function selectTarget(arenaId: string, defenderId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn) return;
-
-  const attacker = findFighter(room, battle.turn.attackerId);
-  const hasPowers = attacker ? getAffordablePowers(attacker).length > 0 : false;
-
-  if (hasPowers) {
-    // Attacker has usable powers — let them choose action
-    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
-      defenderId,
-      phase: 'select-action',
-    });
-  } else {
-    // No usable powers — skip straight to attack dice
-    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
-      defenderId,
-      action: 'attack',
-      phase: 'rolling-attack',
-    });
-  }
+  // Always show action selection so player can see their powers
+  await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+    defenderId,
+    phase: 'select-action',
+  });
 }
 
 /* ── select action (attack or use power) ─────────────── */

@@ -28,7 +28,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Beyond the Cloud',
       description:
-        'มอบความเร็ว 2 หน่วยและอัตราคริ 25% ให้กับตนเองเป็นเวลา 2 รอบ',
+        'มอบความเร็ว 2 หน่วยและอัตราคริคิคอล 25% ให้กับตนเองเป็นเวลา 2 รอบ',
       available: true,
       effect: 'buff',
       target: 'self',
@@ -297,7 +297,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Healing Hymn',
       description:
-        'ขับขานบทเพลงรักษาให้กับเพื่อน 1 คน ฟื้นฟู HP 2 หน่วย หากตนเอง HP ลดอยู่ ตนเองก็จะฟื้นฟู HP ด้วย 2 หน่วยเช่นกัน และมอบอัตราคริให้กับทั้งคู่อีก 25% เป็นเวลา 2 รอบ',
+        'ขับขานบทเพลงรักษาให้กับเพื่อน 1 คน ฟื้นฟู HP 2 หน่วย หากตนเอง HP ลดอยู่ ตนเองก็จะฟื้นฟู HP ด้วย 2 หน่วยเช่นกัน และมอบอัตราคริคิคอลให้กับทั้งคู่อีก 25% เป็นเวลา 2 รอบ',
       available: true,
       effect: 'heal',
       target: 'self',
