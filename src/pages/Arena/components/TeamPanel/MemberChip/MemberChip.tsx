@@ -39,7 +39,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave }: {
   } else {
     Object.assign(style, {
       position: 'fixed' as const,
-      top: rect.bottom - 32 + 5,
+      top: rect.bottom - 15,
       left: rect.left + rect.width / 2,
       transform: 'translateX(-50%)',
     });
@@ -212,6 +212,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {fighter.currentHp}/{fighter.maxHp}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Critical rate bar — outside frame */}
+      <div className="mchip__critical">
+        <div className="mchip__crit-label">CRIT</div>
+        <div className="mchip__crit-bar">
+          <div className="mchip__crit-fill" style={{ height: `${fighter.criticalRate}%` }} />
         </div>
       </div>
 
