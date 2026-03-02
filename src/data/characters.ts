@@ -1,9 +1,11 @@
 import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character } from '../types/character';
+import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl } from '../constants/sheets';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
+export type { PowerDefinition };
 export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
 const characterCsvUrl = () => csvUrl(GID.CHARACTER);
@@ -178,35 +180,6 @@ export async function fetchAllCharacters(): Promise<Character[]> {
   return chars;
 }
 
-export async function fetchPowers(deity: string): Promise<Power[]> {
-  const url = csvUrl(GID.POWERS);
-  const res = await fetch(url);
-  const text = await res.text();
-  const lines = splitCSVRows(text);
-  if (lines.length < 2) return [];
-
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-  const TYPE_ORDER = ['Passive', '1st Skill', '2nd Skill', 'Ultimate'];
-
-  const powers: Power[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCSVLine(lines[i]);
-    const get = (name: string) => {
-      const idx = headers.indexOf(name);
-      return idx !== -1 ? cols[idx] ?? '' : '';
-    };
-    if (get('deity').toLowerCase() === deity.toLowerCase()) {
-      powers.push({
-        deity: get('deity'),
-        type: get('type') || TYPE_ORDER[powers.length] || '',
-        name: get('name'),
-        description: get('description'),
-        available: true,
-      });
-    }
-  }
-  return powers;
-}
 
 export async function fetchWishes(characterId: string): Promise<WishEntry[]> {
   const url = csvUrl(GID.WISHES);

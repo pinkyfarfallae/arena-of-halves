@@ -813,8 +813,207 @@ $crimson-bright: #c41e3a;
     padding-right: 10px;
 
     .bhud__dice-modal,
-    .bhud__targets-modal {
+    .bhud__targets-modal,
+    .bhud__action-modal {
       margin-top: 0;
     }
   }
+}
+
+/* ══════════════════════════════════════
+   POWER SYSTEM — action selection, quota, effects
+   ══════════════════════════════════════ */
+
+/* Action modal (Attack / Use Power) */
+.bhud__action-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 10px;
+  padding: 0.6rem 0.6rem 0.5rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba($gold, 0.08);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 280px;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+/* Quota pips */
+.bhud__quota {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.1rem 0;
+}
+
+.bhud__quota-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid $gold;
+  background: transparent;
+  transition: background 0.3s, box-shadow 0.3s;
+
+  &--filled {
+    background: $gold;
+    box-shadow: 0 0 6px rgba($gold, 0.5);
+  }
+}
+
+.bhud__quota-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $gold-dark;
+  margin-left: 0.2rem;
+}
+
+/* Action buttons */
+.bhud__action-btns {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.bhud__action-btn {
+  flex: 1;
+  padding: 0.5rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba($gold, 0.2);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &--attack {
+    background: color-mix(in srgb, $crimson 8%, #fff);
+    color: $crimson;
+    border-color: rgba($crimson, 0.2);
+
+    &:hover {
+      background: color-mix(in srgb, $crimson 16%, #fff);
+      border-color: rgba($crimson, 0.35);
+      box-shadow: 0 0 8px rgba($crimson, 0.1);
+    }
+  }
+
+  &--power {
+    background: color-mix(in srgb, $gold 8%, #fff);
+    color: $gold-dark;
+    border-color: rgba($gold, 0.2);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, $gold 16%, #fff);
+      border-color: rgba($gold, 0.35);
+      box-shadow: 0 0 8px rgba($gold, 0.1);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* Power picker */
+.bhud__power-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.bhud__power-back {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: $ink-faint;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem;
+  text-align: left;
+
+  &:hover {
+    color: $ink;
+  }
+}
+
+.bhud__power-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba($gold, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, $gold 10%, #fff);
+    border-color: rgba($gold, 0.3);
+  }
+
+  &--disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.bhud__power-type {
+  font-size: 0.45rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 50px;
+}
+
+.bhud__power-name {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink;
+  flex: 1;
+}
+
+.bhud__power-cost {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $gold-dark;
+  font-family: 'DM Mono', monospace;
+}
+
+.bhud__power-lock {
+  font-size: 0.4rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+}
+
+/* Resolve bar — power variant */
+.bhud__resolve--power {
+  border-color: rgba($gold, 0.3);
+  box-shadow: 0 4px 20px rgba($gold, 0.12);
+}
+
+.bhud__resolve-power-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: $gold-dark;
+  text-align: center;
+}
+
+/* Log entry — power variant */
+.bhud__log-power {
+  font-weight: 700;
+  color: $gold-dark;
+  font-style: italic;
 }

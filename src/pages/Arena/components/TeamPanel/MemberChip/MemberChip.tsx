@@ -215,6 +215,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       </div>
 
+      {/* Quota pips — below frame, inside chip */}
+      {fighter.maxQuota > 0 && (
+        <div className="mchip__quota">
+          {Array.from({ length: fighter.maxQuota }, (_, i) => (
+            <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
+          ))}
+        </div>
+      )}
+
       {/* Hover stat popup — rendered via portal to escape stacking contexts */}
       {hovered && chipRef.current && createPortal(
         <PopupPanel
