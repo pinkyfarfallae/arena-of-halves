@@ -68,98 +68,8 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
 }
 
-/* ── Target selection modal ── */
-.bhud__targets-modal {
-  pointer-events: all;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba($gold, 0.2);
-  border-radius: 10px;
-  padding: 0.7rem 0.7rem 0.6rem;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba($gold, 0.08);
-  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-  width: 280px;
-  max-height: calc(100vh - 6rem);
-  overflow-y: auto;
-}
-
-.bhud__targets-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  width: 100%;
-}
-
-.bhud__target-btn {
-  --tc: var(--t-color, #{$gold});
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.55rem;
-  background: color-mix(in srgb, var(--tc) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tc) 18%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  width: 100%;
-
-  &:hover {
-    background: color-mix(in srgb, var(--tc) 16%, transparent);
-    border-color: color-mix(in srgb, var(--tc) 35%, transparent);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--tc) 20%, transparent);
-  }
-}
-
-.bhud__target-img {
-  width: 36px;
-  height: 36px;
-  border-radius: 5px;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 2px solid color-mix(in srgb, var(--tc) 30%, transparent);
-}
-
-.bhud__target-initial {
-  width: 36px;
-  height: 36px;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--tc) 12%, #f5ede4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--tc);
-  flex-shrink: 0;
-}
-
-.bhud__target-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.bhud__target-name {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--tc);
-}
-
-.bhud__target-hp {
-  width: fit-content;
-  font-size: 0.55rem;
-  color: $ink-faint;
-  font-family: 'DM Mono', monospace;
-}
-
 /* ══════════════════════════════════════
-   DICE ROLLING — positioned on player's half
+   SHARED — dice zone positioning, labels, animations
    ══════════════════════════════════════ */
 .bhud__dice-zone {
   position: fixed;
@@ -173,13 +83,11 @@ $crimson-bright: #c41e3a;
   pointer-events: none;
   animation: bhud-fade-in 0.2s ease-out;
 
-  // Left half: from sidebar to content center
   &--left {
     left: $sidebar-width;
     width: calc((100vw - #{$sidebar-width}) / 2);
   }
 
-  // Right half: from content center to right edge
   &--right {
     right: 0;
     width: calc((100vw - #{$sidebar-width}) / 2);
@@ -187,45 +95,13 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-.bhud__dice-modal {
-  pointer-events: all;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba($gold, 0.2);
-  border-radius: 10px;
-  padding: 0.5rem 0.4rem 0.3rem;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba($gold, 0.08);
-  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-  width: 220px;
-  margin-top: 2rem;
-  max-height: calc(100vh - 6rem);
-  overflow: visible;
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes bhud-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .bhud__dice-label {
@@ -241,112 +117,6 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
   margin-top: -2px;
   margin-bottom: 2px;
-}
-
-/* DiceRoller embedded inside modal — override default sizes */
-.bhud__dice-roller {
-  width: 100%;
-  height: 180px;
-  border-radius: 0px;
-  overflow: hidden;
-
-  .dr__display {
-    min-height: unset;
-    padding-bottom: 0;
-    gap: 6px;
-    transform: scale(0.55);
-    transform-origin: center center;
-
-    &::after {
-      width: 400px;
-      height: 400px;
-    }
-  }
-
-  .dr__prompt {
-    display: none;
-  }
-
-  .dr__result {
-    font-size: 1.2rem;
-    padding: 0.15rem 0.4rem;
-  }
-}
-
-.bhud__dice-bonus {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: $gold-dark;
-  font-family: 'DM Mono', monospace;
-  margin: 1px 0 2px;
-}
-
-/* ── Waiting spinner (used inside dice modal) ── */
-.bhud__dice-roller--waiting {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bhud__roll-waiting-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba($gold, 0.15);
-  border-top-color: $gold;
-  border-radius: 50%;
-  animation: bhud-spin 0.8s linear infinite;
-}
-
-@keyframes bhud-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ── Roll result card (opponent's result) ── */
-.bhud__roll-result {
-  pointer-events: all;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba($gold, 0.2);
-  border-radius: 12px;
-  padding: 1rem 1.5rem;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.10),
-    0 0 0 1px rgba($gold, 0.08);
-  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-.bhud__roll-result-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: $ink-faint;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.bhud__roll-result-name {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: $ink;
-}
-
-.bhud__roll-result-val {
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: $ink;
-  font-family: 'DM Mono', monospace;
-  line-height: 1;
-  margin: 0.2rem 0;
-}
-
-.bhud__roll-result-bonus {
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: $gold-dark;
 }
 
 /* ── Resolve phase ── */
@@ -375,6 +145,11 @@ $crimson-bright: #c41e3a;
   &--exit {
     animation: bhud-slide-out 0.25s ease-out forwards;
     pointer-events: none;
+  }
+
+  &--power {
+    border-color: rgba($gold, 0.3);
+    box-shadow: 0 4px 20px rgba($gold, 0.12);
   }
 }
 
@@ -441,22 +216,11 @@ $crimson-bright: #c41e3a;
   color: $gold-dark;
 }
 
-.bhud__resolve-btn {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: #fff;
-  background: $gold-dark;
-  border: none;
-  border-radius: 5px;
-  padding: 0.3rem 0.6rem;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  transition: background 0.15s;
-
-  &:hover {
-    background: $gold;
-  }
+.bhud__resolve-power-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: $gold-dark;
+  text-align: center;
 }
 
 /* ── Waiting ── */
@@ -483,15 +247,8 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-slide-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
 }
 
 /* ── Result badges (winner / loser) ── */
@@ -508,24 +265,13 @@ $crimson-bright: #c41e3a;
   animation: bhud-scale-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
 
   &--winner {
-    .bhud__result-icon {
-      color: $gold;
-    }
-
-    .bhud__result-label {
-      color: $gold-dark;
-    }
+    .bhud__result-icon { color: $gold; }
+    .bhud__result-label { color: $gold-dark; }
   }
 
   &--loser {
-
-    .bhud__result-icon {
-      color: $ink-faint;
-    }
-
-    .bhud__result-label {
-      color: $ink-faint;
-    }
+    .bhud__result-icon { color: $ink-faint; }
+    .bhud__result-label { color: $ink-faint; }
   }
 }
 
@@ -653,21 +399,6 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
 }
 
-@media (max-width: $bp-compact) {
-  .bhud__log-entry {
-    flex-wrap: wrap;
-    gap: 0.15rem 0.3rem;
-  }
-
-  .bhud__log-sep {
-    flex-basis: 100%;
-    height: 0;
-    overflow: hidden;
-    font-size: 0;
-    line-height: 0;
-  }
-}
-
 .bhud__log-hit {
   font-weight: 800;
   color: $crimson-bright;
@@ -679,6 +410,12 @@ $crimson-bright: #c41e3a;
   font-size: 0.6rem;
 }
 
+.bhud__log-power {
+  font-weight: 700;
+  color: $gold-dark;
+  font-style: italic;
+}
+
 /* ── Responsive ── */
 @media (max-width: $bp-medium) {
   .bhud {
@@ -687,23 +424,6 @@ $crimson-bright: #c41e3a;
 
   .bhud__bar {
     padding: 0.3rem 0.5rem;
-  }
-
-  .bhud__targets-modal {
-    width: 220px;
-  }
-
-  .bhud__dice-modal {
-    width: 180px;
-  }
-
-  .bhud__dice-roller {
-    height: 150px;
-
-    .dr__display {
-      transform: scale(0.4);
-      transform-origin: center center;
-    }
   }
 
   /* Sidebar hidden — remove offset */
@@ -718,8 +438,19 @@ $crimson-bright: #c41e3a;
 }
 
 @media (max-width: $bp-compact) {
+  .bhud__log-entry {
+    flex-wrap: wrap;
+    gap: 0.15rem 0.3rem;
+  }
 
-  /* Log + bar as normal flex item so halves don't include its height */
+  .bhud__log-sep {
+    flex-basis: 100%;
+    height: 0;
+    overflow: hidden;
+    font-size: 0;
+    line-height: 0;
+  }
+
   .bhud {
     position: relative;
     bottom: auto;
@@ -740,49 +471,12 @@ $crimson-bright: #c41e3a;
     max-height: 60px;
   }
 
-  .bhud__dice-modal {
-    width: 150px;
-    padding: 0.35rem 0.3rem 0.25rem;
-    border-radius: 8px;
-    gap: 0.2rem;
-  }
-
   .bhud__dice-label {
     font-size: 0.5rem;
   }
 
   .bhud__dice-sub {
     font-size: 0.45rem;
-  }
-
-  .bhud__dice-roller {
-    height: 110px;
-
-    .dr__display {
-      transform: scale(0.3);
-    }
-
-    .dr__result {
-      font-size: 0.85rem;
-      padding: 0.1rem 0.25rem;
-    }
-  }
-
-  .bhud__dice-bonus {
-    font-size: 0.5rem;
-  }
-
-  .bhud__roll-result {
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-  }
-
-  .bhud__roll-result-val {
-    font-size: 1.8rem;
-  }
-
-  .bhud__roll-result-name {
-    font-size: 0.65rem;
   }
 
   /* Dice zones: each half = (100vh - topbar - bhud) / 2 */
@@ -818,202 +512,4 @@ $crimson-bright: #c41e3a;
       margin-top: 0;
     }
   }
-}
-
-/* ══════════════════════════════════════
-   POWER SYSTEM — action selection, quota, effects
-   ══════════════════════════════════════ */
-
-/* Action modal (Attack / Use Power) */
-.bhud__action-modal {
-  pointer-events: all;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba($gold, 0.2);
-  border-radius: 10px;
-  padding: 0.6rem 0.6rem 0.5rem;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba($gold, 0.08);
-  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-  width: 280px;
-  max-height: calc(100vh - 6rem);
-  overflow-y: auto;
-}
-
-/* Quota pips */
-.bhud__quota {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin: 0.1rem 0;
-}
-
-.bhud__quota-pip {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid $gold;
-  background: transparent;
-  transition: background 0.3s, box-shadow 0.3s;
-
-  &--filled {
-    background: $gold;
-    box-shadow: 0 0 6px rgba($gold, 0.5);
-  }
-}
-
-.bhud__quota-label {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: $gold-dark;
-  margin-left: 0.2rem;
-}
-
-/* Action buttons */
-.bhud__action-btns {
-  display: flex;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.bhud__action-btn {
-  flex: 1;
-  padding: 0.5rem 0.4rem;
-  border-radius: 6px;
-  border: 1px solid rgba($gold, 0.2);
-  font-size: 0.65rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-
-  &--attack {
-    background: color-mix(in srgb, $crimson 8%, #fff);
-    color: $crimson;
-    border-color: rgba($crimson, 0.2);
-
-    &:hover {
-      background: color-mix(in srgb, $crimson 16%, #fff);
-      border-color: rgba($crimson, 0.35);
-      box-shadow: 0 0 8px rgba($crimson, 0.1);
-    }
-  }
-
-  &--power {
-    background: color-mix(in srgb, $gold 8%, #fff);
-    color: $gold-dark;
-    border-color: rgba($gold, 0.2);
-
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, $gold 16%, #fff);
-      border-color: rgba($gold, 0.35);
-      box-shadow: 0 0 8px rgba($gold, 0.1);
-    }
-
-    &:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-  }
-}
-
-/* Power picker */
-.bhud__power-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  width: 100%;
-}
-
-.bhud__power-back {
-  font-size: 0.55rem;
-  font-weight: 600;
-  color: $ink-faint;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.2rem;
-  text-align: left;
-
-  &:hover {
-    color: $ink;
-  }
-}
-
-.bhud__power-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid rgba($gold, 0.15);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s, border-color 0.15s;
-
-  &:hover:not(:disabled) {
-    background: color-mix(in srgb, $gold 10%, #fff);
-    border-color: rgba($gold, 0.3);
-  }
-
-  &--disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-}
-
-.bhud__power-type {
-  font-size: 0.45rem;
-  font-weight: 700;
-  color: $ink-faint;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  min-width: 50px;
-}
-
-.bhud__power-name {
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: $ink;
-  flex: 1;
-}
-
-.bhud__power-cost {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: $gold-dark;
-  font-family: 'DM Mono', monospace;
-}
-
-.bhud__power-lock {
-  font-size: 0.4rem;
-  font-weight: 700;
-  color: $ink-faint;
-  text-transform: uppercase;
-}
-
-/* Resolve bar — power variant */
-.bhud__resolve--power {
-  border-color: rgba($gold, 0.3);
-  box-shadow: 0 4px 20px rgba($gold, 0.12);
-}
-
-.bhud__resolve-power-name {
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: $gold-dark;
-  text-align: center;
-}
-
-/* Log entry — power variant */
-.bhud__log-power {
-  font-weight: 700;
-  color: $gold-dark;
-  font-style: italic;
 }

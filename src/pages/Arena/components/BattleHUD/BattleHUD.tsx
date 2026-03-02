@@ -1,11 +1,10 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
-import { getQuotaCost } from '../../../../types/power';
-import { getAffordablePowers } from '../../../../services/powerEngine';
-import { DEITY_THEMES, DEFAULT_THEME } from '../../../../constants/theme';
-import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
+import TargetSelectModal from './components/TargetSelectModal';
+import ActionSelectModal from './components/ActionSelectModal';
+import DiceModal from './components/DiceModal';
 import './BattleHUD.scss';
 
 /** Keep element rendered during a fade-out exit animation. */
@@ -50,18 +49,11 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
   return [...teamA, ...teamB].find((f) => f.characterId === id);
 }
 
-/** Get die theme colors for a fighter, falling back to deity theme then default */
-function dieColors(f?: FighterState): { primary: string; primaryDark: string } {
-  const t = f?.theme ?? (f?.deityBlood ? DEITY_THEMES[f.deityBlood] : undefined) ?? DEFAULT_THEME;
-  return { primary: t[0], primaryDark: t[18] };
-}
-
 export default function BattleHUD({
   battle, teamA, teamB, myId,
   onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve,
 }: Props) {
-  const { turn, roundNumber, log = [], winner, activeEffects = [] } = battle;
-  const [showPowerPicker, setShowPowerPicker] = useState(false);
+  const { turn, roundNumber, log = [], winner } = battle;
 
   const attacker = turn ? find(teamA, teamB, turn.attackerId) : undefined;
   const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
@@ -69,18 +61,6 @@ export default function BattleHUD({
   const isMyDefend = turn && turn.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
   const targets = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
-
-  /* ── Auto-skip select-action if attacker has no usable skills ── */
-  useEffect(() => {
-    if (turn?.phase !== 'select-action' || !isMyTurn || !attacker) return;
-    const affordable = getAffordablePowers(attacker);
-    if (affordable.length === 0) {
-      onSelectAction('attack');
-    }
-  }, [turn?.phase, isMyTurn, attacker, onSelectAction]);
-
-  // Close power picker when phase changes
-  useEffect(() => { setShowPowerPicker(false); }, [turn?.phase]);
 
   /* ── Dice submit with brief delay so user sees result ── */
   const atkSubmitted = useRef(false);
@@ -176,13 +156,11 @@ export default function BattleHUD({
   if (resolveVisible && turn && attacker && defender) {
     const isSkipDicePower = turn.action === 'power' && !turn.attackRoll;
     if (isSkipDicePower) {
-      // Unblockable power — no dice, always hits
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
         isHit: true, damage: 0, isPower: true, powerName: turn.usedPowerName ?? 'Power',
       };
     } else {
-      // Normal attack OR dice-based power
       const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp;
       const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp;
       resolveCache.current = {
@@ -206,7 +184,6 @@ export default function BattleHUD({
 
     return (
       <div className="bhud">
-        {/* Side result icons */}
         <div className={`bhud__dice-zone bhud__dice-zone--${winSide}`}>
           <div className="bhud__result-badge bhud__result-badge--winner">
             <WinBadge className="bhud__result-icon" />
@@ -225,7 +202,6 @@ export default function BattleHUD({
             </div>
           </div>
         </div>
-        {/* Bottom winner bar */}
         <div className="bhud__winner">
           <span className="bhud__winner-label">Victory</span>
           <span className="bhud__winner-name">{winNames.join(' & ')}</span>
@@ -262,201 +238,59 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection — modal on attacker's side */}
+      {/* Target selection */}
       {isMyTurn && turn.phase === 'select-target' && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__targets-modal">
-            <span className="bhud__dice-label">Select Target</span>
-            <span className="bhud__dice-sub">{attacker?.nicknameEng}'s turn</span>
-            <div className="bhud__targets-list">
-              {targets.map((t) => (
-                <button
-                  key={t.characterId}
-                  className="bhud__target-btn"
-                  style={{ '--t-color': t.theme[0] } as React.CSSProperties}
-                  onClick={() => onSelectTarget(t.characterId)}
-                >
-                  {t.image ? (
-                    <img className="bhud__target-img" src={t.image} alt="" referrerPolicy="no-referrer" />
-                  ) : (
-                    <span className="bhud__target-initial" style={{ background: t.theme[0], color: t.theme[9] }}>{t.nicknameEng.charAt(0)}</span>
-                  )}
-                  <div className="bhud__target-info">
-                    <span className="bhud__target-name">{t.nicknameEng}</span>
-                    <span className="bhud__target-hp">{t.currentHp}/{t.maxHp}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <TargetSelectModal
+            attackerName={attacker?.nicknameEng ?? ''}
+            targets={targets}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            onSelect={onSelectTarget}
+          />
         </div>
       )}
 
-      {/* ── SELECT ACTION (attack or power) ── */}
-      {isMyTurn && turn.phase === 'select-action' && attacker && (
+      {/* Action selection (attack or power) */}
+      {turn.phase === 'select-action' && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__action-modal">
-            <span className="bhud__dice-label">Choose Action</span>
-            <span className="bhud__dice-sub">{attacker.nicknameEng} → {defender?.nicknameEng}</span>
-
-            {/* Quota pips */}
-            <div className="bhud__quota">
-              {Array.from({ length: attacker.maxQuota }, (_, i) => (
-                <span key={i} className={`bhud__quota-pip ${i < attacker.quota ? 'bhud__quota-pip--filled' : ''}`} />
-              ))}
-              <span className="bhud__quota-label">{attacker.quota}/{attacker.maxQuota} SP</span>
-            </div>
-
-            {!showPowerPicker ? (
-              <div className="bhud__action-btns">
-                <button className="bhud__action-btn bhud__action-btn--attack" onClick={() => onSelectAction('attack')}>
-                  Attack
-                </button>
-                <button
-                  className="bhud__action-btn bhud__action-btn--power"
-                  disabled={getAffordablePowers(attacker).length === 0}
-                  onClick={() => setShowPowerPicker(true)}
-                >
-                  Use Power
-                </button>
-              </div>
-            ) : (
-              <div className="bhud__power-picker">
-                <button className="bhud__power-back" onClick={() => setShowPowerPicker(false)}>← Back</button>
-                {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx) => {
-                  const realIdx = attacker.powers.indexOf(p);
-                  const cost = getQuotaCost(p.type);
-                  const unlocked =
-                    (p.type === 'Ultimate' && attacker.ultimateSkillPoint === 'unlock') ||
-                    ((p.type === '1st Skill' || p.type === '2nd Skill') && attacker.skillPoint === 'unlock');
-                  const canAfford = attacker.quota >= cost;
-                  const usable = unlocked && canAfford;
-                  return (
-                    <button
-                      key={idx}
-                      className={`bhud__power-btn ${!usable ? 'bhud__power-btn--disabled' : ''}`}
-                      disabled={!usable}
-                      onClick={() => { setShowPowerPicker(false); onSelectAction('power', realIdx); }}
-                    >
-                      <span className="bhud__power-type">{p.type}</span>
-                      <span className="bhud__power-name">{p.name}</span>
-                      <span className="bhud__power-cost">{cost} SP</span>
-                      {!unlocked && <span className="bhud__power-lock">Locked</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <ActionSelectModal
+            attacker={attacker}
+            defenderName={defender?.nicknameEng ?? ''}
+            isMyTurn={!!isMyTurn}
+            phase={turn.phase}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            side={atkSide}
+            onSelectAction={onSelectAction}
+          />
         </div>
       )}
 
-      {/* Waiting for opponent to select action */}
-      {!isMyTurn && turn.phase === 'select-action' && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Choosing Action</span>
-            <span className="bhud__dice-sub">{attacker?.nicknameEng} is deciding...</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting">
-              <div className="bhud__roll-waiting-spinner" />
-            </div>
-          </div>
-        </div>
+      {/* Dice rolling (attack, defend, resolving replay) */}
+      {turn && (turn.phase === 'rolling-attack' || turn.phase === 'rolling-defend' || turn.phase === 'resolving') && (
+        <DiceModal
+          turn={turn}
+          attacker={attacker}
+          defender={defender}
+          isMyTurn={!!isMyTurn}
+          isMyDefend={!!isMyDefend}
+          atkSide={atkSide}
+          defSide={defSide}
+          onAttackRoll={handleAttackRollResult}
+          onDefendRoll={handleDefendRollResult}
+          onAtkRollDone={() => setAtkRollDone(true)}
+          onDefRollDone={() => setDefRollDone(true)}
+          atkRollDone={atkRollDone}
+          defRollDone={defRollDone}
+          defendReady={defendReady}
+          resolveReady={resolveReady}
+        />
       )}
 
-      {/* ── ROLLING ATTACK ── */}
-      {/* My attack dice roller */}
-      {turn.phase === 'rolling-attack' && isMyTurn && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Attack Roll</span>
-            <span className="bhud__dice-sub">
-              {attacker?.nicknameEng} → {defender?.nicknameEng}
-            </span>
-            <DiceRoller className="bhud__dice-roller" lockedDie={12} onRollResult={handleAttackRollResult} themeColors={dieColors(attacker)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {attacker?.attackDiceUp ?? 0}</span>
-          </div>
-        </div>
-      )}
-      {/* Opponent's attack — waiting spinner */}
-      {turn.phase === 'rolling-attack' && !isMyTurn && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Attack Roll</span>
-            <span className="bhud__dice-sub">{attacker?.nicknameEng} → {defender?.nicknameEng}</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting">
-              <div className="bhud__roll-waiting-spinner" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── ROLLING DEFEND ── */}
-      {/* Attacker's result dice — only when opponent attacked (I need to see their roll) */}
-      {turn.phase === 'rolling-defend' && turn.attackRoll != null && !isMyTurn && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Attack Roll</span>
-            <span className="bhud__dice-sub">{attacker?.nicknameEng}</span>
-            <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.attackRoll} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt onRollEnd={() => setAtkRollDone(true)} />
-            <span className="bhud__dice-bonus">
-              {!atkRollDone
-                ? 'rolling...'
-                : (attacker?.attackDiceUp ?? 0) > 0
-                  ? `+${attacker!.attackDiceUp} → ${turn.attackRoll + attacker!.attackDiceUp}`
-                  : turn.attackRoll}
-            </span>
-          </div>
-        </div>
-      )}
-      {/* My defend dice roller — only after attack result finishes */}
-      {turn.phase === 'rolling-defend' && isMyDefend && defendReady && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">
-              Defending against {attacker?.nicknameEng}
-            </span>
-            <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={handleDefendRollResult} themeColors={dieColors(defender)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {defender?.defendDiceUp ?? 0}</span>
-          </div>
-        </div>
-      )}
-      {/* Opponent's defend — waiting spinner */}
-      {turn.phase === 'rolling-defend' && !isMyDefend && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting">
-              <div className="bhud__roll-waiting-spinner" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── RESOLVING ── */}
-      {/* Show defend result dice only when opponent defended (I need to see their roll) — skip for skipDice powers */}
-      {turn.phase === 'resolving' && !(turn.action === 'power' && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal">
-            <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt onRollEnd={() => setDefRollDone(true)} />
-            <span className="bhud__dice-bonus">
-              {!defRollDone
-                ? 'rolling...'
-                : (defender?.defendDiceUp ?? 0) > 0
-                  ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
-                  : turn.defendRoll}
-            </span>
-          </div>
-        </div>
-      )}
-      {/* Resolve bar — only after defend result finishes, with exit fade */}
+      {/* Resolve bar */}
       {showResolve && (() => {
         const rc = resolveCache.current;
-        // skipDice power — no rolls, just show power name
         if (rc.isPower && rc.atkRoll === 0) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
@@ -520,7 +354,6 @@ export default function BattleHUD({
             const atkColor = atkFighter?.theme[0];
             const defColor = defFighter?.theme[0];
 
-            // Power log entry
             if (entry.powerUsed) {
               return (
                 <div className="bhud__log-entry bhud__log-entry--power" key={i}>
@@ -535,7 +368,6 @@ export default function BattleHUD({
               );
             }
 
-            // Normal attack log entry
             return (
               <div className="bhud__log-entry" key={i}>
                 <span className="bhud__log-round">R{entry.round}</span>

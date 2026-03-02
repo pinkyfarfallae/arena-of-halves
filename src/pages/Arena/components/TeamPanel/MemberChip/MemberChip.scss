@@ -20,7 +20,7 @@ $ink-faint: #9a8b76;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 0 2rem;
+  padding: 0;
   background: linear-gradient(180deg,
       color-mix(in srgb, var(--chip-accent, $gold-dark) 14%, transparent) 0%,
       color-mix(in srgb, var(--chip-primary, $gold) 8%, transparent) 50%,
@@ -644,9 +644,19 @@ $ink-faint: #9a8b76;
     height: 70px;
     border-width: 0.5px !important;
     border-radius: 7px;
-    margin: auto 0;
+    margin: auto 0 0 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     cursor: pointer;
+  }
+
+  .mchip__quota {
+    margin-bottom: auto;
+  }
+
+  .mchip__quota-pip {
+    width: 7px;
+    height: 7px;
+    border-width: 1px;
   }
 
   .mchip__inner-border {

@@ -1,0 +1,102 @@
+@use '../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink-faint: #9a8b76;
+
+/* ── Target selection modal ── */
+.bhud__targets-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 10px;
+  padding: 0.7rem 0.7rem 0.6rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 280px;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+.bhud__targets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.bhud__target-btn {
+  --tc: var(--t-color, #{$gold});
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: color-mix(in srgb, var(--tc) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tc) 18%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+
+  &:hover {
+    background: color-mix(in srgb, var(--tc) 16%, transparent);
+    border-color: color-mix(in srgb, var(--tc) 35%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tc) 20%, transparent);
+  }
+}
+
+.bhud__target-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--tc) 30%, transparent);
+}
+
+.bhud__target-initial {
+  width: 36px;
+  height: 36px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tc) 12%, #f5ede4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tc);
+  flex-shrink: 0;
+}
+
+.bhud__target-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.bhud__target-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tc);
+}
+
+.bhud__target-hp {
+  width: fit-content;
+  font-size: 0.55rem;
+  color: $ink-faint;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Responsive ── */
+@media (max-width: $bp-medium) {
+  .bhud__targets-modal {
+    width: 220px;
+  }
+}
