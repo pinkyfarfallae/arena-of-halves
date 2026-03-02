@@ -77,6 +77,7 @@ function Arena() {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [resolveShown, setResolveShown] = useState(false);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -205,7 +206,7 @@ function Arena() {
       const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        schedule(() => selectTarget(arenaId, target.characterId), 600);
+        schedule(() => selectTarget(arenaId, target.characterId), 2000);
       }
       return;
     }
@@ -241,9 +242,9 @@ function Arena() {
       return;
     }
 
-    // Fallback: auto-resolve if stuck in resolving phase (BattleHUD animation didn't fire)
-    if (turn.phase === 'resolving') {
-      schedule(() => resolveTurn(arenaId), 8000);
+    // Fallback: auto-resolve for NPC attacker only (BattleHUD handles player turns including crit)
+    if (turn.phase === 'resolving' && teamBIds.has(turn.attackerId)) {
+      schedule(() => resolveTurn(arenaId), 15000);
     }
 
   }, [room, arenaId]);
@@ -419,9 +420,11 @@ function Arena() {
         >
           <TeamPanel
             members={teamAMembers}
+            allMembers={[...teamAMembers, ...teamBMembers]}
             side="left"
             battle={battle}
             myId={user?.characterId}
+            resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
           />
         </div>
@@ -440,9 +443,11 @@ function Arena() {
           {teamBMembers.length > 0 ? (
             <TeamPanel
               members={teamBMembers}
+              allMembers={[...teamAMembers, ...teamBMembers]}
               side="right"
               battle={battle}
               myId={user?.characterId}
+              resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}
             />
           ) : (
@@ -455,6 +460,7 @@ function Arena() {
         {/* Battle HUD overlay */}
         {isBattling && battle && (
           <BattleHUD
+            arenaId={arenaId}
             battle={battle}
             teamA={teamAMembers}
             teamB={teamBMembers}
@@ -464,6 +470,7 @@ function Arena() {
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
+            onResolveVisible={setResolveShown}
           />
         )}
       </div>

@@ -216,6 +216,26 @@ $crimson-bright: #c41e3a;
   color: $gold-dark;
 }
 
+.bhud__resolve-crit {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: $gold-dark;
+  padding: 0.1rem 0.4rem;
+  background: rgba($gold, 0.12);
+  border: 1px solid rgba($gold, 0.3);
+  border-radius: 3px;
+}
+
+.bhud__resolve-crit-miss {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink-faint;
+  padding: 0.1rem 0.4rem;
+  background: rgba($ink-faint, 0.06);
+  border: 1px solid rgba($ink-faint, 0.15);
+  border-radius: 3px;
+}
+
 .bhud__resolve-power-name {
   font-size: 0.7rem;
   font-weight: 800;
@@ -488,7 +508,7 @@ $crimson-bright: #c41e3a;
     top: calc(2 * #{$topbar-height});
     bottom: auto;
     height: #{$compact-half};
-    width: calc(100vw - 90px);
+    width: calc(100vw - 115px);
     padding-right: 10px;
 
     .bhud__dice-modal,
@@ -503,7 +523,7 @@ $crimson-bright: #c41e3a;
     top: calc(2 * #{$topbar-height} + #{$compact-half});
     bottom: auto;
     height: #{$compact-half};
-    width: calc(100vw - 90px);
+    width: calc(100vw - 115px);
     padding-right: 10px;
 
     .bhud__dice-modal,

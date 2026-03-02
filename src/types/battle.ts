@@ -83,6 +83,15 @@ export interface TurnState {
   action?: 'attack' | 'power';
   usedPowerIndex?: number;
   usedPowerName?: string;
+
+  /* Critical hit (written by BattleHUD before resolve) */
+  isCrit?: boolean;
+  critRoll?: number;
+
+  /* Thunderbolt chain D4 (written by BattleHUD before resolve) */
+  chainRoll?: number;
+  chainSuccess?: boolean;
+  chainWinFaces?: number[];
 }
 
 /** A log entry for the battle feed */
@@ -97,6 +106,10 @@ export interface BattleLogEntry {
   eliminated: boolean;
   missed: boolean;
   powerUsed?: string;
+  isCrit?: boolean;
+  critRoll?: number;
+  shockDamage?: number;
+  aoeDamageMap?: Record<string, number>;
 }
 
 /** Full battle state stored alongside the room */
