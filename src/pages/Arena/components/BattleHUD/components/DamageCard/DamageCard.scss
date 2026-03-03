@@ -15,7 +15,7 @@ $crimson-bright: #c41e3a;
   gap: 0.35rem;
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(14px);
-  border: 1px solid color-mix(in srgb, var(--card-atk, #{$gold}) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-atk, #{$gold}) 15%, transparent);
   border-radius: 12px;
   padding: 0.7rem 1.4rem;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),

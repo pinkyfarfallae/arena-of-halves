@@ -263,6 +263,16 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (!isThunderboltHit) prevIsThunderboltRef.current = false;
   }, [isThunderboltHit]);
 
+  /* ── Delayed eliminate: wait for damage effects to finish before showing ── */
+  const [showEliminated, setShowEliminated] = useState(isEliminated);
+
+  useEffect(() => {
+    if (!isEliminated) { setShowEliminated(false); return; }
+    if (!isHitActive && !isShockHitActive && !isThunderboltActive) {
+      setShowEliminated(true);
+    }
+  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive]);
+
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
     setHovered(true);
@@ -281,12 +291,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     hovered && 'mchip--hovered',
     isAttacker && 'mchip--attacker',
     isDefender && 'mchip--defender',
-    isEliminated && 'mchip--eliminated',
+    showEliminated && 'mchip--eliminated',
     isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
-    isHitActive && 'mchip--hit',
-    isShockHitActive && 'mchip--shock-hit',
-    isThunderboltActive && 'mchip--thunderbolt',
+    !showEliminated && isHitActive && 'mchip--hit',
+    !showEliminated && isShockHitActive && 'mchip--shock-hit',
+    !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
     isShocked && 'mchip--shocked',
   ].filter(Boolean).join(' ');
 
