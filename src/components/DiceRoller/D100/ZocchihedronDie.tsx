@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { darken } from '../../../utils/color';
+import { makeFaceTexture } from '../makeFaceTexture';
+import { edgeTransform, makeEdgeCylinder } from '../dieGeometry';
 
 interface Props {
   rollTrigger: number;
@@ -150,36 +153,6 @@ const camDir = new THREE.Vector3(0, 0, 1);
 const MIN_Y = Math.min(...ALL_VERTS.map(v => v[1]));
 const MAX_Y = Math.max(...ALL_VERTS.map(v => v[1]));
 
-/* ── Color helpers ── */
-
-function parseColor(color: string): [number, number, number] {
-  const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-  if (rgbMatch) return [+rgbMatch[1], +rgbMatch[2], +rgbMatch[3]];
-  const hex = color.replace('#', '');
-  const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function luminance(color: string): number {
-  const [r, g, b] = parseColor(color).map(c => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrastText(bg: string): string {
-  const lum = luminance(bg);
-  if (lum > 0.85) return bg;
-  return lum > 0.4 ? '#000000' : '#ffffff';
-}
-
-function darken(color: string, ratio: number): string {
-  const [r, g, b] = parseColor(color);
-  const m = (c: number) => Math.round(c * (1 - ratio));
-  return `rgb(${m(r)},${m(g)},${m(b)})`;
-}
-
 /* ── Geometry / texture builders ── */
 
 function makeFaceGeo(
@@ -214,62 +187,6 @@ function makeFaceGeo(
   return geo;
 }
 
-function makeFaceTexture(label: string, primary: string): THREE.CanvasTexture {
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-
-  ctx.fillStyle = primary;
-  ctx.fillRect(0, 0, size, size);
-
-  const textColor = contrastText(primary);
-  ctx.fillStyle = textColor;
-  const fontSize = label.length > 2 ? 32 : label.length > 1 ? 42 : 56;
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, size / 2, size / 2);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  return tex;
-}
-
-function makeEdgeCylinder(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, radius: number, baseColor: THREE.Color): THREE.CylinderGeometry {
-  const va = new THREE.Vector3(...a);
-  const vb = new THREE.Vector3(...b);
-  const height = va.distanceTo(vb);
-  const geo = new THREE.CylinderGeometry(radius, radius, height, 4, 1);
-
-  const tA = (a[1] - MIN_Y) / (MAX_Y - MIN_Y);
-  const tB = (b[1] - MIN_Y) / (MAX_Y - MIN_Y);
-  const positions = geo.attributes.position;
-  const colors = new Float32Array(positions.count * 3);
-
-  for (let i = 0; i < positions.count; i++) {
-    const y = positions.getY(i);
-    const along = (y + height / 2) / height;
-    const tint = 0.5 + 0.45 * (tA + (tB - tA) * along);
-    colors[i * 3] = baseColor.r * tint;
-    colors[i * 3 + 1] = baseColor.g * tint;
-    colors[i * 3 + 2] = baseColor.b * tint;
-  }
-
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  return geo;
-}
-
-function edgeTransform(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple): { pos: THREE.Vector3; quat: THREE.Quaternion } {
-  const va = new THREE.Vector3(...a);
-  const vb = new THREE.Vector3(...b);
-  const mid = va.clone().add(vb).multiplyScalar(0.5);
-  const dir = vb.clone().sub(va).normalize();
-  const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-  return { pos: mid, quat };
-}
-
 /* ── Component ── */
 
 export default function ZocchihedronDie({ rollTrigger, onResult, primary, fixedResult }: Props) {
@@ -297,14 +214,14 @@ export default function ZocchihedronDie({ rollTrigger, onResult, primary, fixedR
   const faceData = useMemo(() =>
     FACES.map((verts, fi) => ({
       geometry: makeFaceGeo(verts, NORMALS[fi], CENTROIDS[fi], FACE_UP[fi]),
-      texture: makeFaceTexture(String(FACE_VALUES[fi]), primary),
+      texture: makeFaceTexture({ label: String(FACE_VALUES[fi]), primary, size: 256, fontSize: (lbl) => lbl.length > 2 ? 32 : lbl.length > 1 ? 42 : 56, yPosition: (sz) => sz / 2 }),
     })),
     [primary],
   );
 
   const edges = useMemo(() =>
     EDGE_PAIRS.map(([a, b]) => ({
-      geo: makeEdgeCylinder(a, b, EDGE_RADIUS, edgeBaseColor),
+      geo: makeEdgeCylinder(a, b, EDGE_RADIUS, edgeBaseColor, { minY: MIN_Y, maxY: MAX_Y, segments: 4 }),
       ...edgeTransform(a, b),
     })),
     [edgeBaseColor],

@@ -155,6 +155,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           });
         })();
 
+        // Petal-shield (Secret of Dryad) status immunity
+        const isPetalShielded = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === 'petal-shield',
+        );
+
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
           damage: getStatModifier(activeEffects, m.characterId, 'damage'),
@@ -178,6 +183,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isShockHit={isShockHit}
             isThunderboltHit={isThunderboltHit}
             isShocked={isShocked}
+            isPetalShielded={isPetalShielded}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}

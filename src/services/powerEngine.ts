@@ -125,6 +125,15 @@ export function applyPowerEffect(
   const targetPath = findFighterPath(room, targetId);
   const attackerPath = findFighterPath(room, attackerId);
 
+  // Petal-shield immunity: block debuff/stun/dot on shielded target
+  if (
+    (power.effect === 'debuff' || power.effect === 'stun' || power.effect === 'dot') &&
+    power.target !== 'self' &&
+    effects.some(e => e.targetId === targetId && e.tag === 'petal-shield')
+  ) {
+    return updates; // blocked by status immunity
+  }
+
   switch (power.effect) {
     case 'damage': {
       const newHp = Math.max(0, target.currentHp - power.value);
@@ -403,6 +412,48 @@ export function applyThunderboltChain(
   }
 
   return { updates, aoeDamageMap };
+}
+
+/* ── Persephone: Secret of Dryad passive ─────────────── */
+
+/**
+ * When Persephone is attacker and atkTotal > 10, grant petal-shield
+ * (status immunity: blocks debuff/stun/dot) lasting one full round.
+ */
+export function applySecretOfDryadPassive(
+  room: BattleRoom,
+  attackerId: string,
+  battle: BattleState,
+  atkTotal: number,
+): Record<string, unknown> {
+  if (atkTotal <= 10) return {};
+
+  const attacker = findFighter(room, attackerId);
+  if (!attacker || attacker.passiveSkillPoint !== 'unlock') return {};
+
+  const passive = attacker.powers.find(
+    p => p.type === 'Passive' && p.name === 'Secret of Dryad',
+  );
+  if (!passive) return {};
+
+  // Already has petal-shield? Skip (don't stack)
+  const effects = [...(battle.activeEffects || [])];
+  if (effects.some(e => e.targetId === attackerId && e.tag === 'petal-shield')) return {};
+
+  // Duration = turnQueue.length + 1 (offset: tickEffects decrements 1 in same resolve)
+  const queueLen = battle.turnQueue?.length || 1;
+  effects.push({
+    id: makeEffectId(attackerId, 'Secret of Dryad'),
+    powerName: 'Secret of Dryad',
+    effectType: 'shield',
+    sourceId: attackerId,
+    targetId: attackerId,
+    value: 0,
+    turnsRemaining: queueLen + 1,
+    tag: 'petal-shield',
+  });
+
+  return { 'battle/activeEffects': effects };
 }
 
 /* ── apply passives at battle start ──────────────────── */
