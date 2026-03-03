@@ -18,6 +18,7 @@ interface Props {
   /** Attacker's teammates including self (for ally-targeting powers) */
   teammates?: FighterState[];
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
+  initialShowPowers?: boolean;
 }
 
 /** Format description with newlines and bullets */
@@ -82,7 +83,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, onSelectAction }: Props) {
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, onSelectAction, initialShowPowers }: Props) {
   const [showPowerPicker, setShowPowerPicker] = useState(false);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -95,12 +96,12 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
 
   // Reset all state when phase changes
   useEffect(() => {
-    setShowPowerPicker(false);
+    setShowPowerPicker(!!initialShowPowers);
     setSelectedPowerIdx(null);
     setAllyStep(false);
     setAllyPowerIdx(null);
     setSelectedAllyId(null);
-  }, [phase]);
+  }, [phase, initialShowPowers]);
 
   const themeStyle = { '--modal-primary': themeColor, '--modal-dark': themeColorDark } as React.CSSProperties;
 
@@ -159,7 +160,11 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   // Ally selection step
   if (allyStep && allyPowerIdx != null) {
     const allyPower = attacker.powers[allyPowerIdx];
-    const aliveTeammates = (teammates || []).filter(m => m.currentHp > 0);
+    const allAlive = (teammates || []).filter(m => m.currentHp > 0);
+    // Pomegranate's Oath: self only if no other allies alive
+    const isPomegranate = allyPower?.name === "Pomegranate's Oath";
+    const othersAlive = allAlive.filter(m => m.characterId !== attacker.characterId);
+    const aliveTeammates = isPomegranate && othersAlive.length > 0 ? othersAlive : allAlive;
     return (
       <div className="bhud__action-modal" style={themeStyle}>
         <span className="bhud__dice-label">{allyPower?.name ?? 'Select Target'}</span>

@@ -95,6 +95,17 @@ export interface TurnState {
   chainSuccess?: boolean;
   chainWinFaces?: number[];
 
+  /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
+  isDodged?: boolean;
+  dodgeRoll?: number;
+  dodgeWinFaces?: number[];
+
+  /* Pomegranate's Oath — co-attack D12 (written by BattleHUD before resolve) */
+  coAttackRoll?: number;
+  coAttackerId?: string;
+  coAttackHit?: boolean;
+  coAttackDamage?: number;
+
   /* Ally-targeting power (e.g. Floral Scented) */
   allyTargetId?: string;
 
@@ -118,6 +129,10 @@ export interface BattleLogEntry {
   critRoll?: number;
   shockDamage?: number;
   aoeDamageMap?: Record<string, number>;
+  isDodged?: boolean;
+  dodgeRoll?: number;
+  coAttackDamage?: number;
+  coAttackerId?: string;
 }
 
 /** Full battle state stored alongside the room */

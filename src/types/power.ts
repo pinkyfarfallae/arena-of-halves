@@ -18,7 +18,8 @@ export type ModStat =
   | 'defendDiceUp'
   | 'damage'
   | 'speed'
-  | 'criticalRate';
+  | 'criticalRate'
+  | 'maxHp';
 
 /** A single mechanical effect entry (used inside the effects[] array). */
 export interface PowerEffect {

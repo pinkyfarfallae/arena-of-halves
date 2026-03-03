@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ref, update } from 'firebase/database';
-import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
@@ -17,6 +15,8 @@ import {
   selectTarget,
   selectAction,
   selectSeason,
+  confirmSeason,
+  cancelSeasonSelection,
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
@@ -86,7 +86,7 @@ function Arena() {
 
   // Track active season from Borrowed Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
-  const [seasonStartRound, setSeasonStartRound] = useState<number | null>(null);
+  const [returnFromSeason, setReturnFromSeason] = useState(false);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -153,29 +153,39 @@ function Arena() {
     setJoined(true);
   }, [room, user, arenaId, joined, watchOnly]);
 
-  /* ── Track active season from Borrowed Season power (lasts 2 turns) ── */
+  /* ── Track active season from Borrowed Season power ── */
   useEffect(() => {
     if (!room?.battle) {
       setActiveSeason(null);
-      setSeasonStartRound(null);
+      ;
       return;
     }
 
     const { battle } = room;
-    const { turn, roundNumber } = battle;
+    const { turn } = battle;
 
-    // Check if season was just selected in this turn
+    // During select-season: only the selecting player sees the preview
     if (turn?.selectedSeason && turn?.phase === 'select-season') {
-      setActiveSeason(turn.selectedSeason as SeasonKey);
-      setSeasonStartRound(roundNumber);
+      if (user?.characterId === turn.attackerId) {
+        setActiveSeason(turn.selectedSeason as SeasonKey);
+      }
+      return;
     }
 
-    // Season lasts for 2 turns (rounds), then clear
-    if (seasonStartRound !== null && roundNumber > seasonStartRound + 1) {
+    // After season is confirmed: check activeEffects for any season buff
+    // to show effects on both sides for all clients
+    const seasonEffect = (battle.activeEffects || []).find(e =>
+      e.tag?.startsWith('season-'),
+    );
+    if (seasonEffect) {
+      const seasonName = seasonEffect.tag!.replace('season-', '') as SeasonKey;
+      setActiveSeason(seasonName);
+      ;
+    } else {
       setActiveSeason(null);
-      setSeasonStartRound(null);
+      ;
     }
-  }, [room?.battle?.roundNumber, room?.battle?.turn, seasonStartRound]);
+  }, [room?.battle?.roundNumber, room?.battle?.turn, room?.battle?.activeEffects, user?.characterId]);
 
   useEffect(() => {
     join();
@@ -267,7 +277,13 @@ function Arena() {
           if (pick.power.target === 'ally') {
             const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
             if (teammates.length > 0) {
-              const ally = teammates[Math.floor(Math.random() * teammates.length)];
+              // Pomegranate's Oath: prefer other allies, self only if no others alive
+              let pool = teammates;
+              if (pick.power.name === "Pomegranate's Oath") {
+                const others = teammates.filter(m => m.characterId !== turn.attackerId);
+                if (others.length > 0) pool = others;
+              }
+              const ally = pool[Math.floor(Math.random() * pool.length)];
               schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), 1000);
             } else {
               schedule(() => selectAction(arenaId, 'attack'), 800);
@@ -383,6 +399,7 @@ function Arena() {
   };
 
   const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+    setReturnFromSeason(false);
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
   };
 
@@ -391,20 +408,19 @@ function Arena() {
   };
 
   const handleSelectSeason = async (season: SeasonKey) => {
-    if (arenaId) await selectSeason(arenaId, season);
-    // After 3 seconds, automatically advance to select-target phase
-    // The visual effects will display during this 3-second window
-    if (arenaId) {
-      setTimeout(async () => {
-        // Update turn phase from 'select-season' to 'select-target' 
-        // without needing to select a specific target yet
-        const turn = room?.battle?.turn;
-        if (turn) {
-          const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
-          await update(turnRef, { phase: 'select-target' });
-        }
-      }, 3000);
-    }
+    if (!arenaId) return;
+    await selectSeason(arenaId, season);
+    // 3s visual delay for the selecting player, then apply effects + end turn
+    setTimeout(async () => {
+      await confirmSeason(arenaId);
+    }, 3000);
+  };
+
+  const handleCancelSeason = async () => {
+    if (!arenaId) return;
+    setActiveSeason(null);
+    setReturnFromSeason(true);
+    await cancelSeasonSelection(arenaId);
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
@@ -558,6 +574,8 @@ function Arena() {
             onSelectAction={handleSelectAction}
             onSelectSeason={handleSelectSeason}
             onPreviewSeason={handlePreviewSeason}
+            onCancelSeason={handleCancelSeason}
+            initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}

@@ -8,6 +8,20 @@ $ink-faint: #9a8b76;
 /* ── Season modal variant of action modal ── */
 .bhud__action-modal--season {
   gap: 0.5rem;
+  height: fit-content;
+}
+
+/* ── Active season note ── */
+.bhud__season-note {
+  font-size: 0.42rem;
+  font-weight: 600;
+  color: $ink-faint;
+  text-align: center;
+  line-height: 1.3;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, $gold 8%, transparent);
+  border: 1px solid color-mix(in srgb, $gold 15%, transparent);
 }
 
 /* ── Season picker grid ── */
@@ -44,6 +58,7 @@ $ink-faint: #9a8b76;
     content: '';
     position: absolute;
     inset: 0;
+    border-radius: inherit;
     background: radial-gradient(
       circle at center,
       color-mix(in srgb, var(--season-color, #{$gold}) 12%, transparent),
@@ -160,6 +175,128 @@ $ink-faint: #9a8b76;
   font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
 }
 
+/* ══════════════════════════════════════════════
+   Portal tooltip — rendered at document.body
+   ══════════════════════════════════════════════ */
+.season-tip {
+  position: fixed;
+  z-index: 9999;
+  transform: translateY(-100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 140px;
+  max-width: 200px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--tip-color) 35%, #e0dcd4);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+
+  /* entrance */
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+
+  &--visible {
+    opacity: 1;
+  }
+}
+
+/* Color accent bar at top */
+.season-tip__accent {
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tip-color), var(--tip-dark));
+}
+
+/* Main content row: icon + text */
+.season-tip__body {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.15rem;
+}
+
+.season-tip__icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: var(--tip-color);
+
+  svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 1.5;
+  }
+}
+
+.season-tip__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.02rem;
+}
+
+.season-tip__name {
+  font-size: 0.52rem;
+  font-weight: 800;
+  color: var(--tip-dark);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.season-tip__effect {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink;
+  line-height: 1.35;
+}
+
+.season-tip__th {
+  font-size: 0.42rem;
+  font-weight: 500;
+  color: $ink-faint;
+  line-height: 1.3;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+/* Scope tag at bottom */
+.season-tip__scope {
+  font-size: 0.38rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tip-dark) 70%, $ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem 0.3rem;
+}
+
+/* Arrow pointing down */
+.season-tip__arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  translate: -50% 0;
+  width: 10px;
+  height: 6px;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    translate: -50% -50%;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--tip-color) 35%, #e0dcd4);
+    rotate: 45deg;
+  }
+}
+
 /* ── Season confirm button ── */
 .bhud__season-confirm {
   width: 100%;
@@ -185,6 +322,26 @@ $ink-faint: #9a8b76;
   &:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+}
+
+/* ── Season back button ── */
+.bhud__season-back {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  background: none;
+  border: 1px solid color-mix(in srgb, $ink-faint 15%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.35rem;
+  text-align: center;
+  width: 100%;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: $ink;
+    border-color: color-mix(in srgb, $ink-faint 30%, transparent);
   }
 }
 
@@ -243,6 +400,7 @@ $ink-faint: #9a8b76;
   font-weight: 600;
   color: $ink-faint;
   margin-bottom: 0.2rem;
+  font-family: 'Noto Sans', 'Noto Sans Thai', sans-serif;
 }
 
 @keyframes bhud-scale-in {
@@ -263,6 +421,11 @@ $ink-faint: #9a8b76;
     gap: 0.3rem;
     width: 150px;
     padding: 0.35rem 0.35rem 0.3rem;
+  }
+
+  .bhud__season-note {
+    font-size: 0.36rem;
+    padding: 0.1rem 0.2rem;
   }
 
   .bhud__season-picker {
@@ -289,6 +452,38 @@ $ink-faint: #9a8b76;
     padding: 0.3rem;
     font-size: 0.45rem;
     border-radius: 5px;
+  }
+
+  .bhud__season-back {
+    padding: 0.25rem;
+    font-size: 0.42rem;
+    border-radius: 5px;
+  }
+
+  .season-tip {
+    min-width: 120px;
+    max-width: 160px;
+  }
+
+  .season-tip__icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .season-tip__name {
+    font-size: 0.45rem;
+  }
+
+  .season-tip__effect {
+    font-size: 0.42rem;
+  }
+
+  .season-tip__th {
+    font-size: 0.36rem;
+  }
+
+  .season-tip__scope {
+    font-size: 0.34rem;
   }
 
   .bhud__season-modal {

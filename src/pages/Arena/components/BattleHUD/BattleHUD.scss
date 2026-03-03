@@ -73,7 +73,7 @@ $crimson-bright: #c41e3a;
    ══════════════════════════════════════ */
 .bhud__dice-zone {
   position: fixed;
-  top: 0;
+  top: $topbar-height;
   bottom: 0;
   z-index: 50;
   display: flex;
@@ -117,6 +117,7 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
   margin-top: -2px;
   margin-bottom: 2px;
+  font-family: 'Noto Sans', 'Noto Sans Thai', sans-serif;
 }
 
 /* ── Resolve phase ── */
@@ -504,7 +505,8 @@ $crimson-bright: #c41e3a;
   }
 
   /* Dice zones: each half = (100vh - topbar - bhud) / 2 */
-  $compact-half: calc(50vh - #{$topbar-height} - 2.75rem);
+  $compact-half: calc(50vh - #{$topbar-height} - 5.5rem);
+  $compact-half-finished: calc(50vh - #{$topbar-height} - 2.75rem);
 
   .bhud__dice-zone--left {
     left: auto;
@@ -518,6 +520,10 @@ $crimson-bright: #c41e3a;
     .bhud__dice-modal,
     .bhud__targets-modal {
       margin-top: -1rem;
+    }
+
+    .bhud__dice-zone--finished {
+      height: #{$compact-half-finished};
     }
   }
 
@@ -534,6 +540,10 @@ $crimson-bright: #c41e3a;
     .bhud__targets-modal,
     .bhud__action-modal {
       margin-top: 0;
+    }
+
+    .bhud__dice-zone--finished {
+      height: #{$compact-half-finished};
     }
   }
 

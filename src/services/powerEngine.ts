@@ -281,10 +281,56 @@ export function tickEffects(
   }
 
 
+  // Spring heal: heal fighters with season-spring tag
+  for (const e of effects) {
+    if (e.tag === 'season-spring' && e.turnsRemaining > 0 && e.value > 0) {
+      const target = findFighter(room, e.targetId);
+      if (target && target.currentHp > 0) {
+        const path = findFighterPath(room, e.targetId);
+        if (path) {
+          const hpKey = `${path}/currentHp`;
+          const currentHp = (hpKey in updates)
+            ? updates[hpKey] as number
+            : (priorUpdates && hpKey in priorUpdates)
+              ? priorUpdates[hpKey] as number
+              : target.currentHp;
+          updates[hpKey] = Math.min(target.maxHp, currentHp + e.value);
+        }
+      }
+    }
+  }
+
   // Decrement durations, remove expired (skip turnsRemaining 999 = permanent passives)
   const remaining = effects
     .map(e => e.turnsRemaining >= 999 ? e : { ...e, turnsRemaining: e.turnsRemaining - 1 })
     .filter(e => e.turnsRemaining > 0);
+
+  // Autumn maxHP reversal: when season-autumn effect expires, reverse maxHp and currentHp
+  const expiredAutumn = effects.filter(
+    e => e.tag === 'season-autumn' && e.turnsRemaining < 999 && e.turnsRemaining - 1 <= 0,
+  );
+  for (const e of expiredAutumn) {
+    const target = findFighter(room, e.targetId);
+    if (target) {
+      const path = findFighterPath(room, e.targetId);
+      if (path) {
+        const maxHpKey = `${path}/maxHp`;
+        const hpKey = `${path}/currentHp`;
+        const currentMaxHp = (maxHpKey in updates)
+          ? updates[maxHpKey] as number
+          : target.maxHp;
+        const currentHp = (hpKey in updates)
+          ? updates[hpKey] as number
+          : (priorUpdates && hpKey in priorUpdates)
+            ? priorUpdates[hpKey] as number
+            : target.currentHp;
+        const newMaxHp = Math.max(1, currentMaxHp - e.value);
+        const newHp = Math.max(1, Math.min(currentHp - e.value, newMaxHp));
+        updates[maxHpKey] = newMaxHp;
+        updates[hpKey] = newHp;
+      }
+    }
+  }
 
   // Consume 1 stun turn (stun prevents action, then wears off)
   updates['battle/activeEffects'] = remaining;
@@ -476,6 +522,170 @@ export function applyFloralScented(
 
   const newCurrentHp = Math.min(ally.currentHp + power.value, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
+  return updates;
+}
+
+/* ── Persephone: Borrowed Season — apply season effects to team ── */
+
+/**
+ * Apply season-based effects to all alive teammates of the attacker.
+ * Returns Firebase update paths relative to `arenas/{arenaId}`.
+ *
+ * Summer  → +2 attack dice (buff)
+ * Autumn  → +2 maxHp AND +2 currentHp (immediate + tracking effect)
+ * Winter  → +2 defense dice (buff)
+ * Spring  → heal-over-time tag (1 HP per tick in tickEffects)
+ */
+export function applySeasonEffects(
+  room: BattleRoom,
+  attackerId: string,
+  season: string,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+
+  // Identify attacker's team
+  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+  const teammates = isTeamA ? (room.teamA?.members || []) : (room.teamB?.members || []);
+
+  // ── Remove existing season effects before applying new ones ──
+  // Reverse autumn maxHp/currentHp changes first
+  const oldAutumn = effects.filter(e => e.tag === 'season-autumn');
+  for (const e of oldAutumn) {
+    const target = findFighter(room, e.targetId);
+    if (target) {
+      const path = findFighterPath(room, e.targetId);
+      if (path) {
+        const curMax = (updates[`${path}/maxHp`] as number | undefined) ?? target.maxHp;
+        const curHp = (updates[`${path}/currentHp`] as number | undefined) ?? target.currentHp;
+        updates[`${path}/maxHp`] = Math.max(1, curMax - e.value);
+        updates[`${path}/currentHp`] = Math.max(1, Math.min(curHp - e.value, curMax - e.value));
+      }
+    }
+  }
+  // Strip all season effects
+  effects = effects.filter(e => !e.tag?.startsWith('season-'));
+
+  // Duration: 2 full rounds (every fighter gets 2 action cycles)
+  const queueLen = battle.turnQueue?.length || 1;
+  const duration = queueLen * 2 + 1; // *2 for 2 rounds, +1 compensates for tick in confirmSeason
+
+  for (const fighter of teammates) {
+    if (fighter.currentHp <= 0) continue;
+
+    const fighterId = fighter.characterId;
+
+    switch (season) {
+      case 'summer': {
+        effects.push({
+          id: makeEffectId(attackerId, 'Borrowed Season'),
+          powerName: 'Borrowed Season',
+          effectType: 'buff',
+          sourceId: attackerId,
+          targetId: fighterId,
+          value: 2,
+          modStat: 'attackDiceUp',
+          turnsRemaining: duration,
+          tag: 'season-summer',
+        });
+        break;
+      }
+
+      case 'autumn': {
+        // Increase maxHp and currentHp immediately (read from updates in case old autumn was just reversed)
+        const path = findFighterPath(room, fighterId);
+        if (path) {
+          const baseMax = (updates[`${path}/maxHp`] as number | undefined) ?? fighter.maxHp;
+          const baseHp = (updates[`${path}/currentHp`] as number | undefined) ?? fighter.currentHp;
+          updates[`${path}/maxHp`] = baseMax + 2;
+          updates[`${path}/currentHp`] = baseHp + 2;
+        }
+        // Tracking effect for reversal on expiry
+        effects.push({
+          id: makeEffectId(attackerId, 'Borrowed Season'),
+          powerName: 'Borrowed Season',
+          effectType: 'buff',
+          sourceId: attackerId,
+          targetId: fighterId,
+          value: 2,
+          modStat: 'maxHp',
+          turnsRemaining: duration,
+          tag: 'season-autumn',
+        });
+        break;
+      }
+
+      case 'winter': {
+        effects.push({
+          id: makeEffectId(attackerId, 'Borrowed Season'),
+          powerName: 'Borrowed Season',
+          effectType: 'buff',
+          sourceId: attackerId,
+          targetId: fighterId,
+          value: 2,
+          modStat: 'defendDiceUp',
+          turnsRemaining: duration,
+          tag: 'season-winter',
+        });
+        break;
+      }
+
+      case 'spring': {
+        effects.push({
+          id: makeEffectId(attackerId, 'Borrowed Season'),
+          powerName: 'Borrowed Season',
+          effectType: 'buff',
+          sourceId: attackerId,
+          targetId: fighterId,
+          value: 1,
+          turnsRemaining: duration,
+          tag: 'season-spring',
+        });
+        break;
+      }
+    }
+  }
+
+  updates['battle/activeEffects'] = effects;
+  return updates;
+}
+
+/* ── Persephone: Pomegranate's Oath (Ultimate) ────────── */
+
+/**
+ * Grant "pomegranate-spirit" effect to an ally (or self if no allies alive).
+ * Removes any existing pomegranate-spirit effects first (only one active).
+ * Returns Firebase update paths relative to `arenas/{arenaId}`.
+ */
+export function applyPomegranateOath(
+  room: BattleRoom,
+  attackerId: string,
+  allyTargetId: string,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+
+  // Remove any existing pomegranate-spirit effects (only one oath active at a time)
+  effects = effects.filter(e => e.tag !== 'pomegranate-spirit');
+
+  // Duration: 3 full turns of the target
+  const queueLen = battle.turnQueue?.length || 1;
+  const duration = queueLen * 3 + 1; // *3 for 3 turns, +1 compensates for tick in same turn
+
+  effects.push({
+    id: makeEffectId(attackerId, "Pomegranate's Oath"),
+    powerName: "Pomegranate's Oath",
+    effectType: 'buff',
+    sourceId: attackerId,
+    targetId: allyTargetId,
+    value: 0,
+    turnsRemaining: duration,
+    tag: 'pomegranate-spirit',
+  });
+
+  updates['battle/activeEffects'] = effects;
   return updates;
 }
 

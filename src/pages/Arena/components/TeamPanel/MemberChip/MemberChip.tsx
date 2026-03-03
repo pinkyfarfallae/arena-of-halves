@@ -17,14 +17,14 @@ const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, battleEnded }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, battleLive }: {
   fighter: FighterState;
   deityLabel: string;
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
   statMods?: Record<string, number>;
-  battleEnded?: boolean;
+  battleLive?: boolean;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -43,7 +43,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, 
 
     if (isCompact) {
       top = rect.top + rect.height / 2 - ph / 2;
-      left = rect.right + 5 - (battleEnded ? 20 : 0);
+      left = rect.right + 5 - (!battleLive ? 20 : 0);
       // If overflows right, flip to left of chip
       if (left + pw > window.innerWidth - pad) left = rect.left - pw - 5;
     } else {
@@ -83,6 +83,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, 
 
       <div className="mchip__stats">
         {([
+          ['HP', fighter.maxHp, statMods?.maxHp],
           ['DMG', fighter.damage, statMods?.damage],
           ['+ATK', fighter.attackDiceUp, statMods?.attackDiceUp],
           ['+DEF', fighter.defendDiceUp, statMods?.defendDiceUp],
@@ -233,16 +234,18 @@ interface Props {
   isThunderboltHit?: boolean;
   isShocked?: boolean;
   isPetalShielded?: boolean;
+  hasPomegranateEffect?: boolean;
+  isSpiritForm?: boolean;
   isScentWaved?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
   statMods?: Record<string, number>;
-  battleEnded?: boolean;
+  battleLive?: boolean;
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, isScentWaved, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -308,12 +311,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (!battleEnded && (isHitActive || isShockHitActive || isThunderboltActive)) {
+    if (battleLive && (isHitActive || isShockHitActive || isThunderboltActive)) {
       setShowEliminated(false); // hide eliminated while damage effects play
     } else {
       setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleEnded]);
+  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleLive]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -341,6 +344,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
     !showEliminated && isShocked && 'mchip--shocked',
     isPetalShielded && 'mchip--petal-shielded',
+    hasPomegranateEffect && 'mchip--pomegranate',
+    isSpiritForm && 'mchip--spirit-form',
     showScentWave && 'mchip--scent-waved',
   ].filter(Boolean).join(' ');
 
@@ -394,6 +399,20 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
         <div className="mchip__inner-border" />
 
+        {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
+        {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+        {/* Petal leaf accents — green spots around frame edge */}
+        {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
+
+        {/* Scent Wave border + accents (separate divs) */}
+        {showScentWave && (
+          <>
+            <div className="mchip__scent-border" aria-hidden="true" />
+            <div className="mchip__scent-accents" aria-hidden="true" />
+          </>
+        )}
+
         {/* Heal boost floating text */}
         {showScentWave && (
           <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
@@ -437,7 +456,39 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       </div>
 
-      {!battleEnded && (
+      {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
+      {hasPomegranateEffect && (
+        <>
+          <div className="mchip__pom-seeds" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__pom-seed" />
+            ))}
+          </div>
+          <div className="mchip__pom-lights" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <span key={i} className="mchip__pom-light" />
+            ))}
+          </div>
+          <div className="mchip__pom-rise" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className="mchip__pom-rise-particle" />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Spirit form — ethereal ghost wisps + badge (target only, overlays frame) */}
+      {isSpiritForm && (
+        <>
+          <div className="mchip__spirit-wisps" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <span key={i} className="mchip__spirit-wisp" />
+            ))}
+          </div>
+        </>
+      )}
+
+      {battleLive && (
         <>
           {/* Critical rate bar — outside frame */}
           <div className="mchip__critical">
@@ -481,7 +532,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           onEnter={handleEnter}
           onLeave={handleLeave}
           statMods={statMods}
-          battleEnded={battleEnded}
+          battleLive={battleLive}
         />,
         document.body,
       )}
