@@ -1,0 +1,263 @@
+@use '../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink: #2c2218;
+$ink-faint: #9a8b76;
+$crimson: #a0001b;
+
+/* ── Action modal (Attack / Use Power) ── */
+.bhud__action-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 10px;
+  padding: 0.6rem 0.6rem 0.5rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12),
+  0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 220px;
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+}
+
+/* ── Quota pips ── */
+.bhud__quota {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.1rem 0;
+}
+
+.bhud__quota-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--modal-primary, #{$gold});
+  background: transparent;
+  transition: background 0.3s, box-shadow 0.3s;
+
+  &--filled {
+    background: var(--modal-primary, #{$gold});
+    box-shadow: 0 0 6px color-mix(in srgb, var(--modal-primary, #{$gold}) 50%, transparent);
+  }
+}
+
+.bhud__quota-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--modal-dark, #{$gold-dark});
+  margin-left: 0.2rem;
+}
+
+/* ── Action buttons ── */
+.bhud__action-btns {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+
+  @media (max-width: 325px) {
+    flex-direction: column;
+  }
+}
+
+.bhud__action-btn {
+  flex: 1;
+  padding: 0.5rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  font-size: 0.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &--attack {
+    background: color-mix(in srgb, $crimson 8%, #fff);
+    color: $crimson;
+    border-color: rgba($crimson, 0.2);
+
+    &:hover {
+      background: color-mix(in srgb, $crimson 16%, #fff);
+      border-color: rgba($crimson, 0.35);
+      box-shadow: 0 0 8px rgba($crimson, 0.1);
+    }
+  }
+
+  &--power {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, #fff);
+    color: var(--modal-dark, #{$gold-dark});
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--modal-primary, #{$gold}) 16%, #fff);
+      border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 35%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--modal-primary, #{$gold}) 10%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* ── Power picker ── */
+.bhud__power-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.bhud__power-back {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  background: none;
+  border: 1px solid color-mix(in srgb, $ink-faint 15%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.35rem;
+  text-align: center;
+  width: 100%;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: $ink;
+    border-color: color-mix(in srgb, $ink-faint 30%, transparent);
+  }
+}
+
+.bhud__power-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 10%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 30%, transparent);
+  }
+
+  &--selected {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 14%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 40%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+  }
+
+  &--disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Power item wrapper + inline desc (compact only) ── */
+.bhud__power-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hover tooltip (rendered via portal) ── */
+.bhud__power-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 200px;
+  padding: 0.4rem 0.55rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 25%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12),
+  0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+  font-size: 0.55rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: $ink;
+  animation: bhud-tooltip-in 0.12s ease-out;
+}
+
+@keyframes bhud-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bhud__power-confirm {
+  width: 100%;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 30%, transparent);
+  background: color-mix(in srgb, var(--modal-primary, #{$gold}) 12%, #fff);
+  color: var(--modal-dark, #{$gold-dark});
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 22%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 45%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.bhud__power-type {
+  font-size: 0.45rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 50px;
+}
+
+.bhud__power-name {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+}
+
+.bhud__power-cost {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--modal-dark, #{$gold-dark});
+  font-family: 'DM Mono', monospace;
+}
+
+.bhud__power-lock {
+  font-size: 0.4rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+}

@@ -83,6 +83,11 @@ export default function BattleLogModal({ room, onClose }: Props) {
                 ) : (
                   <span className="blm__hit">-{entry.damage} dmg</span>
                 )}
+                {entry.critRoll != null && entry.critRoll > 0 && (
+                  <span className={entry.isCrit ? 'blm__crit' : 'blm__crit-miss'}>
+                    D4:{entry.critRoll} {entry.isCrit ? 'CRIT' : 'NO'}
+                  </span>
+                )}
                 {entry.eliminated && <span className="blm__ko">KO</span>}
               </div>
             );

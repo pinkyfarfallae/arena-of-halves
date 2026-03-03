@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchPowers } from '../../data/characters';
+import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import {
@@ -13,10 +13,12 @@ import {
   toFighterState,
   startBattle,
   selectTarget,
+  selectAction,
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
 } from '../../services/battleRoom';
+import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
@@ -75,6 +77,7 @@ function Arena() {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [resolveShown, setResolveShown] = useState(false);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -117,7 +120,7 @@ function Arena() {
     if (!watchOnly && room.status === 'waiting' && !teamBFull) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
-        const powers = await fetchPowers(powerDeity);
+        const powers = getPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
@@ -203,7 +206,24 @@ function Arena() {
       const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        schedule(() => selectTarget(arenaId, target.characterId), 600);
+        schedule(() => selectTarget(arenaId, target.characterId), 2000);
+      }
+      return;
+    }
+
+    // NPC chooses action (attack or power)
+    if (turn.phase === 'select-action' && teamBIds.has(turn.attackerId)) {
+      const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
+      if (npcFighter) {
+        const affordable = getAffordablePowers(npcFighter);
+        if (affordable.length > 0 && Math.random() < 0.4) {
+          const pick = affordable[Math.floor(Math.random() * affordable.length)];
+          schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+        } else {
+          schedule(() => selectAction(arenaId, 'attack'), 800);
+        }
+      } else {
+        schedule(() => selectAction(arenaId, 'attack'), 800);
       }
       return;
     }
@@ -222,9 +242,9 @@ function Arena() {
       return;
     }
 
-    // Fallback: auto-resolve if stuck in resolving phase (BattleHUD animation didn't fire)
-    if (turn.phase === 'resolving') {
-      schedule(() => resolveTurn(arenaId), 8000);
+    // Fallback: auto-resolve for NPC attacker only (BattleHUD handles player turns including crit)
+    if (turn.phase === 'resolving' && teamBIds.has(turn.attackerId)) {
+      schedule(() => resolveTurn(arenaId), 15000);
     }
 
   }, [room, arenaId]);
@@ -296,6 +316,10 @@ function Arena() {
 
   const handleSelectTarget = async (defenderId: string) => {
     if (arenaId) await selectTarget(arenaId, defenderId);
+  };
+
+  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number) => {
+    if (arenaId) await selectAction(arenaId, action, powerIndex);
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
@@ -396,9 +420,11 @@ function Arena() {
         >
           <TeamPanel
             members={teamAMembers}
+            allMembers={[...teamAMembers, ...teamBMembers]}
             side="left"
             battle={battle}
             myId={user?.characterId}
+            resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
           />
         </div>
@@ -417,9 +443,11 @@ function Arena() {
           {teamBMembers.length > 0 ? (
             <TeamPanel
               members={teamBMembers}
+              allMembers={[...teamAMembers, ...teamBMembers]}
               side="right"
               battle={battle}
               myId={user?.characterId}
+              resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}
             />
           ) : (
@@ -432,14 +460,17 @@ function Arena() {
         {/* Battle HUD overlay */}
         {isBattling && battle && (
           <BattleHUD
+            arenaId={arenaId}
             battle={battle}
             teamA={teamAMembers}
             teamB={teamBMembers}
             myId={user?.characterId}
             onSelectTarget={handleSelectTarget}
+            onSelectAction={handleSelectAction}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
+            onResolveVisible={setResolveShown}
           />
         )}
       </div>

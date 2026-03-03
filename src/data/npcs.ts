@@ -1,8 +1,9 @@
 import { splitCSVRows, parseCSVLine } from '../utils/csv';
-import { DEITY_THEMES, DEFAULT_THEME, fetchPowers } from './characters';
+import { DEITY_THEMES, DEFAULT_THEME } from './characters';
+import { getPowers } from './powers';
 import { POWER_OVERRIDES } from '../pages/CharacterInfo/constants/overrides';
 import { csvUrl } from '../constants/sheets';
-import type { Theme25, Power } from '../types/character';
+import type { Theme25 } from '../types/character';
 import type { FighterState } from '../types/battle';
 
 const NPC_GID = '1431163652';
@@ -42,6 +43,16 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
   const num = (name: string) => parseInt(get(name), 10) || 0;
 
   const hp = num('hp');
+  const strength = num('strength');
+  
+  // Calculate critical rate based on strength
+  let criticalRate = 25; // default 25%
+  if (strength > 3 && strength < 5) {
+    criticalRate = 50; // 50% if 3 < strength < 5
+  } else if (strength === 5) {
+    criticalRate = 75; // 75% if strength === 5
+  }
+  
   return {
     characterId: get('npcid'),
     nicknameEng: get('nickname (eng)'),
@@ -60,6 +71,10 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     passiveSkillPoint: get('passive skill point'),
     skillPoint: get('skill point'),
     ultimateSkillPoint: get('ultimate skill point'),
+    technique: num('technique'),
+    quota: 0,
+    maxQuota: num('technique') < 3 ? 2 : 3,
+    criticalRate,
   };
 }
 
@@ -79,11 +94,7 @@ export async function fetchNPCs(): Promise<FighterState[]> {
     if (!base.characterId) continue;
 
     const powerDeity = POWER_OVERRIDES[base.characterId] ?? base.deityBlood;
-    let powers: Power[] = [];
-    try {
-      powers = await fetchPowers(powerDeity);
-    } catch { /* use empty */ }
-
+    const powers = getPowers(powerDeity);
     fighters.push({ ...base, powers });
   }
 
