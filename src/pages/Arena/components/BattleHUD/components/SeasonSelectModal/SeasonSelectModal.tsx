@@ -13,6 +13,7 @@ interface Props {
   themeColorDark?: string;
   side?: 'left' | 'right';
   onSelectSeason: (season: SeasonKey) => void;
+  onPreviewSeason?: (season: SeasonKey | null) => void;
 }
 
 /**
@@ -27,6 +28,7 @@ export default function SeasonSelectModal({
   themeColorDark,
   side = 'left',
   onSelectSeason,
+  onPreviewSeason,
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey | null>(null);
 
@@ -71,7 +73,11 @@ export default function SeasonSelectModal({
                 '--season-color': season.color,
                 '--season-dark': season.colorDark,
               } as React.CSSProperties}
-              onClick={() => setSelectedSeason(selected ? null : season.key)}
+              onClick={() => {
+                const next = selected ? null : season.key;
+                setSelectedSeason(next);
+                onPreviewSeason?.(next);
+              }}
             >
               <span className="bhud__season-icon">
                 <Suspense fallback={<div style={{ width: '32px', height: '32px' }} />}>

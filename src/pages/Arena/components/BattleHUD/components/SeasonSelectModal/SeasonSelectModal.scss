@@ -256,3 +256,55 @@ $ink-faint: #9a8b76;
     transform: scale(1);
   }
 }
+
+/* ── Compact mode ── */
+@media (max-width: $bp-compact) {
+  .bhud__action-modal--season {
+    gap: 0.3rem;
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+  }
+
+  .bhud__season-picker {
+    gap: 0.25rem;
+  }
+
+  .bhud__season-btn {
+    gap: 0.15rem;
+    padding: 0.3rem 0.2rem;
+    border-radius: 6px;
+    border-width: 1.5px;
+  }
+
+  .bhud__season-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .bhud__season-label {
+    font-size: 0.45rem;
+  }
+
+  .bhud__season-confirm {
+    padding: 0.3rem;
+    font-size: 0.45rem;
+    border-radius: 5px;
+  }
+
+  .bhud__season-modal {
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+    gap: 0.25rem;
+    border-radius: 8px;
+  }
+
+  .bhud__dice-roller--waiting {
+    height: 40px;
+  }
+
+  .bhud__roll-waiting-spinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+  }
+}
