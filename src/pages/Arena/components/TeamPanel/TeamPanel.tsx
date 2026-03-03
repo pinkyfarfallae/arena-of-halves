@@ -181,6 +181,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
+            battleEnded={!!battle?.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
           />
         );

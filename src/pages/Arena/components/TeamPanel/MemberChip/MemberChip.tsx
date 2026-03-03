@@ -13,41 +13,60 @@ const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, battleEnded }: {
   fighter: FighterState;
   deityLabel: string;
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
   statMods?: Record<string, number>;
+  battleEnded?: boolean;
 }) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rect = chipRef.current?.getBoundingClientRect();
-  if (!rect) return null;
 
   const isCompact = window.innerWidth <= BP_COMPACT;
+
+  useEffect(() => {
+    const el = popupRef.current;
+    if (!el || !rect) return;
+    const pw = el.offsetWidth;
+    const ph = el.offsetHeight;
+    const pad = 6;
+    let top: number;
+    let left: number;
+
+    if (isCompact) {
+      top = rect.top + rect.height / 2 - ph / 2;
+      left = rect.right + 5;
+      // If overflows right, flip to left of chip
+      if (left + pw > window.innerWidth - pad) left = rect.left - pw - 5;
+    } else {
+      top = rect.bottom - 15 + (battleEnded ? 20 : 0);
+      left = rect.left + rect.width / 2 - pw / 2;
+    }
+
+    // Clamp to viewport
+    top = Math.max(pad, Math.min(top, window.innerHeight - ph - pad));
+    left = Math.max(pad, Math.min(left, window.innerWidth - pw - pad));
+    setPos({ top, left });
+  });
+
+  if (!rect) return null;
+
   const style: React.CSSProperties = {
     '--chip-primary': fighter.theme[0],
     '--chip-accent': fighter.theme[1],
+    position: 'fixed',
+    visibility: pos ? 'visible' : 'hidden',
+    top: pos?.top ?? 0,
+    left: pos?.left ?? 0,
   } as React.CSSProperties;
-
-  if (isCompact) {
-    Object.assign(style, {
-      position: 'fixed' as const,
-      top: rect.top + rect.height / 2,
-      left: rect.right + 5,
-      transform: 'translateY(-50%)',
-    });
-  } else {
-    Object.assign(style, {
-      position: 'fixed' as const,
-      top: rect.bottom - 15,
-      left: rect.left + rect.width / 2,
-      transform: 'translateX(-50%)',
-    });
-  }
 
   return (
     <div
+      ref={popupRef}
       className="mchip__popup mchip__popup--visible"
       style={style}
       onMouseEnter={onEnter}
@@ -213,10 +232,11 @@ interface Props {
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
   statMods?: Record<string, number>;
+  battleEnded?: boolean;
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, turnOrder, effectPips, statMods, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -268,10 +288,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (!isHitActive && !isShockHitActive && !isThunderboltActive) {
-      setShowEliminated(true);
+    if (!battleEnded && (isHitActive || isShockHitActive || isThunderboltActive)) {
+      setShowEliminated(false); // hide eliminated while damage effects play
+    } else {
+      setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive]);
+  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleEnded]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -297,7 +319,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     !showEliminated && isHitActive && 'mchip--hit',
     !showEliminated && isShockHitActive && 'mchip--shock-hit',
     !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
-    isShocked && 'mchip--shocked',
+    !showEliminated && isShocked && 'mchip--shocked',
   ].filter(Boolean).join(' ');
 
   return (
@@ -362,35 +384,39 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       </div>
 
-      {/* Critical rate bar — outside frame */}
-      <div className="mchip__critical">
-        <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
-        <div className="mchip__crit-bar">
-          <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
-        </div>
-      </div>
-
-      {/* Turn order + active effect pips */}
-      <div className="mchip__powerside">
-        {turnOrder != null && (
-          <div className="mchip__order">{turnOrder}</div>
-        )}
-        {effectPips && effectPips.length > 0 && (
-          <div className="mchip__effected-powers">
-            {effectPips.map((ep, idx) => (
-              <EffectPipDot key={idx} pip={ep} />
-            ))}
+      {!battleEnded && (
+        <>
+          {/* Critical rate bar — outside frame */}
+          <div className="mchip__critical">
+            <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
+            <div className="mchip__crit-bar">
+              <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Quota pips — below frame, inside chip */}
-      {fighter.maxQuota > 0 && (
-        <div className="mchip__quota">
-          {Array.from({ length: fighter.maxQuota }, (_, i) => (
-            <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
-          ))}
-        </div>
+          {/* Turn order + active effect pips */}
+          <div className="mchip__powerside">
+            {turnOrder != null && (
+              <div className="mchip__order">{turnOrder}</div>
+            )}
+            {effectPips && effectPips.length > 0 && (
+              <div className="mchip__effected-powers">
+                {effectPips.map((ep, idx) => (
+                  <EffectPipDot key={idx} pip={ep} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quota pips — below frame, inside chip */}
+          {fighter.maxQuota > 0 && (
+            <div className="mchip__quota">
+              {Array.from({ length: fighter.maxQuota }, (_, i) => (
+                <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Hover stat popup — rendered via portal to escape stacking contexts */}
@@ -402,6 +428,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           onEnter={handleEnter}
           onLeave={handleLeave}
           statMods={statMods}
+          battleEnded={battleEnded}
         />,
         document.body,
       )}
