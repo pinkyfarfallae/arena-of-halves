@@ -1,0 +1,227 @@
+@use '../../,,/../../../../styles/variables' as *;
+
+/* ── NPC Team Selection ── */
+
+$sand-warm: #ede2d2;
+$stone: #c4b49a;
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$gold-pale: rgba(201, 168, 76, 0.08);
+$gold-border: rgba(201, 168, 76, 0.25);
+$crimson: #a0001b;
+$crimson-bright: #c41e3a;
+$crimson-soft: rgba(196, 30, 58, 0.06);
+$ink: #2c2218;
+$ink-mid: #6b5d4a;
+$ink-faint: #9a8b76;
+
+.nts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.nts__random {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid rgba($gold, 0.2);
+  border-radius: 3px;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: $ink;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  &:hover {
+    border-color: rgba($gold, 0.4);
+    background: $gold-pale;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.nts__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(70px, 1fr));
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba($gold, 0.04);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba($gold, 0.2);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba($gold, 0.3);
+    }
+  }
+
+  @media (max-width: $bp-compact) {
+    grid-template-columns: repeat(2, minmax(70px, 1fr));
+  }
+}
+
+.nts__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.5rem;
+  border: 1px solid rgba($gold, 0.15);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+
+  &:hover {
+    border-color: rgba($gold, 0.3);
+    background: rgba($gold, 0.04);
+  }
+
+  &--selected {
+    border-color: $crimson-bright;
+    background: $crimson-soft;
+    box-shadow: 0 0 0 1px rgba($crimson, 0.1);
+
+    &:hover {
+      border-color: $crimson-bright;
+      background: $crimson-soft;
+    }
+  }
+
+  &--excluded {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: rgba($gold, 0.08);
+
+    &:hover {
+      background: transparent;
+      border-color: rgba($gold, 0.08);
+    }
+  }
+}
+
+.nts__avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba($gold, 0.12);
+
+  &--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent, $sand-warm);
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #fff;
+  }
+}
+
+.nts__name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: $ink;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.nts__stats {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.55rem;
+  color: $ink-faint;
+  font-weight: 600;
+  margin-top: -5px;
+}
+
+.nts__check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $crimson-bright;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 6px rgba($crimson, 0.25);
+}
+
+/* ── Loading state ── */
+.nts__card--loading {
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.nts__skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba($gold, 0.08) 0%,
+    rgba($gold, 0.15) 50%,
+    rgba($gold, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 3px;
+
+  &--avatar {
+    width: 50px;
+    height: 50px;
+  }
+
+  &--text {
+    height: 8px;
+    margin-top: 0.5rem;
+
+    &--name {
+      width: 100%;
+    }
+
+    &--stats {
+      width: 70%;
+      margin-top: 4px;
+    }
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

@@ -14,6 +14,9 @@ interface Props {
   /** True when BattleHUD's resolve panel is visible (after crit/chain checks) */
   resolveShown?: boolean;
   onSelectTarget?: (defenderId: string) => void;
+  /** True when user is picking an ally for a power (e.g. Floral Scented) */
+  allySelectMode?: boolean;
+  onAllySelect?: (characterId: string) => void;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -33,7 +36,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, resolveShown, onSelectTarget }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, resolveShown, onSelectTarget, allySelectMode, onAllySelect }: Props) {
   const turn = battle?.turn;
   const activeEffects = battle?.activeEffects || [];
 
@@ -82,7 +85,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
 
   return (
     <div
-      className={`team-panel team-panel--${side}`}
+      className={`team-panel team-panel--${side} ${members.length >= 3 ? 'team-panel--full' : ''}`}
       data-count={members.length}
       style={buildPanelBg(members)}
     >
@@ -160,6 +163,28 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           e => e.targetId === m.characterId && e.tag === 'petal-shield',
         );
 
+        // Floral Scented buff visual
+        const isScentWaved = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === 'floral-scent',
+        );
+
+        // Ally targetable: same team as attacker, alive (includes self)
+        const isAttackerTeam = turn && (
+          (side === 'left' && turn.attackerTeam === 'teamA') ||
+          (side === 'right' && turn.attackerTeam === 'teamB')
+        );
+        const isAllyTargetable = !!(
+          allySelectMode && isAttackerTeam &&
+          m.currentHp > 0
+        );
+
+        // Heal boost: Floral Scented just applied to this fighter
+        const isHealBoosted = !!(
+          turn?.allyTargetId === m.characterId &&
+          turn?.usedPowerName === 'Floral Scented' &&
+          (turn?.phase === 'rolling-attack' || turn?.phase === 'rolling-defend')
+        );
+
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
           damage: getStatModifier(activeEffects, m.characterId, 'damage'),
@@ -184,11 +209,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isThunderboltHit={isThunderboltHit}
             isShocked={isShocked}
             isPetalShielded={isPetalShielded}
+            isScentWaved={isScentWaved}
+            isAllyTargetable={isAllyTargetable}
+            isHealBoosted={isHealBoosted}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
             battleEnded={!!battle?.winner}
-            onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
+            onSelect={
+              isAllyTargetable && onAllySelect ? () => onAllySelect(m.characterId) :
+              isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined
+            }
           />
         );
       })}

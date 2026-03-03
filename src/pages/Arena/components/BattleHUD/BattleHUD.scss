@@ -243,6 +243,50 @@ $crimson-bright: #c41e3a;
   text-align: center;
 }
 
+/* ── Ally selection prompt ── */
+.bhud__ally-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 1.6rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 2px solid rgba(#81c784, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(#81c784, 0.12);
+  pointer-events: all;
+  animation: bhud-scale-in 0.25s ease-out, ally-prompt-border 1.5s ease-in-out infinite;
+}
+
+.bhud__ally-prompt-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  animation: ally-prompt-spin 3s linear infinite;
+}
+
+.bhud__ally-prompt-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: $ink;
+  letter-spacing: 0.04em;
+}
+
+.bhud__ally-prompt-sub {
+  font-size: 0.6rem;
+  color: $ink-faint;
+}
+
+@keyframes ally-prompt-border {
+  0%, 100% { border-color: rgba(#81c784, 0.5); }
+  50% { border-color: rgba(#f48fb1, 0.5); }
+}
+
+@keyframes ally-prompt-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ── Waiting ── */
 .bhud__waiting {
   position: absolute;

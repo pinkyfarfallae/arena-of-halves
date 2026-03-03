@@ -11,7 +11,7 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
-  applySecretOfDryadPassive,
+  applySecretOfDryadPassive, applyFloralScented,
 } from './powerEngine';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -131,7 +131,7 @@ function roomRef(arenaId: string) {
 /* ── create ───────────────────────────────────────────── */
 
 export async function createRoom(
-  fighter: FighterState,
+  fighter: FighterState | FighterState[],
   customName?: string,
   teamSize: number = 1,
 ): Promise<string> {
@@ -149,14 +149,18 @@ export async function createRoom(
   }
 
   const size = Math.max(1, Math.floor(teamSize));
-  const roomName = customName?.trim() || `${fighter.nicknameEng} vs ???`;
+  const teamAMembers = Array.isArray(fighter) ? fighter : [fighter];
+  const firstName = Array.isArray(fighter)
+    ? fighter.map(f => f.nicknameEng).join(' & ')
+    : fighter.nicknameEng;
+  const roomName = customName?.trim() || `${firstName} vs ???`;
 
   const room: BattleRoom = {
     arenaId,
     roomName,
     status: 'configuring',
     teamSize: size,
-    teamA: { members: [fighter], maxSize: size },
+    teamA: { members: teamAMembers, maxSize: size },
     teamB: { members: [], maxSize: size },
     viewers: {},
     createdAt: Date.now(),
@@ -168,21 +172,24 @@ export async function createRoom(
 
 /* ── join as fighter (opponent team) ──────────────────── */
 
-export async function joinRoom(arenaId: string, fighter: FighterState): Promise<BattleRoom | null> {
+export async function joinRoom(arenaId: string, fighter: FighterState | FighterState[]): Promise<BattleRoom | null> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return null;
 
   const room = snap.val() as BattleRoom;
+  const fighters = Array.isArray(fighter) ? fighter : [fighter];
   const teamBMembers = room.teamB?.members || [];
   const maxSize = room.teamB?.maxSize ?? room.teamSize;
 
-  // team B already full
-  if (teamBMembers.length >= maxSize) return null;
+  // team B already has members or would exceed max size
+  if (teamBMembers.length > 0) return null;
+  if (fighters.length > maxSize) return null;
 
-  // can't join if already in any team
-  if (getAllFighterIds(room).includes(fighter.characterId)) return null;
+  // check if any fighter already in any team
+  const allIds = getAllFighterIds(room);
+  if (fighters.some((f) => allIds.includes(f.characterId))) return null;
 
-  const newMembers = [...teamBMembers, fighter];
+  const newMembers = [...teamBMembers, ...fighters];
   const bothFull = (room.teamA?.members || []).length >= maxSize && newMembers.length >= maxSize;
 
   // update room name when both teams are full
@@ -375,6 +382,7 @@ export async function selectAction(
   arenaId: string,
   action: 'attack' | 'power',
   powerIndex?: number,
+  allyTargetId?: string,
 ): Promise<void> {
   if (action === 'attack') {
     await update(ref(db, `arenas/${arenaId}/battle/turn`), {
@@ -407,6 +415,39 @@ export async function selectAction(
   const atkPath = findFighterPath(room, attackerId);
   const updates: Record<string, unknown> = {};
   if (atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
+
+  // ── Ally-targeting power (e.g. Floral Scented): apply buff, then normal attack ──
+  if (power.target === 'ally' && allyTargetId) {
+    const floralUpdates = applyFloralScented(room, attackerId, allyTargetId, battle, power);
+    Object.assign(updates, floralUpdates);
+
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: 0,
+      defenderHpAfter: findFighter(room, defenderId)?.currentHp ?? 0,
+      eliminated: false,
+      missed: false,
+      powerUsed: power.name,
+    };
+    updates['battle/log'] = [...(battle.log || []), logEntry];
+
+    updates['battle/turn'] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      defenderId,
+      phase: 'rolling-attack',
+      action: 'attack',
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+      allyTargetId,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
 
   if (power.skipDice) {
     // ── Jolt Arc: detonate all shocks on all enemies ──

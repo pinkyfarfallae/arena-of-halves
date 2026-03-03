@@ -44,11 +44,12 @@ interface Props {
   teamB: FighterState[];
   myId: string | undefined;
   onSelectTarget: (defenderId: string) => void;
-  onSelectAction: (action: 'attack' | 'power', powerIndex?: number) => void;
+  onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
+  allySelectActive?: boolean;
 }
 
 /** Find a fighter across both teams */
@@ -59,6 +60,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
   onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  allySelectActive,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -501,8 +503,8 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Action selection (attack or power) */}
-      {turn.phase === 'select-action' && attacker && (
+      {/* Action selection (attack or power) — hidden during ally selection */}
+      {turn.phase === 'select-action' && attacker && !allySelectActive && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -515,6 +517,17 @@ export default function BattleHUD({
             disabledPowerNames={disabledPowerNames}
             onSelectAction={onSelectAction}
           />
+        </div>
+      )}
+
+      {/* Ally selection prompt — shown when picking a teammate for a power */}
+      {turn.phase === 'select-action' && allySelectActive && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__ally-prompt">
+            <span className="bhud__ally-prompt-icon">✿</span>
+            <span className="bhud__ally-prompt-label">Select a Teammate</span>
+            <span className="bhud__ally-prompt-sub">เลือกเพื่อนร่วมทีมเพื่อชโลมกลิ่นดอกไม้</span>
+          </div>
         </div>
       )}
 

@@ -279,6 +279,7 @@ function Lobby() {
         <ConfigArenaModal
           arenaId={createdArenaId}
           isDev={role === ROLE.DEVELOPER}
+          player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
           onClose={() => setCreatedArenaId(null)}
           onEnter={(id) => navigate(id)}
         />
