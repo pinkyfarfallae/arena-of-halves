@@ -100,9 +100,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
         const isCrit = !!(lastEntry?.isCrit && lastEntry.attackerId === m.characterId);
 
         // Hit effect: only when attack actually landed (not blocked)
+        // AoE path: only for skipDice powers whose log was already written (check attackerId matches)
+        const isAoeHit = !!(
+          resolveShown && turn?.phase === 'resolving' &&
+          lastEntry?.attackerId === turn?.attackerId &&
+          lastEntry?.aoeDamageMap?.[m.characterId]
+        );
         const isHit = !!(
           (attackLanded && turn?.phase === 'resolving' && turn.defenderId === m.characterId) ||
-          (resolveShown && turn?.phase === 'resolving' && lastEntry?.aoeDamageMap?.[m.characterId])
+          isAoeHit
         );
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender

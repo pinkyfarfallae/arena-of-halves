@@ -456,7 +456,11 @@ export async function selectAction(
       const defHpAfter = defender ? Math.max(0, defender.currentHp - power.value) : 0;
       if (defPath && defender) updates[`${defPath}/currentHp`] = defHpAfter;
 
-      const chainWinFaces = getWinningFaces(50);
+      // Only chain if there are other alive enemies (skip in 1v1)
+      const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+      const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
+      const chainTargets = enemies.filter(e => e.characterId !== defenderId && e.currentHp > 0);
+      const hasChainTargets = chainTargets.length > 0;
 
       const logEntry = {
         round: battle.roundNumber,
@@ -480,7 +484,7 @@ export async function selectAction(
         action: 'power',
         usedPowerIndex: powerIndex,
         usedPowerName: power.name,
-        chainWinFaces,
+        ...(hasChainTargets && { chainWinFaces: getWinningFaces(50) }),
       };
 
     // ── Generic skipDice power ──
@@ -689,7 +693,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
     if (hit) {
       const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
-      let rawDmg = Math.max(0, attacker.damage + dmgBuff);
+      const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+      let rawDmg = baseDmg;
 
       // Critical hit: read from turn state (written by BattleHUD) or compute fallback
       if (atkTotal >= 10) {
@@ -712,22 +717,29 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       }
 
       // Lightning Reflex passive: apply shock or detonate for bonus damage (only on pure normal attacks)
+      // Use pre-crit baseDmg so shock detonation = x2 of base damage, not x2 of crit-doubled damage
       if (!isSelfBuffPower) {
-        const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, rawDmg);
+        const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
         rawDmg += shockResult.bonusDamage;
         shockBonusDamage = shockResult.bonusDamage;
         Object.assign(updates, shockResult.updates);
       }
 
-      // Shield absorption
+      // Shield absorption — persist reduced/depleted shields to Firebase
       let shieldRemaining = rawDmg;
-      const shieldEffects = (activeEffects).filter(
-        e => e.targetId === defenderId && e.effectType === 'shield',
-      );
-      for (const se of shieldEffects) {
+      let shieldsModified = false;
+      for (const se of activeEffects) {
+        if (se.targetId !== defenderId || se.effectType !== 'shield') continue;
+        if (shieldRemaining <= 0) break;
         const absorbed = Math.min(se.value, shieldRemaining);
         se.value -= absorbed;
         shieldRemaining -= absorbed;
+        shieldsModified = true;
+      }
+      if (shieldsModified) {
+        // Remove depleted shields, persist remaining values
+        const cleaned = activeEffects.filter(e => !(e.effectType === 'shield' && e.value <= 0));
+        updates['battle/activeEffects'] = cleaned;
       }
       dmg = shieldRemaining;
 
@@ -786,7 +798,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Tick active effects (DOT damage, decrement durations)
-  const effectUpdates = tickEffects(room, battle);
+  // Pass current updates so DOT processing reads latest HP (not stale snapshot)
+  const effectUpdates = tickEffects(room, battle, updates);
   Object.assign(updates, effectUpdates);
 
   // Build updated HP map for win condition check

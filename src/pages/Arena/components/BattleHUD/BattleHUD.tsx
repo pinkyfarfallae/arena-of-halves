@@ -9,6 +9,7 @@ import LoseBadge from './icons/Loser';
 import TargetSelectModal from './components/TargetSelectModal';
 import ActionSelectModal from './components/ActionSelectModal';
 import DiceModal from './components/DiceModal';
+import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 
 /** Keep element rendered during a fade-out exit animation. */
@@ -278,7 +279,12 @@ export default function BattleHUD({
       setChainReady(true);
       return;
     }
-    const winFaces = turn.chainWinFaces || getWinningFaces(50);
+    // Skip chain in 1v1 (no chainWinFaces set by server)
+    if (!turn.chainWinFaces || turn.chainWinFaces.length === 0) {
+      setChainReady(true);
+      return;
+    }
+    const winFaces = turn.chainWinFaces;
     chainRef.current = { winFaces, success: false, roll: 0 };
 
     if (isMyTurn) {
@@ -328,7 +334,7 @@ export default function BattleHUD({
   /* ── Auto-resolve after showing result (only after crit + chain check done) ── */
   useEffect(() => {
     if (turn?.phase !== 'resolving' || !resolveReady || !critReady || !chainReady) return;
-    const timer = setTimeout(() => onResolve(), 3500);
+    const timer = setTimeout(() => onResolve(), 5000);
     return () => clearTimeout(timer);
   }, [turn?.phase, resolveReady, critReady, chainReady, onResolve]);
 
@@ -344,14 +350,27 @@ export default function BattleHUD({
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
 
   // Cache resolve data so content doesn't flicker during exit animation
-  const resolveCache = useRef({ atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0, isHit: false, damage: 0, isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0 });
+  const resolveCache = useRef({
+    atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+    isHit: false, damage: 0, baseDmg: 0, shockBonus: 0,
+    isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0,
+    attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
+    side: 'right' as 'left' | 'right',
+  });
   if (resolveVisible && turn && attacker && defender) {
     const isSkipDicePower = turn.action === 'power' && !turn.attackRoll;
     if (isSkipDicePower) {
+      // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log)
+      const lastLog = (battle.log || []).at(-1);
+      const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
-        isHit: true, damage: 0, isPower: true, powerName: turn.usedPowerName ?? 'Power',
+        isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
+        isPower: true, powerName: turn.usedPowerName ?? 'Power',
         critEligible: false, isCrit: false, critRoll: 0,
+        attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+        defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+        side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
       };
     } else {
       const activeEffects = battle.activeEffects || [];
@@ -360,18 +379,35 @@ export default function BattleHUD({
       const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
       const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
-      let damage = Math.max(0, attacker.damage + dmgBuff);
+      const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+      let damage = baseDmg;
 
       // Read crit result from critRef (already determined by D4 roll)
       const cd = critRef.current;
       if (cd.isCrit) damage *= 2;
 
+      // Shock detonation bonus: compute client-side (log isn't written until resolveTurn)
+      // Lightning Reflex passive: if attacker has it + defender has shock DOTs → bonus = baseDmg
+      let shockBonus = 0;
+      if (at > dt && turn.action !== 'power') {
+        const hasLR = attacker.passiveSkillPoint === 'unlock' &&
+          attacker.powers?.some(p => p.type === 'Passive' && p.name === 'Lightning Reflex');
+        const defShocks = hasLR && activeEffects.some(
+          e => e.targetId === turn.defenderId && e.tag === 'shock',
+        );
+        if (defShocks) shockBonus = baseDmg;
+      }
+      damage += shockBonus;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
-        atkTotal: at, defTotal: dt, isHit: at > dt, damage,
+        atkTotal: at, defTotal: dt, isHit: at > dt, damage, baseDmg, shockBonus,
         isPower: turn.action === 'power', powerName: turn.usedPowerName ?? '',
         critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
+        attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+        defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+        side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
       };
     }
   }
@@ -566,6 +602,11 @@ export default function BattleHUD({
           </div>
         );
       })()}
+
+      {/* Damage breakdown card — on defender side */}
+      {showResolve && (
+        <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
+      )}
 
       {/* Waiting for opponent to select target */}
       {showWaiting && (
