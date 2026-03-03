@@ -11,7 +11,7 @@ export type EffectType =
   | 'cleanse'
   | 'reroll_grant';
 
-export type TargetType = 'enemy' | 'self';
+export type TargetType = 'enemy' | 'self' | 'ally';
 
 export type ModStat =
   | 'attackDiceUp'

@@ -92,6 +92,9 @@ export interface TurnState {
   chainRoll?: number;
   chainSuccess?: boolean;
   chainWinFaces?: number[];
+
+  /* Ally-targeting power (e.g. Floral Scented) */
+  allyTargetId?: string;
 }
 
 /** A log entry for the battle feed */

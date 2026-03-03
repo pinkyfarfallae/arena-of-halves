@@ -16,7 +16,7 @@ $ink-faint: #9a8b76;
   position: relative;
   flex: 1;
   flex-shrink: 0;
-  min-width: 170px;
+  max-height: 175px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -246,6 +246,70 @@ $ink-faint: #9a8b76;
     }
   }
 
+  &--ally-targetable {
+    cursor: pointer;
+
+    .mchip__frame {
+      animation: ally-target-pulse 1.2s ease-in-out infinite;
+    }
+
+    &.mchip--hovered .mchip__frame {
+      box-shadow:
+        0 0 0 2px rgba(#81c784, 0.8),
+        0 0 14px rgba(#81c784, 0.3);
+      animation: none;
+    }
+  }
+
+  &--scent-waved {
+    // Animated gradient border ring (green↔pink flow) — NOT shadow/glow
+    .mchip__frame::after {
+      content: '';
+      position: absolute;
+      inset: -2.5px;
+      border-radius: inherit;
+      z-index: 12;
+      pointer-events: none;
+      padding: 2px;
+      background: linear-gradient(
+        90deg,
+        rgba(#81c784, 0.8) 0%,
+        rgba(#f48fb1, 0.7) 25%,
+        rgba(#a5d6a7, 0.8) 50%,
+        rgba(#f8bbd0, 0.7) 75%,
+        rgba(#81c784, 0.8) 100%
+      );
+      background-size: 200% 100%;
+      animation: scent-border-flow 3s ease-in-out infinite;
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+    }
+
+    // Flower/leaf accent spots around the frame
+    .mchip__frame::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: inherit;
+      z-index: 12;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 10px 7px at 10% 12%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 10px at 90% 18%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 9px 6px at 85% 80%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 9px at 15% 75%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 50% 6%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 6px at 48% 94%, rgba(#a5d6a7, 0.65) 0%, transparent 100%);
+      animation: scent-accents-drift 4s ease-in-out infinite alternate;
+    }
+  }
+
   &--eliminated {
     opacity: 0.35;
     filter: grayscale(0.8);
@@ -372,6 +436,47 @@ $ink-faint: #9a8b76;
   z-index: 3;
   opacity: 0.4;
   transition: opacity 0.2s;
+}
+
+/* ── Heal boost floating text ── */
+.mchip__heal-boost {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #4caf50;
+  text-shadow:
+    0 0 8px rgba(#81c784, 0.6),
+    0 0 16px rgba(#81c784, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: heal-boost-float 3s ease-out forwards;
+}
+
+@keyframes heal-boost-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
 }
 
 /* ── Target crosshair badge ── */
@@ -574,6 +679,86 @@ $ink-faint: #9a8b76;
   100% {
     opacity: 0;
     transform: translateY(200px) translateX(#{-10 + random(20)}px) scale(0.3);
+  }
+}
+
+/* ── Scent Wave particles (Floral Scented buff) ── */
+.mchip__scent-wave {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 200%;
+    pointer-events: none;
+  }
+
+  // Layer 1: muted pink flowers + green leaves — gentle fall
+  &::before {
+    top: -100%;
+    background:
+      // ── Muted pink flower spots (first half 0-50%) ──
+      radial-gradient(ellipse 8px 5px  at 20% 5%,  rgba(#f48fb1, 0.6)  0%, transparent 100%),
+      radial-gradient(ellipse 6px 9px  at 75% 10%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px  at 45% 16%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 8px  at 88% 22%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 4px  at 12% 28%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px  at 62% 35%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 5px  at 35% 42%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      // ── Muted green leaf spots (first half) ──
+      radial-gradient(ellipse 5px 7px  at 52% 8%,  rgba(#81c784, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 4px  at 30% 18%, rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 6px  at 82% 30%, rgba(#81c784, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 4px  at 18% 40%, rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 5px  at 70% 46%, rgba(#81c784, 0.45) 0%, transparent 100%),
+      // ── Second half (50-100% = mirror for seamless loop) ──
+      radial-gradient(ellipse 8px 5px  at 20% 55%, rgba(#f48fb1, 0.6)  0%, transparent 100%),
+      radial-gradient(ellipse 6px 9px  at 75% 60%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px  at 45% 66%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 8px  at 88% 72%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 4px  at 12% 78%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px  at 62% 85%, rgba(#f8bbd0, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 5px  at 35% 92%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px  at 52% 58%, rgba(#81c784, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 4px  at 30% 68%, rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 6px  at 82% 80%, rgba(#81c784, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 4px  at 18% 90%, rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 5px  at 70% 96%, rgba(#81c784, 0.45) 0%, transparent 100%);
+    animation: scent-fall 8s linear infinite;
+  }
+
+  // Layer 2: offset pattern for density
+  &::after {
+    top: -50%;
+    background:
+      radial-gradient(ellipse 6px 4px  at 30% 6%,  rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px  at 68% 14%, rgba(#f48fb1, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 4px  at 50% 22%, rgba(#81c784, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 6px  at 15% 30%, rgba(#f8bbd0, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 6px 5px  at 85% 38%, rgba(#a5d6a7, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 4px  at 40% 46%, rgba(#f48fb1, 0.5)  0%, transparent 100%),
+      // ── Second half ──
+      radial-gradient(ellipse 6px 4px  at 30% 56%, rgba(#a5d6a7, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px  at 68% 64%, rgba(#f48fb1, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 4px  at 50% 72%, rgba(#81c784, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 4px 6px  at 15% 80%, rgba(#f8bbd0, 0.5)  0%, transparent 100%),
+      radial-gradient(ellipse 6px 5px  at 85% 88%, rgba(#a5d6a7, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 4px  at 40% 96%, rgba(#f48fb1, 0.5)  0%, transparent 100%);
+    animation: scent-fall 11s linear infinite;
   }
 }
 
@@ -1135,6 +1320,7 @@ $ink-faint: #9a8b76;
 @media (max-width: $bp-medium) {
   .mchip {
     width: 115px;
+    max-height: 150px;
   }
 
   .mchip__frame {
@@ -1192,6 +1378,7 @@ $ink-faint: #9a8b76;
   .mchip {
     width: 115px;
     min-width: unset;
+    max-height: unset;
     align-items: center;
     background: linear-gradient(90deg,
       color-mix(in srgb, var(--chip-accent, $gold-dark) 14%, transparent) 0%,
@@ -1337,6 +1524,26 @@ $ink-faint: #9a8b76;
     top: 2px;
     right: 2px;
   }
+
+  .mchip--ally-targetable .mchip__frame {
+    animation: ally-target-pulse-compact 1.2s ease-in-out infinite;
+  }
+
+  .mchip--ally-targetable.mchip--hovered .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#81c784, 0.7),
+      0 0 8px rgba(#81c784, 0.25);
+    animation: none;
+  }
+
+  .mchip--scent-waved .mchip__frame::after {
+    inset: -2px;
+    padding: 1.5px;
+  }
+
+  .mchip--scent-waved .mchip__frame::before {
+    inset: -4px;
+  }
 }
 
 /* ── Compact keyframe variants ── */
@@ -1365,6 +1572,19 @@ $ink-faint: #9a8b76;
       0 0 0 1.5px var(--chip-primary, $gold),
       0 0 16px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
       0 0 32px color-mix(in srgb, var(--chip-primary, $gold) 22%, transparent);
+  }
+}
+
+@keyframes ally-target-pulse-compact {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0.5px rgba(#81c784, 0.6),
+      0 0 4px rgba(#81c784, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(#f48fb1, 0.6),
+      0 0 8px rgba(#f48fb1, 0.2);
   }
 }
 
@@ -1608,4 +1828,35 @@ $ink-faint: #9a8b76;
 @keyframes leaf-drift-a {
   0%   { transform: translateY(0) rotate(0deg); opacity: 0.9; }
   100% { transform: translateY(-3px) rotate(3deg); opacity: 0.65; }
+}
+
+/* ── Ally target pulse (green↔pink) ── */
+@keyframes ally-target-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1.5px rgba(#81c784, 0.7),
+      0 0 10px rgba(#81c784, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(#f48fb1, 0.7),
+      0 0 14px rgba(#f48fb1, 0.25);
+  }
+}
+
+/* ── Scent Wave animations (Floral Scented) ── */
+@keyframes scent-border-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes scent-accents-drift {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0.85; }
+  100% { transform: translateY(-3px) rotate(2deg); opacity: 0.6; }
+}
+
+@keyframes scent-fall {
+  from { transform: translateY(0); }
+  to   { transform: translateY(50%); }
 }

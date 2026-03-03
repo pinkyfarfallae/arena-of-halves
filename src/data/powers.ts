@@ -777,12 +777,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Floral Scented',
       description:
-        'ชโลมกลิ่นดอกไม้ให้กับเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 2 หน่วยจากนั้นทำการโจมตีตามปกติ',
+        'ชโลมกลิ่นดอกไม้ให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 2 หน่วยจากนั้นทำการโจมตีตามปกติ',
       available: true,
       effect: 'heal',
-      target: 'self',
+      target: 'ally',
       value: 2,
-      duration: 0,
+      duration: 2,
+      skipDice: true,
     },
     {
       deity: 'Persephone',

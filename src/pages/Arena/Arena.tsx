@@ -78,6 +78,13 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+  const [allySelectPower, setAllySelectPower] = useState<number | null>(null);
+
+  // Clear ally selection when phase moves past select-action
+  const turnPhase = room?.battle?.turn?.phase;
+  useEffect(() => {
+    if (turnPhase !== 'select-action') setAllySelectPower(null);
+  }, [turnPhase]);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -159,6 +166,16 @@ function Arena() {
 
     npcJoining.current = true;
     let cancelled = false;
+    
+    // Check if pre-selected NPC team exists
+    const npcTeam = (room as any).npcTeam;
+    if (npcTeam && Array.isArray(npcTeam) && npcTeam.length > 0) {
+      // Multi-fighter NPC team selected during config
+      joinRoom(arenaId, npcTeam).finally(() => { npcJoining.current = false; });
+      return () => { cancelled = true; };
+    }
+
+    // Single NPC mode (original behavior)
     fetchNPCs().then((npcs) => {
       if (cancelled) return;
       const npcId = room.npcId;
@@ -318,8 +335,26 @@ function Arena() {
     if (arenaId) await selectTarget(arenaId, defenderId);
   };
 
-  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number) => {
-    if (arenaId) await selectAction(arenaId, action, powerIndex);
+  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+    // Ally-targeting power: intercept to enter ally selection mode
+    if (action === 'power' && powerIndex != null && allyTargetId == null) {
+      const attacker = battle?.turn?.attackerId
+        ? [...teamAMembers, ...teamBMembers].find(f => f.characterId === battle.turn!.attackerId)
+        : undefined;
+      const power = attacker?.powers?.[powerIndex];
+      if (power?.target === 'ally') {
+        setAllySelectPower(powerIndex);
+        return;
+      }
+    }
+    if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
+    setAllySelectPower(null);
+  };
+
+  const handleAllySelect = (allyId: string) => {
+    if (allySelectPower != null) {
+      handleSelectAction('power', allySelectPower, allyId);
+    }
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
@@ -426,6 +461,8 @@ function Arena() {
             myId={user?.characterId}
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
+            allySelectMode={allySelectPower != null}
+            onAllySelect={handleAllySelect}
           />
         </div>
 
@@ -449,6 +486,8 @@ function Arena() {
               myId={user?.characterId}
               resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}
+              allySelectMode={allySelectPower != null}
+              onAllySelect={handleAllySelect}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -471,6 +510,7 @@ function Arena() {
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
             onResolveVisible={setResolveShown}
+            allySelectActive={allySelectPower != null}
           />
         )}
       </div>
