@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import type { FighterState } from '../../../../../types/battle';
-import { getQuotaCost } from '../../../../../types/power';
-import { getAffordablePowers } from '../../../../../services/powerEngine';
+import type { FighterState } from '../../../../../../types/battle';
+import { getQuotaCost } from '../../../../../../types/power';
+import { getAffordablePowers } from '../../../../../../services/powerEngine';
 import './ActionSelectModal.scss';
 
 interface Props {
@@ -118,7 +118,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
         </div>
       ) : (
         <div className="bhud__power-picker">
-          {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx) => {
+          {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx: number) => {
             const realIdx = attacker.powers.indexOf(p);
             const cost = getQuotaCost(p.type);
             const unlocked =

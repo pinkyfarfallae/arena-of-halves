@@ -6,9 +6,9 @@ import { checkCritical, getWinningFaces } from '../../../../services/battleRoom'
 import { getStatModifier } from '../../../../services/powerEngine';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
-import TargetSelectModal from './components/TargetSelectModal';
-import ActionSelectModal from './components/ActionSelectModal';
-import DiceModal from './components/DiceModal';
+import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal';
+import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
+import DiceModal from './components/DiceModal/DiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 

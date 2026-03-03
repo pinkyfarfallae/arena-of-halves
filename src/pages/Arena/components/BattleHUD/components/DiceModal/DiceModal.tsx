@@ -1,6 +1,6 @@
-import type { FighterState, TurnState } from '../../../../../types/battle';
-import { DEITY_THEMES, DEFAULT_THEME } from '../../../../../constants/theme';
-import DiceRoller from '../../../../../components/DiceRoller/DiceRoller';
+import type { FighterState, TurnState } from '../../../../../../types/battle';
+import { DEITY_THEMES, DEFAULT_THEME } from '../../../../../../constants/theme';
+import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
 
 /** Get die theme colors for a fighter */
