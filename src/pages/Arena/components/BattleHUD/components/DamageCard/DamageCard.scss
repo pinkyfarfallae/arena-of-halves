@@ -18,7 +18,7 @@ $crimson-bright: #c41e3a;
   border: 1px solid color-mix(in srgb, var(--card-atk, #{$gold}) 15%, transparent);
   border-radius: 12px;
   padding: 0.7rem 1.4rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2),
   0 0 0 1px color-mix(in srgb, var(--card-atk, #{$gold}) 8%, transparent);
   animation: dmg-card-in 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
   font-family: 'Noto Sans', sans-serif;

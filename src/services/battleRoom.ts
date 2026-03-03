@@ -639,6 +639,31 @@ export async function selectAction(
   await update(roomRef(arenaId), updates);
 }
 
+/* ── select season for Persephone's Borrowed Season power ────── */
+
+export async function selectSeason(
+  arenaId: string,
+  season: string, // 'summer' | 'autumn' | 'winter' | 'spring'
+): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn) return;
+
+  const { attackerId } = battle.turn;
+
+  // Update turn with selected season and delay before next phase
+  // After 3 seconds, move to select-target phase
+  const updates: Record<string, unknown> = {
+    'battle/turn/selectedSeason': season,
+    // Optionally: add a timestamp for server to handle delayed transition
+    // For now, the client will handle the 3-second delay
+  };
+
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── submit attack dice roll ─────────────────────────── */
 
 export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
