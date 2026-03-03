@@ -17,13 +17,14 @@ const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, battleEnded }: {
   fighter: FighterState;
   deityLabel: string;
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
   statMods?: Record<string, number>;
+  battleEnded?: boolean;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -42,7 +43,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }
 
     if (isCompact) {
       top = rect.top + rect.height / 2 - ph / 2;
-      left = rect.right + 5;
+      left = rect.right + 5 - (battleEnded ? 20 : 0);
       // If overflows right, flip to left of chip
       if (left + pw > window.innerWidth - pad) left = rect.left - pw - 5;
     } else {
@@ -233,8 +234,6 @@ interface Props {
   isShocked?: boolean;
   isPetalShielded?: boolean;
   isScentWaved?: boolean;
-  isAllyTargetable?: boolean;
-  isHealBoosted?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
@@ -243,7 +242,7 @@ interface Props {
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, isScentWaved, isAllyTargetable, isHealBoosted, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, isScentWaved, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -290,19 +289,19 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (!isThunderboltHit) prevIsThunderboltRef.current = false;
   }, [isThunderboltHit]);
 
-  /* ── Heal boost: floating "+2 HP" effect for ~3 seconds ── */
-  const [showHealBoost, setShowHealBoost] = useState(false);
-  const prevHealRef = useRef(false);
+  /* ── Scent wave + heal boost: brief 3s effect when Floral Scented applied ── */
+  const [showScentWave, setShowScentWave] = useState(false);
+  const prevScentRef = useRef(false);
 
   useEffect(() => {
-    if (isHealBoosted && !prevHealRef.current) {
-      setShowHealBoost(true);
-      const timer = setTimeout(() => setShowHealBoost(false), 3000);
-      prevHealRef.current = true;
+    if (isScentWaved && !prevScentRef.current) {
+      setShowScentWave(true);
+      const timer = setTimeout(() => setShowScentWave(false), 3000);
+      prevScentRef.current = true;
       return () => clearTimeout(timer);
     }
-    if (!isHealBoosted) prevHealRef.current = false;
-  }, [isHealBoosted]);
+    if (!isScentWaved) prevScentRef.current = false;
+  }, [isScentWaved]);
 
   /* ── Delayed eliminate: wait for damage effects to finish before showing ── */
   const [showEliminated, setShowEliminated] = useState(isEliminated);
@@ -342,8 +341,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
     !showEliminated && isShocked && 'mchip--shocked',
     isPetalShielded && 'mchip--petal-shielded',
-    isScentWaved && 'mchip--scent-waved',
-    isAllyTargetable && !isEliminated && 'mchip--ally-targetable',
+    showScentWave && 'mchip--scent-waved',
   ].filter(Boolean).join(' ');
 
   return (
@@ -351,14 +349,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       ref={chipRef}
       className={chipClass}
       style={{ '--chip-primary': fighter.theme[0], '--chip-accent': fighter.theme[1] } as React.CSSProperties}
-      onClick={(isTargetable || isAllyTargetable) && !isEliminated && onSelect ? onSelect : undefined}
-      role={(isTargetable || isAllyTargetable) && !isEliminated ? 'button' : undefined}
+      onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
+      role={isTargetable && !isEliminated ? 'button' : undefined}
     >
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
       {isPetalShielded && <div className="mchip__petal-fall" aria-hidden="true" />}
 
       {/* Scent Wave — falling flower/leaf particles for Floral Scented buff */}
-      {isScentWaved && <div className="mchip__scent-wave" aria-hidden="true" />}
+      {showScentWave && <div className="mchip__scent-wave" aria-hidden="true" />}
 
       {/* Falling white light motes — like sunlight through leaves */}
       {isPetalShielded && (
@@ -395,6 +393,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
 
         <div className="mchip__inner-border" />
+
+        {/* Heal boost floating text */}
+        {showScentWave && (
+          <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+        )}
 
         {/* Petal shield badge — Secret of Dryad status immunity */}
         {isPetalShielded && (
@@ -478,6 +481,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           onEnter={handleEnter}
           onLeave={handleLeave}
           statMods={statMods}
+          battleEnded={battleEnded}
         />,
         document.body,
       )}

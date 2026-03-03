@@ -782,7 +782,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       effect: 'heal',
       target: 'ally',
       value: 2,
-      duration: 2,
+      duration: 0,
       skipDice: true,
     },
     {

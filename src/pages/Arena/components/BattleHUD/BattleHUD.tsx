@@ -49,7 +49,6 @@ interface Props {
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
-  allySelectActive?: boolean;
 }
 
 /** Find a fighter across both teams */
@@ -60,7 +59,6 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
   onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
-  allySelectActive,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -77,7 +75,7 @@ export default function BattleHUD({
 
   // Reset submitted flags when phase changes
   if (turn?.phase === 'rolling-attack') defSubmitted.current = false;
-  if (turn?.phase === 'select-target') atkSubmitted.current = false;
+  if (turn?.phase === 'select-action') atkSubmitted.current = false;
 
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
@@ -206,17 +204,19 @@ export default function BattleHUD({
 
     if (effectiveCrit >= 100) {
       critRef.current = { effectiveCrit, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0 });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
       setCritEligible(true);
       setCritReady(true);
       return;
     }
 
-    const winFaces = getWinningFaces(effectiveCrit);
+    // Use attacker's stored winFaces (PvP watcher) or generate new ones
+    const winFaces = (!isMyTurn && turn.critWinFaces?.length) ? turn.critWinFaces : getWinningFaces(effectiveCrit);
 
     if (isMyTurn) {
-      // Player: manual D4 roll
+      // Player: manual D4 roll — write winFaces so PvP opponent sees the same faces
       critRef.current = { effectiveCrit, winFaces, isCrit: false, critRoll: 0 };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { critWinFaces: winFaces });
       setCritEligible(true);
     } else if (turn.critRoll != null && turn.critRoll > 0) {
       // PvP: opponent already rolled before we got here
@@ -226,9 +226,9 @@ export default function BattleHUD({
       setTimeout(() => setCritReady(true), 3500);
     } else {
       // NPC: compute crit now, show replay immediately (no waiting)
-      const crit = checkCritical(effectiveCrit);
+      const crit = checkCritical(effectiveCrit, winFaces);
       critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
       setCritRollResult(crit.critRoll);
       setCritEligible(true);
       setTimeout(() => setCritReady(true), 3500);
@@ -340,9 +340,20 @@ export default function BattleHUD({
     return () => clearTimeout(timer);
   }, [turn?.phase, resolveReady, critReady, chainReady, onResolve]);
 
+  /* ── Floral Scented: delay target selection so scent wave visual plays ── */
+  const [floralDelay, setFloralDelay] = useState(false);
+  useEffect(() => {
+    if (turn?.phase === 'select-target' && turn.usedPowerName === 'Floral Scented' && turn.allyTargetId) {
+      setFloralDelay(true);
+      const t = setTimeout(() => setFloralDelay(false), 3000);
+      return () => clearTimeout(t);
+    }
+    setFloralDelay(false);
+  }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
+
   /* ── Fade transitions for resolve & waiting panels ── */
   const resolveVisible = turn?.phase === 'resolving' && resolveReady && critReady && chainReady && !!attacker && !!defender;
-  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target');
+  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target' && !floralDelay);
 
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
@@ -477,7 +488,7 @@ export default function BattleHUD({
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
               <span className="bhud__phase-label">
-                {turn.phase === 'select-target' && 'is attacking'}
+                {turn.phase === 'select-target' && 'selecting target...'}
                 {turn.phase === 'select-action' && 'choosing action...'}
                 {turn.phase === 'rolling-attack' && 'rolling...'}
                 {turn.phase === 'rolling-defend' && `→ ${defender?.nicknameEng ?? '...'} defending...`}
@@ -491,7 +502,7 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection */}
-      {isMyTurn && turn.phase === 'select-target' && (
+      {isMyTurn && turn.phase === 'select-target' && !floralDelay && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <TargetSelectModal
             attackerName={attacker?.nicknameEng ?? ''}
@@ -503,8 +514,8 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Action selection (attack or power) — hidden during ally selection */}
-      {turn.phase === 'select-action' && attacker && !allySelectActive && (
+      {/* Action selection (attack or power) */}
+      {turn.phase === 'select-action' && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -515,19 +526,9 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
+            teammates={turn.attackerTeam === 'teamA' ? teamA : teamB}
             onSelectAction={onSelectAction}
           />
-        </div>
-      )}
-
-      {/* Ally selection prompt — shown when picking a teammate for a power */}
-      {turn.phase === 'select-action' && allySelectActive && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__ally-prompt">
-            <span className="bhud__ally-prompt-icon">✿</span>
-            <span className="bhud__ally-prompt-label">Select a Teammate</span>
-            <span className="bhud__ally-prompt-sub">เลือกเพื่อนร่วมทีมเพื่อชโลมกลิ่นดอกไม้</span>
-          </div>
         </div>
       )}
 

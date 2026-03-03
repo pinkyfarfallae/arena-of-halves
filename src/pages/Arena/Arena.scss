@@ -611,6 +611,10 @@ $ink-faint: #9a8b76;
   .arena__field {
     flex-direction: column;
     max-height: calc(100vh - (2 * $topbar-height) - 51.3px);
+
+    &--finished {
+      max-height: calc(100vh - (2 * $topbar-height));
+    }
   }
 
   .arena__divider {
