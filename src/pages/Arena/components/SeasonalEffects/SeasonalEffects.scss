@@ -6,9 +6,25 @@
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 10;
+  z-index: 0;
   opacity: 0;
   animation: seasonal-fade-in 0.6s ease-out forwards;
+
+  /* Soft fade at edges only */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
 
   /* Different positions for left/right side */
   &--left {
@@ -71,52 +87,340 @@
 }
 
 /* ──────────────────────────────── */
-/* Summer: Golden sun and heat waves */
+/* Summer: Sun rays, light beam, heat distortion, embers */
 /* ──────────────────────────────── */
 
 .seasonal-effects--summer {
+  /* ── Warm sunlight wash over the whole area ── */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 180, 0.25) 0%,
+    rgba(255, 245, 198, 0.12) 30%,
+    rgba(255, 200, 80, 0.06) 60%,
+    rgba(255, 160, 50, 0.1) 100%
+  );
+
   .seasonal-effects__glow {
-    background: radial-gradient(
-      ellipse at center,
-      rgba(253, 216, 53, 0.15),
-      transparent 70%
-    );
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 50% 0%,
+        rgba(253, 216, 53, 0.4),
+        rgba(249, 168, 37, 0.15) 50%,
+        transparent 85%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 50% 100%,
+        rgba(255, 152, 0, 0.15),
+        transparent 70%
+      );
+    opacity: 0.5;
   }
 
-  .seasonal-effects__accent-top,
-  .seasonal-effects__accent-bottom {
+  .seasonal-effects__accent-top {
+    height: 3px;
     background: linear-gradient(
       to right,
       rgba(253, 216, 53, 0),
-      rgba(253, 216, 53, 0.8),
+      rgba(253, 216, 53, 1),
       rgba(253, 216, 53, 0)
     );
+    box-shadow:
+      0 0 12px rgba(253, 216, 53, 0.6),
+      0 2px 20px rgba(253, 216, 53, 0.3);
   }
 
+  .seasonal-effects__accent-bottom {
+    height: 3px;
+    background: linear-gradient(
+      to right,
+      rgba(255, 152, 0, 0),
+      rgba(255, 152, 0, 0.7),
+      rgba(255, 152, 0, 0)
+    );
+    box-shadow:
+      0 0 10px rgba(255, 152, 0, 0.4),
+      0 -2px 16px rgba(255, 152, 0, 0.2);
+  }
+
+  /* ── Sun rays falling from full top width ── */
   .seasonal-effects__particle {
-    width: 2px;
-    height: 20px;
-    background: linear-gradient(to bottom, rgba(253, 216, 53, 0.8), transparent);
-    left: calc(#{random(100)} * 1%);
-    top: -20px;
-    animation: summer-heat-wave linear var(--duration) infinite;
+    width: 3px;
+    height: 60px;
+    background: linear-gradient(to bottom, rgba(255, 233, 138, 1), rgb(255, 215, 215), transparent);
+    left: var(--x, 50%);
+    top: -60px;
+    animation: summer-ray-fall linear var(--duration) infinite;
     animation-delay: var(--delay);
+    box-shadow: 0 0 8px rgba(253, 216, 53, 0.5);
+  }
+
+  /* ── Sun corona — pulsing half-circle glow at the top ── */
+  .seasonal-effects__corona {
+    position: absolute;
+    top: -40%;
+    left: 10%;
+    right: 10%;
+    height: 90%;
+    border-radius: 50%;
+    background: radial-gradient(
+      ellipse at 50% 80%,
+      rgba(253, 216, 53, 0.2),
+      rgba(255, 200, 80, 0.015) 40%,
+      transparent 60%
+    );
+    animation: summer-corona-pulse 10s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* ── Diagonal light shafts (god rays) ── */
+  .seasonal-effects__shafts {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .seasonal-effects__shaft {
+    position: absolute;
+    top: -20%;
+    height: 140%;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 248, 200, 0.18),
+      rgba(253, 216, 53, 0.06) 50%,
+      transparent 90%
+    );
+    transform-origin: top center;
+    opacity: 0;
+    animation: summer-shaft-fade 8s ease-in-out infinite;
+
+    &--1 {
+      left: 10%;
+      width: 18%;
+      transform: skewX(-12deg);
+      animation-delay: 0s;
+    }
+
+    &--2 {
+      left: 42%;
+      width: 22%;
+      transform: skewX(4deg);
+      animation-delay: 2.5s;
+    }
+
+    &--3 {
+      left: 70%;
+      width: 16%;
+      transform: skewX(14deg);
+      animation-delay: 5s;
+    }
+  }
+
+  /* ── Floating dust motes — lazy golden particles ── */
+  .seasonal-effects__motes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .seasonal-effects__mote {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 230, 140, 0.9);
+    box-shadow: 0 0 6px rgba(253, 216, 53, 0.6);
+    left: var(--mote-x);
+    top: var(--mote-y);
+    opacity: 0;
+    animation: summer-mote-drift var(--mote-duration) ease-in-out infinite;
+    animation-delay: var(--mote-delay);
+  }
+
+  /* ── Sweeping light beam ── */
+  .seasonal-effects__beam {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: -30%;
+      width: 45%;
+      height: 160%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.25) 20%,
+        rgba(255, 248, 222, 0.4) 50%,
+        rgba(255, 255, 255, 0.25) 80%,
+        transparent 100%
+      );
+      transform: skewX(-15deg);
+      animation: summer-beam-sweep 10s ease-in-out infinite;
+    }
+  }
+
+  /* ── Heat distortion at the ground ── */
+  .seasonal-effects__heat {
+    position: absolute;
+    left: -5%;
+    right: -5%;
+    bottom: 0;
+    height: 25%;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgba(255, 160, 50, 0.12),
+      rgba(249, 168, 37, 0.06) 60%,
+      transparent
+    );
+    animation: summer-heat-shimmer 2.5s ease-in-out infinite;
+    filter: blur(2px);
+  }
+
+  /* ── Rising embers / sparks ── */
+  .seasonal-effects__embers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .seasonal-effects__ember {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 230, 120, 1), rgba(255, 255, 255, 0.8));
+    box-shadow:
+      0 0 4px rgba(255, 180, 50, 0.8),
+      0 0 10px rgba(253, 216, 53, 0.4);
+    left: var(--ember-x);
+    bottom: 2%;
+    opacity: 0;
+    animation: summer-ember-rise var(--ember-duration) ease-out infinite;
+    animation-delay: var(--ember-delay);
   }
 }
 
-@keyframes summer-heat-wave {
+/* Sun rays — fall from top across full width */
+@keyframes summer-ray-fall {
   0% {
-    transform: translateY(0) scaleX(1);
+    transform: translateY(0);
     opacity: 0;
   }
-  10% {
-    opacity: 0.6;
+  6% {
+    opacity: 0.8;
   }
-  90% {
-    opacity: 0.2;
+  70% {
+    opacity: 0.3;
   }
   100% {
-    transform: translateY(calc(100vh + 20px)) scaleX(0.8);
+    transform: translateY(calc(100vh + 40px));
+    opacity: 0;
+  }
+}
+
+/* Light beam — very slow sweep left to right */
+@keyframes summer-beam-sweep {
+  0% {
+    left: -55%;
+  }
+  100% {
+    left: 110%;
+  }
+}
+
+/* Heat distortion — shimmer at the ground */
+@keyframes summer-heat-shimmer {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1);
+    opacity: 0.7;
+  }
+  20% {
+    transform: scaleY(1.1) scaleX(1.02);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(0.92) scaleX(0.98);
+    opacity: 0.6;
+  }
+  80% {
+    transform: scaleY(1.08) scaleX(1.03);
+    opacity: 0.9;
+  }
+}
+
+/* Sun corona — gentle pulse */
+@keyframes summer-corona-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Light shafts — fade in and out */
+@keyframes summer-shaft-fade {
+  0%, 100% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  80% {
+    opacity: 0.7;
+  }
+}
+
+/* Dust motes — gentle float and twinkle */
+@keyframes summer-mote-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  15% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+    transform: translate(8px, -12px) scale(1);
+  }
+  85% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-5px, 8px) scale(0.5);
+  }
+}
+
+/* Embers / sparks — float upward with drift */
+@keyframes summer-ember-rise {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.85;
+    transform: translateY(-20vh) translateX(#{random(20) - 10}px) scale(0.9);
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-50vh) translateX(#{random(40) - 20}px) scale(0.3);
     opacity: 0;
   }
 }
@@ -126,51 +430,218 @@
 /* ──────────────────────────────── */
 
 .seasonal-effects--autumn {
+  /* ── Warm amber background wash ── */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 190, 100, 0.3) 0%,
+    rgba(220, 150, 60, 0.18) 35%,
+    rgba(190, 110, 40, 0.12) 65%,
+    rgba(170, 85, 30, 0.22) 100%
+  );
+
   .seasonal-effects__glow {
-    background: radial-gradient(
-      ellipse at center,
-      rgba(255, 152, 0, 0.12),
-      transparent 70%
-    );
+    background:
+      radial-gradient(
+        ellipse 80% 55% at 50% 0%,
+        rgba(255, 180, 80, 0.35),
+        transparent 75%
+      ),
+      radial-gradient(
+        ellipse 65% 45% at 50% 100%,
+        rgba(200, 100, 30, 0.25),
+        transparent 65%
+      );
+    opacity: 0.6;
   }
 
-  .seasonal-effects__accent-top,
-  .seasonal-effects__accent-bottom {
+  .seasonal-effects__accent-top {
+    height: 3px;
     background: linear-gradient(
       to right,
       rgba(255, 152, 0, 0),
-      rgba(255, 152, 0, 0.7),
+      rgba(255, 152, 0, 1),
       rgba(255, 152, 0, 0)
     );
+    box-shadow:
+      0 0 14px rgba(255, 152, 0, 0.6),
+      0 2px 20px rgba(255, 152, 0, 0.3);
   }
 
-  .seasonal-effects__particle {
-    width: 8px;
-    height: 8px;
-    background: rgba(255, 152, 0, 0.7);
-    border-radius: 50%;
-    left: calc(#{random(100)} * 1%);
-    top: -8px;
-    animation: autumn-leaf-fall cubic-bezier(0.25, 0.46, 0.45, 0.94) var(--duration) infinite;
-    animation-delay: var(--delay);
-    box-shadow: inset -1px -1px 3px rgba(230, 126, 34, 0.4);
+  .seasonal-effects__accent-bottom {
+    height: 3px;
+    background: linear-gradient(
+      to right,
+      rgba(180, 90, 20, 0),
+      rgba(180, 90, 20, 0.8),
+      rgba(180, 90, 20, 0)
+    );
+    box-shadow:
+      0 0 12px rgba(180, 90, 20, 0.5),
+      0 -2px 16px rgba(180, 90, 20, 0.25);
   }
+
+  /* Hide generic particles — autumn uses SVG leaves instead */
+  .seasonal-effects__particle {
+    display: none;
+  }
+}
+
+/* ── Maple leaf SVG container ── */
+.seasonal-effects__leaves {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__leaf {
+  position: absolute;
+  width: var(--leaf-size, 16px);
+  height: var(--leaf-size, 16px);
+  left: var(--leaf-x, 50%);
+  top: calc(var(--leaf-size, 16px) * -1);
+  opacity: 0;
+  filter: drop-shadow(0 2px 4px rgba(120, 60, 0, 0.35));
+  animation: autumn-leaf-fall cubic-bezier(0.33, 0.4, 0.5, 0.9) var(--leaf-duration) infinite;
+  animation-delay: var(--leaf-delay);
 }
 
 @keyframes autumn-leaf-fall {
   0% {
-    transform: translateY(0) rotateZ(0deg);
+    transform: translateY(0) rotateZ(0deg) translateX(0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.95;
+  }
+  25% {
+    transform: translateY(25vh) rotateZ(120deg) translateX(18px);
+  }
+  50% {
+    transform: translateY(50vh) rotateZ(200deg) translateX(-12px);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translateY(75vh) rotateZ(310deg) translateX(22px);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(calc(100vh + 20px)) rotateZ(420deg) translateX(8px);
+    opacity: 0;
+  }
+}
+
+/* ── Wind gust — sweeping diagonal streak ── */
+.seasonal-effects__wind {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    width: 120%;
+    height: 30%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 200, 120, 0.12) 20%,
+      rgba(255, 180, 80, 0.2) 50%,
+      rgba(255, 200, 120, 0.12) 80%,
+      transparent 100%
+    );
+    transform: skewY(-5deg);
+    animation: autumn-wind-gust 12s ease-in-out infinite;
+  }
+}
+
+@keyframes autumn-wind-gust {
+  0% {
+    left: -130%;
     opacity: 0;
   }
   10% {
-    opacity: 0.8;
+    opacity: 1;
   }
   90% {
-    opacity: 0.4;
+    opacity: 1;
   }
   100% {
-    transform: translateY(calc(100vh + 8px)) rotateZ(720deg) translateX(50px);
+    left: 110%;
     opacity: 0;
+  }
+}
+
+/* ── Ground leaf pile — warm pile at the bottom ── */
+.seasonal-effects__leaf-pile {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: 0;
+  height: 18%;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(180, 100, 30, 0.3),
+    rgba(210, 140, 60, 0.12) 50%,
+    transparent
+  );
+  animation: autumn-pile-sway 5s ease-in-out infinite;
+}
+
+@keyframes autumn-pile-sway {
+  0%, 100% {
+    transform: scaleX(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scaleX(1.03);
+    opacity: 1;
+  }
+}
+
+/* ── Floating warm spores / dust ── */
+.seasonal-effects__spores {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__spore {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 200, 110, 1);
+  box-shadow:
+    0 0 6px rgba(255, 152, 0, 0.7),
+    0 0 12px rgba(255, 180, 80, 0.3);
+  left: var(--spore-x);
+  top: var(--spore-y);
+  opacity: 0;
+  animation: autumn-spore-drift var(--spore-duration) ease-in-out infinite;
+  animation-delay: var(--spore-delay);
+}
+
+@keyframes autumn-spore-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  15% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(12px, -10px) scale(1);
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-8px, 6px) scale(0.4);
   }
 }
 
@@ -179,116 +650,611 @@
 /* ──────────────────────────────── */
 
 .seasonal-effects--winter {
+  /* ── Cool icy background wash ── */
+  background: linear-gradient(
+    180deg,
+    rgba(180, 220, 255, 0.2) 0%,
+    rgba(140, 200, 250, 0.08) 40%,
+    rgba(200, 230, 255, 0.06) 70%,
+    rgba(220, 240, 255, 0.15) 100%
+  );
+
   .seasonal-effects__glow {
-    background: radial-gradient(
-      ellipse at center,
-      rgba(100, 181, 246, 0.1),
-      transparent 70%
-    );
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 50% 0%,
+        rgba(160, 210, 255, 0.25),
+        transparent 75%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 50% 100%,
+        rgba(200, 230, 255, 0.2),
+        transparent 65%
+      );
+    opacity: 0.5;
   }
 
-  .seasonal-effects__accent-top,
-  .seasonal-effects__accent-bottom {
+  .seasonal-effects__accent-top {
+    height: 3px;
     background: linear-gradient(
       to right,
-      rgba(100, 181, 246, 0),
-      rgba(100, 181, 246, 0.6),
-      rgba(100, 181, 246, 0)
+      rgba(180, 220, 255, 0),
+      rgba(220, 240, 255, 1),
+      rgba(180, 220, 255, 0)
     );
+    box-shadow:
+      0 0 12px rgba(160, 210, 255, 0.5),
+      0 2px 18px rgba(100, 181, 246, 0.3);
   }
 
-  .seasonal-effects__particle {
-    width: 6px;
-    height: 6px;
-    background: rgba(100, 181, 246, 0.9);
-    border-radius: 50%;
-    left: calc(#{random(100)} * 1%);
-    top: -6px;
+  .seasonal-effects__accent-bottom {
+    height: 3px;
+    background: linear-gradient(
+      to right,
+      rgba(200, 230, 255, 0),
+      rgba(200, 230, 255, 0.7),
+      rgba(200, 230, 255, 0)
+    );
     box-shadow:
-      0 0 4px rgba(100, 181, 246, 0.6),
-      0 0 8px rgba(25, 118, 210, 0.3);
-    animation: winter-snowflake-fall ease-in var(--duration) infinite;
+      0 0 10px rgba(200, 230, 255, 0.4),
+      0 -2px 14px rgba(160, 210, 255, 0.2);
+  }
+
+  /* ── Snowflakes — bigger, whiter, slower ── */
+  .seasonal-effects__particle {
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 1), rgba(220, 240, 255, 0.7));
+    border-radius: 50%;
+    left: var(--x, 50%);
+    top: -10px;
+    box-shadow:
+      0 0 6px rgba(255, 255, 255, 0.8),
+      0 0 14px rgba(180, 220, 255, 0.4);
+    animation: winter-snowflake-fall ease-in calc(var(--duration) * 2) infinite;
     animation-delay: var(--delay);
+
+    &:nth-child(odd) {
+      width: 7px;
+      height: 7px;
+    }
+
+    &:nth-child(3n) {
+      width: 12px;
+      height: 12px;
+      box-shadow:
+        0 0 8px rgba(255, 255, 255, 0.9),
+        0 0 20px rgba(180, 220, 255, 0.5);
+    }
   }
 }
 
 @keyframes winter-snowflake-fall {
   0% {
-    transform: translateY(0) rotateZ(0deg);
+    transform: translateY(0) rotateZ(0deg) translateX(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.95;
+  }
+  30% {
+    transform: translateY(30vh) rotateZ(90deg) translateX(15px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(50vh) rotateZ(180deg) translateX(-10px);
+  }
+  70% {
+    transform: translateY(70vh) rotateZ(270deg) translateX(20px);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(calc(100vh + 12px)) rotateZ(360deg) translateX(5px);
+    opacity: 0;
+  }
+}
+
+/* ── Aurora bands — color-shifting curtains ── */
+.seasonal-effects__aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.seasonal-effects__aurora-band {
+  position: absolute;
+  top: -10%;
+  height: 55%;
+  border-radius: 0 0 50% 50%;
+  filter: blur(20px);
+  opacity: 0;
+  mix-blend-mode: screen;
+
+  &--1 {
+    left: 5%;
+    width: 45%;
+    background: linear-gradient(
+      180deg,
+      rgba(100, 220, 180, 0.25),
+      rgba(80, 180, 255, 0.15) 50%,
+      transparent
+    );
+    animation: winter-aurora-wave 10s ease-in-out infinite;
+  }
+
+  &--2 {
+    left: 30%;
+    width: 50%;
+    background: linear-gradient(
+      180deg,
+      rgba(120, 180, 255, 0.2),
+      rgba(180, 120, 255, 0.12) 50%,
+      transparent
+    );
+    animation: winter-aurora-wave 13s ease-in-out infinite;
+    animation-delay: 3s;
+  }
+
+  &--3 {
+    left: 55%;
+    width: 40%;
+    background: linear-gradient(
+      180deg,
+      rgba(100, 255, 200, 0.18),
+      rgba(100, 200, 255, 0.1) 50%,
+      transparent
+    );
+    animation: winter-aurora-wave 11s ease-in-out infinite;
+    animation-delay: 6s;
+  }
+}
+
+@keyframes winter-aurora-wave {
+  0%, 100% {
+    opacity: 0;
+    transform: scaleX(1) translateX(0);
+  }
+  20% {
+    opacity: 0.7;
+    transform: scaleX(1.1) translateX(-5%);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scaleX(0.9) translateX(8%);
+  }
+  80% {
+    opacity: 0.8;
+    transform: scaleX(1.05) translateX(-3%);
+  }
+}
+
+/* ── Frost mist at the ground ── */
+.seasonal-effects__frost {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: 0;
+  height: 22%;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(220, 240, 255, 0.25),
+    rgba(200, 230, 255, 0.1) 50%,
+    transparent
+  );
+  filter: blur(3px);
+  animation: winter-frost-breathe 4s ease-in-out infinite;
+}
+
+@keyframes winter-frost-breathe {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.08);
+  }
+}
+
+/* ── Rising white sparkles ── */
+.seasonal-effects__sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 1);
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 0 14px rgba(180, 220, 255, 0.5);
+  left: var(--sparkle-x);
+  bottom: 5%;
+  opacity: 0;
+  animation: winter-sparkle-rise var(--sparkle-duration) ease-out infinite;
+  animation-delay: var(--sparkle-delay);
+}
+
+@keyframes winter-sparkle-rise {
+  0% {
+    transform: translateY(0) scale(1);
     opacity: 0;
   }
   10% {
-    opacity: 0.9;
+    opacity: 1;
   }
-  50% {
-    opacity: 0.7;
+  40% {
+    opacity: 0.8;
+    transform: translateY(-18vh) translateX(8px) scale(0.8);
   }
-  90% {
-    opacity: 0.3;
+  70% {
+    opacity: 0.4;
   }
   100% {
-    transform: translateY(calc(100vh + 6px)) rotateZ(360deg) translateX(30px);
+    transform: translateY(-40vh) translateX(-5px) scale(0.2);
     opacity: 0;
   }
 }
 
 /* ──────────────────────────────── */
-/* Spring: Blooming petals */
+/* Spring: Cherry blossoms, petals, sparkles */
 /* ──────────────────────────────── */
 
 .seasonal-effects--spring {
+  /* ── Soft pink-green background wash ── */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 220, 230, 0.22) 0%,
+    rgba(255, 200, 210, 0.1) 30%,
+    rgba(200, 235, 200, 0.08) 60%,
+    rgba(180, 230, 180, 0.15) 100%
+  );
+
   .seasonal-effects__glow {
-    background: radial-gradient(
-      ellipse at center,
-      rgba(129, 199, 132, 0.12),
-      transparent 70%
-    );
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 50% 0%,
+        rgba(255, 182, 193, 0.3),
+        rgba(255, 200, 210, 0.12) 50%,
+        transparent 80%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 50% 100%,
+        rgba(144, 238, 144, 0.2),
+        transparent 65%
+      );
+    opacity: 0.5;
   }
 
-  .seasonal-effects__accent-top,
-  .seasonal-effects__accent-bottom {
+  .seasonal-effects__accent-top {
+    height: 3px;
     background: linear-gradient(
       to right,
-      rgba(129, 199, 132, 0),
-      rgba(129, 199, 132, 0.7),
-      rgba(129, 199, 132, 0)
+      rgba(255, 182, 193, 0),
+      rgba(255, 182, 193, 1),
+      rgba(255, 182, 193, 0)
     );
+    box-shadow:
+      0 0 12px rgba(255, 182, 193, 0.5),
+      0 2px 18px rgba(255, 150, 170, 0.3);
   }
 
+  .seasonal-effects__accent-bottom {
+    height: 3px;
+    background: linear-gradient(
+      to right,
+      rgba(144, 238, 144, 0),
+      rgba(144, 238, 144, 0.7),
+      rgba(144, 238, 144, 0)
+    );
+    box-shadow:
+      0 0 10px rgba(144, 238, 144, 0.4),
+      0 -2px 14px rgba(129, 199, 132, 0.2);
+  }
+
+  /* ── Lighter leaf particles — soft mint green with border ── */
   .seasonal-effects__particle {
     width: 10px;
     height: 10px;
     background: radial-gradient(
       circle at 30% 30%,
-      rgba(129, 199, 132, 0.9),
-      rgba(56, 142, 60, 0.6)
+      rgba(180, 235, 180, 0.9),
+      rgba(144, 238, 144, 0.6)
     );
+    border: 1px solid rgba(80, 160, 80, 0.4);
     border-radius: 50% 0;
-    left: calc(#{random(100)} * 1%);
+    left: var(--x, 50%);
     top: -10px;
-    animation: spring-petal-float cubic-bezier(0.25, 0.46, 0.45, 0.94) var(--duration) infinite;
+    animation:
+      spring-leaf-fall linear calc(var(--duration) * 3) infinite,
+      spring-leaf-sway 3.5s ease-in-out infinite;
     animation-delay: var(--delay);
-    box-shadow: 0 2px 8px rgba(56, 142, 60, 0.3);
+    will-change: translate, rotate, transform;
+    box-shadow:
+      0 2px 8px rgba(80, 160, 80, 0.4),
+      0 1px 3px rgba(60, 130, 60, 0.3);
   }
 }
 
-@keyframes spring-petal-float {
+/* Leaf vertical fall + rotation (via individual transform props) */
+@keyframes spring-leaf-fall {
   0% {
-    transform: translateY(0) rotateZ(0deg) rotateX(0deg);
+    translate: 0 0;
+    rotate: 0deg;
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.25;
+  }
+  100% {
+    translate: 0 calc(100vh + 10px);
+    rotate: 180deg;
+    opacity: 0;
+  }
+}
+
+/* Leaf horizontal sway (via transform — stacks with translate/rotate) */
+@keyframes spring-leaf-sway {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(14px);
+  }
+}
+
+/* ── Falling cherry blossom petals ── */
+.seasonal-effects__petals {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__petal {
+  position: absolute;
+  width: var(--petal-size, 12px);
+  height: var(--petal-size, 12px);
+  left: var(--petal-x, 50%);
+  top: calc(var(--petal-size, 12px) * -1);
+  background: var(--petal-color, rgba(255, 183, 197, 0.9));
+  border-radius: 50% 0 50% 50%;
+  opacity: 0;
+  filter: drop-shadow(0 2px 5px rgba(200, 100, 130, 0.4));
+  animation:
+    spring-cherry-fall calc(var(--petal-duration) * 2) linear infinite,
+    spring-cherry-sway 4s ease-in-out infinite;
+  animation-delay: var(--petal-delay);
+  will-change: translate, rotate, transform;
+}
+
+/* Petal vertical fall + rotation */
+@keyframes spring-cherry-fall {
+  0% {
+    translate: 0 0;
+    rotate: 0deg;
+    opacity: 0;
+  }
+  4% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.35;
+  }
+  100% {
+    translate: 0 calc(100vh + 15px);
+    rotate: 200deg;
+    opacity: 0;
+  }
+}
+
+/* Petal horizontal sway */
+@keyframes spring-cherry-sway {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(18px);
+  }
+}
+
+/* ── Flower bloom — pulsing pink radial glow ── */
+.seasonal-effects__bloom {
+  position: absolute;
+  top: -30%;
+  left: 10%;
+  right: 10%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 70%,
+    rgba(255, 182, 193, 0.18),
+    rgba(255, 200, 220, 0.08) 40%,
+    transparent 60%
+  );
+  animation: spring-bloom-pulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes spring-bloom-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* ── Ground flower carpet ── */
+.seasonal-effects__carpet {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: 0;
+  height: 15%;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(255, 182, 193, 0.22),
+    rgba(200, 235, 200, 0.08) 50%,
+    transparent
+  );
+  animation: spring-carpet-breathe 5s ease-in-out infinite;
+}
+
+@keyframes spring-carpet-breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.05);
+  }
+}
+
+/* ── Rising pink & white sparkles ── */
+.seasonal-effects__spring-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__spring-sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ss-color, rgba(255, 255, 255, 1));
+  box-shadow:
+    0 0 6px var(--ss-color, rgba(255, 255, 255, 0.9)),
+    0 0 14px rgba(255, 182, 193, 0.4);
+  left: var(--ss-x);
+  bottom: 5%;
+  opacity: 0;
+  animation: spring-sparkle-rise var(--ss-duration) ease-out infinite;
+  animation-delay: var(--ss-delay);
+}
+
+@keyframes spring-sparkle-rise {
+  0% {
+    transform: translateY(0) scale(1);
     opacity: 0;
   }
   10% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.8;
+    transform: translateY(-20vh) translateX(10px) scale(0.8);
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-45vh) translateX(-6px) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ── Yellow sparkles falling from top ── */
+.seasonal-effects__sun-drops {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__sun-drop {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sd-color, rgba(255, 235, 100, 1));
+  box-shadow:
+    0 0 6px var(--sd-color, rgba(255, 235, 100, 0.9)),
+    0 0 14px rgba(255, 220, 80, 0.4);
+  left: var(--sd-x);
+  top: 5%;
+  opacity: 0;
+  animation: spring-sun-drop-fall var(--sd-duration) ease-in infinite;
+  animation-delay: var(--sd-delay);
+  will-change: transform, opacity;
+}
+
+@keyframes spring-sun-drop-fall {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    transform: translateY(4vh) translateX(3px) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(18vh) translateX(-8px) scale(0.8);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateY(32vh) translateX(6px) scale(0.5);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(45vh) translateX(-4px) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ── Floating pollen ── */
+.seasonal-effects__pollen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seasonal-effects__pollen-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(220, 200, 80, 0.95);
+  box-shadow:
+    0 0 5px rgba(255, 245, 186, 0.856),
+    0 0 12px rgba(240, 255, 164, 0.756);
+  left: var(--pollen-x);
+  top: var(--pollen-y);
+  opacity: 0;
+  animation: spring-pollen-drift var(--pollen-duration) ease-in-out infinite;
+  animation-delay: var(--pollen-delay);
+}
+
+@keyframes spring-pollen-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  15% {
     opacity: 0.85;
   }
   50% {
+    opacity: 1;
+    transform: translate(10px, -8px) scale(1);
+  }
+  85% {
     opacity: 0.7;
   }
-  90% {
-    opacity: 0.2;
-  }
   100% {
-    transform: translateY(calc(100vh + 10px)) rotateZ(1080deg) rotateX(180deg) translateX(-40px);
     opacity: 0;
+    transform: translate(-6px, 5px) scale(0.5);
   }
 }
 

@@ -48,6 +48,7 @@ interface Props {
   onSelectTarget: (defenderId: string) => void;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
   onSelectSeason: (season: SeasonKey) => void;
+  onPreviewSeason?: (season: SeasonKey | null) => void;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
@@ -61,7 +62,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
-  onSelectTarget, onSelectAction, onSelectSeason, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -547,6 +548,7 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             onSelectSeason={onSelectSeason}
+            onPreviewSeason={onPreviewSeason}
           />
         </div>
       )}

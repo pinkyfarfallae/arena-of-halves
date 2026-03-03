@@ -386,6 +386,10 @@ function Arena() {
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
   };
 
+  const handlePreviewSeason = (season: SeasonKey | null) => {
+    setActiveSeason(season);
+  };
+
   const handleSelectSeason = async (season: SeasonKey) => {
     if (arenaId) await selectSeason(arenaId, season);
     // After 3 seconds, automatically advance to select-target phase
@@ -553,6 +557,7 @@ function Arena() {
             onSelectTarget={handleSelectTarget}
             onSelectAction={handleSelectAction}
             onSelectSeason={handleSelectSeason}
+            onPreviewSeason={handlePreviewSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
