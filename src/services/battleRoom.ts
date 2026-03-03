@@ -13,6 +13,7 @@ import {
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
   applySecretOfDryadPassive, applyFloralScented,
 } from './powerEngine';
+import { getPowers } from '../data/powers';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -573,6 +574,22 @@ export async function selectAction(
   const updates: Record<string, unknown> = {};
   if (atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
 
+  // ── Season selection power (e.g. Persephone's Borrowed Season): go to season selection ──
+  // Also check canonical definition so rooms created before the flag was added still work
+  const canonicalPower = getPowers(attacker.deityBlood)?.find(p => p.name === power.name);
+  if (power.requiresSeasonSelection || canonicalPower?.requiresSeasonSelection) {
+    updates['battle/turn'] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      phase: 'select-season',
+      action: 'power',
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
   // ── Ally-targeting power (e.g. Floral Scented): apply buff, then follow-up normal attack ──
   if (power.target === 'ally' && allyTargetId) {
     const floralUpdates = applyFloralScented(room, attackerId, allyTargetId, battle, power);
@@ -653,12 +670,10 @@ export async function selectSeason(
 
   const { attackerId } = battle.turn;
 
-  // Update turn with selected season and delay before next phase
-  // After 3 seconds, move to select-target phase
+  // Update turn with selected season
   const updates: Record<string, unknown> = {
     'battle/turn/selectedSeason': season,
-    // Optionally: add a timestamp for server to handle delayed transition
-    // For now, the client will handle the 3-second delay
+    // Will transition to select-target on client after 3-second delay for visual effects
   };
 
   await update(roomRef(arenaId), updates);

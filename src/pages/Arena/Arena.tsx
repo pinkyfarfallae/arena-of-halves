@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { ref, update } from 'firebase/database';
+import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
@@ -282,6 +284,14 @@ function Arena() {
       return;
     }
 
+    // NPC needs to select season (Borrowed Season)
+    if (turn.phase === 'select-season' && teamBIds.has(turn.attackerId)) {
+      const seasons: SeasonKey[] = ['summer', 'autumn', 'winter', 'spring'];
+      const pick = seasons[Math.floor(Math.random() * seasons.length)];
+      schedule(() => handleSelectSeason(pick), 1500);
+      return;
+    }
+
     // NPC needs to roll attack dice (D12)
     if (turn.phase === 'rolling-attack' && teamBIds.has(turn.attackerId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
@@ -378,10 +388,17 @@ function Arena() {
 
   const handleSelectSeason = async (season: SeasonKey) => {
     if (arenaId) await selectSeason(arenaId, season);
-    // After selecting season, wait 3 seconds then move to select-target phase
+    // After 3 seconds, automatically advance to select-target phase
+    // The visual effects will display during this 3-second window
     if (arenaId) {
-      setTimeout(() => {
-        selectTarget(arenaId, ''); // Trigger phase advance (actual defender selected next)
+      setTimeout(async () => {
+        // Update turn phase from 'select-season' to 'select-target' 
+        // without needing to select a specific target yet
+        const turn = room?.battle?.turn;
+        if (turn) {
+          const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
+          await update(turnRef, { phase: 'select-target' });
+        }
       }, 3000);
     }
   };

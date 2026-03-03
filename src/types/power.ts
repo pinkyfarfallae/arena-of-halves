@@ -50,6 +50,9 @@ export interface PowerDefinition {
 
   /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
   skipDice?: boolean;
+
+  /** If true, power requires season selection before targeting (e.g. Persephone's Borrowed Season) */
+  requiresSeasonSelection?: boolean;
 }
 
 /** An active effect applied to a fighter during battle */
