@@ -78,7 +78,7 @@ export default function SeasonSelectModal({
                   <IconComponent />
                 </Suspense>
               </span>
-              <span className="bhud__season-label">{season.labelTh}</span>
+              <span className="bhud__season-label">{season.labelEn}</span>
             </button>
           );
         })}

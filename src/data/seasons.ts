@@ -29,8 +29,8 @@ export const SEASONS: Record<SeasonKey, SeasonConfig> = {
     labelTh: 'ฤดูร้อน',
     labelEn: 'Summer',
     icon: SunIcon,
-    color: '#FDD835', // Bright yellow
-    colorDark: '#F9A825',
+    color: '#ebc000ff', // Bright yellow
+    colorDark: '#e99610ff',
   },
   autumn: {
     key: 'autumn',

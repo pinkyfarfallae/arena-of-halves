@@ -128,7 +128,7 @@ $ink-faint: #9a8b76;
 
   .bhud__season-btn:hover & {
     transform: scale(1.15);
-    filter: brightness(1.1);
+    color: var(--season-dark, #{$gold-dark});
   }
 
   .bhud__season-btn--selected & {
