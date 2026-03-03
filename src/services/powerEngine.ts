@@ -246,18 +246,27 @@ export function applyPowerEffect(
 export function tickEffects(
   room: BattleRoom,
   battle: BattleState,
+  priorUpdates?: Record<string, unknown>,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
   const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
   // Process DOT damage
+  // Read HP from: own updates (multiple DOTs) > priorUpdates (normal attack damage) > snapshot
   for (const e of effects) {
-    if (e.effectType === 'dot' && e.turnsRemaining > 0) {
+    if (e.effectType === 'dot' && e.turnsRemaining > 0 && e.value > 0) {
       const target = findFighter(room, e.targetId);
       if (target) {
         const path = findFighterPath(room, e.targetId);
-        const newHp = Math.max(0, target.currentHp - e.value);
-        if (path) updates[`${path}/currentHp`] = newHp;
+        if (path) {
+          const hpKey = `${path}/currentHp`;
+          const currentHp = (hpKey in updates)
+            ? updates[hpKey] as number
+            : (priorUpdates && hpKey in priorUpdates)
+              ? priorUpdates[hpKey] as number
+              : target.currentHp;
+          updates[hpKey] = Math.max(0, currentHp - e.value);
+        }
       }
     }
   }

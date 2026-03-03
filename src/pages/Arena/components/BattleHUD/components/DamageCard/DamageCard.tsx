@@ -1,0 +1,89 @@
+import './DamageCard.scss';
+
+interface ResolveData {
+  isHit: boolean;
+  isPower: boolean;
+  powerName: string;
+  isCrit: boolean;
+  baseDmg: number;
+  damage: number;
+  shockBonus: number;
+  atkRoll: number;
+  attackerName: string;
+  attackerTheme: string;
+  defenderName: string;
+  defenderTheme: string;
+}
+
+interface Props {
+  data: ResolveData;
+  exiting: boolean;
+  side: 'left' | 'right';
+}
+
+export type { ResolveData };
+
+export default function DamageCard({ data, exiting, side }: Props) {
+  const rc = data;
+  const cardStyle = { '--card-atk': rc.attackerTheme, '--card-def': rc.defenderTheme } as React.CSSProperties;
+  const hasBreakdown = rc.isHit && !rc.isPower && (rc.isCrit || rc.shockBonus > 0);
+
+  // skipDice powers (Jolt Arc, Thunderbolt)
+  if (rc.isPower && rc.atkRoll === 0) {
+    return (
+      <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
+        <div className={`dmg-card dmg-card--power ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
+          <div className="dmg-card__header">
+            <span className="dmg-card__atkname" style={{ color: rc.attackerTheme }}>{rc.attackerName}</span>
+            <span className="dmg-card__arrow">→</span>
+            <span className="dmg-card__defname" style={{ color: rc.defenderTheme }}>{rc.defenderName}</span>
+          </div>
+          <span className="dmg-card__power">{rc.powerName}</span>
+          {rc.damage > 0 ? (
+            <span className="dmg-card__total">-{rc.damage} DMG</span>
+          ) : (
+            <span className="dmg-card__invoked">NO EFFECT</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
+      <div className={`dmg-card ${!rc.isHit ? 'dmg-card--miss' : ''} ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
+        <div className="dmg-card__header">
+          <span className="dmg-card__atkname" style={{ color: rc.attackerTheme }}>{rc.attackerName}</span>
+          <span className="dmg-card__arrow">→</span>
+          <span className="dmg-card__defname" style={{ color: rc.defenderTheme }}>{rc.defenderName}</span>
+        </div>
+        <div className="dmg-card__divider" />
+        {rc.isHit ? (
+          <div className="dmg-card__body">
+            {hasBreakdown && (
+              <div className="dmg-card__breakdown">
+                <span className="dmg-card__base">{rc.baseDmg}</span>
+                {rc.isCrit && (
+                  <>
+                    <span className="dmg-card__base">+</span>
+                    <span className="dmg-card__crit">{rc.baseDmg}</span>
+                  </>
+                )}
+                {rc.shockBonus > 0 && (
+                  <>
+                    <span className="dmg-card__base">+</span>
+                    <span className="dmg-card__shock">{rc.shockBonus}⚡</span>
+                  </>
+                )}
+                <span className="dmg-card__eq">=</span>
+              </div>
+            )}
+            <span className="dmg-card__total">-{rc.damage} DMG</span>
+          </div>
+        ) : (
+          <span className="dmg-card__blocked">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
