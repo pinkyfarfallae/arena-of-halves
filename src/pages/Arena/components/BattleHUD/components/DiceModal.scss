@@ -1,0 +1,188 @@
+@use '../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink: #2c2218;
+$ink-faint: #9a8b76;
+
+/* ── Dice modal ── */
+.bhud__dice-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 10px;
+  padding: 0.5rem 0.4rem 0.3rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 220px;
+  margin-top: 2rem;
+  max-height: calc(100vh - 6rem);
+  overflow: visible;
+}
+
+/* ── DiceRoller embedded inside modal ── */
+.bhud__dice-roller {
+  width: 100%;
+  height: 180px;
+  border-radius: 0px;
+  overflow: hidden;
+
+  .dr__display {
+    min-height: unset;
+    padding-bottom: 0;
+    gap: 6px;
+    transform: scale(0.55);
+    transform-origin: center center;
+
+    &::after {
+      width: 400px;
+      height: 400px;
+    }
+  }
+
+  .dr__prompt {
+    display: none;
+  }
+
+  .dr__result {
+    font-size: 1.2rem;
+    padding: 0.15rem 0.4rem;
+  }
+}
+
+.bhud__dice-bonus {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--modal-dark, #{$gold-dark});
+  font-family: 'DM Mono', monospace;
+  margin: 1px 0 2px;
+}
+
+/* ── Waiting spinner ── */
+.bhud__dice-roller--waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bhud__roll-waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+  border-top-color: var(--modal-primary, #{$gold});
+  border-radius: 50%;
+  animation: bhud-spin 0.8s linear infinite;
+}
+
+@keyframes bhud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Roll result card ── */
+.bhud__roll-result {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.10),
+    0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.bhud__roll-result-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $ink-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bhud__roll-result-name {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: $ink;
+}
+
+.bhud__roll-result-val {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: $ink;
+  font-family: 'DM Mono', monospace;
+  line-height: 1;
+  margin: 0.2rem 0;
+}
+
+.bhud__roll-result-bonus {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--modal-dark, #{$gold-dark});
+}
+
+/* ── Responsive ── */
+@media (max-width: $bp-medium) {
+  .bhud__dice-modal {
+    width: 180px;
+  }
+
+  .bhud__dice-roller {
+    height: 150px;
+
+    .dr__display {
+      transform: scale(0.4);
+      transform-origin: center center;
+    }
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .bhud__dice-modal {
+    width: 150px;
+    padding: 0.35rem 0.3rem 0.25rem;
+    border-radius: 8px;
+    gap: 0.2rem;
+  }
+
+  .bhud__dice-roller {
+    height: 110px;
+
+    .dr__display {
+      transform: scale(0.3);
+    }
+
+    .dr__result {
+      font-size: 0.85rem;
+      padding: 0.1rem 0.25rem;
+    }
+  }
+
+  .bhud__dice-bonus {
+    font-size: 0.5rem;
+  }
+
+  .bhud__roll-result {
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+  }
+
+  .bhud__roll-result-val {
+    font-size: 1.8rem;
+  }
+
+  .bhud__roll-result-name {
+    font-size: 0.65rem;
+  }
+}

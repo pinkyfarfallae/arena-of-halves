@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
-import { fetchPowers } from '../../data/characters';
+import { getPowers } from '../../data/powers';
 import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import type { BattleRoom } from '../../types/battle';
@@ -56,7 +56,7 @@ function Lobby() {
     setError('');
     try {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
-      const powers = await fetchPowers(powerDeity);
+      const powers = getPowers(powerDeity);
       const fighter = toFighterState(user, powers);
       const arenaId = await createRoom(fighter, roomName || undefined);
       setCreatedArenaId(arenaId);
