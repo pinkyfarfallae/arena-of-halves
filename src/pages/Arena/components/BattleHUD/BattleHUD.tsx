@@ -4,10 +4,12 @@ import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { checkCritical, getWinningFaces } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
+import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
 import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal';
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
+import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
@@ -45,6 +47,7 @@ interface Props {
   myId: string | undefined;
   onSelectTarget: (defenderId: string) => void;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
+  onSelectSeason: (season: SeasonKey) => void;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
@@ -58,7 +61,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
-  onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  onSelectTarget, onSelectAction, onSelectSeason, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -490,6 +493,7 @@ export default function BattleHUD({
               <span className="bhud__phase-label">
                 {turn.phase === 'select-target' && 'selecting target...'}
                 {turn.phase === 'select-action' && 'choosing action...'}
+                {turn.phase === 'select-season' && 'choosing season...'}
                 {turn.phase === 'rolling-attack' && 'rolling...'}
                 {turn.phase === 'rolling-defend' && `→ ${defender?.nicknameEng ?? '...'} defending...`}
                 {turn.phase === 'resolving' && turn.action === 'power' && !turn.attackRoll && `used ${turn.usedPowerName ?? 'a power'}!`}
@@ -528,6 +532,21 @@ export default function BattleHUD({
             disabledPowerNames={disabledPowerNames}
             teammates={turn.attackerTeam === 'teamA' ? teamA : teamB}
             onSelectAction={onSelectAction}
+          />
+        </div>
+      )}
+
+      {/* Season selection (Persephone's Borrowed Season) */}
+      {turn.phase === 'select-season' && attacker && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <SeasonSelectModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            phase={turn.phase}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            side={atkSide}
+            onSelectSeason={onSelectSeason}
           />
         </div>
       )}

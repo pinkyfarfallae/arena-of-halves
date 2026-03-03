@@ -20,6 +20,34 @@ interface Props {
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
 }
 
+/** Format description with newlines and bullets */
+function FormatDesc({ text }: { text: string }) {
+  const lines = text.split(/\s*\\n\s*|\s*\/\s*|\n/).filter(Boolean);
+  return (
+    <>
+      {lines.map((line, i) => {
+        const starMatch = line.match(/^\s*\*\s*(.*)/);
+        const extractedLine = starMatch ? starMatch[1] : line;
+        const colonIdx = extractedLine.indexOf(':');
+        const content = colonIdx > 0 ? (
+          <>
+            <strong>{extractedLine.substring(0, colonIdx).trim()}: </strong>
+            <span>{extractedLine.substring(colonIdx + 1).trim()}</span>
+          </>
+        ) : (
+          <span>{extractedLine.trim()}</span>
+        );
+        return (
+          <div key={i} style={{ marginLeft: starMatch ? '0.5rem' : 0, position: 'relative' }}>
+            {starMatch && <span style={{ position: 'absolute', left: '-0.4rem' }}>•</span>}
+            {content}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /** Hover tooltip via portal — below on compact, side on larger screens */
 function PowerTooltip({ description, rect, themeStyle, side }: { description: string; rect: DOMRect; themeStyle: React.CSSProperties; side: 'left' | 'right' }) {
   const tipRef = useRef<HTMLDivElement>(null);
@@ -48,7 +76,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
       className="bhud__power-tooltip"
       style={{ ...themeStyle, top: pos.top, left: pos.left }}
     >
-      {description}
+      <FormatDesc text={description} />
     </div>,
     document.body,
   );

@@ -65,6 +65,7 @@ export interface TurnQueueEntry {
 export type TurnPhase =
   | 'select-target'
   | 'select-action'    // choose normal attack or use a power
+  | 'select-season'    // Persephone's Borrowed Season season selection
   | 'rolling-attack'
   | 'rolling-defend'
   | 'resolving'
@@ -96,6 +97,9 @@ export interface TurnState {
 
   /* Ally-targeting power (e.g. Floral Scented) */
   allyTargetId?: string;
+
+  /* Persephone's Borrowed Season selection */
+  selectedSeason?: string; // 'summer' | 'autumn' | 'winter' | 'spring'
 }
 
 /** A log entry for the battle feed */

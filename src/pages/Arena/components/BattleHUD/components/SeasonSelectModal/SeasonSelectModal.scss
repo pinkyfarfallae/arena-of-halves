@@ -1,0 +1,258 @@
+@use '../../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink: #2c2218;
+$ink-faint: #9a8b76;
+
+/* ── Season modal variant of action modal ── */
+.bhud__action-modal--season {
+  gap: 0.5rem;
+}
+
+/* ── Season picker grid ── */
+.bhud__season-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* ── Season button with gradient theming ── */
+.bhud__season-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  border: 2px solid color-mix(in srgb, var(--season-color, #{$gold}) 25%, transparent);
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--modal-primary, #{$gold}) 6%, #fff),
+    color-mix(in srgb, var(--season-color, #{$gold}) 8%, #fff)
+  );
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+
+  /* Subtle animated background on hover */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--season-color, #{$gold}) 12%, transparent),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--season-color, #{$gold}) 45%, transparent);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--modal-primary, #{$gold}) 10%, #fff),
+      color-mix(in srgb, var(--season-color, #{$gold}) 14%, #fff)
+    );
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--season-color, #{$gold}) 12%, transparent);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  /* Selected state with strong visual feedback */
+  &--selected {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--modal-primary, #{$gold}) 16%, #fff),
+      color-mix(in srgb, var(--season-color, #{$gold}) 20%, #fff)
+    );
+    border-color: color-mix(in srgb, var(--season-color, #{$gold}) 60%, transparent);
+    box-shadow:
+      0 0 16px color-mix(in srgb, var(--season-color, #{$gold}) 20%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--season-color, #{$gold}) 8%, transparent);
+    transform: scale(1.02);
+
+    &::before {
+      opacity: 1;
+    }
+
+    /* Pulsing glow effect for selected state */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px solid color-mix(in srgb, var(--season-color, #{$gold}) 40%, transparent);
+      border-radius: 6px;
+      animation: bhud-season-pulse 1.5s ease-in-out infinite;
+    }
+  }
+}
+
+/* ── Pulsing animation for selected season ── */
+@keyframes bhud-season-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--season-color, #{$gold}) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--season-color, #{$gold}) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--season-color, #{$gold}) 0%, transparent);
+  }
+}
+
+/* ── Season icon (SVG) ── */
+.bhud__season-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, color 0.2s;
+  color: var(--season-color, #{$gold});
+
+  svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 1.5;
+  }
+
+  .bhud__season-btn:hover & {
+    transform: scale(1.15);
+    filter: brightness(1.1);
+  }
+
+  .bhud__season-btn--selected & {
+    animation: bhud-season-icon-bounce 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+}
+
+/* ── Icon bounce animation on selection ── */
+@keyframes bhud-season-icon-bounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1.15);
+  }
+}
+
+/* ── Season label (Thai text) ── */
+.bhud__season-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--season-dark, #{$gold-dark});
+  text-align: center;
+  line-height: 1.2;
+  text-transform: none;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+/* ── Season confirm button ── */
+.bhud__season-confirm {
+  width: 100%;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 30%, transparent);
+  background: color-mix(in srgb, var(--modal-primary, #{$gold}) 12%, #fff);
+  color: var(--modal-dark, #{$gold-dark});
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 22%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 45%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Dice roller (waiting state) ── */
+.bhud__dice-roller--waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  width: 100%;
+}
+
+.bhud__roll-waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-top-color: var(--modal-primary, #{$gold});
+  border-radius: 50%;
+  animation: bhud-spin 1s linear infinite;
+}
+
+@keyframes bhud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Common season modal styling ── */
+.bhud__season-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 10px;
+  padding: 0.6rem 0.6rem 0.5rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12),
+  0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 220px;
+}
+
+.bhud__dice-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: $ink;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.2rem;
+}
+
+.bhud__dice-sub {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  margin-bottom: 0.2rem;
+}
+
+@keyframes bhud-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

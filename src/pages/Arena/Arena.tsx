@@ -14,14 +14,17 @@ import {
   startBattle,
   selectTarget,
   selectAction,
+  selectSeason,
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
+import type { SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
+import SeasonalEffects from './components/SeasonalEffects/SeasonalEffects';
 import ChevronLeft from '../../icons/ChevronLeft';
 import BattleLogModal from '../Lobby/components/BattleLogModal/BattleLogModal';
 import CopyIcon from './icons/CopyIcon';
@@ -78,6 +81,10 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+
+  // Track active season from Borrowed Season power (displayed for 2 turns)
+  const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
+  const [seasonStartRound, setSeasonStartRound] = useState<number | null>(null);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -143,6 +150,30 @@ function Arena() {
     setRole('viewer');
     setJoined(true);
   }, [room, user, arenaId, joined, watchOnly]);
+
+  /* ── Track active season from Borrowed Season power (lasts 2 turns) ── */
+  useEffect(() => {
+    if (!room?.battle) {
+      setActiveSeason(null);
+      setSeasonStartRound(null);
+      return;
+    }
+
+    const { battle } = room;
+    const { turn, roundNumber } = battle;
+
+    // Check if season was just selected in this turn
+    if (turn?.selectedSeason && turn?.phase === 'select-season') {
+      setActiveSeason(turn.selectedSeason as SeasonKey);
+      setSeasonStartRound(roundNumber);
+    }
+
+    // Season lasts for 2 turns (rounds), then clear
+    if (seasonStartRound !== null && roundNumber > seasonStartRound + 1) {
+      setActiveSeason(null);
+      setSeasonStartRound(null);
+    }
+  }, [room?.battle?.roundNumber, room?.battle?.turn, seasonStartRound]);
 
   useEffect(() => {
     join();
@@ -345,6 +376,16 @@ function Arena() {
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
   };
 
+  const handleSelectSeason = async (season: SeasonKey) => {
+    if (arenaId) await selectSeason(arenaId, season);
+    // After selecting season, wait 3 seconds then move to select-target phase
+    if (arenaId) {
+      setTimeout(() => {
+        selectTarget(arenaId, ''); // Trigger phase advance (actual defender selected next)
+      }, 3000);
+    }
+  };
+
   const handleSubmitAttackRoll = async (roll: number) => {
     if (arenaId) await submitAttackRoll(arenaId, roll);
   };
@@ -450,6 +491,8 @@ function Arena() {
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
           />
+          {/* Seasonal effects overlay (left side) */}
+          <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason} />
         </div>
 
         <div className="arena__divider">
@@ -478,6 +521,8 @@ function Arena() {
               <span>Awaiting Challenger…</span>
             </div>
           )}
+          {/* Seasonal effects overlay (right side) */}
+          <SeasonalEffects season={activeSeason ?? undefined} side="right" isActive={!!activeSeason} />
         </div>
 
         {/* Battle HUD overlay */}
@@ -490,6 +535,7 @@ function Arena() {
             myId={user?.characterId}
             onSelectTarget={handleSelectTarget}
             onSelectAction={handleSelectAction}
+            onSelectSeason={handleSelectSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}

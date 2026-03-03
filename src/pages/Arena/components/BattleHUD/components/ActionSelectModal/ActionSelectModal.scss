@@ -188,6 +188,24 @@ $crimson: #a0001b;
   line-height: 1.5;
   color: $ink;
   animation: bhud-tooltip-in 0.12s ease-out;
+
+  /* ── Formatted description lines ── */
+  > div {
+    margin-top: 0.25rem;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    strong {
+      font-weight: 700;
+      color: $ink;
+    }
+
+    span {
+      color: $ink-faint;
+    }
+  }
 }
 
 @keyframes bhud-tooltip-in {
