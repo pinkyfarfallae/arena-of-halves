@@ -11,6 +11,7 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
+  applySecretOfDryadPassive,
 } from './powerEngine';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -635,6 +636,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   let dmg = 0;
   let hit = false;
+  let atkTotal = 0;
   let defenderHpAfter = defender.currentHp;
 
   // Resolve power that went through dice rolling
@@ -651,7 +653,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     // Power with dice (damage/enemy-target) — compare rolls, apply effect on hit
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
-    const atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
+    atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
     const defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
 
@@ -683,7 +685,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     // Normal attack: compare dice with active effect modifiers
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
-    const atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
+    atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
     const defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
 
@@ -737,8 +739,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         shieldsModified = true;
       }
       if (shieldsModified) {
-        // Remove depleted shields, persist remaining values
-        const cleaned = activeEffects.filter(e => !(e.effectType === 'shield' && e.value <= 0));
+        // Remove depleted shields, persist remaining values (keep tagged shields like petal-shield)
+        const cleaned = activeEffects.filter(e => !(e.effectType === 'shield' && e.value <= 0 && !e.tag));
         updates['battle/activeEffects'] = cleaned;
       }
       dmg = shieldRemaining;
@@ -790,8 +792,14 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
   }
 
+  // Secret of Dryad passive: grant petal-shield if atkTotal > 10
+  const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
+  if (dryadUpdates['battle/activeEffects']) {
+    Object.assign(updates, dryadUpdates);
+  }
+
   // Sync accumulated activeEffects changes so tickEffects sees them
-  // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain
+  // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain, applySecretOfDryadPassive
   //  all write to updates['battle/activeEffects'] but tickEffects reads from battle)
   if (updates['battle/activeEffects']) {
     battle = { ...battle, activeEffects: updates['battle/activeEffects'] as ActiveEffect[] };

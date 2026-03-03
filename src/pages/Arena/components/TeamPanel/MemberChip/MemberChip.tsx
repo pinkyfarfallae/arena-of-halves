@@ -1,12 +1,16 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
+import { lightenColor } from '../../../../../utils/color';
+import PetalShield from './icons/PetalShield';
+
 import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import LockOpen from '../../../../CharacterInfo/icons/LockOpen';
 import LockClosed from '../../../../CharacterInfo/icons/LockClosed';
 import { DEITY_SVG } from '../../../../../data/deities';
 import './MemberChip.scss';
+
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -228,6 +232,7 @@ interface Props {
   isShockHit?: boolean;
   isThunderboltHit?: boolean;
   isShocked?: boolean;
+  isPetalShielded?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
@@ -236,7 +241,7 @@ interface Props {
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, turnOrder, effectPips, statMods, battleEnded, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -320,6 +325,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     !showEliminated && isShockHitActive && 'mchip--shock-hit',
     !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
     !showEliminated && isShocked && 'mchip--shocked',
+    isPetalShielded && 'mchip--petal-shielded',
   ].filter(Boolean).join(' ');
 
   return (
@@ -330,6 +336,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
+      {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
+      {isPetalShielded && <div className="mchip__petal-fall" aria-hidden="true" />}
+
+      {/* Falling white light motes — like sunlight through leaves */}
+      {isPetalShielded && (
+        <div className="mchip__dryad-lights" aria-hidden="true">
+          {Array.from({ length: 15 }, (_, i) => (
+            <span key={i} className="mchip__dryad-light" />
+          ))}
+        </div>
+      )}
+
       {/* Body — clips pattern, fades edges with gradient */}
       <div className="mchip__body">
         {deityIcon && (
@@ -356,6 +374,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
 
         <div className="mchip__inner-border" />
+
+        {/* Petal shield badge — Secret of Dryad status immunity */}
+        {isPetalShielded && (
+          <div className="mchip__petal-badge" aria-hidden="true">
+            <PetalShield
+              gradientId={`petal-grad-${fighter.characterId}`}
+              color1={lightenColor(fighter.theme[0], 0.5)}
+              color2="#d1ffd4ff"
+            />
+          </div>
+        )}
 
         {/* Target crosshair badge — shown when selected as defend target */}
         {isDefender && !isEliminated && (
