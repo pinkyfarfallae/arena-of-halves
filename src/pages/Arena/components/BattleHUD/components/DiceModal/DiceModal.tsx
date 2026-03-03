@@ -37,6 +37,21 @@ interface Props {
   chainWinFaces?: number[];
   chainRollResult?: number;
   onChainRollResult?: (roll: number) => void;
+  /* Pomegranate's Oath dodge D4 check */
+  dodgeEligible?: boolean;
+  dodgeReady?: boolean;
+  dodgeWinFaces?: number[];
+  dodgeRollResult?: number;
+  onDodgeRollResult?: (roll: number) => void;
+  /* Pomegranate's Oath co-attack D12 */
+  coAttackEligible?: boolean;
+  coAttackReady?: boolean;
+  coAttackRollResult?: number;
+  onCoAttackRollResult?: (roll: number) => void;
+  coAttackCaster?: FighterState;
+  /* Active effect buff modifiers */
+  atkBuffMod?: number;
+  defBuffMod?: number;
 }
 
 /** CSS custom properties for modal theming */
@@ -52,6 +67,9 @@ export default function DiceModal({
   atkRollDone, defRollDone, defendReady, resolveReady,
   critEligible, critReady, critWinFaces, critRollResult, onCritRollResult,
   chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult,
+  dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult,
+  coAttackEligible, coAttackReady, coAttackRollResult, onCoAttackRollResult, coAttackCaster,
+  atkBuffMod = 0, defBuffMod = 0,
 }: Props) {
   const { phase } = turn;
   const atkTheme = themeStyle(attacker);
@@ -69,7 +87,7 @@ export default function DiceModal({
               {attacker?.nicknameEng} → {defender?.nicknameEng}
             </span>
             <DiceRoller className="bhud__dice-roller" lockedDie={12} onRollResult={onAttackRoll} themeColors={dieColors(attacker)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {attacker?.attackDiceUp ?? 0}</span>
+            <span className="bhud__dice-bonus">dice up: {(attacker?.attackDiceUp ?? 0) + atkBuffMod}</span>
           </div>
         </div>
       )}
@@ -97,8 +115,8 @@ export default function DiceModal({
             <span className="bhud__dice-bonus">
               {!atkRollDone
                 ? 'rolling...'
-                : (attacker?.attackDiceUp ?? 0) > 0
-                  ? `+${attacker!.attackDiceUp} → ${turn.attackRoll + attacker!.attackDiceUp}`
+                : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0
+                  ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${turn.attackRoll + (attacker?.attackDiceUp ?? 0) + atkBuffMod}`
                   : turn.attackRoll}
             </span>
           </div>
@@ -113,7 +131,7 @@ export default function DiceModal({
               Defending against {attacker?.nicknameEng}
             </span>
             <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={onDefendRoll} themeColors={dieColors(defender)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {defender?.defendDiceUp ?? 0}</span>
+            <span className="bhud__dice-bonus">dice up: {(defender?.defendDiceUp ?? 0) + defBuffMod}</span>
           </div>
         </div>
       )}
@@ -140,16 +158,51 @@ export default function DiceModal({
             <span className="bhud__dice-bonus">
               {!defRollDone
                 ? 'rolling...'
-                : (defender?.defendDiceUp ?? 0) > 0
-                  ? `+${defender!.defendDiceUp} → ${turn.defendRoll + defender!.defendDiceUp}`
+                : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
+                  ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${turn.defendRoll + (defender?.defendDiceUp ?? 0) + defBuffMod}`
                   : turn.defendRoll}
             </span>
           </div>
         </div>
       )}
 
-      {/* ── D4 CRITICAL CHECK — after defend replay, before resolve bar ── */}
-      {phase === 'resolving' && resolveReady && !critReady && critEligible && (
+      {/* ── D4 DODGE CHECK (Pomegranate's Oath) — after defend replay, before crit ── */}
+      {phase === 'resolving' && resolveReady && !dodgeReady && dodgeEligible && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+          <div className="bhud__dice-modal" style={defTheme}>
+            <span className="bhud__dice-label">Spirit Dodge</span>
+            <span className="bhud__dice-sub">{defender?.nicknameEng} — D4 (50%)</span>
+            {isMyDefend ? (
+              <DiceRoller
+                key="dodge-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollResult={onDodgeRollResult}
+                themeColors={dieColors(defender)}
+                hidePrompt
+              />
+            ) : (dodgeRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`dodge-replay-${dodgeRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={dodgeRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(defender)}
+              />
+            ) : (
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            )}
+            <span className="bhud__dice-bonus">dodge: {dodgeWinFaces?.sort((a, b) => a - b).join(', ') || '—'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar ── */}
+      {phase === 'resolving' && resolveReady && dodgeReady && !critReady && critEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Critical Check</span>
@@ -214,6 +267,61 @@ export default function DiceModal({
               </div>
             )}
             <span className="bhud__dice-bonus">chain: {chainWinFaces?.sort((a, b) => a - b).join(', ') || '—'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── D12 CO-ATTACK (Pomegranate's Oath) — after chain, before resolve bar ── */}
+      {phase === 'resolving' && resolveReady && critReady && chainReady && !coAttackReady && coAttackEligible && coAttackCaster && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={themeStyle(coAttackCaster)}>
+            <span className="bhud__dice-label">Co-Attack</span>
+            <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
+            {coAttackCaster.characterId === attacker?.characterId ? (
+              // Self-oath: caster is the attacker (isMyTurn controls)
+              isMyTurn ? (
+                <DiceRoller
+                  key="coatk-my-roll"
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  onRollResult={onCoAttackRollResult}
+                  themeColors={dieColors(coAttackCaster)}
+                  hidePrompt
+                />
+              ) : (coAttackRollResult ?? 0) > 0 ? (
+                <DiceRoller
+                  key={`coatk-replay-${coAttackRollResult}`}
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  fixedResult={coAttackRollResult}
+                  autoRoll
+                  hidePrompt
+                  themeColors={dieColors(coAttackCaster)}
+                />
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )
+            ) : (
+              // Caster is a teammate, not the current attacker
+              (coAttackRollResult ?? 0) > 0 ? (
+                <DiceRoller
+                  key={`coatk-replay-${coAttackRollResult}`}
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  fixedResult={coAttackRollResult}
+                  autoRoll
+                  hidePrompt
+                  themeColors={dieColors(coAttackCaster)}
+                />
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )
+            )}
+            <span className="bhud__dice-bonus">co-attack</span>
           </div>
         </div>
       )}

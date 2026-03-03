@@ -11,7 +11,8 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
-  applySecretOfDryadPassive, applyFloralScented,
+  applySecretOfDryadPassive, applyFloralScented, applySeasonEffects,
+  applyPomegranateOath,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
 
@@ -590,8 +591,96 @@ export async function selectAction(
     return;
   }
 
-  // ── Ally-targeting power (e.g. Floral Scented): apply buff, then follow-up normal attack ──
+  // ── Ally-targeting power ──
   if (power.target === 'ally' && allyTargetId) {
+    // ── Pomegranate's Oath: apply buff + end turn immediately (like confirmSeason) ──
+    if (power.name === "Pomegranate's Oath") {
+      const oathUpdates = applyPomegranateOath(room, attackerId, allyTargetId, battle);
+      Object.assign(updates, oathUpdates);
+
+      // Sync activeEffects into battle for tickEffects
+      const battleForTick = updates['battle/activeEffects']
+        ? { ...battle, activeEffects: updates['battle/activeEffects'] as ActiveEffect[] }
+        : battle;
+
+      // Tick active effects (DOT, spring heal, decrement durations)
+      const effectUpdates = tickEffects(room, battleForTick, updates);
+      Object.assign(updates, effectUpdates);
+
+      const ally = findFighter(room, allyTargetId);
+      const logEntry = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId: allyTargetId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: 0,
+        defenderHpAfter: ally ? ally.currentHp : 0,
+        eliminated: false,
+        missed: false,
+        powerUsed: power.name,
+      };
+      updates['battle/log'] = [...(battle.log || []), logEntry];
+
+      // Win condition check (DOT from tick may have eliminated someone)
+      const getHp = (m: FighterState) => {
+        const path = findFighterPath(room, m.characterId);
+        if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+        return m.currentHp;
+      };
+      const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+      const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+      if (isTeamEliminated(teamBMembers)) {
+        updates['battle/winner'] = 'teamA';
+        updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
+        updates['status'] = 'finished';
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+      if (isTeamEliminated(teamAMembers)) {
+        updates['battle/winner'] = 'teamB';
+        updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
+        updates['status'] = 'finished';
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+
+      // Advance turn (same pattern as confirmSeason)
+      const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+      const updatedRoom = {
+        ...room,
+        teamA: { ...room.teamA, members: teamAMembers },
+        teamB: { ...room.teamB, members: teamBMembers },
+      } as BattleRoom;
+      const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
+      updates['battle/turnQueue'] = updatedQueue;
+
+      const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
+      const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+      const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+      const nextEntry = updatedQueue[nextIdx];
+
+      const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+      if (nextFighter && isStunned(latestEffects, nextEntry.characterId)) {
+        updates['battle/currentTurnIndex'] = nextIdx;
+        updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+        const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom);
+        const skipEntry = updatedQueue[skipIdx];
+        updates['battle/currentTurnIndex'] = skipIdx;
+        if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
+        updates['battle/turn'] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: 'select-action' };
+      } else {
+        updates['battle/currentTurnIndex'] = nextIdx;
+        updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+        updates['battle/turn'] = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: 'select-action' };
+      }
+
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+
+    // ── Floral Scented (and other ally powers): apply buff, then follow-up normal attack ──
     const floralUpdates = applyFloralScented(room, attackerId, allyTargetId, battle, power);
     Object.assign(updates, floralUpdates);
 
@@ -679,6 +768,155 @@ export async function selectSeason(
   await update(roomRef(arenaId), updates);
 }
 
+/* ── cancel season selection: refund quota and go back to select-action ─── */
+
+export async function cancelSeasonSelection(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn || battle.turn.phase !== 'select-season') return;
+
+  const { attackerId, attackerTeam, usedPowerIndex } = battle.turn;
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+
+  // Refund quota
+  const power = attacker.powers?.[usedPowerIndex as number];
+  const cost = power ? getQuotaCost(power.type) : 1;
+  const atkPath = findFighterPath(room, attackerId);
+
+  const updates: Record<string, unknown> = {};
+  if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
+
+  // Reset turn back to select-action
+  updates['battle/turn'] = {
+    attackerId,
+    attackerTeam,
+    phase: 'select-action',
+    action: null,
+  };
+
+  await update(roomRef(arenaId), updates);
+}
+
+/* ── confirm season: apply effects + end turn (no dice) ─── */
+
+export async function confirmSeason(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  let battle = room.battle;
+  if (!battle?.turn || battle.turn.phase !== 'select-season') return;
+
+  const { attackerId, attackerTeam, selectedSeason } = battle.turn;
+  if (!selectedSeason) return;
+
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+
+  const updates: Record<string, unknown> = {};
+
+  // Apply season effects to all alive teammates
+  const seasonUpdates = applySeasonEffects(room, attackerId, selectedSeason, battle);
+  Object.assign(updates, seasonUpdates);
+
+  // Sync activeEffects into battle for tickEffects
+  if (updates['battle/activeEffects']) {
+    battle = { ...battle, activeEffects: updates['battle/activeEffects'] as ActiveEffect[] };
+  }
+
+  // Tick active effects (DOT damage, spring heal, decrement durations)
+  const effectUpdates = tickEffects(room, battle, updates);
+  Object.assign(updates, effectUpdates);
+
+  // Battle log entry
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId: attackerId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    defenderHpAfter: attacker.currentHp,
+    eliminated: false,
+    missed: false,
+    powerUsed: 'Borrowed Season',
+    selectedSeason,
+  };
+  updates['battle/log'] = [...(battle.log || []), logEntry];
+
+  // Build updated HP map for win condition check
+  const getHp = (m: FighterState) => {
+    const path = findFighterPath(room, m.characterId);
+    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+    return m.currentHp;
+  };
+  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+  if (isTeamEliminated(teamBMembers)) {
+    updates['battle/winner'] = 'teamA';
+    updates['battle/turn'] = { attackerId, attackerTeam, phase: 'done' };
+    updates['status'] = 'finished';
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  if (isTeamEliminated(teamAMembers)) {
+    updates['battle/winner'] = 'teamB';
+    updates['battle/turn'] = { attackerId, attackerTeam, phase: 'done' };
+    updates['status'] = 'finished';
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // Advance turn — same logic as end of resolveTurn()
+  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+  const updatedRoom = {
+    ...room,
+    teamA: { ...room.teamA, members: teamAMembers },
+    teamB: { ...room.teamB, members: teamBMembers },
+  } as BattleRoom;
+  const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
+  updates['battle/turnQueue'] = updatedQueue;
+
+  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+  const nextEntry = updatedQueue[nextIdx];
+
+  // Skip stunned fighters
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  if (nextFighter && isStunned(latestEffects, nextEntry.characterId)) {
+    updates['battle/currentTurnIndex'] = nextIdx;
+    updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom);
+    const skipEntry = updatedQueue[skipIdx];
+    updates['battle/currentTurnIndex'] = skipIdx;
+    if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
+    updates['battle/turn'] = {
+      attackerId: skipEntry.characterId,
+      attackerTeam: skipEntry.team,
+      phase: 'select-action',
+    };
+  } else {
+    updates['battle/currentTurnIndex'] = nextIdx;
+    updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    updates['battle/turn'] = {
+      attackerId: nextEntry.characterId,
+      attackerTeam: nextEntry.team,
+      phase: 'select-action',
+    };
+  }
+
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── submit attack dice roll ─────────────────────────── */
 
 export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
@@ -757,7 +995,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   let dmg = 0;
   let hit = false;
+  let isDodged = false;
   let atkTotal = 0;
+  let defTotal = 0;
   let defenderHpAfter = defender.currentHp;
 
   // Resolve power that went through dice rolling
@@ -775,8 +1015,14 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
     atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
-    const defTotal = defendRoll + defender.defendDiceUp + defBuff;
+    defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
+
+    // Pomegranate's Oath dodge: defender with spirit may dodge
+    if (hit && battle.turn.isDodged) {
+      isDodged = true;
+      hit = false;
+    }
 
     if (hit) {
       const effectUpdates = applyPowerEffect(room, attackerId, defenderId, usedPower, battle);
@@ -799,6 +1045,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       eliminated: hit && defenderHpAfter <= 0,
       missed: !hit,
       powerUsed: usedPower.name,
+      ...(isDodged && { isDodged: true, dodgeRoll: battle.turn.dodgeRoll }),
     };
     updates['battle/log'] = [...(battle.log || []), logEntry];
 
@@ -807,8 +1054,14 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
     atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
-    const defTotal = defendRoll + defender.defendDiceUp + defBuff;
+    defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
+
+    // Pomegranate's Oath dodge: defender with spirit may dodge
+    if (hit && battle.turn.isDodged) {
+      isDodged = true;
+      hit = false;
+    }
 
     let isCrit = false;
     let critRoll = 0;
@@ -895,6 +1148,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       ...(critRoll > 0 && { isCrit, critRoll }),
       ...(shockBonusDamage > 0 && { shockDamage: shockBonusDamage }),
       ...(isSelfBuffPower && usedPower && { powerUsed: usedPower.name }),
+      ...(isDodged && { isDodged: true, dodgeRoll: battle.turn.dodgeRoll }),
     };
     updates['battle/log'] = [...(battle.log || []), logEntry];
   }
@@ -917,6 +1171,38 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
   if (dryadUpdates['battle/activeEffects']) {
     Object.assign(updates, dryadUpdates);
+  }
+
+  // Pomegranate's Oath co-attack: when oath-bearer attacks + hits, caster co-attacks
+  if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
+    const spiritEffect = activeEffects.find(
+      e => e.targetId === attackerId && e.tag === 'pomegranate-spirit',
+    );
+    if (spiritEffect) {
+      const casterId = turn.coAttackerId || spiritEffect.sourceId;
+      const caster = findFighter(room, casterId);
+      if (caster && caster.currentHp > 0) {
+        const coBuff = getStatModifier(activeEffects, casterId, 'attackDiceUp');
+        const coTotal = turn.coAttackRoll + caster.attackDiceUp + coBuff;
+        const coHit = coTotal > defTotal;
+        if (coHit) {
+          const coDmgBuff = getStatModifier(activeEffects, casterId, 'damage');
+          const coDmg = Math.max(0, caster.damage + coDmgBuff);
+          const defPath = findFighterPath(room, defenderId);
+          if (defPath) {
+            const currentDefHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+            updates[`${defPath}/currentHp`] = Math.max(0, currentDefHp - coDmg);
+          }
+          // Append co-attack info to the last log entry
+          const logArr = (updates['battle/log'] as typeof battle.log) || [...(battle.log || [])];
+          if (logArr.length > 0) {
+            logArr[logArr.length - 1].coAttackDamage = coDmg;
+            logArr[logArr.length - 1].coAttackerId = casterId;
+            updates['battle/log'] = logArr;
+          }
+        }
+      }
+    }
   }
 
   // Sync accumulated activeEffects changes so tickEffects sees them

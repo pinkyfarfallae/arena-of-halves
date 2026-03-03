@@ -160,6 +160,16 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           e => e.targetId === m.characterId && e.tag === 'petal-shield',
         );
 
+        // Pomegranate's Oath: ruby seed effect on both caster and target
+        const hasPomegranateEffect = activeEffects.some(
+          e => e.tag === 'pomegranate-spirit' && (e.targetId === m.characterId || e.sourceId === m.characterId),
+        );
+
+        // Spirit form: ethereal ghost effect on target only (includes self-target)
+        const isSpiritForm = activeEffects.some(
+          e => e.tag === 'pomegranate-spirit' && e.targetId === m.characterId,
+        );
+
         // Floral Scented: brief trigger when just applied
         const isScentWaved = !!(
           turn?.allyTargetId === m.characterId &&
@@ -174,6 +184,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           defendDiceUp: getStatModifier(activeEffects, m.characterId, 'defendDiceUp'),
           speed: getStatModifier(activeEffects, m.characterId, 'speed'),
           criticalRate: getStatModifier(activeEffects, m.characterId, 'criticalRate'),
+          maxHp: getStatModifier(activeEffects, m.characterId, 'maxHp'),
         };
 
         return (
@@ -191,11 +202,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isThunderboltHit={isThunderboltHit}
             isShocked={isShocked}
             isPetalShielded={isPetalShielded}
+            hasPomegranateEffect={hasPomegranateEffect}
+            isSpiritForm={isSpiritForm}
             isScentWaved={isScentWaved}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
-            battleEnded={!!battle?.winner}
+            battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
           />
         );
