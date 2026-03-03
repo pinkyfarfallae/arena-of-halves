@@ -14,9 +14,6 @@ interface Props {
   /** True when BattleHUD's resolve panel is visible (after crit/chain checks) */
   resolveShown?: boolean;
   onSelectTarget?: (defenderId: string) => void;
-  /** True when user is picking an ally for a power (e.g. Floral Scented) */
-  allySelectMode?: boolean;
-  onAllySelect?: (characterId: string) => void;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -36,7 +33,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, resolveShown, onSelectTarget, allySelectMode, onAllySelect }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, resolveShown, onSelectTarget }: Props) {
   const turn = battle?.turn;
   const activeEffects = battle?.activeEffects || [];
 
@@ -163,26 +160,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           e => e.targetId === m.characterId && e.tag === 'petal-shield',
         );
 
-        // Floral Scented buff visual
-        const isScentWaved = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === 'floral-scent',
-        );
-
-        // Ally targetable: same team as attacker, alive (includes self)
-        const isAttackerTeam = turn && (
-          (side === 'left' && turn.attackerTeam === 'teamA') ||
-          (side === 'right' && turn.attackerTeam === 'teamB')
-        );
-        const isAllyTargetable = !!(
-          allySelectMode && isAttackerTeam &&
-          m.currentHp > 0
-        );
-
-        // Heal boost: Floral Scented just applied to this fighter
-        const isHealBoosted = !!(
+        // Floral Scented: brief trigger when just applied
+        const isScentWaved = !!(
           turn?.allyTargetId === m.characterId &&
           turn?.usedPowerName === 'Floral Scented' &&
-          (turn?.phase === 'rolling-attack' || turn?.phase === 'rolling-defend')
+          (turn?.phase === 'select-target' || turn?.phase === 'rolling-attack' || turn?.phase === 'rolling-defend')
         );
 
         // Stat modifiers from active buffs/debuffs
@@ -210,16 +192,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isShocked={isShocked}
             isPetalShielded={isPetalShielded}
             isScentWaved={isScentWaved}
-            isAllyTargetable={isAllyTargetable}
-            isHealBoosted={isHealBoosted}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
             battleEnded={!!battle?.winner}
-            onSelect={
-              isAllyTargetable && onAllySelect ? () => onAllySelect(m.characterId) :
-              isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined
-            }
+            onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
           />
         );
       })}

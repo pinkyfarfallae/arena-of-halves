@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import { deleteRoom } from '../../../../services/battleRoom';
@@ -64,7 +65,9 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<FighterState | null>(null);
   const [npcDropdownOpen, setNpcDropdownOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
 
   // Team selection state
   const [playerTeam, setPlayerTeam] = useState<FighterState[]>([]);
@@ -75,16 +78,23 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
     fetchNPCs().then(setNpcs);
   }, []);
 
+  const updateDropdownPos = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) setDropdownPos({ top: rect.bottom, left: rect.left, width: rect.width });
+  }, []);
+
   useEffect(() => {
     if (!npcDropdownOpen) return;
+    updateDropdownPos();
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setNpcDropdownOpen(false);
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setNpcDropdownOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [npcDropdownOpen]);
+  }, [npcDropdownOpen, updateDropdownPos]);
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
@@ -255,8 +265,9 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           {gameMode === 'npc' && teamSize === 1 && (
             <>
               <label className="cam__label">Select Opponent</label>
-              <div className="cam__npc-select" ref={dropdownRef}>
+              <div className="cam__npc-select">
                 <button
+                  ref={triggerRef}
                   className="cam__npc-trigger"
                   onClick={() => setNpcDropdownOpen(!npcDropdownOpen)}
                 >
@@ -268,8 +279,12 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
                   <ChevronDown width={14} height={14} className={`cam__npc-chevron ${npcDropdownOpen ? 'cam__npc-chevron--open' : ''}`} />
                 </button>
 
-                {npcDropdownOpen && (
-                  <div className="cam__npc-dropdown">
+                {npcDropdownOpen && createPortal(
+                  <div
+                    ref={dropdownRef}
+                    className="cam__npc-dropdown"
+                    style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+                  >
                     {npcs.map((npc) => (
                       <button
                         key={npc.characterId}
@@ -279,7 +294,8 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
                         <NpcOption npc={npc} />
                       </button>
                     ))}
-                  </div>
+                  </div>,
+                  document.body,
                 )}
               </div>
             </>

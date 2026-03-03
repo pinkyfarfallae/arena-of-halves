@@ -357,11 +357,8 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__npc-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  position: fixed;
+  z-index: 500;
   max-height: 220px;
   overflow-y: auto;
   background: #fff;

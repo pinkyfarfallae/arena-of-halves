@@ -7,7 +7,7 @@ import './ActionSelectModal.scss';
 
 interface Props {
   attacker: FighterState;
-  defenderName: string;
+  defenderName?: string;
   isMyTurn: boolean;
   phase: string;
   themeColor?: string;
@@ -15,7 +15,9 @@ interface Props {
   side?: 'left' | 'right';
   /** Power names that are conditionally disabled (e.g. Jolt Arc when no shocks) */
   disabledPowerNames?: Set<string>;
-  onSelectAction: (action: 'attack' | 'power', powerIndex?: number) => void;
+  /** Attacker's teammates including self (for ally-targeting powers) */
+  teammates?: FighterState[];
+  onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
 }
 
 /** Hover tooltip via portal — below on compact, side on larger screens */
@@ -52,14 +54,25 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, onSelectAction }: Props) {
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, onSelectAction }: Props) {
   const [showPowerPicker, setShowPowerPicker] = useState(false);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);
 
-  // Reset picker when phase changes
-  useEffect(() => { setShowPowerPicker(false); setSelectedPowerIdx(null); }, [phase]);
+  // Ally selection step
+  const [allyStep, setAllyStep] = useState(false);
+  const [allyPowerIdx, setAllyPowerIdx] = useState<number | null>(null);
+  const [selectedAllyId, setSelectedAllyId] = useState<string | null>(null);
+
+  // Reset all state when phase changes
+  useEffect(() => {
+    setShowPowerPicker(false);
+    setSelectedPowerIdx(null);
+    setAllyStep(false);
+    setAllyPowerIdx(null);
+    setSelectedAllyId(null);
+  }, [phase]);
 
   const themeStyle = { '--modal-primary': themeColor, '--modal-dark': themeColorDark } as React.CSSProperties;
 
@@ -72,6 +85,32 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     setHoveredIdx(null);
     setHoveredRect(null);
   }, []);
+
+  // When user confirms a power, check if it's ally-targeting
+  const handlePowerConfirm = () => {
+    if (selectedPowerIdx == null) return;
+    const power = attacker.powers[selectedPowerIdx];
+    if (power?.target === 'ally' && teammates && teammates.length > 0) {
+      setAllyPowerIdx(selectedPowerIdx);
+      setAllyStep(true);
+      setShowPowerPicker(false);
+      return;
+    }
+    setShowPowerPicker(false);
+    onSelectAction('power', selectedPowerIdx);
+  };
+
+  const handleAllyConfirm = () => {
+    if (allyPowerIdx != null && selectedAllyId) {
+      onSelectAction('power', allyPowerIdx, selectedAllyId);
+    }
+  };
+
+  const handleAllyBack = () => {
+    setAllyStep(false);
+    setSelectedAllyId(null);
+    setShowPowerPicker(true);
+  };
 
   // Find the hovered power's description
   const hoveredPower = hoveredIdx != null ? attacker.powers[hoveredIdx] : null;
@@ -89,11 +128,59 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     );
   }
 
+  // Ally selection step
+  if (allyStep && allyPowerIdx != null) {
+    const allyPower = attacker.powers[allyPowerIdx];
+    const aliveTeammates = (teammates || []).filter(m => m.currentHp > 0);
+    return (
+      <div className="bhud__action-modal" style={themeStyle}>
+        <span className="bhud__dice-label">{allyPower?.name ?? 'Select Target'}</span>
+        <span className="bhud__dice-sub">เลือกเป้าหมาย</span>
+        <div className="bhud__ally-picker">
+          {aliveTeammates.map(m => {
+            const selected = selectedAllyId === m.characterId;
+            const isSelf = m.characterId === attacker.characterId;
+            return (
+              <button
+                key={m.characterId}
+                className={`bhud__ally-btn ${selected ? 'bhud__ally-btn--selected' : ''}`}
+                onClick={() => setSelectedAllyId(selected ? null : m.characterId)}
+              >
+                {m.image ? (
+                  <img className="bhud__ally-avatar" src={m.image} alt="" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="bhud__ally-avatar bhud__ally-avatar--placeholder" style={{ background: m.theme[0], color: m.theme[9] }}>
+                    {m.nicknameEng.charAt(0)}
+                  </div>
+                )}
+                <span className="bhud__ally-name">
+                  {m.nicknameEng}
+                  {isSelf && <span className="bhud__ally-self"> (self)</span>}
+                </span>
+                <span className="bhud__ally-hp">{m.currentHp}/{m.maxHp}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="bhud__power-back" onClick={handleAllyBack}>
+          Back
+        </button>
+        <button
+          className="bhud__power-confirm"
+          disabled={!selectedAllyId}
+          onClick={handleAllyConfirm}
+        >
+          Confirm
+        </button>
+      </div>
+    );
+  }
+
   // My turn — choose action
   return (
     <div className="bhud__action-modal" style={themeStyle}>
       <span className="bhud__dice-label">Choose Action</span>
-      <span className="bhud__dice-sub">{attacker.nicknameEng} → {defenderName}</span>
+      <span className="bhud__dice-sub">{attacker.nicknameEng}{defenderName ? ` → ${defenderName}` : "'s turn"}</span>
 
       {/* Quota pips */}
       <div className="bhud__quota">
@@ -150,7 +237,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
           <button
             className="bhud__power-confirm"
             disabled={selectedPowerIdx == null}
-            onClick={() => { if (selectedPowerIdx != null) { setShowPowerPicker(false); onSelectAction('power', selectedPowerIdx); } }}
+            onClick={handlePowerConfirm}
           >
             Confirm
           </button>

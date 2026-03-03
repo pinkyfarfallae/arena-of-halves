@@ -87,6 +87,7 @@ export interface TurnState {
   /* Critical hit (written by BattleHUD before resolve) */
   isCrit?: boolean;
   critRoll?: number;
+  critWinFaces?: number[];
 
   /* Thunderbolt chain D4 (written by BattleHUD before resolve) */
   chainRoll?: number;

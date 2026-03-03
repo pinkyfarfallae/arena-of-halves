@@ -280,26 +280,6 @@ export function tickEffects(
     }
   }
 
-  // Floral-scent expiration: revert maxHp and currentHp before effect is removed
-  for (const e of effects) {
-    if (e.tag === 'floral-scent' && e.turnsRemaining === 1) {
-      const fighter = findFighter(room, e.targetId);
-      const path = findFighterPath(room, e.targetId);
-      if (fighter && path) {
-        const hpKey = `${path}/currentHp`;
-        const maxKey = `${path}/maxHp`;
-        const currentHp = (hpKey in updates)
-          ? updates[hpKey] as number
-          : (priorUpdates && hpKey in priorUpdates)
-            ? priorUpdates[hpKey] as number
-            : fighter.currentHp;
-        const newMaxHp = fighter.maxHp - e.value;
-        const newCurrentHp = Math.max(1, Math.min(currentHp - e.value, newMaxHp));
-        updates[maxKey] = newMaxHp;
-        updates[hpKey] = newCurrentHp;
-      }
-    }
-  }
 
   // Decrement durations, remove expired (skip turnsRemaining 999 = permanent passives)
   const remaining = effects
@@ -480,14 +460,13 @@ export function applySecretOfDryadPassive(
 /* ── Persephone: Floral Scented (1st Skill) ──────────── */
 
 /**
- * Anoint an ally with flower scent: +value maxHp, +value currentHp.
- * Creates a 'floral-scent' tagged buff that reverts on expiration.
+ * Anoint an ally with flower scent: heal +value HP (capped at maxHp), then normal attack follows.
  */
 export function applyFloralScented(
   room: BattleRoom,
-  attackerId: string,
+  _attackerId: string,
   allyTargetId: string,
-  battle: BattleState,
+  _battle: BattleState,
   power: PowerDefinition,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
@@ -495,23 +474,8 @@ export function applyFloralScented(
   const allyPath = findFighterPath(room, allyTargetId);
   if (!ally || !allyPath) return {};
 
-  const newMaxHp = ally.maxHp + power.value;
-  const newCurrentHp = Math.min(ally.currentHp + power.value, newMaxHp);
-  updates[`${allyPath}/maxHp`] = newMaxHp;
+  const newCurrentHp = Math.min(ally.currentHp + power.value, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
-
-  const effects = [...(battle.activeEffects || [])];
-  effects.push({
-    id: makeEffectId(allyTargetId, 'Floral Scented'),
-    powerName: 'Floral Scented',
-    effectType: 'buff',
-    sourceId: attackerId,
-    targetId: allyTargetId,
-    value: power.value,
-    turnsRemaining: power.duration + 1,
-    tag: 'floral-scent',
-  });
-  updates['battle/activeEffects'] = effects;
   return updates;
 }
 

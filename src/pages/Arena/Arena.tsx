@@ -78,13 +78,6 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
-  const [allySelectPower, setAllySelectPower] = useState<number | null>(null);
-
-  // Clear ally selection when phase moves past select-action
-  const turnPhase = room?.battle?.turn?.phase;
-  useEffect(() => {
-    if (turnPhase !== 'select-action') setAllySelectPower(null);
-  }, [turnPhase]);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -223,7 +216,9 @@ function Arena() {
       const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        schedule(() => selectTarget(arenaId, target.characterId), 2000);
+        // Extra delay after Floral Scented so scent wave visual plays
+        const delay = turn.usedPowerName === 'Floral Scented' ? 5000 : 2000;
+        schedule(() => selectTarget(arenaId, target.characterId), delay);
       }
       return;
     }
@@ -235,7 +230,18 @@ function Arena() {
         const affordable = getAffordablePowers(npcFighter);
         if (affordable.length > 0 && Math.random() < 0.4) {
           const pick = affordable[Math.floor(Math.random() * affordable.length)];
-          schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+          // Ally-targeting power: pick a random alive teammate
+          if (pick.power.target === 'ally') {
+            const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
+            if (teammates.length > 0) {
+              const ally = teammates[Math.floor(Math.random() * teammates.length)];
+              schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), 1000);
+            } else {
+              schedule(() => selectAction(arenaId, 'attack'), 800);
+            }
+          } else {
+            schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+          }
         } else {
           schedule(() => selectAction(arenaId, 'attack'), 800);
         }
@@ -336,25 +342,7 @@ function Arena() {
   };
 
   const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
-    // Ally-targeting power: intercept to enter ally selection mode
-    if (action === 'power' && powerIndex != null && allyTargetId == null) {
-      const attacker = battle?.turn?.attackerId
-        ? [...teamAMembers, ...teamBMembers].find(f => f.characterId === battle.turn!.attackerId)
-        : undefined;
-      const power = attacker?.powers?.[powerIndex];
-      if (power?.target === 'ally') {
-        setAllySelectPower(powerIndex);
-        return;
-      }
-    }
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
-    setAllySelectPower(null);
-  };
-
-  const handleAllySelect = (allyId: string) => {
-    if (allySelectPower != null) {
-      handleSelectAction('power', allySelectPower, allyId);
-    }
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
@@ -447,7 +435,7 @@ function Arena() {
       </header>
 
       {/* ── Battle field ── */}
-      <div className="arena__field">
+      <div className={`arena__field ${room.status === 'finished' ? 'arena__field--finished' : ''}`}>
         {/* Team A */}
         <div
           className="arena__half arena__half--left"
@@ -461,8 +449,6 @@ function Arena() {
             myId={user?.characterId}
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
-            allySelectMode={allySelectPower != null}
-            onAllySelect={handleAllySelect}
           />
         </div>
 
@@ -486,8 +472,6 @@ function Arena() {
               myId={user?.characterId}
               resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}
-              allySelectMode={allySelectPower != null}
-              onAllySelect={handleAllySelect}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -510,7 +494,6 @@ function Arena() {
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
             onResolveVisible={setResolveShown}
-            allySelectActive={allySelectPower != null}
           />
         )}
       </div>
