@@ -190,7 +190,7 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
       <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
       <div className="mchip__pip-tooltip-meta">
         {pip.count > 1 && <span className="mchip__pip-tooltip-stacks">{pip.count} stack{pip.count > 1 ? 's' : ''}</span>}
-        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft === 999 ? 'unlimited' : `${pip.turnsLeft * pip.count} turn${pip.turnsLeft * pip.count > 1 ? 's' : ''}`}</span>
+        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 999 ? 'unlimited' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
       </div>
     </div>,
     document.body,
@@ -339,14 +339,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     showEliminated && 'mchip--eliminated',
     isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
-    !showEliminated && isHitActive && 'mchip--hit',
-    !showEliminated && isShockHitActive && 'mchip--shock-hit',
-    !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
-    !showEliminated && isShocked && 'mchip--shocked',
-    isPetalShielded && 'mchip--petal-shielded',
-    hasPomegranateEffect && 'mchip--pomegranate',
-    isSpiritForm && 'mchip--spirit-form',
-    showScentWave && 'mchip--scent-waved',
+    battleLive && isHitActive && 'mchip--hit',
+    battleLive && isShockHitActive && 'mchip--shock-hit',
+    battleLive && isThunderboltActive && 'mchip--thunderbolt',
+    battleLive && isShocked && 'mchip--shocked',
+    battleLive && isPetalShielded && 'mchip--petal-shielded',
+    battleLive && hasPomegranateEffect && 'mchip--pomegranate',
+    battleLive && isSpiritForm && 'mchip--spirit-form',
+    battleLive && showScentWave && 'mchip--scent-waved',
   ].filter(Boolean).join(' ');
 
   return (
@@ -400,46 +400,50 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         <div className="mchip__inner-border" />
 
         {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
-        {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
-
-        {/* Petal leaf accents — green spots around frame edge */}
-        {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
-
-        {/* Scent Wave border + accents (separate divs) */}
-        {showScentWave && (
+        {battleLive && (
           <>
-            <div className="mchip__scent-border" aria-hidden="true" />
-            <div className="mchip__scent-accents" aria-hidden="true" />
+            {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+            {/* Petal leaf accents — green spots around frame edge */}
+            {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
+
+            {/* Scent Wave border + accents (separate divs) */}
+            {showScentWave && (
+              <>
+                <div className="mchip__scent-border" aria-hidden="true" />
+                <div className="mchip__scent-accents" aria-hidden="true" />
+              </>
+            )}
+
+            {/* Heal boost floating text */}
+            {showScentWave && (
+              <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+            )}
+
+            {/* Petal shield badge — Secret of Dryad status immunity */}
+            {isPetalShielded && (
+              <div className="mchip__petal-badge" aria-hidden="true">
+                <PetalShield
+                  gradientId={`petal-grad-${fighter.characterId}`}
+                  color1={lightenColor(fighter.theme[0], 0.5)}
+                  color2="#d1ffd4"
+                />
+              </div>
+            )}
+
+            {/* Target crosshair badge — shown when selected as defend target */}
+            {isDefender && (
+              <div className="mchip__target-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
+                </svg>
+              </div>
+            )}
           </>
-        )}
-
-        {/* Heal boost floating text */}
-        {showScentWave && (
-          <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
-        )}
-
-        {/* Petal shield badge — Secret of Dryad status immunity */}
-        {isPetalShielded && (
-          <div className="mchip__petal-badge" aria-hidden="true">
-            <PetalShield
-              gradientId={`petal-grad-${fighter.characterId}`}
-              color1={lightenColor(fighter.theme[0], 0.5)}
-              color2="#d1ffd4ff"
-            />
-          </div>
-        )}
-
-        {/* Target crosshair badge — shown when selected as defend target */}
-        {isDefender && !isEliminated && (
-          <div className="mchip__target-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="4" />
-              <line x1="12" y1="2" x2="12" y2="6" />
-              <line x1="12" y1="18" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="22" y2="12" />
-            </svg>
-          </div>
         )}
 
         <div className="mchip__overlay">
@@ -457,7 +461,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
-      {hasPomegranateEffect && (
+      {hasPomegranateEffect && battleLive && (
         <>
           <div className="mchip__pom-seeds" aria-hidden="true">
             {Array.from({ length: 14 }, (_, i) => (
@@ -478,7 +482,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Spirit form — ethereal ghost wisps + badge (target only, overlays frame) */}
-      {isSpiritForm && (
+      {isSpiritForm && battleLive && (
         <>
           <div className="mchip__spirit-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (

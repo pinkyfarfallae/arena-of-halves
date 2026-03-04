@@ -143,13 +143,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
               grouped.set(key, { count: 1, maxTurns: e.turnsRemaining, sourceId: e.sourceId, powerName: e.powerName });
             }
           }
+          const queueLen = battle?.turnQueue?.length || 1;
           return Array.from(grouped.values()).map(g => {
             const source = fighterMap.get(g.sourceId);
             return {
               powerName: g.powerName,
               sourceName: source?.nicknameEng || '?',
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
-              turnsLeft: g.maxTurns,
+              turnsLeft: Math.ceil(g.maxTurns / queueLen),
               count: g.count,
             };
           });

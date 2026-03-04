@@ -92,8 +92,8 @@ export function toFighterState(character: Character, powers: PowerDefinition[]):
     ultimateSkillPoint: character.ultimateSkillPoint,
 
     technique: character.technique,
-    quota: 0,
     maxQuota: character.technique < 3 ? 2 : 3,
+    quota: character.technique < 3 ? 2 : 3,
     criticalRate,
 
     powers,
@@ -801,6 +801,41 @@ export async function cancelSeasonSelection(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/* ── cancel target selection: refund quota (if power) and go back to select-action ─── */
+
+export async function cancelTargetSelection(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn || battle.turn.phase !== 'select-target') return;
+
+  const { attackerId, attackerTeam, action, usedPowerIndex } = battle.turn;
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+
+  const updates: Record<string, unknown> = {};
+
+  // Refund quota if a power was selected
+  if (action === 'power' && usedPowerIndex != null) {
+    const power = attacker.powers?.[usedPowerIndex as number];
+    const cost = power ? getQuotaCost(power.type) : 1;
+    const atkPath = findFighterPath(room, attackerId);
+    if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
+  }
+
+  // Reset turn back to select-action
+  updates['battle/turn'] = {
+    attackerId,
+    attackerTeam,
+    phase: 'select-action',
+    action: null,
+  };
+
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── confirm season: apply effects + end turn (no dice) ─── */
 
 export async function confirmSeason(arenaId: string): Promise<void> {
@@ -1174,11 +1209,12 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Pomegranate's Oath co-attack: when oath-bearer attacks + hits, caster co-attacks
+  // Self-target (caster === oath-bearer): no co-attack
   if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
     const spiritEffect = activeEffects.find(
       e => e.targetId === attackerId && e.tag === 'pomegranate-spirit',
     );
-    if (spiritEffect) {
+    if (spiritEffect && spiritEffect.sourceId !== attackerId) {
       const casterId = turn.coAttackerId || spiritEffect.sourceId;
       const caster = findFighter(room, casterId);
       if (caster && caster.currentHp > 0) {

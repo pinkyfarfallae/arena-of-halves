@@ -72,8 +72,8 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     skillPoint: get('skill point'),
     ultimateSkillPoint: get('ultimate skill point'),
     technique: num('technique'),
-    quota: 0,
     maxQuota: num('technique') < 3 ? 2 : 3,
+    quota: num('technique') < 3 ? 2 : 3,
     criticalRate,
   };
 }
