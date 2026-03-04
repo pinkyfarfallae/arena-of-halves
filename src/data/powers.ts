@@ -552,7 +552,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: 'Hades',
       type: 'Passive',
-      name: 'Reviving',
+      name: 'Death Keeper',
       description:
         'เริ่มการต่อสู้มาพร้อมกับสถานะ "ผู้รั้งความตาย" ซึ่งเมื่อมีการตายเกิดขึ้นภายในทีม ในเทิร์นโจมตีของตนเอง ผู้รั้งความตายจะได้รับแอคชันพิเศษเพื่อร่ายการชุบชีวิตโดยไม่เสียเทิร์น ผู้ที่ถูกชุบขึ้นมาจะฟื้นฟู HP ขึ้นมา 50% จาก Max HP ของผู้ถูกชุบชีวิต สถานะนี้สามารถใช้ชุบตัวเองได้หากตัวเองตาย โดยสถานะนี้ไม่สามารถลบล้างได้และจะสามารถชุบชีวิตได้เพียงครั้งเดียวในการต่อสู้หนึ่งครั้งเท่านั้น',
       available: true,
@@ -564,7 +564,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: 'Hades',
       type: '1st Skill',
-      name: 'Life Consume',
+      name: 'Shadow Camouflaging',
       description:
         'เข้าสู่สถานะ "เงาพรางตัว" เป็นเวลา 2 รอบ นั่นคือ ไม่ตกเป็นเป้าหมายของแอคชั่นใดๆ ยกเว้นในการโจมตีหมู่อันหมายถึงทุกคนในทีมตกเป็นเป้าหมายของศัตรู',
       available: true,

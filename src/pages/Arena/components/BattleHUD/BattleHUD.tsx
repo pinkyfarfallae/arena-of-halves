@@ -586,13 +586,14 @@ export default function BattleHUD({
   const [showResolve, resolveExiting] = useFadeTransition(resolveVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
 
-  // Delay action modal until DamageCard exit animation finishes
+  // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
   useEffect(() => {
     if (turn?.phase === 'select-action' && showResolve) {
       setActionReady(false);
-    } else if (turn?.phase === 'select-action' && !showResolve) {
-      setActionReady(true);
+    } else if (turn?.phase === 'select-action' && !showResolve && !actionReady) {
+      const timer = setTimeout(() => setActionReady(true), 750);
+      return () => clearTimeout(timer);
     }
   }, [turn?.phase, showResolve]);
 
@@ -757,7 +758,7 @@ export default function BattleHUD({
       )}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits */}
-      {turn.phase === 'select-action' && actionReady && attacker && (
+      {isMyTurn && turn.phase === 'select-action' && actionReady && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
