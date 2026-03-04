@@ -183,21 +183,23 @@ export default function SeasonSelectModal({
         <SeasonTooltip anchorEl={hoveredEl} seasonKey={hoveredSeason} />
       )}
 
-      {onBack && (
-        <button className="bhud__season-back" onClick={onBack}>
-          Back
-        </button>
-      )}
+      <div className="bhud__power-actions">
+        {onBack && (
+          <button className="bhud__power-back" onClick={onBack}>
+            Back
+          </button>
+        )}
 
-      <button
-        className="bhud__season-confirm"
-        disabled={selectedSeason == null}
-        onClick={() => {
-          if (selectedSeason) onSelectSeason(selectedSeason);
-        }}
-      >
-        Confirm
-      </button>
+        <button
+          className="bhud__power-confirm"
+          disabled={selectedSeason == null}
+          onClick={() => {
+            if (selectedSeason) onSelectSeason(selectedSeason);
+          }}
+        >
+          Confirm
+        </button>
+      </div>
     </div>
   );
 }

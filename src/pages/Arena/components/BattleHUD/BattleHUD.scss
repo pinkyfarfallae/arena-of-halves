@@ -288,10 +288,6 @@ $crimson-bright: #c41e3a;
   &--winner {
     .bhud__result-icon { color: $gold; }
     .bhud__result-label { color: $gold-dark; }
-
-    @media (max-width: $bp-compact) {
-      margin-bottom: 2.5rem;
-    }
   }
 
   &--loser {
@@ -310,6 +306,7 @@ $crimson-bright: #c41e3a;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  margin-top: -1rem;
 }
 
 .bhud__result-names {
@@ -530,7 +527,7 @@ $crimson-bright: #c41e3a;
   .bhud__dice-zone--right {
     left: auto;
     right: 0;
-    top: calc(2 * #{$topbar-height} + #{$compact-half});
+    top: calc(50vh - 0.5rem);
     bottom: auto;
     height: #{$compact-half};
     width: calc(100vw - 115px);

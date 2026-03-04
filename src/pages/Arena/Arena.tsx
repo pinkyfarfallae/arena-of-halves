@@ -202,7 +202,7 @@ function Arena() {
 
     npcJoining.current = true;
     let cancelled = false;
-    
+
     // Check if pre-selected NPC team exists
     const npcTeam = (room as any).npcTeam;
     if (npcTeam && Array.isArray(npcTeam) && npcTeam.length > 0) {
@@ -513,7 +513,7 @@ function Arena() {
       </header>
 
       {/* ── Battle field ── */}
-      <div className={`arena__field ${room.status === 'finished' ? 'arena__field--finished' : ''}`}>
+      <div className={`arena__field ${room.status !== 'battling' ? 'arena__field--finished' : ''}`}>
         {/* Team A */}
         <div
           className="arena__half arena__half--left"

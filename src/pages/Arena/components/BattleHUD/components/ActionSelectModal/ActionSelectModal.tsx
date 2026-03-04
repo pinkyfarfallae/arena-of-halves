@@ -195,16 +195,18 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
             );
           })}
         </div>
-        <button className="bhud__power-back" onClick={handleAllyBack}>
-          Back
-        </button>
-        <button
-          className="bhud__power-confirm"
-          disabled={!selectedAllyId}
-          onClick={handleAllyConfirm}
-        >
-          Confirm
-        </button>
+        <div className="bhud__power-actions">
+          <button className="bhud__power-back" onClick={handleAllyBack}>
+            Back
+          </button>
+          <button
+            className="bhud__power-confirm"
+            disabled={!selectedAllyId}
+            onClick={handleAllyConfirm}
+          >
+            Confirm
+          </button>
+        </div>
       </div>
     );
   }
@@ -237,8 +239,9 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
           </button>
         </div>
       ) : (
-        <div className="bhud__power-picker">
-          {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx: number) => {
+        <>
+          <div className="bhud__power-picker">
+            {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx: number) => {
             const realIdx = attacker.powers.indexOf(p);
             const cost = getQuotaCost(p.type);
             const unlocked =
@@ -264,17 +267,20 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
               </div>
             );
           })}
-          <button className="bhud__power-back" onClick={() => { setShowPowerPicker(false); setSelectedPowerIdx(null); }}>
-            Back
-          </button>
-          <button
-            className="bhud__power-confirm"
-            disabled={selectedPowerIdx == null}
-            onClick={handlePowerConfirm}
-          >
-            Confirm
-          </button>
-        </div>
+          </div>
+          <div className="bhud__power-actions">
+            <button className="bhud__power-back" onClick={() => { setShowPowerPicker(false); setSelectedPowerIdx(null); }}>
+              Back
+            </button>
+            <button
+              className="bhud__power-confirm"
+              disabled={selectedPowerIdx == null}
+              onClick={handlePowerConfirm}
+            >
+              Confirm
+            </button>
+          </div>
+        </>
       )}
 
       {/* Hover tooltip via portal */}
