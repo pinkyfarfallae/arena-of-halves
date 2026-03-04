@@ -423,7 +423,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           })(),
           missed: totalDmg === 0,
           powerUsed: power.name,
-          aoeDamageMap: Object.keys(aoeDamageMap).length > 0 ? aoeDamageMap : undefined,
+          ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
         };
         updates['battle/log'] = [...(battle.log || []), logEntry];
 

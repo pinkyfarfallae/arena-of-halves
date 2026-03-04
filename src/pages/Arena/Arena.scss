@@ -610,7 +610,7 @@ $ink-faint: #9a8b76;
   /* ── Stacked layout: halves top/bottom ── */
   .arena__field {
     flex-direction: column;
-    max-height: calc(100vh - (2 * $topbar-height) - 51.3px);
+    max-height: calc(100vh - (2 * $topbar-height));
 
     &--finished {
       max-height: calc(100vh - (2 * $topbar-height));
