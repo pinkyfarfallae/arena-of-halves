@@ -614,6 +614,23 @@ $ink-faint: #9a8b76;
 
     &--finished {
       max-height: calc(100vh - (2 * $topbar-height));
+
+      .bhud__dice-zone {
+        height: calc(50vh - (2 * $topbar-height));
+
+        &--left {
+          padding-bottom: 1rem;
+        }
+
+        &--right {
+          top: 50vh;
+          bottom: 0;
+        }
+      }
+
+      .mchip__frame {
+        margin: auto;
+      }
     }
   }
 

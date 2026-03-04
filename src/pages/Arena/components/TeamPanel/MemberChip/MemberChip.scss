@@ -228,7 +228,7 @@ $ink-faint: #9a8b76;
 
     // Ghostly avatar — faded, desaturated, transparent
     .mchip__bg {
-      filter: brightness(1.2) saturate(0.75) contrast(0.85);
+      filter: brightness(1.2) saturate(0.5) contrast(0.85);
       opacity: 1;
     }
   }
@@ -1922,6 +1922,7 @@ $ink-faint: #9a8b76;
     left: 50%;
     width: 120px;
     height: 108px;
+    transform: translateX(-50%);
   }
 
   .mchip__pom-lights {
@@ -1929,6 +1930,7 @@ $ink-faint: #9a8b76;
     left: 50%;
     width: 115px;
     height: 115px;
+    transform: translateX(-50%);
   }
 
   .mchip__pom-rise {
@@ -1936,12 +1938,14 @@ $ink-faint: #9a8b76;
     left: 50%;
     width: 154px;
     height: 115px;
+    transform: translateX(-50%);
   }
 
   .mchip__spirit-wisps {
     left: 50%;
     width: 100px;
     height: 100px;
+    transform: translateX(-50%);
   }
 }
 
