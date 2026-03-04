@@ -50,6 +50,7 @@ interface Props {
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
   onCancelSeason?: () => void;
+  onCancelTarget?: () => void;
   initialShowPowers?: boolean;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
@@ -64,7 +65,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -481,6 +482,9 @@ export default function BattleHUD({
     const spiritEffect = ae.find(e => e.targetId === turn.attackerId && e.tag === 'pomegranate-spirit');
     if (!spiritEffect) { setCoAttackReady(true); return; }
 
+    // Self-target (caster === oath-bearer): no co-attack
+    if (spiritEffect.sourceId === turn.attackerId) { setCoAttackReady(true); return; }
+
     // Check if main attack hit
     const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
     const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
@@ -581,6 +585,16 @@ export default function BattleHUD({
   }, [resolveVisible, onResolveVisible]);
   const [showResolve, resolveExiting] = useFadeTransition(resolveVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
+
+  // Delay action modal until DamageCard exit animation finishes
+  const [actionReady, setActionReady] = useState(true);
+  useEffect(() => {
+    if (turn?.phase === 'select-action' && showResolve) {
+      setActionReady(false);
+    } else if (turn?.phase === 'select-action' && !showResolve) {
+      setActionReady(true);
+    }
+  }, [turn?.phase, showResolve]);
 
   // Cache resolve data so content doesn't flicker during exit animation
   const resolveCache = useRef({
@@ -737,12 +751,13 @@ export default function BattleHUD({
             themeColor={attacker?.theme[0]}
             themeColorDark={attacker?.theme[18]}
             onSelect={onSelectTarget}
+            onBack={onCancelTarget}
           />
         </div>
       )}
 
-      {/* Action selection (attack or power) */}
-      {turn.phase === 'select-action' && attacker && (
+      {/* Action selection (attack or power) — delayed until DamageCard exits */}
+      {turn.phase === 'select-action' && actionReady && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}

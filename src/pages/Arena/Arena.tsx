@@ -17,6 +17,7 @@ import {
   selectSeason,
   confirmSeason,
   cancelSeasonSelection,
+  cancelTargetSelection,
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
@@ -454,6 +455,11 @@ function Arena() {
     await cancelSeasonSelection(arenaId);
   };
 
+  const handleCancelTarget = async () => {
+    if (!arenaId) return;
+    await cancelTargetSelection(arenaId);
+  };
+
   const handleSubmitAttackRoll = async (roll: number) => {
     if (arenaId) await submitAttackRoll(arenaId, roll);
   };
@@ -606,6 +612,7 @@ function Arena() {
             onSelectSeason={handleSelectSeason}
             onPreviewSeason={handlePreviewSeason}
             onCancelSeason={handleCancelSeason}
+            onCancelTarget={handleCancelTarget}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}

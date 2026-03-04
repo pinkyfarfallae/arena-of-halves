@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FighterState } from '../../../../../../types/battle';
 import './TargetSelectModal.scss';
 
@@ -7,9 +8,12 @@ interface Props {
   themeColor?: string;
   themeColorDark?: string;
   onSelect: (defenderId: string) => void;
+  onBack?: () => void;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack }: Props) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   return (
     <div
       className="bhud__targets-modal"
@@ -21,9 +25,9 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
         {targets.map((t) => (
           <button
             key={t.characterId}
-            className="bhud__target-btn"
+            className={`bhud__target-btn${selectedId === t.characterId ? ' bhud__target-btn--selected' : ''}`}
             style={{ '--t-color': t.theme[0] } as React.CSSProperties}
-            onClick={() => onSelect(t.characterId)}
+            onClick={() => setSelectedId(t.characterId)}
           >
             {t.image ? (
               <img className="bhud__target-img" src={t.image} alt="" referrerPolicy="no-referrer" />
@@ -36,6 +40,18 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
             </div>
           </button>
         ))}
+      </div>
+      <div className="bhud__target-actions">
+        {onBack && (
+          <button className="bhud__target-back" onClick={onBack}>Back</button>
+        )}
+        <button
+          className="bhud__target-confirm"
+          disabled={!selectedId}
+          onClick={() => selectedId && onSelect(selectedId)}
+        >
+          Confirm
+        </button>
       </div>
     </div>
   );

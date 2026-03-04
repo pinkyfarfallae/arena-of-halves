@@ -24,6 +24,25 @@ interface Props {
 /** Format description with newlines and bullets */
 function FormatDesc({ text }: { text: string }) {
   const lines = text.split(/\s*\\n\s*|\s*\/\s*|\n/).filter(Boolean);
+  // Helper to bold all text inside double quotes
+  const boldQuoted = (str: string) => {
+    const parts = [];
+    let lastIdx = 0;
+    const regex = /"([^"]+)"/g;
+    let match;
+    let key = 0;
+    while ((match = regex.exec(str)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(str.slice(lastIdx, match.index));
+      }
+      parts.push(<b key={key++}>{match[1]}</b>);
+      lastIdx = match.index + match[0].length;
+    }
+    if (lastIdx < str.length) {
+      parts.push(str.slice(lastIdx));
+    }
+    return parts;
+  };
   return (
     <>
       {lines.map((line, i) => {
@@ -33,10 +52,10 @@ function FormatDesc({ text }: { text: string }) {
         const content = colonIdx > 0 ? (
           <>
             <strong>{extractedLine.substring(0, colonIdx).trim()}: </strong>
-            <span>{extractedLine.substring(colonIdx + 1).trim()}</span>
+            <span>{boldQuoted(extractedLine.substring(colonIdx + 1).trim())}</span>
           </>
         ) : (
-          <span>{extractedLine.trim()}</span>
+          <span>{boldQuoted(extractedLine.trim())}</span>
         );
         return (
           <div key={i} style={{ marginLeft: starMatch ? '0.5rem' : 0, position: 'relative' }}>
