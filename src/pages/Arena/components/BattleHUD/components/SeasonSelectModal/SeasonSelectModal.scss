@@ -1,0 +1,505 @@
+@use '../../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink: #2c2218;
+$ink-faint: #9a8b76;
+
+/* ── Season modal variant of action modal ── */
+.bhud__action-modal--season {
+  gap: 0.5rem;
+  height: fit-content;
+}
+
+/* ── Active season note ── */
+.bhud__season-note {
+  font-size: 0.42rem;
+  font-weight: 600;
+  color: $ink-faint;
+  text-align: center;
+  line-height: 1.3;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, $gold 8%, transparent);
+  border: 1px solid color-mix(in srgb, $gold 15%, transparent);
+}
+
+/* ── Season picker grid ── */
+.bhud__season-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* ── Season button with gradient theming ── */
+.bhud__season-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  border: 2px solid color-mix(in srgb, var(--season-color, #{$gold}) 25%, transparent);
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--modal-primary, #{$gold}) 6%, #fff),
+    color-mix(in srgb, var(--season-color, #{$gold}) 8%, #fff)
+  );
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+
+  /* Subtle animated background on hover */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--season-color, #{$gold}) 12%, transparent),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--season-color, #{$gold}) 45%, transparent);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--modal-primary, #{$gold}) 10%, #fff),
+      color-mix(in srgb, var(--season-color, #{$gold}) 14%, #fff)
+    );
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--season-color, #{$gold}) 12%, transparent);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  /* Selected state with strong visual feedback */
+  &--selected {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--modal-primary, #{$gold}) 16%, #fff),
+      color-mix(in srgb, var(--season-color, #{$gold}) 20%, #fff)
+    );
+    border-color: color-mix(in srgb, var(--season-color, #{$gold}) 60%, transparent);
+    box-shadow:
+      0 0 16px color-mix(in srgb, var(--season-color, #{$gold}) 20%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--season-color, #{$gold}) 8%, transparent);
+    transform: scale(1.02);
+
+    &::before {
+      opacity: 1;
+    }
+
+    /* Pulsing glow effect for selected state */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px solid color-mix(in srgb, var(--season-color, #{$gold}) 40%, transparent);
+      border-radius: 6px;
+      animation: bhud-season-pulse 1.5s ease-in-out infinite;
+    }
+  }
+}
+
+/* ── Pulsing animation for selected season ── */
+@keyframes bhud-season-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--season-color, #{$gold}) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--season-color, #{$gold}) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--season-color, #{$gold}) 0%, transparent);
+  }
+}
+
+/* ── Season icon (SVG) ── */
+.bhud__season-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, color 0.2s;
+  color: var(--season-color, #{$gold});
+
+  svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 1.5;
+  }
+
+  .bhud__season-btn:hover & {
+    transform: scale(1.15);
+    color: var(--season-dark, #{$gold-dark});
+  }
+
+  .bhud__season-btn--selected & {
+    animation: bhud-season-icon-bounce 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+}
+
+/* ── Icon bounce animation on selection ── */
+@keyframes bhud-season-icon-bounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1.15);
+  }
+}
+
+/* ── Season label (Thai text) ── */
+.bhud__season-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--season-dark, #{$gold-dark});
+  text-align: center;
+  line-height: 1.2;
+  text-transform: none;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+/* ══════════════════════════════════════════════
+   Portal tooltip — rendered at document.body
+   ══════════════════════════════════════════════ */
+.season-tip {
+  position: fixed;
+  z-index: 9999;
+  transform: translateY(-100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 140px;
+  max-width: 200px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--tip-color) 35%, #e0dcd4);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+
+  /* entrance */
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+
+  &--visible {
+    opacity: 1;
+  }
+}
+
+/* Color accent bar at top */
+.season-tip__accent {
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tip-color), var(--tip-dark));
+}
+
+/* Main content row: icon + text */
+.season-tip__body {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.15rem;
+}
+
+.season-tip__icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: var(--tip-color);
+
+  svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 1.5;
+  }
+}
+
+.season-tip__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.02rem;
+}
+
+.season-tip__name {
+  font-size: 0.52rem;
+  font-weight: 800;
+  color: var(--tip-dark);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.season-tip__effect {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: $ink;
+  line-height: 1.35;
+}
+
+.season-tip__th {
+  font-size: 0.42rem;
+  font-weight: 500;
+  color: $ink-faint;
+  line-height: 1.3;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+/* Scope tag at bottom */
+.season-tip__scope {
+  font-size: 0.38rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tip-dark) 70%, $ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem 0.3rem;
+}
+
+/* Arrow pointing down */
+.season-tip__arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  translate: -50% 0;
+  width: 10px;
+  height: 6px;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    translate: -50% -50%;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--tip-color) 35%, #e0dcd4);
+    rotate: 45deg;
+  }
+}
+
+/* ── Season confirm button ── */
+.bhud__season-confirm {
+  width: 100%;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 30%, transparent);
+  background: color-mix(in srgb, var(--modal-primary, #{$gold}) 12%, #fff);
+  color: var(--modal-dark, #{$gold-dark});
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 22%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 45%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Season back button ── */
+.bhud__season-back {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  background: none;
+  border: 1px solid color-mix(in srgb, $ink-faint 15%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.35rem;
+  text-align: center;
+  width: 100%;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: $ink;
+    border-color: color-mix(in srgb, $ink-faint 30%, transparent);
+  }
+}
+
+/* ── Dice roller (waiting state) ── */
+.bhud__dice-roller--waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  width: 100%;
+}
+
+.bhud__roll-waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-top-color: var(--modal-primary, #{$gold});
+  border-radius: 50%;
+  animation: bhud-spin 1s linear infinite;
+}
+
+@keyframes bhud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Common season modal styling ── */
+.bhud__season-modal {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
+  border-radius: 10px;
+  padding: 0.6rem 0.6rem 0.5rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12),
+  0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 220px;
+}
+
+.bhud__dice-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: $ink;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.2rem;
+}
+
+.bhud__dice-sub {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  margin-bottom: 0.2rem;
+  font-family: 'Noto Sans', 'Noto Sans Thai', sans-serif;
+}
+
+@keyframes bhud-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Compact mode ── */
+@media (max-width: $bp-compact) {
+  .bhud__action-modal--season {
+    gap: 0.3rem;
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+  }
+
+  .bhud__season-note {
+    font-size: 0.36rem;
+    padding: 0.1rem 0.2rem;
+  }
+
+  .bhud__season-picker {
+    gap: 0.25rem;
+  }
+
+  .bhud__season-btn {
+    gap: 0.15rem;
+    padding: 0.3rem 0.2rem;
+    border-radius: 6px;
+    border-width: 1.5px;
+  }
+
+  .bhud__season-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .bhud__season-label {
+    font-size: 0.45rem;
+  }
+
+  .bhud__season-confirm {
+    padding: 0.3rem;
+    font-size: 0.45rem;
+    border-radius: 5px;
+  }
+
+  .bhud__season-back {
+    padding: 0.25rem;
+    font-size: 0.42rem;
+    border-radius: 5px;
+  }
+
+  .season-tip {
+    min-width: 120px;
+    max-width: 160px;
+  }
+
+  .season-tip__icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .season-tip__name {
+    font-size: 0.45rem;
+  }
+
+  .season-tip__effect {
+    font-size: 0.42rem;
+  }
+
+  .season-tip__th {
+    font-size: 0.36rem;
+  }
+
+  .season-tip__scope {
+    font-size: 0.34rem;
+  }
+
+  .bhud__season-modal {
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+    gap: 0.25rem;
+    border-radius: 8px;
+  }
+
+  .bhud__dice-roller--waiting {
+    height: 40px;
+  }
+
+  .bhud__roll-waiting-spinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+  }
+}

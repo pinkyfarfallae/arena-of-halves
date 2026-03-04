@@ -11,14 +11,15 @@ export type EffectType =
   | 'cleanse'
   | 'reroll_grant';
 
-export type TargetType = 'enemy' | 'self';
+export type TargetType = 'enemy' | 'self' | 'ally';
 
 export type ModStat =
   | 'attackDiceUp'
   | 'defendDiceUp'
   | 'damage'
   | 'speed'
-  | 'criticalRate';
+  | 'criticalRate'
+  | 'maxHp';
 
 /** A single mechanical effect entry (used inside the effects[] array). */
 export interface PowerEffect {
@@ -50,6 +51,12 @@ export interface PowerDefinition {
 
   /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
   skipDice?: boolean;
+
+  /** If true, power requires season selection before targeting (e.g. Persephone's Borrowed Season) */
+  requiresSeasonSelection?: boolean;
+
+  /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
+  requiresTargetHasEffect?: string;
 }
 
 /** An active effect applied to a fighter during battle */

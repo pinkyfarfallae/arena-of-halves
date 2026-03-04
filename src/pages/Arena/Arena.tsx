@@ -14,14 +14,19 @@ import {
   startBattle,
   selectTarget,
   selectAction,
+  selectSeason,
+  confirmSeason,
+  cancelSeasonSelection,
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
+import type { SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
+import SeasonalEffects from './components/SeasonalEffects/SeasonalEffects';
 import ChevronLeft from '../../icons/ChevronLeft';
 import BattleLogModal from '../Lobby/components/BattleLogModal/BattleLogModal';
 import CopyIcon from './icons/CopyIcon';
@@ -78,6 +83,10 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+
+  // Track active season from Borrowed Season power (displayed for 2 turns)
+  const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
+  const [returnFromSeason, setReturnFromSeason] = useState(false);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -144,6 +153,40 @@ function Arena() {
     setJoined(true);
   }, [room, user, arenaId, joined, watchOnly]);
 
+  /* ── Track active season from Borrowed Season power ── */
+  useEffect(() => {
+    if (!room?.battle) {
+      setActiveSeason(null);
+      ;
+      return;
+    }
+
+    const { battle } = room;
+    const { turn } = battle;
+
+    // During select-season: only the selecting player sees the preview
+    if (turn?.selectedSeason && turn?.phase === 'select-season') {
+      if (user?.characterId === turn.attackerId) {
+        setActiveSeason(turn.selectedSeason as SeasonKey);
+      }
+      return;
+    }
+
+    // After season is confirmed: check activeEffects for any season buff
+    // to show effects on both sides for all clients
+    const seasonEffect = (battle.activeEffects || []).find(e =>
+      e.tag?.startsWith('season-'),
+    );
+    if (seasonEffect) {
+      const seasonName = seasonEffect.tag!.replace('season-', '') as SeasonKey;
+      setActiveSeason(seasonName);
+      ;
+    } else {
+      setActiveSeason(null);
+      ;
+    }
+  }, [room?.battle?.roundNumber, room?.battle?.turn, room?.battle?.activeEffects, user?.characterId]);
+
   useEffect(() => {
     join();
   }, [join]);
@@ -159,6 +202,16 @@ function Arena() {
 
     npcJoining.current = true;
     let cancelled = false;
+
+    // Check if pre-selected NPC team exists
+    const npcTeam = (room as any).npcTeam;
+    if (npcTeam && Array.isArray(npcTeam) && npcTeam.length > 0) {
+      // Multi-fighter NPC team selected during config
+      joinRoom(arenaId, npcTeam).finally(() => { npcJoining.current = false; });
+      return () => { cancelled = true; };
+    }
+
+    // Single NPC mode (original behavior)
     fetchNPCs().then((npcs) => {
       if (cancelled) return;
       const npcId = room.npcId;
@@ -201,12 +254,30 @@ function Arena() {
       }, delay);
     };
 
-    // NPC's turn to select target → pick random alive opponent
+    // NPC's turn to select target → pick random alive opponent (filtered by power requirements)
     if (turn.phase === 'select-target' && teamBIds.has(turn.attackerId)) {
-      const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+      let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+      
+      // If power requires specific effect on target, filter valid targets
+      if (turn.usedPowerIndex != null && battle) {
+        const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
+        if (npcFighter) {
+          const power = npcFighter.powers[turn.usedPowerIndex];
+          if (power?.requiresTargetHasEffect) {
+            const requiredTag = power.requiresTargetHasEffect;
+            const effects = battle.activeEffects || [];
+            teamAAlive = teamAAlive.filter(enemy => 
+              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
+            );
+          }
+        }
+      }
+      
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        schedule(() => selectTarget(arenaId, target.characterId), 2000);
+        // Extra delay after Floral Scented so scent wave visual plays
+        const delay = turn.usedPowerName === 'Floral Scented' ? 5000 : 2000;
+        schedule(() => selectTarget(arenaId, target.characterId), delay);
       }
       return;
     }
@@ -216,15 +287,55 @@ function Arena() {
       const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
       if (npcFighter) {
         const affordable = getAffordablePowers(npcFighter);
-        if (affordable.length > 0 && Math.random() < 0.4) {
-          const pick = affordable[Math.floor(Math.random() * affordable.length)];
-          schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+        
+        // Filter out powers that require specific target conditions but no valid targets exist
+        const usablePowers = affordable.filter(({ power }) => {
+          // If power requires target to have specific effect, check if any enemy has it
+          if (power.requiresTargetHasEffect && battle) {
+            const requiredTag = power.requiresTargetHasEffect;
+            const enemies = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+            const effects = battle.activeEffects || [];
+            return enemies.some(enemy => 
+              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
+            );
+          }
+          return true;
+        });
+        
+        if (usablePowers.length > 0 && Math.random() < 0.8) {
+          const pick = usablePowers[Math.floor(Math.random() * usablePowers.length)];
+          // Ally-targeting power: pick a random alive teammate
+          if (pick.power.target === 'ally') {
+            const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
+            if (teammates.length > 0) {
+              // Pomegranate's Oath: prefer other allies, self only if no others alive
+              let pool = teammates;
+              if (pick.power.name === "Pomegranate's Oath") {
+                const others = teammates.filter(m => m.characterId !== turn.attackerId);
+                if (others.length > 0) pool = others;
+              }
+              const ally = pool[Math.floor(Math.random() * pool.length)];
+              schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), 1000);
+            } else {
+              schedule(() => selectAction(arenaId, 'attack'), 800);
+            }
+          } else {
+            schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+          }
         } else {
           schedule(() => selectAction(arenaId, 'attack'), 800);
         }
       } else {
         schedule(() => selectAction(arenaId, 'attack'), 800);
       }
+      return;
+    }
+
+    // NPC needs to select season (Borrowed Season)
+    if (turn.phase === 'select-season' && teamBIds.has(turn.attackerId)) {
+      const seasons: SeasonKey[] = ['summer', 'autumn', 'winter', 'spring'];
+      const pick = seasons[Math.floor(Math.random() * seasons.length)];
+      schedule(() => handleSelectSeason(pick), 1500);
       return;
     }
 
@@ -318,8 +429,29 @@ function Arena() {
     if (arenaId) await selectTarget(arenaId, defenderId);
   };
 
-  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number) => {
-    if (arenaId) await selectAction(arenaId, action, powerIndex);
+  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+    setReturnFromSeason(false);
+    if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
+  };
+
+  const handlePreviewSeason = (season: SeasonKey | null) => {
+    setActiveSeason(season);
+  };
+
+  const handleSelectSeason = async (season: SeasonKey) => {
+    if (!arenaId) return;
+    await selectSeason(arenaId, season);
+    // 3s visual delay for the selecting player, then apply effects + end turn
+    setTimeout(async () => {
+      await confirmSeason(arenaId);
+    }, 3000);
+  };
+
+  const handleCancelSeason = async () => {
+    if (!arenaId) return;
+    setActiveSeason(null);
+    setReturnFromSeason(true);
+    await cancelSeasonSelection(arenaId);
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
@@ -412,7 +544,7 @@ function Arena() {
       </header>
 
       {/* ── Battle field ── */}
-      <div className="arena__field">
+      <div className={`arena__field ${room.status !== 'battling' ? 'arena__field--finished' : ''}`}>
         {/* Team A */}
         <div
           className="arena__half arena__half--left"
@@ -427,6 +559,8 @@ function Arena() {
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
           />
+          {/* Seasonal effects overlay (left side) */}
+          <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason} />
         </div>
 
         <div className="arena__divider">
@@ -455,6 +589,8 @@ function Arena() {
               <span>Awaiting Challenger…</span>
             </div>
           )}
+          {/* Seasonal effects overlay (right side) */}
+          <SeasonalEffects season={activeSeason ?? undefined} side="right" isActive={!!activeSeason} />
         </div>
 
         {/* Battle HUD overlay */}
@@ -467,6 +603,10 @@ function Arena() {
             myId={user?.characterId}
             onSelectTarget={handleSelectTarget}
             onSelectAction={handleSelectAction}
+            onSelectSeason={handleSelectSeason}
+            onPreviewSeason={handlePreviewSeason}
+            onCancelSeason={handleCancelSeason}
+            initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}

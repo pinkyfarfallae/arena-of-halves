@@ -1,4 +1,4 @@
-import type { FighterState } from '../../../../../types/battle';
+import type { FighterState } from '../../../../../../types/battle';
 import './TargetSelectModal.scss';
 
 interface Props {
