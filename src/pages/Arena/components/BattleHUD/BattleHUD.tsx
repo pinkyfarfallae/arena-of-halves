@@ -73,7 +73,25 @@ export default function BattleHUD({
   const isMyTurn = turn && turn.attackerId === myId;
   const isMyDefend = turn && turn.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
-  const targets = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
+  
+  // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
+  const targets = (() => {
+    const alive = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
+    
+    // If using a power that requires specific effect on target
+    if (turn?.usedPowerIndex != null && attacker) {
+      const power = attacker.powers[turn.usedPowerIndex];
+      if (power?.requiresTargetHasEffect) {
+        const requiredTag = power.requiresTargetHasEffect;
+        const effects = battle.activeEffects || [];
+        return alive.filter((f) => 
+          effects.some((e) => e.targetId === f.characterId && e.tag === requiredTag)
+        );
+      }
+    }
+    
+    return alive;
+  })();
 
   /* ── Dice submit with brief delay so user sees result ── */
   const atkSubmitted = useRef(false);

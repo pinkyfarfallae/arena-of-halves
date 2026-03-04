@@ -54,6 +54,9 @@ export interface PowerDefinition {
 
   /** If true, power requires season selection before targeting (e.g. Persephone's Borrowed Season) */
   requiresSeasonSelection?: boolean;
+
+  /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
+  requiresTargetHasEffect?: string;
 }
 
 /** An active effect applied to a fighter during battle */

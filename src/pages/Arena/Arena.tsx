@@ -254,9 +254,25 @@ function Arena() {
       }, delay);
     };
 
-    // NPC's turn to select target → pick random alive opponent
+    // NPC's turn to select target → pick random alive opponent (filtered by power requirements)
     if (turn.phase === 'select-target' && teamBIds.has(turn.attackerId)) {
-      const teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+      let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+      
+      // If power requires specific effect on target, filter valid targets
+      if (turn.usedPowerIndex != null && battle) {
+        const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
+        if (npcFighter) {
+          const power = npcFighter.powers[turn.usedPowerIndex];
+          if (power?.requiresTargetHasEffect) {
+            const requiredTag = power.requiresTargetHasEffect;
+            const effects = battle.activeEffects || [];
+            teamAAlive = teamAAlive.filter(enemy => 
+              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
+            );
+          }
+        }
+      }
+      
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
         // Extra delay after Floral Scented so scent wave visual plays
@@ -271,8 +287,23 @@ function Arena() {
       const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
       if (npcFighter) {
         const affordable = getAffordablePowers(npcFighter);
-        if (affordable.length > 0 && Math.random() < 0.4) {
-          const pick = affordable[Math.floor(Math.random() * affordable.length)];
+        
+        // Filter out powers that require specific target conditions but no valid targets exist
+        const usablePowers = affordable.filter(({ power }) => {
+          // If power requires target to have specific effect, check if any enemy has it
+          if (power.requiresTargetHasEffect && battle) {
+            const requiredTag = power.requiresTargetHasEffect;
+            const enemies = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
+            const effects = battle.activeEffects || [];
+            return enemies.some(enemy => 
+              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
+            );
+          }
+          return true;
+        });
+        
+        if (usablePowers.length > 0 && Math.random() < 0.8) {
+          const pick = usablePowers[Math.floor(Math.random() * usablePowers.length)];
           // Ally-targeting power: pick a random alive teammate
           if (pick.power.target === 'ally') {
             const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
