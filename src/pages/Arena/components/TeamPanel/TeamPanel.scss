@@ -9,17 +9,132 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  bottom: 0;
   display: flex;
   justify-content: center;
-  gap: 0.6rem;
   padding: 0;
   background: transparent;
 }
 
+/* ── 3+ members on medium screens: shrink chips ── */
+@media (max-width: $bp-expanded) {
+  .team-panel--full {
+    .mchip {
+      max-height: 130px;
+    }
+
+    .mchip__frame {
+      width: 88px;
+      height: 88px;
+      border-radius: 7px;
+      margin-top: 0.5rem;
+    }
+
+    .mchip__inner-border {
+      border-radius: 5px;
+    }
+
+    .mchip__critical {
+      height: 93px;
+      top: 0.5rem;
+      left: calc(50% + 50px);
+    }
+
+    .mchip__powerside {
+      height: 94px;
+      right: calc(50% + 50px);
+    }
+
+    .mchip__name {
+      font-size: 0.5rem;
+    }
+
+    .mchip__hp-label {
+      font-size: 0.34rem;
+    }
+
+    .mchip__deity-tag {
+      font-size: 0.34rem;
+    }
+
+    .mchip__quota {
+      margin-top: 0.35rem;
+    }
+
+    .mchip__quota-pip {
+      width: 7px;
+      height: 7px;
+      border-width: 1px;
+    }
+
+    .mchip__order {
+      width: 14px;
+      height: 14px;
+      font-size: 0.4rem;
+    }
+  }
+}
+
 @media (max-width: $bp-medium) {
-  .team-panel {
-    gap: 0.4rem;
+  .team-panel--full {
+    .mchip {
+      max-height: 110px;
+    }
+
+    .mchip__frame {
+      width: 68px;
+      height: 68px;
+      border-radius: 6px;
+      margin-top: 0.4rem;
+    }
+
+    .mchip__inner-border {
+      border-radius: 4px;
+    }
+
+    .mchip__critical {
+      height: 72px;
+      top: 0.4rem;
+      left: calc(50% + 40px);
+    }
+
+    .mchip__powerside {
+      height: 74px;
+      top: 0.4rem;
+      right: calc(50% + 40px);
+    }
+
+    .mchip__name {
+      font-size: 0.45rem;
+    }
+
+    .mchip__hp-label {
+      font-size: 0.3rem;
+    }
+
+    .mchip__deity-tag {
+      font-size: 0.3rem;
+    }
+
+    .mchip__order {
+      width: 12px;
+      height: 12px;
+      font-size: 0.35rem;
+    }
+
+    .mchip__effect-pip {
+      width: 6px;
+      height: 6px;
+    }
+
+    .mchip__quota {
+      margin-top: 0.25rem;
+    }
+
+    .mchip__quota-pip {
+      width: 6px;
+      height: 6px;
+    }
   }
 }
 
@@ -31,7 +146,6 @@
     right: auto;
     width: auto;
     padding: 0;
-    gap: 0.3rem;
     background: transparent !important;
   }
 }

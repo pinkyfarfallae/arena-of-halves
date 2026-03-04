@@ -4,11 +4,13 @@ import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { checkCritical, getWinningFaces } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
+import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
-import TargetSelectModal from './components/TargetSelectModal';
-import ActionSelectModal from './components/ActionSelectModal';
-import DiceModal from './components/DiceModal';
+import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal';
+import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
+import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
+import DiceModal from './components/DiceModal/DiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 
@@ -44,7 +46,11 @@ interface Props {
   teamB: FighterState[];
   myId: string | undefined;
   onSelectTarget: (defenderId: string) => void;
-  onSelectAction: (action: 'attack' | 'power', powerIndex?: number) => void;
+  onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
+  onSelectSeason: (season: SeasonKey) => void;
+  onPreviewSeason?: (season: SeasonKey | null) => void;
+  onCancelSeason?: () => void;
+  initialShowPowers?: boolean;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
@@ -58,7 +64,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, myId,
-  onSelectTarget, onSelectAction, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -67,7 +73,25 @@ export default function BattleHUD({
   const isMyTurn = turn && turn.attackerId === myId;
   const isMyDefend = turn && turn.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
-  const targets = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
+  
+  // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
+  const targets = (() => {
+    const alive = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
+    
+    // If using a power that requires specific effect on target
+    if (turn?.usedPowerIndex != null && attacker) {
+      const power = attacker.powers[turn.usedPowerIndex];
+      if (power?.requiresTargetHasEffect) {
+        const requiredTag = power.requiresTargetHasEffect;
+        const effects = battle.activeEffects || [];
+        return alive.filter((f) => 
+          effects.some((e) => e.targetId === f.characterId && e.tag === requiredTag)
+        );
+      }
+    }
+    
+    return alive;
+  })();
 
   /* ── Dice submit with brief delay so user sees result ── */
   const atkSubmitted = useRef(false);
@@ -75,7 +99,7 @@ export default function BattleHUD({
 
   // Reset submitted flags when phase changes
   if (turn?.phase === 'rolling-attack') defSubmitted.current = false;
-  if (turn?.phase === 'select-target') atkSubmitted.current = false;
+  if (turn?.phase === 'select-action') atkSubmitted.current = false;
 
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
@@ -145,6 +169,93 @@ export default function BattleHUD({
     }
   }, [defRollDone, turn?.phase]);
 
+  /* ── Pomegranate's Oath: Dodge D4 check ── */
+  const [dodgeReady, setDodgeReady] = useState(false);
+  const [dodgeEligible, setDodgeEligible] = useState(false);
+  const [dodgeRollResult, setDodgeRollResult] = useState(0);
+  const dodgeRef = useRef({ winFaces: [] as number[], isDodged: false, roll: 0 });
+  const dodgeInitKey = useRef('');
+  const dodgeSubmitted = useRef(false);
+
+  // Reset dodge state on phase change
+  useEffect(() => {
+    setDodgeReady(false);
+    setDodgeEligible(false);
+    setDodgeRollResult(0);
+    dodgeInitKey.current = '';
+    dodgeSubmitted.current = false;
+    dodgeRef.current = { winFaces: [], isDodged: false, roll: 0 };
+  }, [turn?.phase]);
+
+  // Compute dodge eligibility when resolve is ready
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !attacker || !defender || !turn.defenderId) return;
+    const key = `dodge:${turn.attackerId}:${turn.defenderId}:${turn.attackRoll}:${turn.defendRoll}`;
+    if (dodgeInitKey.current === key) return;
+    dodgeInitKey.current = key;
+
+    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    if (isSkipDice) { setDodgeReady(true); return; }
+
+    // Check if defender has pomegranate-spirit
+    const ae = battle.activeEffects || [];
+    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === 'pomegranate-spirit');
+    if (!hasSpirit) { setDodgeReady(true); return; }
+
+    // Check if attack actually hit (need hit to dodge)
+    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
+    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
+    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+    if (at <= dt) { setDodgeReady(true); return; }
+
+    // Dodge D4: 50% → 2 winning faces
+    const winFaces = (!isMyDefend && turn.dodgeWinFaces?.length) ? turn.dodgeWinFaces : getWinningFaces(50);
+
+    if (isMyDefend) {
+      dodgeRef.current = { winFaces, isDodged: false, roll: 0 };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { dodgeWinFaces: winFaces });
+      setDodgeEligible(true);
+    } else if (turn.dodgeRoll != null && turn.dodgeRoll > 0) {
+      dodgeRef.current = { winFaces, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
+      setDodgeRollResult(turn.dodgeRoll);
+      setDodgeEligible(true);
+      setTimeout(() => setDodgeReady(true), 3500);
+    } else {
+      // NPC: compute dodge now
+      const roll = Math.ceil(Math.random() * 4);
+      const dg = winFaces.includes(roll);
+      dodgeRef.current = { winFaces, isDodged: dg, roll };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isDodged: dg, dodgeRoll: roll, dodgeWinFaces: winFaces });
+      setDodgeRollResult(roll);
+      setDodgeEligible(true);
+      setTimeout(() => setDodgeReady(true), 3500);
+    }
+  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend]);
+
+  // Player rolls dodge D4 manually (isMyDefend)
+  const handleDodgeRollResult = useCallback((roll: number) => {
+    if (dodgeSubmitted.current) return;
+    dodgeSubmitted.current = true;
+    const dr = dodgeRef.current;
+    const dg = dr.winFaces.includes(roll);
+    dodgeRef.current = { ...dr, isDodged: dg, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isDodged: dg, dodgeRoll: roll });
+    setTimeout(() => setDodgeReady(true), 1500);
+  }, [arenaId]);
+
+  // PvP watcher: defender rolled dodge D4 after we entered resolving
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || dodgeReady || !dodgeEligible) return;
+    if (isMyDefend) return;
+    if (dodgeRollResult > 0) return;
+    if (turn?.dodgeRoll == null) return;
+    dodgeRef.current = { ...dodgeRef.current, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
+    setDodgeRollResult(turn.dodgeRoll);
+    const t = setTimeout(() => setDodgeReady(true), 3500);
+    return () => clearTimeout(t);
+  }, [turn?.phase, resolveReady, dodgeReady, dodgeEligible, isMyDefend, dodgeRollResult, turn?.dodgeRoll, turn?.isDodged]);
+
   /* ── D4 critical hit check ── */
   const [critReady, setCritReady] = useState(false);
   const [critEligible, setCritEligible] = useState(false);
@@ -163,12 +274,15 @@ export default function BattleHUD({
     critRef.current = { effectiveCrit: 0, winFaces: [], isCrit: false, critRoll: 0 };
   }, [turn?.phase]);
 
-  // Compute crit eligibility when resolve is ready
+  // Compute crit eligibility when dodge check is done
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !attacker || !defender || !turn.defenderId) return;
+    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !attacker || !defender || !turn.defenderId) return;
     const key = `${turn.attackerId}:${turn.defenderId}:${turn.attackRoll}:${turn.defendRoll}`;
     if (critInitKey.current === key) return;
     critInitKey.current = key;
+
+    // Dodged → skip crit
+    if (dodgeRef.current.isDodged) { setCritReady(true); return; }
 
     const isSkipDice = turn.action === 'power' && !turn.attackRoll;
     if (isSkipDice) {
@@ -204,17 +318,19 @@ export default function BattleHUD({
 
     if (effectiveCrit >= 100) {
       critRef.current = { effectiveCrit, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0 });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
       setCritEligible(true);
       setCritReady(true);
       return;
     }
 
-    const winFaces = getWinningFaces(effectiveCrit);
+    // Use attacker's stored winFaces (PvP watcher) or generate new ones
+    const winFaces = (!isMyTurn && turn.critWinFaces?.length) ? turn.critWinFaces : getWinningFaces(effectiveCrit);
 
     if (isMyTurn) {
-      // Player: manual D4 roll
+      // Player: manual D4 roll — write winFaces so PvP opponent sees the same faces
       critRef.current = { effectiveCrit, winFaces, isCrit: false, critRoll: 0 };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { critWinFaces: winFaces });
       setCritEligible(true);
     } else if (turn.critRoll != null && turn.critRoll > 0) {
       // PvP: opponent already rolled before we got here
@@ -224,14 +340,14 @@ export default function BattleHUD({
       setTimeout(() => setCritReady(true), 3500);
     } else {
       // NPC: compute crit now, show replay immediately (no waiting)
-      const crit = checkCritical(effectiveCrit);
+      const crit = checkCritical(effectiveCrit, winFaces);
       critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
       setCritRollResult(crit.critRoll);
       setCritEligible(true);
       setTimeout(() => setCritReady(true), 3500);
     }
-  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn]);
+  }, [turn, resolveReady, dodgeReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn]);
 
   // Player rolls D4 manually (isMyTurn)
   const handleCritRollResult = useCallback((roll: number) => {
@@ -275,6 +391,8 @@ export default function BattleHUD({
   // Compute chain eligibility when crit check is done
   useEffect(() => {
     if (turn?.phase !== 'resolving' || !resolveReady || !critReady) return;
+    // Dodged → skip chain
+    if (dodgeRef.current.isDodged) { setChainReady(true); return; }
     if (turn.usedPowerName !== 'Thunderbolt') {
       setChainReady(true);
       return;
@@ -331,16 +449,131 @@ export default function BattleHUD({
     return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, chainReady, chainEligible, isMyTurn, chainRollResult, turn?.chainRoll, turn?.chainSuccess]);
 
-  /* ── Auto-resolve after showing result (only after crit + chain check done) ── */
+  /* ── Pomegranate's Oath: Co-attack D12 ── */
+  const [coAttackReady, setCoAttackReady] = useState(false);
+  const [coAttackEligible, setCoAttackEligible] = useState(false);
+  const [coAttackRollResult, setCoAttackRollResult] = useState(0);
+  const coAttackRef = useRef({ casterId: '', hit: false, damage: 0, roll: 0 });
+  const coAttackSubmitted = useRef(false);
+
+  // Reset co-attack state on phase change
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || !chainReady) return;
+    setCoAttackReady(false);
+    setCoAttackEligible(false);
+    setCoAttackRollResult(0);
+    coAttackSubmitted.current = false;
+    coAttackRef.current = { casterId: '', hit: false, damage: 0, roll: 0 };
+  }, [turn?.phase]);
+
+  // Compute co-attack eligibility when all prior checks done
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !critReady || !chainReady) return;
+    if (!attacker || !defender || !turn.defenderId) { setCoAttackReady(true); return; }
+
+    // Dodged → no co-attack
+    if (dodgeRef.current.isDodged) { setCoAttackReady(true); return; }
+
+    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    if (isSkipDice) { setCoAttackReady(true); return; }
+
+    // Check if attacker (the one attacking this turn) has pomegranate-spirit
+    const ae = battle.activeEffects || [];
+    const spiritEffect = ae.find(e => e.targetId === turn.attackerId && e.tag === 'pomegranate-spirit');
+    if (!spiritEffect) { setCoAttackReady(true); return; }
+
+    // Check if main attack hit
+    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
+    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
+    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+    if (at <= dt) { setCoAttackReady(true); return; }
+
+    // Check if caster is alive
+    const casterId = spiritEffect.sourceId;
+    const caster = find(teamA, teamB, casterId);
+    if (!caster || caster.currentHp <= 0) { setCoAttackReady(true); return; }
+
+    coAttackRef.current = { casterId, hit: false, damage: 0, roll: 0 };
+    const isMyCaster = casterId === myId;
+
+    if (isMyCaster) {
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackerId: casterId });
+      setCoAttackEligible(true);
+    } else if (turn.coAttackRoll != null && turn.coAttackRoll > 0) {
+      // PvP: opponent already rolled
+      coAttackRef.current = { casterId, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
+      setCoAttackRollResult(turn.coAttackRoll);
+      setCoAttackEligible(true);
+      setTimeout(() => setCoAttackReady(true), 3500);
+    } else {
+      // NPC: compute co-attack now
+      const roll = Math.ceil(Math.random() * 12);
+      const coBuff = getStatModifier(ae, casterId, 'attackDiceUp');
+      const coTotal = roll + caster.attackDiceUp + coBuff;
+      const coHit = coTotal > dt;
+      const coDmgBuff = getStatModifier(ae, casterId, 'damage');
+      const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
+      coAttackRef.current = { casterId, hit: coHit, damage: coDmg, roll };
+      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
+      setCoAttackRollResult(roll);
+      setCoAttackEligible(true);
+      setTimeout(() => setCoAttackReady(true), 3500);
+    }
+  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId]);
+
+  // Player rolls co-attack D12 manually (isMyCaster)
+  const handleCoAttackRollResult = useCallback((roll: number) => {
+    if (coAttackSubmitted.current) return;
+    coAttackSubmitted.current = true;
+    const cr = coAttackRef.current;
+    const ae = battle.activeEffects || [];
+    const caster = find(teamA, teamB, cr.casterId);
+    if (!caster || !turn?.defenderId || !defender) return;
+    const coBuff = getStatModifier(ae, cr.casterId, 'attackDiceUp');
+    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const coTotal = roll + caster.attackDiceUp + coBuff;
+    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+    const coHit = coTotal > dt;
+    const coDmgBuff = getStatModifier(ae, cr.casterId, 'damage');
+    const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
+    coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
+    setTimeout(() => setCoAttackReady(true), 1500);
+  }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
+
+  // PvP watcher: caster rolled co-attack after we entered resolving
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || !chainReady || coAttackReady || !coAttackEligible) return;
+    if (coAttackRef.current.casterId === myId) return;
+    if (coAttackRollResult > 0) return;
+    if (turn?.coAttackRoll == null) return;
+    coAttackRef.current = { ...coAttackRef.current, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
+    setCoAttackRollResult(turn.coAttackRoll);
+    const t = setTimeout(() => setCoAttackReady(true), 3500);
+    return () => clearTimeout(t);
+  }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage]);
+
+  /* ── Auto-resolve after showing result (only after all checks done) ── */
+  useEffect(() => {
+    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !critReady || !chainReady || !coAttackReady) return;
     const timer = setTimeout(() => onResolve(), 5000);
     return () => clearTimeout(timer);
-  }, [turn?.phase, resolveReady, critReady, chainReady, onResolve]);
+  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve]);
+
+  /* ── Floral Scented: delay target selection so scent wave visual plays ── */
+  const [floralDelay, setFloralDelay] = useState(false);
+  useEffect(() => {
+    if (turn?.phase === 'select-target' && turn.usedPowerName === 'Floral Scented' && turn.allyTargetId) {
+      setFloralDelay(true);
+      const t = setTimeout(() => setFloralDelay(false), 3000);
+      return () => clearTimeout(t);
+    }
+    setFloralDelay(false);
+  }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
 
   /* ── Fade transitions for resolve & waiting panels ── */
-  const resolveVisible = turn?.phase === 'resolving' && resolveReady && critReady && chainReady && !!attacker && !!defender;
-  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target');
+  const resolveVisible = turn?.phase === 'resolving' && resolveReady && dodgeReady && critReady && chainReady && coAttackReady && !!attacker && !!defender;
+  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target' && !floralDelay);
 
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
@@ -354,6 +587,7 @@ export default function BattleHUD({
     atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
     isHit: false, damage: 0, baseDmg: 0, shockBonus: 0,
     isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0,
+    isDodged: false, coAttackHit: false, coAttackDamage: 0,
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
     side: 'right' as 'left' | 'right',
   });
@@ -368,6 +602,7 @@ export default function BattleHUD({
         isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
         isPower: true, powerName: turn.usedPowerName ?? 'Power',
         critEligible: false, isCrit: false, critRoll: 0,
+        isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
         side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
@@ -399,12 +634,16 @@ export default function BattleHUD({
       }
       damage += shockBonus;
 
+      const dgd = dodgeRef.current.isDodged;
+      const ca = coAttackRef.current;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
-        atkTotal: at, defTotal: dt, isHit: at > dt, damage, baseDmg, shockBonus,
+        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damage, baseDmg, shockBonus,
         isPower: turn.action === 'power', powerName: turn.usedPowerName ?? '',
-        critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
+        critEligible: !dgd && critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
+        isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
         side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
@@ -424,7 +663,7 @@ export default function BattleHUD({
 
     return (
       <div className="bhud">
-        <div className={`bhud__dice-zone bhud__dice-zone--${winSide}`}>
+        <div className={`bhud__dice-zone bhud__dice-zone--${winSide} bhud__dice-zone--finished`}>
           <div className="bhud__result-badge bhud__result-badge--winner">
             <WinBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Victory</span>
@@ -433,7 +672,7 @@ export default function BattleHUD({
             </div>
           </div>
         </div>
-        <div className={`bhud__dice-zone bhud__dice-zone--${loseSide}`}>
+        <div className={`bhud__dice-zone bhud__dice-zone--${loseSide} bhud__dice-zone--finished`}>
           <div className="bhud__result-badge bhud__result-badge--loser">
             <LoseBadge className="bhud__result-icon" />
             <span className="bhud__result-label">Defeat</span>
@@ -475,8 +714,9 @@ export default function BattleHUD({
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
               <span className="bhud__phase-label">
-                {turn.phase === 'select-target' && 'is attacking'}
+                {turn.phase === 'select-target' && 'selecting target...'}
                 {turn.phase === 'select-action' && 'choosing action...'}
+                {turn.phase === 'select-season' && 'choosing season...'}
                 {turn.phase === 'rolling-attack' && 'rolling...'}
                 {turn.phase === 'rolling-defend' && `→ ${defender?.nicknameEng ?? '...'} defending...`}
                 {turn.phase === 'resolving' && turn.action === 'power' && !turn.attackRoll && `used ${turn.usedPowerName ?? 'a power'}!`}
@@ -489,7 +729,7 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection */}
-      {isMyTurn && turn.phase === 'select-target' && (
+      {isMyTurn && turn.phase === 'select-target' && !floralDelay && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <TargetSelectModal
             attackerName={attacker?.nicknameEng ?? ''}
@@ -513,7 +753,27 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
+            teammates={turn.attackerTeam === 'teamA' ? teamA : teamB}
             onSelectAction={onSelectAction}
+            initialShowPowers={initialShowPowers}
+          />
+        </div>
+      )}
+
+      {/* Season selection (Persephone's Borrowed Season) */}
+      {turn.phase === 'select-season' && attacker && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <SeasonSelectModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            phase={turn.phase}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            side={atkSide}
+            currentSeason={(battle.activeEffects || []).find(e => e.tag?.startsWith('season-'))?.tag?.replace('season-', '') as SeasonKey | undefined}
+            onSelectSeason={onSelectSeason}
+            onPreviewSeason={onPreviewSeason}
+            onBack={onCancelSeason}
           />
         </div>
       )}
@@ -546,6 +806,18 @@ export default function BattleHUD({
           chainWinFaces={chainRef.current.winFaces}
           chainRollResult={chainRollResult}
           onChainRollResult={handleChainRollResult}
+          dodgeEligible={dodgeEligible}
+          dodgeReady={dodgeReady}
+          dodgeWinFaces={dodgeRef.current.winFaces}
+          dodgeRollResult={dodgeRollResult}
+          onDodgeRollResult={handleDodgeRollResult}
+          coAttackEligible={coAttackEligible}
+          coAttackReady={coAttackReady}
+          coAttackRollResult={coAttackRollResult}
+          onCoAttackRollResult={handleCoAttackRollResult}
+          coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
+          atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, 'attackDiceUp')}
+          defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, 'defendDiceUp') : 0}
         />
       )}
 
@@ -586,7 +858,9 @@ export default function BattleHUD({
                   <span className="bhud__resolve-roll-total">= {rc.defTotal}</span>
                 </span>
               </div>
-              {rc.isHit ? (
+              {rc.isDodged ? (
+                <span className="bhud__resolve-miss">DODGED!</span>
+              ) : rc.isHit ? (
                 <>
                   {rc.critEligible && (
                     <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
@@ -594,6 +868,9 @@ export default function BattleHUD({
                     </span>
                   )}
                   <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
+                  {rc.coAttackHit && rc.coAttackDamage > 0 && (
+                    <span className="bhud__resolve-dmg">Co-Attack: -{rc.coAttackDamage} DMG</span>
+                  )}
                 </>
               ) : (
                 <span className="bhud__resolve-miss">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>

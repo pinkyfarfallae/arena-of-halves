@@ -1,6 +1,9 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
+import { lightenColor } from '../../../../../utils/color';
+import PetalShield from './icons/PetalShield';
+
 import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import LockOpen from '../../../../CharacterInfo/icons/LockOpen';
@@ -8,46 +11,66 @@ import LockClosed from '../../../../CharacterInfo/icons/LockClosed';
 import { DEITY_SVG } from '../../../../../data/deities';
 import './MemberChip.scss';
 
+
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
 const BP_COMPACT = 600;
 
 /** Popup rendered via portal so it sits above all stacking contexts. */
-function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }: {
+function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, battleLive }: {
   fighter: FighterState;
   deityLabel: string;
   chipRef: React.RefObject<HTMLDivElement | null>;
   onEnter: () => void;
   onLeave: () => void;
   statMods?: Record<string, number>;
+  battleLive?: boolean;
 }) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rect = chipRef.current?.getBoundingClientRect();
-  if (!rect) return null;
 
   const isCompact = window.innerWidth <= BP_COMPACT;
+
+  useEffect(() => {
+    const el = popupRef.current;
+    if (!el || !rect) return;
+    const pw = el.offsetWidth;
+    const ph = el.offsetHeight;
+    const pad = 6;
+    let top: number;
+    let left: number;
+
+    if (isCompact) {
+      top = rect.top + rect.height / 2 - ph / 2;
+      left = rect.right + 5 - (!battleLive ? 20 : 0);
+      // If overflows right, flip to left of chip
+      if (left + pw > window.innerWidth - pad) left = rect.left - pw - 5;
+    } else {
+      top = rect.bottom - 25;
+      left = rect.left + rect.width / 2 - pw / 2;
+    }
+
+    // Clamp to viewport
+    top = Math.max(pad, Math.min(top, window.innerHeight - ph - pad));
+    left = Math.max(pad, Math.min(left, window.innerWidth - pw - pad));
+    setPos({ top, left });
+  });
+
+  if (!rect) return null;
+
   const style: React.CSSProperties = {
     '--chip-primary': fighter.theme[0],
     '--chip-accent': fighter.theme[1],
+    position: 'fixed',
+    visibility: pos ? 'visible' : 'hidden',
+    top: pos?.top ?? 0,
+    left: pos?.left ?? 0,
   } as React.CSSProperties;
-
-  if (isCompact) {
-    Object.assign(style, {
-      position: 'fixed' as const,
-      top: rect.top + rect.height / 2,
-      left: rect.right + 5,
-      transform: 'translateY(-50%)',
-    });
-  } else {
-    Object.assign(style, {
-      position: 'fixed' as const,
-      top: rect.bottom - 15,
-      left: rect.left + rect.width / 2,
-      transform: 'translateX(-50%)',
-    });
-  }
 
   return (
     <div
+      ref={popupRef}
       className="mchip__popup mchip__popup--visible"
       style={style}
       onMouseEnter={onEnter}
@@ -60,6 +83,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods }
 
       <div className="mchip__stats">
         {([
+          ['HP', fighter.maxHp, statMods?.maxHp],
           ['DMG', fighter.damage, statMods?.damage],
           ['+ATK', fighter.attackDiceUp, statMods?.attackDiceUp],
           ['+DEF', fighter.defendDiceUp, statMods?.defendDiceUp],
@@ -209,14 +233,19 @@ interface Props {
   isShockHit?: boolean;
   isThunderboltHit?: boolean;
   isShocked?: boolean;
+  isPetalShielded?: boolean;
+  hasPomegranateEffect?: boolean;
+  isSpiritForm?: boolean;
+  isScentWaved?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
   statMods?: Record<string, number>;
+  battleLive?: boolean;
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, turnOrder, effectPips, statMods, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -263,6 +292,32 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (!isThunderboltHit) prevIsThunderboltRef.current = false;
   }, [isThunderboltHit]);
 
+  /* ── Scent wave + heal boost: brief 3s effect when Floral Scented applied ── */
+  const [showScentWave, setShowScentWave] = useState(false);
+  const prevScentRef = useRef(false);
+
+  useEffect(() => {
+    if (isScentWaved && !prevScentRef.current) {
+      setShowScentWave(true);
+      const timer = setTimeout(() => setShowScentWave(false), 3000);
+      prevScentRef.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isScentWaved) prevScentRef.current = false;
+  }, [isScentWaved]);
+
+  /* ── Delayed eliminate: wait for damage effects to finish before showing ── */
+  const [showEliminated, setShowEliminated] = useState(isEliminated);
+
+  useEffect(() => {
+    if (!isEliminated) { setShowEliminated(false); return; }
+    if (battleLive && (isHitActive || isShockHitActive || isThunderboltActive)) {
+      setShowEliminated(false); // hide eliminated while damage effects play
+    } else {
+      setShowEliminated(true);  // show immediately when battle ended
+    }
+  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleLive]);
+
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
     setHovered(true);
@@ -281,13 +336,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     hovered && 'mchip--hovered',
     isAttacker && 'mchip--attacker',
     isDefender && 'mchip--defender',
-    isEliminated && 'mchip--eliminated',
+    showEliminated && 'mchip--eliminated',
     isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
-    isHitActive && 'mchip--hit',
-    isShockHitActive && 'mchip--shock-hit',
-    isThunderboltActive && 'mchip--thunderbolt',
-    isShocked && 'mchip--shocked',
+    !showEliminated && isHitActive && 'mchip--hit',
+    !showEliminated && isShockHitActive && 'mchip--shock-hit',
+    !showEliminated && isThunderboltActive && 'mchip--thunderbolt',
+    !showEliminated && isShocked && 'mchip--shocked',
+    isPetalShielded && 'mchip--petal-shielded',
+    hasPomegranateEffect && 'mchip--pomegranate',
+    isSpiritForm && 'mchip--spirit-form',
+    showScentWave && 'mchip--scent-waved',
   ].filter(Boolean).join(' ');
 
   return (
@@ -298,6 +357,21 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
+      {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
+      {isPetalShielded && <div className="mchip__petal-fall" aria-hidden="true" />}
+
+      {/* Scent Wave — falling flower/leaf particles for Floral Scented buff */}
+      {showScentWave && <div className="mchip__scent-wave" aria-hidden="true" />}
+
+      {/* Falling white light motes — like sunlight through leaves */}
+      {isPetalShielded && (
+        <div className="mchip__dryad-lights" aria-hidden="true">
+          {Array.from({ length: 15 }, (_, i) => (
+            <span key={i} className="mchip__dryad-light" />
+          ))}
+        </div>
+      )}
+
       {/* Body — clips pattern, fades edges with gradient */}
       <div className="mchip__body">
         {deityIcon && (
@@ -324,6 +398,36 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
 
         <div className="mchip__inner-border" />
+
+        {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
+        {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+        {/* Petal leaf accents — green spots around frame edge */}
+        {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
+
+        {/* Scent Wave border + accents (separate divs) */}
+        {showScentWave && (
+          <>
+            <div className="mchip__scent-border" aria-hidden="true" />
+            <div className="mchip__scent-accents" aria-hidden="true" />
+          </>
+        )}
+
+        {/* Heal boost floating text */}
+        {showScentWave && (
+          <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+        )}
+
+        {/* Petal shield badge — Secret of Dryad status immunity */}
+        {isPetalShielded && (
+          <div className="mchip__petal-badge" aria-hidden="true">
+            <PetalShield
+              gradientId={`petal-grad-${fighter.characterId}`}
+              color1={lightenColor(fighter.theme[0], 0.5)}
+              color2="#d1ffd4ff"
+            />
+          </div>
+        )}
 
         {/* Target crosshair badge — shown when selected as defend target */}
         {isDefender && !isEliminated && (
@@ -352,35 +456,71 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       </div>
 
-      {/* Critical rate bar — outside frame */}
-      <div className="mchip__critical">
-        <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
-        <div className="mchip__crit-bar">
-          <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
-        </div>
-      </div>
-
-      {/* Turn order + active effect pips */}
-      <div className="mchip__powerside">
-        {turnOrder != null && (
-          <div className="mchip__order">{turnOrder}</div>
-        )}
-        {effectPips && effectPips.length > 0 && (
-          <div className="mchip__effected-powers">
-            {effectPips.map((ep, idx) => (
-              <EffectPipDot key={idx} pip={ep} />
+      {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
+      {hasPomegranateEffect && (
+        <>
+          <div className="mchip__pom-seeds" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__pom-seed" />
             ))}
           </div>
-        )}
-      </div>
+          <div className="mchip__pom-lights" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <span key={i} className="mchip__pom-light" />
+            ))}
+          </div>
+          <div className="mchip__pom-rise" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className="mchip__pom-rise-particle" />
+            ))}
+          </div>
+        </>
+      )}
 
-      {/* Quota pips — below frame, inside chip */}
-      {fighter.maxQuota > 0 && (
-        <div className="mchip__quota">
-          {Array.from({ length: fighter.maxQuota }, (_, i) => (
-            <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
-          ))}
-        </div>
+      {/* Spirit form — ethereal ghost wisps + badge (target only, overlays frame) */}
+      {isSpiritForm && (
+        <>
+          <div className="mchip__spirit-wisps" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <span key={i} className="mchip__spirit-wisp" />
+            ))}
+          </div>
+        </>
+      )}
+
+      {battleLive && (
+        <>
+          {/* Critical rate bar — outside frame */}
+          <div className="mchip__critical">
+            <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
+            <div className="mchip__crit-bar">
+              <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
+            </div>
+          </div>
+
+          {/* Turn order + active effect pips */}
+          <div className="mchip__powerside">
+            {turnOrder != null && (
+              <div className="mchip__order">{turnOrder}</div>
+            )}
+            {effectPips && effectPips.length > 0 && (
+              <div className="mchip__effected-powers">
+                {effectPips.map((ep, idx) => (
+                  <EffectPipDot key={idx} pip={ep} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quota pips — below frame, inside chip */}
+          {fighter.maxQuota > 0 && (
+            <div className="mchip__quota">
+              {Array.from({ length: fighter.maxQuota }, (_, i) => (
+                <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Hover stat popup — rendered via portal to escape stacking contexts */}
@@ -392,6 +532,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           onEnter={handleEnter}
           onLeave={handleLeave}
           statMods={statMods}
+          battleLive={battleLive}
         />,
         document.body,
       )}
