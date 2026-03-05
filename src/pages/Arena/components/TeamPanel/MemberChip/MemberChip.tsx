@@ -629,42 +629,45 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                 // Check if this minion is the visual defender
                 const isMinionDefender = visualDefenderId === minion.characterId;
                 return (
-                  <div
-                    key={minion.characterId}
-                    className={`mchip__frame--minion ${spawnClass} ${exitClass}${hitClass}`}
-                    onMouseEnter={(e) => handleMinionEnter(minion, e)}
-                    onMouseLeave={handleMinionLeave}
-                  >
-                    {minion.image ? (
-                      <img className="mchip__frame--minion__bg" src={minion.image} alt="" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="mchip__frame--minion__bg mchip__frame--minion__bg--placeholder" style={{ background: minion.theme[0], color: minion.theme[9] }}>
-                        {minion.nicknameEng.charAt(0)}
-                      </div>
-                    )}
-
-                    {(isSpawning || visualExiting) && minion.type === 'skeleton' && <div className="mchip__minion-mist" aria-hidden="true" />}
-
-                    {/* Defender badge for minion */}
-                    {isMinionDefender && (
-                      <div className="mchip__target-badge">
-                        <TargetCrosshair />
-                      </div>
-                    )}
-
-                    <div className="mchip__frame--minion__overlay">
-                      <span className="mchip__frame--minion__name">{displayName}</span>
-                      {minion.type !== 'skeleton' && (
-                        <div className="mchip__frame--minion__hp">
-                          <div className="mchip__frame--minion__hp-track">
-                            <div className="mchip__frame--minion__hp-fill" style={{ width: `${hpPct}%` }} />
-                          </div>
-                          <span className="mchip__frame--minion__hp-label">
-                            {minion.currentHp}/{minion.maxHp}
-                          </span>
+                  <div key={minion.characterId} className="mchip__minion-wrap">
+                    <div
+                      className={`mchip__frame--minion ${spawnClass} ${exitClass}${hitClass}`}
+                      onMouseEnter={(e) => handleMinionEnter(minion, e)}
+                      onMouseLeave={handleMinionLeave}
+                    >
+                      {minion.image ? (
+                        <img className="mchip__frame--minion__bg" src={minion.image} alt="" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="mchip__frame--minion__bg mchip__frame--minion__bg--placeholder" style={{ background: minion.theme[0], color: minion.theme[9] }}>
+                          {minion.nicknameEng.charAt(0)}
                         </div>
                       )}
+
+                      {/* Defender badge for minion */}
+                      {isMinionDefender && (
+                        <div className="mchip__target-badge">
+                          <TargetCrosshair />
+                        </div>
+                      )}
+
+                      <div className="mchip__frame--minion__overlay">
+                        <span className="mchip__frame--minion__name">{displayName}</span>
+                        {minion.type !== 'skeleton' && (
+                          <div className="mchip__frame--minion__hp">
+                            <div className="mchip__frame--minion__hp-track">
+                              <div className="mchip__frame--minion__hp-fill" style={{ width: `${hpPct}%` }} />
+                            </div>
+                            <span className="mchip__frame--minion__hp-label">
+                              {minion.currentHp}/{minion.maxHp}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Mist elements moved out to be siblings so they can extend outside the frame */}
+                    {isSpawning && minion.type === 'skeleton' && <div className="mchip__minion-mist mchip__minion-mist--spawn" aria-hidden="true" />}
+                    {visualExiting && minion.type === 'skeleton' && <div className="mchip__minion-mist mchip__minion-mist--despawn" aria-hidden="true" />}
                   </div>
                 );
               })}
