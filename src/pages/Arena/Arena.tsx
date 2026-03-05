@@ -573,6 +573,7 @@ function Arena() {
             allMembers={[...teamAMembers, ...teamBMembers]}
             side="left"
             battle={battle}
+            teamMinions={room.teamA?.minions}
             myId={user?.characterId}
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
@@ -598,6 +599,7 @@ function Arena() {
               allMembers={[...teamAMembers, ...teamBMembers]}
               side="right"
               battle={battle}
+              teamMinions={room.teamB?.minions}
               myId={user?.characterId}
               resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}

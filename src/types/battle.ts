@@ -1,4 +1,5 @@
 import { Theme25 } from './character';
+import { Minion } from './minions';
 import type { PowerDefinition, ActiveEffect } from './power';
 
 /** Fighter's combat snapshot at battle start */
@@ -35,6 +36,9 @@ export interface FighterState {
 
   /* Powers from deity */
   powers: PowerDefinition[];
+
+  /* Skeleton count (Hades' Undead Army) - max 2 */
+  skeletonCount?: number;
 }
 
 /** Battle room statuses */
@@ -50,6 +54,7 @@ export interface Viewer {
 export interface Team {
   members: FighterState[];
   maxSize: number;
+  minions?: Minion[]; // Summoned minions (e.g., skeletons from Undead Army)
 }
 
 /* ── Battle / Turn system ── */

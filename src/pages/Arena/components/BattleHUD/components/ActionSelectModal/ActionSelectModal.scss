@@ -125,6 +125,10 @@ $crimson: #a0001b;
   flex-direction: column;
   gap: 0.35rem;
   width: 100%;
+
+  @media (max-width: 600px) {
+    gap: 0.2rem;
+  }
 }
 
 .bhud__power-actions {
