@@ -21,6 +21,7 @@ import {
   submitAttackRoll,
   submitDefendRoll,
   resolveTurn,
+  normalizeFighter,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
@@ -426,8 +427,8 @@ function Arena() {
   }
 
   const viewerCount = room.viewers ? Object.keys(room.viewers).length : 0;
-  const teamAMembers = room.teamA?.members || [];
-  const teamBMembers = room.teamB?.members || [];
+  const teamAMembers = (room.teamA?.members || []).map(m => normalizeFighter(m));
+  const teamBMembers = (room.teamB?.members || []).map(m => normalizeFighter(m));
   const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = room.battle;
