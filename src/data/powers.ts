@@ -567,12 +567,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: '1st Skill',
       name: 'Shadow Camouflaging',
       description:
-        'เข้าสู่สถานะ "เงาพรางตัว" เป็นเวลา 2 รอบ นั่นคือ ไม่ตกเป็นเป้าหมายของแอคชั่นใดๆ ยกเว้นในการโจมตีหมู่อันหมายถึงทุกคนในทีมตกเป็นเป้าหมายของศัตรู',
+        'เสียสละโอกาสในการโจมตีเพื่อเข้าสู่สถานะ "เงาพรางตัว" เป็นเวลา 2 รอบ นั่นคือ ไม่ตกเป็นเป้าหมายของแอคชั่นใดๆ ยกเว้นในการโจมตีหมู่อันหมายถึงทุกคนในทีมตกเป็นเป้าหมายของศัตรู',
       available: true,
-      effect: 'lifesteal',
-      target: 'enemy',
-      value: 1,
-      duration: 0,
+      effect: 'buff',
+      target: 'self',
+      value: 0,
+      duration: 2,
+      modStat: 'shadowCamouflaged',
       skipDice: true,
     },
     {
