@@ -302,7 +302,7 @@ function findFighterPath(room: BattleRoom, characterId: string): string | null {
 }
 
 /** Find the next alive fighter index in the queue (skips eliminated) */
-function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom): { index: number; wrapped: boolean } {
+function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom, effects?: ActiveEffect[]): { index: number; wrapped: boolean } {
   const len = queue.length;
   let wrapped = false;
 
@@ -314,6 +314,10 @@ function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: Battle
     if (fighter && fighter.currentHp > 0) {
       return { index: idx, wrapped: idx < fromIndex };
     }
+    // Dead fighter with death-keeper: allow their turn (self-resurrect)
+    if (fighter && fighter.currentHp <= 0 && effects?.some(e => e.targetId === fighter.characterId && e.tag === 'death-keeper')) {
+      return { index: idx, wrapped: idx < fromIndex };
+    }
   }
 
   // all dead (shouldn't happen — game should end before this)
@@ -321,8 +325,71 @@ function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: Battle
 }
 
 /** Check if all members of a team are eliminated */
-function isTeamEliminated(members: FighterState[]): boolean {
-  return members.every((m) => m.currentHp <= 0);
+function isTeamEliminated(members: FighterState[], effects?: ActiveEffect[]): boolean {
+  return members.every((m) => {
+    if (m.currentHp > 0) return false;
+    // Dead but has death-keeper → not truly eliminated
+    if (effects?.some(e => e.targetId === m.characterId && e.tag === 'death-keeper')) return false;
+    return true;
+  });
+}
+
+/** Apply self-resurrect if next fighter is dead with death-keeper.
+ *  Mutates `updates` and `effects` in place. Returns true if resurrection happened. */
+function applySelfResurrect(
+  nextCharId: string,
+  room: BattleRoom,
+  effects: ActiveEffect[],
+  updates: Record<string, unknown>,
+  battle: { roundNumber: number; log: unknown[] },
+): boolean {
+  const fighter = findFighter(room, nextCharId);
+  if (!fighter || fighter.currentHp > 0) return false;
+
+  const dkIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === 'death-keeper');
+  if (dkIdx === -1) return false;
+
+  // Resurrect at 50% max HP
+  const resHp = Math.ceil(fighter.maxHp * 0.5);
+  const fPath = findFighterPath(room, nextCharId);
+  if (fPath) updates[`${fPath}/currentHp`] = resHp;
+
+  // Consume death-keeper, add resurrected tag
+  effects.splice(dkIdx, 1);
+  effects.push({
+    id: `${nextCharId}::Death Keeper Risen`,
+    powerName: 'Death Keeper',
+    effectType: 'buff',
+    sourceId: nextCharId,
+    targetId: nextCharId,
+    value: 0,
+    turnsRemaining: 999,
+    tag: 'resurrected',
+  });
+  updates['battle/activeEffects'] = effects;
+
+  // Clear stun on the resurrected fighter (death resets debuffs)
+  const stunIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === 'stun');
+  if (stunIdx !== -1) effects.splice(stunIdx, 1);
+
+  // Log
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId: nextCharId,
+    defenderId: nextCharId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    defenderHpAfter: resHp,
+    eliminated: false,
+    missed: false,
+    powerUsed: 'Death Keeper',
+    resurrectTargetId: nextCharId,
+    resurrectHpRestored: resHp,
+  };
+  updates['battle/log'] = [...(battle.log as unknown[] || []), logEntry];
+
+  return true;
 }
 
 /* ── start battle ────────────────────────────────────── */
@@ -593,6 +660,63 @@ export async function selectAction(
 
   // ── Ally-targeting power ──
   if (power.target === 'ally' && allyTargetId) {
+    // ── Death Keeper: resurrect dead ally, free action (return to select-action) ──
+    if (power.name === 'Death Keeper') {
+      const target = findFighter(room, allyTargetId);
+      if (!target || target.currentHp > 0) return; // target must be dead
+
+      const effects = [...(battle.activeEffects || [])];
+      const dkEffect = effects.find(e => e.targetId === attackerId && e.tag === 'death-keeper');
+      if (!dkEffect) return; // no death-keeper available
+
+      // Resurrect at 50% max HP
+      const resHp = Math.ceil(target.maxHp * 0.5);
+      const targetPath = findFighterPath(room, allyTargetId);
+      if (targetPath) updates[`${targetPath}/currentHp`] = resHp;
+
+      // Consume death-keeper, add resurrected tag on target
+      const cleaned = effects.filter(e => e.id !== dkEffect.id);
+      cleaned.push({
+        id: `${attackerId}::Death Keeper Risen`,
+        powerName: 'Death Keeper',
+        effectType: 'buff' as const,
+        sourceId: attackerId,
+        targetId: allyTargetId,
+        value: 0,
+        turnsRemaining: 999,
+        tag: 'resurrected',
+      });
+      updates['battle/activeEffects'] = cleaned;
+
+      // Log entry
+      const logEntry = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId: allyTargetId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: 0,
+        defenderHpAfter: resHp,
+        eliminated: false,
+        missed: false,
+        powerUsed: 'Death Keeper',
+        resurrectTargetId: allyTargetId,
+        resurrectHpRestored: resHp,
+      };
+      updates['battle/log'] = [...(battle.log || []), logEntry];
+
+      // Free action: return to select-action (don't advance turn)
+      updates['battle/turn'] = {
+        attackerId,
+        attackerTeam: battle.turn!.attackerTeam,
+        phase: 'select-action',
+        resurrectTargetId: allyTargetId,
+      };
+
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+
     // ── Pomegranate's Oath: apply buff + end turn immediately (like confirmSeason) ──
     if (power.name === "Pomegranate's Oath") {
       const oathUpdates = applyPomegranateOath(room, attackerId, allyTargetId, battle);
@@ -631,23 +755,23 @@ export async function selectAction(
       const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
       const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
-      if (isTeamEliminated(teamBMembers)) {
+      // Advance turn (same pattern as confirmSeason)
+      const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+
+      if (isTeamEliminated(teamBMembers, latestEffects)) {
         updates['battle/winner'] = 'teamA';
         updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
         updates['status'] = 'finished';
         await update(roomRef(arenaId), updates);
         return;
       }
-      if (isTeamEliminated(teamAMembers)) {
+      if (isTeamEliminated(teamAMembers, latestEffects)) {
         updates['battle/winner'] = 'teamB';
         updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
         updates['status'] = 'finished';
         await update(roomRef(arenaId), updates);
         return;
       }
-
-      // Advance turn (same pattern as confirmSeason)
-      const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
       const updatedRoom = {
         ...room,
         teamA: { ...room.teamA, members: teamAMembers },
@@ -658,14 +782,17 @@ export async function selectAction(
 
       const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
       const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
-      const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+      const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
       const nextEntry = updatedQueue[nextIdx];
 
+      // Death Keeper: self-resurrect if next fighter is dead with death-keeper
+      const selfRes1 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
+
       const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-      if (nextFighter && isStunned(latestEffects, nextEntry.characterId)) {
+      if (nextFighter && !selfRes1 && isStunned(latestEffects, nextEntry.characterId)) {
         updates['battle/currentTurnIndex'] = nextIdx;
         updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-        const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom);
+        const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
         const skipEntry = updatedQueue[skipIdx];
         updates['battle/currentTurnIndex'] = skipIdx;
         if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
@@ -673,7 +800,9 @@ export async function selectAction(
       } else {
         updates['battle/currentTurnIndex'] = nextIdx;
         updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-        updates['battle/turn'] = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: 'select-action' };
+        const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: 'select-action' };
+        if (selfRes1) turnData.resurrectTargetId = nextEntry.characterId;
+        updates['battle/turn'] = turnData;
       }
 
       await update(roomRef(arenaId), updates);
@@ -892,7 +1021,10 @@ export async function confirmSeason(arenaId: string): Promise<void> {
   const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
   const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
-  if (isTeamEliminated(teamBMembers)) {
+  // Advance turn — same logic as end of resolveTurn()
+  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+
+  if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates['battle/winner'] = 'teamA';
     updates['battle/turn'] = { attackerId, attackerTeam, phase: 'done' };
     updates['status'] = 'finished';
@@ -900,16 +1032,13 @@ export async function confirmSeason(arenaId: string): Promise<void> {
     return;
   }
 
-  if (isTeamEliminated(teamAMembers)) {
+  if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates['battle/winner'] = 'teamB';
     updates['battle/turn'] = { attackerId, attackerTeam, phase: 'done' };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
   }
-
-  // Advance turn — same logic as end of resolveTurn()
-  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
   const updatedRoom = {
     ...room,
     teamA: { ...room.teamA, members: teamAMembers },
@@ -921,16 +1050,19 @@ export async function confirmSeason(arenaId: string): Promise<void> {
   const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
   const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
 
-  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
   const nextEntry = updatedQueue[nextIdx];
+
+  // Death Keeper: self-resurrect if next fighter is dead with death-keeper
+  const selfRes2 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
 
   // Skip stunned fighters
   const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-  if (nextFighter && isStunned(latestEffects, nextEntry.characterId)) {
+  if (nextFighter && !selfRes2 && isStunned(latestEffects, nextEntry.characterId)) {
     updates['battle/currentTurnIndex'] = nextIdx;
     updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
 
-    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom);
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
     const skipEntry = updatedQueue[skipIdx];
     updates['battle/currentTurnIndex'] = skipIdx;
     if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
@@ -942,11 +1074,13 @@ export async function confirmSeason(arenaId: string): Promise<void> {
   } else {
     updates['battle/currentTurnIndex'] = nextIdx;
     updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-    updates['battle/turn'] = {
+    const turnData: Record<string, unknown> = {
       attackerId: nextEntry.characterId,
       attackerTeam: nextEntry.team,
       phase: 'select-action',
     };
+    if (selfRes2) turnData.resurrectTargetId = nextEntry.characterId;
+    updates['battle/turn'] = turnData;
   }
 
   await update(roomRef(arenaId), updates);
@@ -1262,7 +1396,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
   const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
-  if (isTeamEliminated(teamBMembers)) {
+  // Rebuild turn queue with effective speeds (base + active buff/debuff modifiers)
+  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+
+  if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates['battle/winner'] = 'teamA';
     updates['battle/turn'] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
@@ -1270,16 +1407,13 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     return;
   }
 
-  if (isTeamEliminated(teamAMembers)) {
+  if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates['battle/winner'] = 'teamB';
     updates['battle/turn'] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: 'done', attackRoll, defendRoll, action };
     updates['status'] = 'finished';
     await update(roomRef(arenaId), updates);
     return;
   }
-
-  // Rebuild turn queue with effective speeds (base + active buff/debuff modifiers)
-  const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
   const updatedRoom = {
     ...room,
     teamA: { ...room.teamA, members: teamAMembers },
@@ -1292,18 +1426,21 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
   const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
 
-  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom);
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
   const nextEntry = updatedQueue[nextIdx];
+
+  // Death Keeper: self-resurrect if next fighter is dead with death-keeper
+  const selfRes3 = applySelfResurrect(nextEntry.characterId, updatedRoom as BattleRoom, latestEffects, updates, battle);
 
   // Skip stunned fighters
   const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-  if (nextFighter && isStunned(updates['battle/activeEffects'] as typeof activeEffects || activeEffects, nextEntry.characterId)) {
+  if (nextFighter && !selfRes3 && isStunned(updates['battle/activeEffects'] as typeof activeEffects || activeEffects, nextEntry.characterId)) {
     // Stunned: consume the stun turn and advance again
     updates['battle/currentTurnIndex'] = nextIdx;
     updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
 
     const afterStunRoom = { ...updatedRoom };
-    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom);
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom, latestEffects);
     const skipEntry = updatedQueue[skipIdx];
     updates['battle/currentTurnIndex'] = skipIdx;
     if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
@@ -1315,11 +1452,13 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   } else {
     updates['battle/currentTurnIndex'] = nextIdx;
     updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-    updates['battle/turn'] = {
+    const turnData: Record<string, unknown> = {
       attackerId: nextEntry.characterId,
       attackerTeam: nextEntry.team,
       phase: 'select-action',
     };
+    if (selfRes3) turnData.resurrectTargetId = nextEntry.characterId;
+    updates['battle/turn'] = turnData;
   }
 
   await update(roomRef(arenaId), updates);

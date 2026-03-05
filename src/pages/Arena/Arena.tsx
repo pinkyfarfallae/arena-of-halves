@@ -258,7 +258,7 @@ function Arena() {
     // NPC's turn to select target → pick random alive opponent (filtered by power requirements)
     if (turn.phase === 'select-target' && teamBIds.has(turn.attackerId)) {
       let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
-      
+
       // If power requires specific effect on target, filter valid targets
       if (turn.usedPowerIndex != null && battle) {
         const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
@@ -267,13 +267,13 @@ function Arena() {
           if (power?.requiresTargetHasEffect) {
             const requiredTag = power.requiresTargetHasEffect;
             const effects = battle.activeEffects || [];
-            teamAAlive = teamAAlive.filter(enemy => 
+            teamAAlive = teamAAlive.filter(enemy =>
               effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
             );
           }
         }
       }
-      
+
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
         // Extra delay after Floral Scented so scent wave visual plays
@@ -285,10 +285,21 @@ function Arena() {
 
     // NPC chooses action (attack or power)
     if (turn.phase === 'select-action' && teamBIds.has(turn.attackerId)) {
+      // Death Keeper: always resurrect if available + dead allies exist
+      const npcEffects = battle?.activeEffects || [];
+      const hasDeathKeeper = npcEffects.some(e => e.targetId === turn.attackerId && e.tag === 'death-keeper');
+      const deadAllies = toArr(room.teamB?.members).filter(m => m.currentHp <= 0);
+      if (hasDeathKeeper && deadAllies.length > 0 && !turn.resurrectTargetId) {
+        const target = deadAllies[Math.floor(Math.random() * deadAllies.length)];
+        // Death Keeper is always index 0 (Passive)
+        schedule(() => selectAction(arenaId, 'power', 0, target.characterId), 1500);
+        return;
+      }
+
       const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
       if (npcFighter) {
         const affordable = getAffordablePowers(npcFighter);
-        
+
         // Filter out powers that require specific target conditions but no valid targets exist
         const usablePowers = affordable.filter(({ power }) => {
           // If power requires target to have specific effect, check if any enemy has it
@@ -296,13 +307,13 @@ function Arena() {
             const requiredTag = power.requiresTargetHasEffect;
             const enemies = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
             const effects = battle.activeEffects || [];
-            return enemies.some(enemy => 
+            return enemies.some(enemy =>
               effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
             );
           }
           return true;
         });
-        
+
         if (usablePowers.length > 0 && Math.random() < 0.8) {
           const pick = usablePowers[Math.floor(Math.random() * usablePowers.length)];
           // Ally-targeting power: pick a random alive teammate
@@ -566,7 +577,7 @@ function Arena() {
             onSelectTarget={handleSelectTarget}
           />
           {/* Seasonal effects overlay (left side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason} />
+          <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason && room?.status !== 'finished'} />
         </div>
 
         <div className="arena__divider">
@@ -596,7 +607,7 @@ function Arena() {
             </div>
           )}
           {/* Seasonal effects overlay (right side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side="right" isActive={!!activeSeason} />
+          <SeasonalEffects season={activeSeason ?? undefined} side="right" isActive={!!activeSeason && room?.status !== 'finished'} />
         </div>
 
         {/* Battle HUD overlay */}

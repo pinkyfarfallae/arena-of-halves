@@ -1,0 +1,199 @@
+/* ── Self-Resurrect Overlay (Hades Death Keeper) ── */
+.bhud__resurrect-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 1rem 1.2rem;
+  background: radial-gradient(ellipse at center, rgba(#1a0a2e, 0.95), rgba(#0d0015, 0.98));
+  border: 1.5px solid rgba(#7e57c2, 0.5);
+  border-radius: 12px;
+  box-shadow:
+    0 0 20px rgba(#4a148c, 0.4),
+    0 0 40px rgba(#1a0a2e, 0.3),
+    inset 0 0 30px rgba(#4a148c, 0.15);
+  animation: resurrect-appear 0.5s cubic-bezier(0.22, 0.61, 0.36, 1), resurrect-shimmer 3s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  min-width: 210px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(#ce93d8, 0.75) 0%, transparent 70%);
+    pointer-events: none;
+    animation: mist-drift 4s ease-in-out infinite;
+  }
+}
+
+.bhud__resurrect-sigil {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(#7e57c2, 0.6);
+  border-radius: 50%;
+  position: relative;
+  animation: sigil-spin 3s linear infinite, sigil-reveal 2.5s ease-out forwards;
+  box-shadow: 0 0 12px rgba(#7e57c2, 0.3);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1.5px solid rgba(#b39ddb, 0.4);
+    border-radius: 50%;
+  }
+
+  &::after {
+    inset: 10px;
+    border-color: rgba(#ce93d8, 0.5);
+    animation: sigil-spin 2s linear infinite reverse;
+  }
+}
+
+.bhud__resurrect-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #b39ddb;
+  text-shadow: 0 0 8px rgba(#7e57c2, 0.6);
+  animation: resurrect-text-pulse 1.5s ease-in-out infinite;
+}
+
+.bhud__resurrect-name {
+  font-size: 0.55rem;
+  color: rgba(#ce93d8, 0.7);
+  letter-spacing: 0.06em;
+}
+
+.bhud__resurrect-flames {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bhud__resurrect-flame {
+  position: absolute;
+  bottom: -4px;
+  width: 6px;
+  height: 18px;
+  border-radius: 50% 50% 20% 20%;
+  filter: blur(2px);
+  animation: resurrect-flame-rise 1.8s ease-in-out infinite;
+
+  @for $i from 1 through 13 {
+    &:nth-child(#{$i}) {
+      left: calc(8% + #{($i - 1) * 12%});
+
+      background: if($i % 3==0,
+          rgba(#7e57c2, 0.7),
+          if($i % 3==1, rgba(#4a148c, 0.6), rgba(#9c27b0, 0.5)));
+
+      animation-delay: $i * 0.2s;
+      animation-duration: (1.4 + ($i % 3) * 0.3) * 0.75s;
+      height: (14 + ($i % 4) * 4) * 1px;
+    }
+  }
+}
+
+@keyframes resurrect-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sigil-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sigil-reveal {
+  0% {
+    opacity: 0.15;
+    box-shadow: 0 0 4px rgba(#7e57c2, 0.1);
+  }
+
+  40% {
+    opacity: 0.5;
+    box-shadow: 0 0 8px rgba(#7e57c2, 0.2);
+  }
+
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 16px rgba(#7e57c2, 0.5);
+  }
+}
+
+@keyframes resurrect-text-pulse {
+
+  0%,
+  100% {
+    opacity: 0.8;
+    text-shadow: 0 0 8px rgba(#7e57c2, 0.4);
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 14px rgba(#7e57c2, 0.7);
+  }
+}
+
+@keyframes resurrect-flame-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scaleY(0.6);
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  70% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scaleY(1.4);
+  }
+}
+
+@keyframes resurrect-shimmer {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(#4a148c, 0.4),
+      0 0 40px rgba(#1a0a2e, 0.3),
+      inset 0 0 30px rgba(#4a148c, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(#7e57c2, 0.6),
+      0 0 60px rgba(#4a148c, 0.4),
+      inset 0 0 40px rgba(#7e57c2, 0.25);
+  }
+}
+
+@keyframes mist-drift {
+  0%, 100% {
+    opacity: 0.15;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: translateY(-8px) scale(1.05);
+  }
+}

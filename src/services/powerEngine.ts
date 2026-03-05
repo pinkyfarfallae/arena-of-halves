@@ -706,6 +706,21 @@ export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
     const passive = fighter.powers.find(p => p.type === 'Passive');
     if (!passive) continue;
 
+    // Death Keeper: one-time resurrection passive
+    if (passive.name === 'Death Keeper') {
+      effects.push({
+        id: makeEffectId(fighter.characterId, 'Death Keeper'),
+        powerName: 'Death Keeper',
+        effectType: 'buff',
+        sourceId: fighter.characterId,
+        targetId: fighter.characterId,
+        value: 0,
+        turnsRemaining: 999,
+        tag: 'death-keeper',
+      });
+      continue;
+    }
+
     // Only buff/debuff passives make sense as permanent effects
     if (passive.effect === 'buff' || passive.effect === 'debuff') {
       const eff: ActiveEffect = {

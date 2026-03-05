@@ -111,6 +111,9 @@ export interface TurnState {
 
   /* Persephone's Borrowed Season selection */
   selectedSeason?: string; // 'summer' | 'autumn' | 'winter' | 'spring'
+
+  /* Death Keeper resurrection */
+  resurrectTargetId?: string;
 }
 
 /** A log entry for the battle feed */
@@ -133,6 +136,8 @@ export interface BattleLogEntry {
   dodgeRoll?: number;
   coAttackDamage?: number;
   coAttackerId?: string;
+  resurrectTargetId?: string;
+  resurrectHpRestored?: number;
 }
 
 /** Full battle state stored alongside the room */

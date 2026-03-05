@@ -171,6 +171,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           e => e.tag === 'pomegranate-spirit' && e.targetId === m.characterId,
         );
 
+        // Death Keeper: subtle frame on caster, dark mist on resurrected target
+        const hasDeathKeeper = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === 'death-keeper',
+        );
+        const isResurrected = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === 'resurrected',
+        );
+
+        // Resurrecting: mid-resurrection visual (self-resurrect overlay active)
+        const isResurrecting = !!(
+          turn?.resurrectTargetId === m.characterId &&
+          turn?.phase === 'select-action'
+        );
+
         // Floral Scented: brief trigger when just applied
         const isScentWaved = !!(
           turn?.allyTargetId === m.characterId &&
@@ -205,6 +219,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isPetalShielded={isPetalShielded}
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
+            hasDeathKeeper={hasDeathKeeper}
+            isResurrected={isResurrected}
+            isResurrecting={isResurrecting}
             isScentWaved={isScentWaved}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
