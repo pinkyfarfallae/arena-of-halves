@@ -1,4 +1,6 @@
 import type { BattleRoom, BattleState, FighterState } from '../types/battle';
+import { Minion } from '../types/minions';
+import { createSkeletonMinion } from '../data/minions';
 import type { ActiveEffect, PowerDefinition, ModStat } from '../types/power';
 import { getQuotaCost } from '../types/power';
 
@@ -14,6 +16,12 @@ function findFighterPath(room: BattleRoom, id: string): string | null {
   if (aIdx !== -1) return `teamA/members/${aIdx}`;
   const bIdx = (room.teamB?.members || []).findIndex(m => m.characterId === id);
   if (bIdx !== -1) return `teamB/members/${bIdx}`;
+  return null;
+}
+
+function findFighterTeam(room: BattleRoom, id: string): 'teamA' | 'teamB' | null {
+  if ((room.teamA?.members || []).some(m => m.characterId === id)) return 'teamA';
+  if ((room.teamB?.members || []).some(m => m.characterId === id)) return 'teamB';
   return null;
 }
 
@@ -169,6 +177,27 @@ export function applyPowerEffect(
       };
       if (power.modStat) eff.modStat = power.modStat;
       effects.push(eff);
+
+      // Undead Army: create skeleton minion (max 2)
+      if (power.modStat === 'skeletonCount' && targetPath) {
+        const currentCount = target.skeletonCount || 0;
+        if (currentCount < 2) {
+          updates[`${targetPath}/skeletonCount`] = currentCount + power.value;
+          
+          // Create minion
+          const team = findFighterTeam(room, targetId);
+          if (team) {
+            const existingMinions = room[team]?.minions || [];
+            // Use the centralized helper so skeletons have the canonical skeleton image/theme
+            const skeleton = createSkeletonMinion(target as any);
+            // Ensure deityBlood is set to the attacker's deity when available (Hades expected)
+            skeleton.deityBlood = attacker?.deityBlood || target.deityBlood || 'Hades';
+            // Adjust damage to 50% of master's snapshot (defensive safety)
+            skeleton.damage = Math.floor(target.damage * 0.5);
+            updates[`${team}/minions`] = [...existingMinions, skeleton];
+          }
+        }
+      }
       break;
     }
 

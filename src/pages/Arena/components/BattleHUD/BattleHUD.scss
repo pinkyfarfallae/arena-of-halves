@@ -477,6 +477,12 @@ $crimson-bright: #c41e3a;
     padding: 0.3rem 0.5rem;
   }
 
+  .bhud__dice-modal,
+  .bhud__targets-modal,
+  .bhud__action-modal {
+    margin-top: $topbar-height;
+  }
+
   /* Sidebar hidden — remove offset */
   .bhud__dice-zone--left {
     left: 0;
@@ -562,15 +568,15 @@ $crimson-bright: #c41e3a;
     width: calc(100vw - 115px);
     padding-right: 10px;
 
-    .bhud__dice-modal,
-    .bhud__targets-modal,
-    .bhud__action-modal {
-      margin-top: 0;
-    }
-
     .bhud__dice-zone--finished {
       height: #{$compact-half-finished};
     }
+  }
+
+  .bhud__dice-modal,
+  .bhud__targets-modal,
+  .bhud__action-modal {
+    margin-top: 0;
   }
 
 }

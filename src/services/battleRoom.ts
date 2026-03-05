@@ -74,6 +74,11 @@ export function normalizeFighter(fighter: any): FighterState {
     fighter.maxQuota = 0;
   }
   
+  // Ensure skeletonCount is initialized (Hades' Undead Army)
+  if (typeof fighter.skeletonCount !== 'number' || isNaN(fighter.skeletonCount)) {
+    fighter.skeletonCount = 0;
+  }
+  
   // Ensure other numeric fields are valid
   ['currentHp', 'maxHp', 'damage', 'attackDiceUp', 'defendDiceUp', 'speed', 'rerollsLeft', 'technique', 'criticalRate'].forEach(field => {
     if (typeof fighter[field] !== 'number' || isNaN(fighter[field])) {
@@ -121,6 +126,7 @@ export function toFighterState(character: Character, powers: PowerDefinition[]):
     criticalRate,
 
     powers,
+    skeletonCount: 0,
   };
 }
 
@@ -176,8 +182,8 @@ export async function createRoom(
     roomName,
     status: 'configuring',
     teamSize: size,
-    teamA: { members: teamAMembers, maxSize: size },
-    teamB: { members: [], maxSize: size },
+    teamA: { members: teamAMembers, maxSize: size, minions: [] },
+    teamB: { members: [], maxSize: size, minions: [] },
     viewers: {},
     createdAt: Date.now(),
   };
@@ -326,6 +332,12 @@ function findFighterPath(room: BattleRoom, characterId: string): string | null {
   return null;
 }
 
+function findFighterTeam(room: BattleRoom, characterId: string): 'teamA' | 'teamB' | null {
+  if ((room.teamA?.members || []).some(m => m.characterId === characterId)) return 'teamA';
+  if ((room.teamB?.members || []).some(m => m.characterId === characterId)) return 'teamB';
+  return null;
+}
+
 /** Find the next alive fighter index in the queue (skips eliminated) */
 function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom, effects?: ActiveEffect[]): { index: number; wrapped: boolean } {
   const len = queue.length;
@@ -467,11 +479,25 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
     // Don't log yet - will log in resolveTurn after both dice are rolled
     const updates: Record<string, unknown> = {};
     
-    updates['battle/turn'] = {
-      ...turn,
-      defenderId,
-      phase: 'rolling-attack',
-    };
+    // If the chosen defender has skeleton minions, visually target the lowest-index skeleton
+    // so the UI selection highlights the minion (but keep defenderId as the master for resolution).
+    try {
+      const defenderTeam = findFighterTeam(room, defenderId);
+      if (defenderTeam) {
+        const defenderMinions = (room as any)[defenderTeam]?.minions || [];
+        const defenderSkeletons = defenderMinions.filter((m: any) => m.masterId === defenderId);
+        if (defenderSkeletons.length > 0) {
+          const visualDefenderId = defenderSkeletons[0].characterId;
+          updates['battle/turn'] = { ...turn, defenderId, visualDefenderId, phase: 'rolling-attack' };
+        } else {
+          updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+        }
+      } else {
+        updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+      }
+    } catch (e) {
+      updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+    }
     await update(ref(db, `arenas/${arenaId}`), updates);
     return;
   }
@@ -1408,6 +1434,75 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         rawDmg += shockResult.bonusDamage;
         shockBonusDamage = shockResult.bonusDamage;
         Object.assign(updates, shockResult.updates);
+      }
+
+      // Skeleton bonus damage: when master attacks, skeletons deal 50% additional damage
+      const attackerTeam = findFighterTeam(room, attackerId);
+      if (attackerTeam) {
+        const minions = room[attackerTeam]?.minions || [];
+        const skeletons = minions.filter(m => m.masterId === attackerId);
+        for (const skeleton of skeletons) {
+          const skeletonDmg = Math.floor(skeleton.damage * (isCrit ? 2 : 1));
+          rawDmg += skeletonDmg;
+        }
+      }
+
+      // Skeleton protection: when master is attacked, lowest-index skeleton blocks damage and dies
+      const defenderTeam = findFighterTeam(room, defenderId);
+      if (defenderTeam) {
+        const defenderMinions = room[defenderTeam]?.minions || [];
+        const defenderSkeletons = defenderMinions.filter(m => m.masterId === defenderId);
+        if (defenderSkeletons.length > 0) {
+          // Choose the lowest-index skeleton (first in array) as blocker
+          const blocker = defenderSkeletons[0];
+          const remainingMinions = defenderMinions.filter(m => m.characterId !== blocker.characterId);
+
+          // Prepare an immediate visual update: mark the minion as hit (transient) and publish
+          // a `battle/lastHitMinionId` so UIs can retarget visuals to the skeleton and play hit effects.
+          const hitMarkerKey = 'battle/lastHitMinionId';
+          const immediateMinions = defenderMinions.map(m => (
+            m.characterId === blocker.characterId ? { ...m, __isHit: true } : m
+          ));
+
+          // Decrement skeleton count immediately (so counts stay consistent)
+          const defPath = findFighterPath(room, defenderId);
+          if (defPath) {
+            const currentCount = defender.skeletonCount || 0;
+            updates[`${defPath}/skeletonCount`] = Math.max(0, currentCount - 1);
+          }
+
+          // Apply the immediate visual update right away so clients can animate the hit
+          // while we schedule the actual removal a short time later.
+          // NOTE: we call update() directly here to flush the visual marker early.
+          try {
+            await update(ref(db, `arenas/${arenaId}`), {
+              [hitMarkerKey]: blocker.characterId,
+              [`${defenderTeam}/minions`]: immediateMinions,
+            });
+          } catch (err) {
+            console.warn('Failed to write minion hit marker', err);
+          }
+
+          // Schedule removal after a short display interval so clients can show the hit animation
+          // Keep the minion visible long enough for the full dust/despawn animation to play
+          // Dust animation is 1000ms in CSS, add small buffer so it completes before removal.
+          const HIT_DISPLAY_MS = 1100;
+          setTimeout(async () => {
+            try {
+              await update(ref(db, `arenas/${arenaId}`), {
+                // remove the blocker minion
+                [`${defenderTeam}/minions`]: remainingMinions,
+                // clear transient hit marker
+                [hitMarkerKey]: null,
+              });
+            } catch (err) {
+              console.warn('Failed to remove blocked skeleton', err);
+            }
+          }, HIT_DISPLAY_MS);
+
+          // Damage is completely blocked
+          rawDmg = 0;
+        }
       }
 
       // Shield absorption — persist reduced/depleted shields to Firebase

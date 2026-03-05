@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
+import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
@@ -11,6 +12,7 @@ interface Props {
   side: 'left' | 'right';
   battle?: BattleState;
   myId?: string;
+  teamMinions?: Minion[];
   /** True when BattleHUD's resolve panel is visible (after crit/chain checks) */
   resolveShown?: boolean;
   onSelectTarget?: (defenderId: string) => void;
@@ -33,7 +35,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, resolveShown, onSelectTarget }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, onSelectTarget }: Props) {
   const turn = battle?.turn;
   const activeEffects = battle?.activeEffects || [];
 
@@ -50,6 +52,24 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
     for (const f of (allMembers || members)) map.set(f.characterId, f);
     return map;
   }, [allMembers, members]);
+
+  // Build minions list: for each main fighter, if they have any minions in allMembers, include them right after the main fighter
+  const minionsMap = useMemo(() => {
+    const map = new Map<string, Minion[]>();
+    // Find the correct team (side)
+    const teamKey = side === 'left' ? 'teamA' : 'teamB';
+    // Prefer explicit room/team-level minions (passed via `teamMinions`), fall back to legacy battle-level storage
+    // @ts-ignore: minions may be undefined in some legacy battles or formats
+    const minions = (teamMinions || (battle && (battle as any)[teamKey]?.minions) || []) as any[];
+    for (const minion of minions) {
+      // Only process if minion has masterId (i.e., is a minion, not a main fighter)
+      if (typeof minion === 'object' && 'masterId' in minion && minion.masterId) {
+        if (!map.has(minion.masterId)) map.set(minion.masterId, []);
+        map.get(minion.masterId)!.push(minion);
+      }
+    }
+    return map;
+  }, [battle, side, teamMinions]);
 
   // Build turn order map: characterId → 1-based position in turn queue
   const turnOrderMap = useMemo(() => {
@@ -87,8 +107,19 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
       style={buildPanelBg(members)}
     >
       {members.map((m) => {
+        // Allow a visual override so attacks can be visually retargeted to minions.
+        // Prefer the turn-level `visualDefenderId` (set during selection) so selection
+        // highlights a minion (e.g. skeleton #1). Fall back to room-level
+        // `lastHitMinionId` for transient hit visuals emitted at resolve time.
+        const visualDefenderId = (turn as any)?.visualDefenderId ?? (battle as any)?.lastHitMinionId;
         const isAttacker = turn?.attackerId === m.characterId;
-        const isDefender = turn?.defenderId === m.characterId;
+        
+        // Check if this master has any minions (skeletons)
+        const masterMinions = minionsMap.get(m.characterId) || [];
+        const hasMasterMinions = masterMinions.length > 0;
+        
+        // Show defender badge on the master ONLY if they don't have minions (otherwise minion shows it)
+        const isDefender = !hasMasterMinions && (turn?.defenderId === m.characterId);
         const isEliminated = m.currentHp <= 0;
         const isTargetable = !!(canSelectTarget && !isEliminated);
         const isSpotlight =
@@ -106,9 +137,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           lastEntry?.attackerId === turn?.attackerId &&
           lastEntry?.aoeDamageMap?.[m.characterId]
         );
+        // Master should NOT show hit effect if they have minions (skeleton shows hit instead)
         const isHit = !!(
-          (attackLanded && turn?.phase === 'resolving' && turn.defenderId === m.characterId) ||
-          isAoeHit
+          !hasMasterMinions &&
+          ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) ||
+          isAoeHit)
         );
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
@@ -207,6 +240,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           maxHp: getStatModifier(activeEffects, m.characterId, 'maxHp'),
         };
 
+        const minions = minionsMap.get(m.characterId) || [];
+
         return (
           <MemberChip
             key={m.characterId}
@@ -234,6 +269,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             statMods={statMods}
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
+            minions={minions}
+            visualDefenderId={visualDefenderId}
           />
         );
       })}

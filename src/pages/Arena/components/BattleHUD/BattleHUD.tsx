@@ -71,9 +71,11 @@ export default function BattleHUD({
   const { turn, roundNumber, log = [], winner } = battle;
 
   const attacker = turn ? find(teamA, teamB, turn.attackerId) : undefined;
-  const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
-  const isMyTurn = turn && turn.attackerId === myId;
-  const isMyDefend = turn && turn.defenderId === myId;
+    // Keep canonical defender for HUD: even if a minion visually intercepted, the HUD should
+    // still show the master as the defending target during resolving.
+    const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
+    const isMyTurn = turn && turn.attackerId === myId;
+    const isMyDefend = turn?.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
@@ -750,6 +752,9 @@ export default function BattleHUD({
     // Death Keeper: disabled once consumed (tag no longer exists on attacker)
     const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === 'death-keeper');
     if (!hasDeathKeeper) disabled.add('Death Keeper');
+    // Undead Army: cannot summon more than 2 skeletons
+    const attackerSkeletonCount = attacker ? (attacker.skeletonCount || 0) : 0;
+    if (attackerSkeletonCount >= 2) disabled.add('Undead Army');
     return disabled;
   })();
 
