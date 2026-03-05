@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
+import ReaperScythe from './icons/ReaperScythe';
 
 import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
@@ -190,7 +191,7 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
       <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
       <div className="mchip__pip-tooltip-meta">
         {pip.count > 1 && <span className="mchip__pip-tooltip-stacks">{pip.count} stack{pip.count > 1 ? 's' : ''}</span>}
-        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 999 ? 'unlimited' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
+        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 99 ? 'conditional' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
       </div>
     </div>,
     document.body,
@@ -236,6 +237,9 @@ interface Props {
   isPetalShielded?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
+  hasDeathKeeper?: boolean;
+  isResurrected?: boolean;
+  isResurrecting?: boolean;
   isScentWaved?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
@@ -245,7 +249,7 @@ interface Props {
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -306,6 +310,25 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (!isScentWaved) prevScentRef.current = false;
   }, [isScentWaved]);
 
+  /* ── Resurrecting: mist + falling lights for 2.5s, then purple glow flash on frame ── */
+  const [showResurrecting, setShowResurrecting] = useState(false);
+  const [showResFlash, setShowResFlash] = useState(false);
+  const [showResGlow, setShowResGlow] = useState(false);
+  const prevResurrecting = useRef(false);
+  useEffect(() => {
+    if (isResurrecting && !prevResurrecting.current) {
+      prevResurrecting.current = true;
+      setShowResurrecting(true);
+      const timer = setTimeout(() => {
+        setShowResurrecting(false);
+        setShowResGlow(true);
+        setTimeout(() => setShowResGlow(false), 800);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+    if (!isResurrecting) prevResurrecting.current = false;
+  }, [isResurrecting]);
+
   /* ── Delayed eliminate: wait for damage effects to finish before showing ── */
   const [showEliminated, setShowEliminated] = useState(isEliminated);
 
@@ -346,6 +369,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
     battleLive && isSpiritForm && 'mchip--spirit-form',
+    battleLive && hasDeathKeeper && 'mchip--death-keeper',
+    battleLive && showResurrecting && 'mchip--resurrecting',
+    battleLive && showResFlash && 'mchip--res-flash',
+    battleLive && showResGlow && 'mchip--res-glow',
+    battleLive && isResurrected && 'mchip--resurrected',
     battleLive && showScentWave && 'mchip--scent-waved',
   ].filter(Boolean).join(' ');
 
@@ -358,13 +386,13 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
-      {isPetalShielded && <div className="mchip__petal-fall" aria-hidden="true" />}
+      {isPetalShielded && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
 
       {/* Scent Wave — falling flower/leaf particles for Floral Scented buff */}
-      {showScentWave && <div className="mchip__scent-wave" aria-hidden="true" />}
+      {showScentWave && battleLive && <div className="mchip__scent-wave" aria-hidden="true" />}
 
       {/* Falling white light motes — like sunlight through leaves */}
-      {isPetalShielded && (
+      {isPetalShielded && battleLive && (
         <div className="mchip__dryad-lights" aria-hidden="true">
           {Array.from({ length: 15 }, (_, i) => (
             <span key={i} className="mchip__dryad-light" />
@@ -431,6 +459,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               </div>
             )}
 
+            {/* Death Keeper scythe badge */}
+            {hasDeathKeeper && (
+              <div className="mchip__reaper-badge" aria-hidden="true">
+                <ReaperScythe
+                  gradientId={`reaper-grad-${fighter.characterId}`}
+                  color1="#88789fff"
+                  color2="#cda4e0ff"
+                />
+              </div>
+            )}
+
             {/* Target crosshair badge — shown when selected as defend target */}
             {isDefender && (
               <div className="mchip__target-badge">
@@ -490,6 +529,33 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             ))}
           </div>
         </>
+      )}
+
+      {/* Resurrection flash — purple falling lights */}
+      {showResurrecting && battleLive && (
+        <div className="mchip__res-lights" aria-hidden="true">
+          {Array.from({ length: 20 }, (_, i) => (
+            <span key={i} className="mchip__res-light" />
+          ))}
+        </div>
+      )}
+
+      {/* Resurrecting — heavy purple-black mist while sigil overlay is active */}
+      {showResurrecting && battleLive && (
+        <div className="mchip__resurrect-mist" aria-hidden="true">
+          {Array.from({ length: 14 }, (_, i) => (
+            <span key={i} className="mchip__resurrect-mist-particle" />
+          ))}
+        </div>
+      )}
+
+      {/* Resurrected — dark mist rising (permanent for rest of battle) */}
+      {isResurrected && battleLive && (
+        <div className="mchip__death-mist" aria-hidden="true">
+          {Array.from({ length: 10 }, (_, i) => (
+            <span key={i} className="mchip__death-mist-particle" />
+          ))}
+        </div>
       )}
 
       {battleLive && (

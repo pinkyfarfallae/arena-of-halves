@@ -13,6 +13,7 @@ import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal'
 import DiceModal from './components/DiceModal/DiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
+import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 
 /** Keep element rendered during a fade-out exit animation. */
 function useFadeTransition(visible: boolean, ms = 250) {
@@ -74,23 +75,32 @@ export default function BattleHUD({
   const isMyTurn = turn && turn.attackerId === myId;
   const isMyDefend = turn && turn.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
-  
+
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
+    // Death Keeper: show dead teammates instead of alive enemies
+    if (turn?.usedPowerIndex != null && attacker) {
+      const power = attacker.powers[turn.usedPowerIndex];
+      if (power?.name === 'Death Keeper') {
+        const myTeam = turn.attackerTeam === 'teamA' ? teamA : teamB;
+        return (myTeam ?? []).filter((f) => f.currentHp <= 0);
+      }
+    }
+
     const alive = (opposingTeam ?? []).filter((f) => f.currentHp > 0);
-    
+
     // If using a power that requires specific effect on target
     if (turn?.usedPowerIndex != null && attacker) {
       const power = attacker.powers[turn.usedPowerIndex];
       if (power?.requiresTargetHasEffect) {
         const requiredTag = power.requiresTargetHasEffect;
         const effects = battle.activeEffects || [];
-        return alive.filter((f) => 
+        return alive.filter((f) =>
           effects.some((e) => e.targetId === f.characterId && e.tag === requiredTag)
         );
       }
     }
-    
+
     return alive;
   })();
 
@@ -588,14 +598,35 @@ export default function BattleHUD({
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
+  const [showResurrecting, setShowResurrecting] = useState(false);
+  const selfResurrectShown = useRef('');
   useEffect(() => {
     if (turn?.phase === 'select-action' && showResolve) {
       setActionReady(false);
-    } else if (turn?.phase === 'select-action' && !showResolve && !actionReady) {
+    } else if (turn?.phase === 'select-action' && !showResolve && !actionReady && !showResurrecting) {
       const timer = setTimeout(() => setActionReady(true), 750);
       return () => clearTimeout(timer);
     }
-  }, [turn?.phase, showResolve]);
+  }, [turn?.phase, showResolve, actionReady, showResurrecting]);
+
+  // Self-resurrect: trigger overlay only after DamageCard is gone
+  useEffect(() => {
+    if (turn?.phase === 'select-action' && turn.resurrectTargetId === turn.attackerId && !showResolve) {
+      const key = `${turn.attackerId}:${battle.roundNumber}`;
+      if (selfResurrectShown.current !== key) {
+        selfResurrectShown.current = key;
+        setActionReady(false);
+        setShowResurrecting(true);
+      }
+    }
+  }, [turn?.phase, turn?.resurrectTargetId, turn?.attackerId, battle.roundNumber, showResolve]);
+
+  // Self-resurrect: timer to dismiss overlay (separate effect so cleanup works with Strict Mode)
+  useEffect(() => {
+    if (!showResurrecting) return;
+    const timer = setTimeout(() => { setShowResurrecting(false); setActionReady(true); }, 2500);
+    return () => clearTimeout(timer);
+  }, [showResurrecting]);
 
   // Cache resolve data so content doesn't flicker during exit animation
   const resolveCache = useRef({
@@ -710,14 +741,23 @@ export default function BattleHUD({
   const defSide = turn.attackerTeam === 'teamA' ? 'right' : 'left';
 
   // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy shocks)
+  const ae = battle.activeEffects || [];
   const disabledPowerNames = (() => {
     const disabled = new Set<string>();
-    const ae = battle.activeEffects || [];
     const enemyIds = new Set(opposingTeam?.map(f => f.characterId) ?? []);
     const hasEnemyShock = ae.some(e => e.tag === 'shock' && enemyIds.has(e.targetId));
     if (!hasEnemyShock) disabled.add('Jolt Arc');
+    // Death Keeper: disabled once consumed (tag no longer exists on attacker)
+    const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === 'death-keeper');
+    if (!hasDeathKeeper) disabled.add('Death Keeper');
     return disabled;
   })();
+
+  // Dead teammates for Death Keeper targeting
+  const myTeamMembers = turn.attackerTeam === 'teamA' ? teamA : teamB;
+  const deadTeammateIds = new Set(
+    (myTeamMembers || []).filter(m => m.currentHp <= 0).map(m => m.characterId),
+  );
 
   return (
     <div className="bhud">
@@ -757,8 +797,15 @@ export default function BattleHUD({
         </div>
       )}
 
+      {/* Self-resurrect Hades overlay */}
+      {showResurrecting && !showResolve && attacker && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <ResurrectingModal name={attacker.nicknameEng} />
+        </div>
+      )}
+
       {/* Action selection (attack or power) — delayed until DamageCard exits */}
-      {isMyTurn && turn.phase === 'select-action' && actionReady && attacker && (
+      {isMyTurn && turn.phase === 'select-action' && actionReady && !showResolve && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -770,6 +817,7 @@ export default function BattleHUD({
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
             teammates={turn.attackerTeam === 'teamA' ? teamA : teamB}
+            deadTeammateIds={deadTeammateIds}
             onSelectAction={onSelectAction}
             initialShowPowers={initialShowPowers}
           />
@@ -913,51 +961,51 @@ export default function BattleHUD({
         {log.length === 0 ? (
           <div className="bhud__log-empty">No actions yet</div>
         ) : [...log].reverse().map((entry, i) => {
-            const atkFighter = find(teamA, teamB, entry.attackerId);
-            const defFighter = find(teamA, teamB, entry.defenderId);
-            const atkName = atkFighter?.nicknameEng ?? '???';
-            const defName = defFighter?.nicknameEng ?? '???';
-            const atkColor = atkFighter?.theme[0];
-            const defColor = defFighter?.theme[0];
+          const atkFighter = find(teamA, teamB, entry.attackerId);
+          const defFighter = find(teamA, teamB, entry.defenderId);
+          const atkName = atkFighter?.nicknameEng ?? '???';
+          const defName = defFighter?.nicknameEng ?? '???';
+          const atkColor = atkFighter?.theme[0];
+          const defColor = defFighter?.theme[0];
 
-            if (entry.powerUsed) {
-              return (
-                <div className="bhud__log-entry bhud__log-entry--power" key={i}>
-                  <span className="bhud__log-round">R{entry.round}</span>
-                  <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
-                  <span className="bhud__log-power">{entry.powerUsed}</span>
-                  <span className="bhud__log-sep">→</span>
-                  <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
-                  {entry.damage > 0 && <span className="bhud__log-hit">{entry.damage} dmg</span>}
-                  {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
-                </div>
-              );
-            }
-
+          if (entry.powerUsed) {
             return (
-              <div className="bhud__log-entry" key={i}>
+              <div className="bhud__log-entry bhud__log-entry--power" key={i}>
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
-                <span className="bhud__log-dice">{entry.attackRoll}</span>
-                {(atkFighter?.attackDiceUp ?? 0) > 0 && (
-                  <span className="bhud__log-bonus">+{atkFighter!.attackDiceUp}={entry.attackRoll + atkFighter!.attackDiceUp}</span>
-                )}
-                <span className="bhud__log-vs">vs</span>
+                <span className="bhud__log-power">{entry.powerUsed}</span>
+                <span className="bhud__log-sep">→</span>
                 <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
-                <span className="bhud__log-dice">{entry.defendRoll}</span>
-                {(defFighter?.defendDiceUp ?? 0) > 0 && (
-                  <span className="bhud__log-bonus">+{defFighter!.defendDiceUp}={entry.defendRoll + defFighter!.defendDiceUp}</span>
-                )}
-                <span className="bhud__log-sep">—</span>
-                {entry.missed ? (
-                  <span>{defName} blocked {atkName}</span>
-                ) : (
-                  <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
-                )}
+                {entry.damage > 0 && <span className="bhud__log-hit">{entry.damage} dmg</span>}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
               </div>
             );
-          })}
+          }
+
+          return (
+            <div className="bhud__log-entry" key={i}>
+              <span className="bhud__log-round">R{entry.round}</span>
+              <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+              <span className="bhud__log-dice">{entry.attackRoll}</span>
+              {(atkFighter?.attackDiceUp ?? 0) > 0 && (
+                <span className="bhud__log-bonus">+{atkFighter!.attackDiceUp}={entry.attackRoll + atkFighter!.attackDiceUp}</span>
+              )}
+              <span className="bhud__log-vs">vs</span>
+              <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+              <span className="bhud__log-dice">{entry.defendRoll}</span>
+              {(defFighter?.defendDiceUp ?? 0) > 0 && (
+                <span className="bhud__log-bonus">+{defFighter!.defendDiceUp}={entry.defendRoll + defFighter!.defendDiceUp}</span>
+              )}
+              <span className="bhud__log-sep">—</span>
+              {entry.missed ? (
+                <span>{defName} blocked {atkName}</span>
+              ) : (
+                <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+              )}
+              {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

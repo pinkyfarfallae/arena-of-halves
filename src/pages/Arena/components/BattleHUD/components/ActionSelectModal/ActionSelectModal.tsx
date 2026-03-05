@@ -17,6 +17,8 @@ interface Props {
   disabledPowerNames?: Set<string>;
   /** Attacker's teammates including self (for ally-targeting powers) */
   teammates?: FighterState[];
+  /** Character IDs of dead teammates (for Death Keeper targeting) */
+  deadTeammateIds?: Set<string>;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
   initialShowPowers?: boolean;
 }
@@ -102,7 +104,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, onSelectAction, initialShowPowers }: Props) {
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
   const [showPowerPicker, setShowPowerPicker] = useState(false);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -179,11 +181,14 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   // Ally selection step
   if (allyStep && allyPowerIdx != null) {
     const allyPower = attacker.powers[allyPowerIdx];
+    const isDeathKeeper = allyPower?.name === 'Death Keeper';
     const allAlive = (teammates || []).filter(m => m.currentHp > 0);
+    const allDead = (teammates || []).filter(m => m.currentHp <= 0);
+    // Death Keeper: show dead teammates only
     // Pomegranate's Oath: self only if no other allies alive
     const isPomegranate = allyPower?.name === "Pomegranate's Oath";
     const othersAlive = allAlive.filter(m => m.characterId !== attacker.characterId);
-    const aliveTeammates = isPomegranate && othersAlive.length > 0 ? othersAlive : allAlive;
+    const aliveTeammates = isDeathKeeper ? allDead : (isPomegranate && othersAlive.length > 0 ? othersAlive : allAlive);
     return (
       <div className="bhud__action-modal" style={themeStyle}>
         <span className="bhud__dice-label">{allyPower?.name ?? 'Select Target'}</span>
@@ -260,14 +265,21 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
       ) : (
         <>
           <div className="bhud__power-picker">
-            {attacker.powers.filter(p => p.type !== 'Passive').map((p, idx: number) => {
+            {attacker.powers.filter(p => {
+              if (p.type === 'Passive' && p.name === 'Death Keeper') return true;
+              return p.type !== 'Passive';
+            }).map((p, idx: number) => {
             const realIdx = attacker.powers.indexOf(p);
             const cost = getQuotaCost(p.type);
-            const unlocked =
+            const isDK = p.name === 'Death Keeper';
+            const unlocked = isDK || (
               (p.type === 'Ultimate' && attacker.ultimateSkillPoint === 'unlock') ||
-              ((p.type === '1st Skill' || p.type === '2nd Skill') && attacker.skillPoint === 'unlock');
-            const canAfford = attacker.quota >= cost;
-            const usable = unlocked && canAfford && !disabledPowerNames?.has(p.name);
+              ((p.type === '1st Skill' || p.type === '2nd Skill') && attacker.skillPoint === 'unlock')
+            );
+            const canAfford = isDK || attacker.quota >= cost;
+            const usable = isDK
+              ? (deadTeammateIds?.size ?? 0) > 0 && !disabledPowerNames?.has(p.name)
+              : unlocked && canAfford && !disabledPowerNames?.has(p.name);
             const selected = selectedPowerIdx === realIdx;
             return (
               <div key={idx} className="bhud__power-item">
@@ -278,9 +290,9 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
                   onMouseEnter={(e) => handleMouseEnter(realIdx, e)}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <span className="bhud__power-type">{p.type}</span>
+                  <span className="bhud__power-type">{isDK ? 'Passive' : p.type}</span>
                   <span className="bhud__power-name">{p.name}</span>
-                  <span className="bhud__power-cost">{cost} SP</span>
+                  <span className="bhud__power-cost">{isDK ? 'FREE' : `${cost} SP`}</span>
                   {!unlocked && <span className="bhud__power-lock">Locked</span>}
                 </button>
               </div>
