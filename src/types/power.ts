@@ -19,7 +19,8 @@ export type ModStat =
   | 'damage'
   | 'speed'
   | 'criticalRate'
-  | 'maxHp';
+  | 'maxHp'
+  | 'shadowCamouflaged';
 
 /** A single mechanical effect entry (used inside the effects[] array). */
 export interface PowerEffect {

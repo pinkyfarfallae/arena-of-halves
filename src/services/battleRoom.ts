@@ -875,6 +875,108 @@ export async function selectAction(
     return;
   }
 
+  // ── Self-buff power (skipDice): apply buff, end turn immediately (no follow-up attack) ──
+  // (e.g., Shadow Camouflaging, or any self-buff that ends turn without attacking)
+  // Check both stored and canonical definitions to support battles created before power updates
+  const canonicalPower2 = getPowers(attacker.deityBlood)?.find(p => p.name === power.name);
+  const isSkipDiceSelfBuff = (
+    (power.skipDice || canonicalPower2?.skipDice) &&
+    (power.target === 'self' || canonicalPower2?.target === 'self') &&
+    (power.effect === 'buff' || power.effects || canonicalPower2?.effect === 'buff' || canonicalPower2?.effects)
+  );
+  
+  if (isSkipDiceSelfBuff) {
+    // Use canonical power if available for latest definition
+    const activePower = canonicalPower2 || power;
+    const effectUpdates = applyPowerEffect(room, attackerId, attackerId, activePower, battle);
+    Object.assign(updates, effectUpdates);
+
+    // Sync activeEffects into battle for tickEffects
+    const battleForTick = updates['battle/activeEffects']
+      ? { ...battle, activeEffects: updates['battle/activeEffects'] as ActiveEffect[] }
+      : battle;
+
+    // Tick active effects (DOT, spring heal, decrement durations)
+    const effectUpdates2 = tickEffects(room, battleForTick, updates);
+    Object.assign(updates, effectUpdates2);
+
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId: attackerId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: 0,
+      defenderHpAfter: attacker.currentHp,
+      eliminated: false,
+      missed: false,
+      powerUsed: power.name,
+    };
+    updates['battle/log'] = [...(battle.log || []), logEntry];
+
+    // Win condition check (DOT from tick may have eliminated someone)
+    const getHp = (m: FighterState) => {
+      const path = findFighterPath(room, m.characterId);
+      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+      return m.currentHp;
+    };
+    const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+    const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+    // Advance turn (same pattern as confirmSeason)
+    const latestEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+
+    if (isTeamEliminated(teamBMembers, latestEffects)) {
+      updates['battle/winner'] = 'teamA';
+      updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
+      updates['status'] = 'finished';
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+    if (isTeamEliminated(teamAMembers, latestEffects)) {
+      updates['battle/winner'] = 'teamB';
+      updates['battle/turn'] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: 'done' };
+      updates['status'] = 'finished';
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+    const updatedRoom = {
+      ...room,
+      teamA: { ...room.teamA, members: teamAMembers },
+      teamB: { ...room.teamB, members: teamBMembers },
+    } as BattleRoom;
+    const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
+    updates['battle/turnQueue'] = updatedQueue;
+
+    const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
+    const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+    const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
+    const nextEntry = updatedQueue[nextIdx];
+
+    // Death Keeper: self-resurrect if next fighter is dead with death-keeper
+    const selfRes1 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
+
+    const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+    if (nextFighter && !selfRes1 && isStunned(latestEffects, nextEntry.characterId)) {
+      updates['battle/currentTurnIndex'] = nextIdx;
+      updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+      const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
+      const skipEntry = updatedQueue[skipIdx];
+      updates['battle/currentTurnIndex'] = skipIdx;
+      if (skipWrapped) updates['battle/roundNumber'] = (updates['battle/roundNumber'] as number || battle.roundNumber) + 1;
+      updates['battle/turn'] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: 'select-action' };
+    } else {
+      updates['battle/currentTurnIndex'] = nextIdx;
+      updates['battle/roundNumber'] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+      const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: 'select-action' };
+      if (selfRes1) turnData.resurrectTargetId = nextEntry.characterId;
+      updates['battle/turn'] = turnData;
+    }
+
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
   // ── Self-buff power (non-skipDice): apply buff now, then select target for dice ──
   if (!power.skipDice && power.target === 'self' && (power.effect === 'buff' || power.effects)) {
     const adjusted = power.effects

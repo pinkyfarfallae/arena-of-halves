@@ -171,6 +171,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
           e => e.tag === 'pomegranate-spirit' && e.targetId === m.characterId,
         );
 
+        // Shadow Camouflaging: dark wisps + shadow particles effect
+        const isShadowCamouflaged = activeEffects.some(
+          e => e.targetId === m.characterId && e.modStat === 'shadowCamouflaged',
+        );
+
         // Death Keeper: subtle frame on caster, dark mist on resurrected target
         const hasDeathKeeper = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === 'death-keeper',
@@ -219,6 +224,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, res
             isPetalShielded={isPetalShielded}
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
+            isShadowCamouflaged={isShadowCamouflaged}
             hasDeathKeeper={hasDeathKeeper}
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}

@@ -234,6 +234,7 @@ interface Props {
   isPetalShielded?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
+  isShadowCamouflaged?: boolean;
   hasDeathKeeper?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
@@ -246,7 +247,7 @@ interface Props {
   onSelect?: () => void;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -366,6 +367,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
     battleLive && isSpiritForm && 'mchip--spirit-form',
+    battleLive && isShadowCamouflaged && 'mchip--shadow-camouflaged',
     battleLive && hasDeathKeeper && 'mchip--death-keeper',
     battleLive && showResurrecting && 'mchip--resurrecting',
     battleLive && showResFlash && 'mchip--res-flash',
@@ -517,6 +519,22 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           <div className="mchip__spirit-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__spirit-wisp" />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Shadow Camouflage — dark wisps + shadow particles + badge (overlays frame) */}
+      {isShadowCamouflaged && battleLive && (
+        <>
+          <div className="mchip__shadow-wisps" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <span key={i} className="mchip__shadow-wisp" />
+            ))}
+          </div>
+          <div className="mchip__shadow-particles" aria-hidden="true">
+            {Array.from({ length: 12 }, (_, i) => (
+              <span key={i} className="mchip__shadow-particle" />
             ))}
           </div>
         </>
