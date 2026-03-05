@@ -4,6 +4,8 @@ import type { FighterState } from '../../../../../types/battle';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
 import ReaperScythe from './icons/ReaperScythe';
+import SkillOrb from './icons/SkillOrb';
+import TargetCrosshair from './icons/TargetCrosshair';
 
 import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
@@ -114,12 +116,7 @@ function PopupPanel({ fighter, deityLabel, chipRef, onEnter, onLeave, statMods, 
           return (
             <div key={label} className={`mchip__so ${unlocked ? '' : 'mchip__so--locked'}`}>
               <div className="mchip__so-orb">
-                <svg className="mchip__so-svg" viewBox="0 0 60 60">
-                  <circle cx="30" cy="30" r={26} className="mchip__so-track" />
-                  <circle cx="30" cy="30" r={26} className="mchip__so-arc"
-                    strokeDasharray={2 * Math.PI * 26}
-                    strokeDashoffset={unlocked ? 0 : 2 * Math.PI * 26} />
-                </svg>
+                <SkillOrb className="mchip__so-svg" unlocked={unlocked} />
                 {unlocked ? <LockOpen className="mchip__so-icon" /> : <LockClosed className="mchip__so-icon" />}
               </div>
               <span className="mchip__so-label">{label}</span>
@@ -473,13 +470,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             {/* Target crosshair badge — shown when selected as defend target */}
             {isDefender && (
               <div className="mchip__target-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <line x1="12" y1="2" x2="12" y2="6" />
-                  <line x1="12" y1="18" x2="12" y2="22" />
-                  <line x1="2" y1="12" x2="6" y2="12" />
-                  <line x1="18" y1="12" x2="22" y2="12" />
-                </svg>
+                <TargetCrosshair />
               </div>
             )}
           </>
@@ -585,9 +576,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           {/* Quota pips — below frame, inside chip */}
           {fighter.maxQuota > 0 && (
             <div className="mchip__quota">
-              {Array.from({ length: fighter.maxQuota }, (_, i) => (
-                <span key={i} className={`mchip__quota-pip${i < fighter.quota ? ' mchip__quota-pip--filled' : ''}`} />
-              ))}
+              {Array.from({ length: fighter.maxQuota }, (_, i) => {
+                const quota = typeof fighter.quota === 'number' && !isNaN(fighter.quota) ? fighter.quota : fighter.maxQuota;
+                return (
+                  <span key={i} className={`mchip__quota-pip${i < quota ? ' mchip__quota-pip--filled' : ''}`} />
+                );
+              })}
             </div>
           )}
         </>

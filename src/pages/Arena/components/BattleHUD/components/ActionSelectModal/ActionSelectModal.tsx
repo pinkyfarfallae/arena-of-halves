@@ -243,10 +243,18 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
 
       {/* Quota pips */}
       <div className="bhud__quota">
-        {Array.from({ length: attacker.maxQuota }, (_, i) => (
-          <span key={i} className={`bhud__quota-pip ${i < attacker.quota ? 'bhud__quota-pip--filled' : ''}`} />
-        ))}
-        <span className="bhud__quota-label">{attacker.quota}/{attacker.maxQuota} SP</span>
+        {(() => {
+          const quota = typeof attacker.quota === 'number' && !isNaN(attacker.quota) ? attacker.quota : attacker.maxQuota;
+          const maxQuota = typeof attacker.maxQuota === 'number' && !isNaN(attacker.maxQuota) ? attacker.maxQuota : 0;
+          return (
+            <>
+              {Array.from({ length: maxQuota }, (_, i) => (
+                <span key={i} className={`bhud__quota-pip ${i < quota ? 'bhud__quota-pip--filled' : ''}`} />
+              ))}
+              <span className="bhud__quota-label">{quota}/{maxQuota} SP</span>
+            </>
+          );
+        })()}
       </div>
 
       {!showPowerPicker ? (

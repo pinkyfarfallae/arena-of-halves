@@ -60,6 +60,30 @@ function generateArenaId(): string {
   return code;
 }
 
+/** Normalize a fighter object loaded from Firebase, ensuring all required numeric fields are valid */
+export function normalizeFighter(fighter: any): FighterState {
+  if (!fighter) return fighter;
+  
+  // Ensure quota is a valid number; if missing/invalid, set to maxQuota
+  if (typeof fighter.quota !== 'number' || isNaN(fighter.quota)) {
+    fighter.quota = fighter.maxQuota || 0;
+  }
+  
+  // Ensure maxQuota is a valid number
+  if (typeof fighter.maxQuota !== 'number' || isNaN(fighter.maxQuota)) {
+    fighter.maxQuota = 0;
+  }
+  
+  // Ensure other numeric fields are valid
+  ['currentHp', 'maxHp', 'damage', 'attackDiceUp', 'defendDiceUp', 'speed', 'rerollsLeft', 'technique', 'criticalRate'].forEach(field => {
+    if (typeof fighter[field] !== 'number' || isNaN(fighter[field])) {
+      fighter[field] = 0;
+    }
+  });
+  
+  return fighter;
+}
+
 /** Build a FighterState snapshot from a Character + their Powers */
 export function toFighterState(character: Character, powers: PowerDefinition[]): FighterState {
   // Calculate critical rate based on strength
@@ -289,7 +313,8 @@ export function buildTurnQueue(room: BattleRoom, effects?: ActiveEffect[]): Turn
 /** Find a fighter across both teams by characterId */
 function findFighter(room: BattleRoom, characterId: string): FighterState | undefined {
   const all = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
-  return all.find((m) => m.characterId === characterId);
+  const fighter = all.find((m) => m.characterId === characterId);
+  return fighter ? normalizeFighter(fighter) : undefined;
 }
 
 /** Find the index of a fighter in teamA or teamB members array */
@@ -439,10 +464,15 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
 
   // Normal attack (including follow-up after ally/self-buff power)
   if (!turn.action || turn.action === 'attack') {
-    await update(ref(db, `arenas/${arenaId}/battle/turn`), {
+    // Don't log yet - will log in resolveTurn after both dice are rolled
+    const updates: Record<string, unknown> = {};
+    
+    updates['battle/turn'] = {
+      ...turn,
       defenderId,
       phase: 'rolling-attack',
-    });
+    };
+    await update(ref(db, `arenas/${arenaId}`), updates);
     return;
   }
 
@@ -456,11 +486,15 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
     const updates: Record<string, unknown> = {};
 
     // Self-buff already applied in selectAction → just set defender for dice
+    // Don't log anything yet - log will be created after defense phase in resolveTurn
     if (power.target === 'self') {
       updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
       await update(roomRef(arenaId), updates);
       return;
     }
+
+    // For enemy-targeting powers: don't log target selection - will log in resolveTurn after dice
+    // Only skipDice powers log immediately (below in skipDice branches)
 
     if (power.skipDice) {
       // ── Jolt Arc: detonate all shocks on all enemies ──
@@ -1162,6 +1196,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const updates: Record<string, unknown> = {};
   const activeEffects = battle.activeEffects || [];
 
+  // Ensure rolls are valid numbers
+  const safeAttackRoll = typeof attackRoll === 'number' && !isNaN(attackRoll) ? attackRoll : 0;
+  const safeDefendRoll = typeof defendRoll === 'number' && !isNaN(defendRoll) ? defendRoll : 0;
+
   let dmg = 0;
   let hit = false;
   let isDodged = false;
@@ -1207,8 +1245,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       round: battle.roundNumber,
       attackerId,
       defenderId,
-      attackRoll,
-      defendRoll,
+      attackRoll: safeAttackRoll,
+      defendRoll: safeDefendRoll,
       damage: dmg,
       defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
       eliminated: hit && defenderHpAfter <= 0,
@@ -1304,21 +1342,32 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
 
     // Log entry for normal attack (or self-buff power + attack)
-    const logEntry = {
+    const logEntry: Record<string, unknown> = {
       round: battle.roundNumber,
       attackerId,
       defenderId,
-      attackRoll,
-      defendRoll,
+      attackRoll: safeAttackRoll,
+      defendRoll: safeDefendRoll,
       damage: dmg,
       defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
       eliminated: hit && defenderHpAfter <= 0,
       missed: !hit,
-      ...(critRoll > 0 && { isCrit, critRoll }),
-      ...(shockBonusDamage > 0 && { shockDamage: shockBonusDamage }),
-      ...(isSelfBuffPower && usedPower && { powerUsed: usedPower.name }),
-      ...(isDodged && { isDodged: true, dodgeRoll: battle.turn.dodgeRoll }),
     };
+    
+    if (critRoll > 0) {
+      logEntry.isCrit = isCrit;
+      logEntry.critRoll = critRoll;
+    }
+    if (shockBonusDamage > 0) {
+      logEntry.shockDamage = shockBonusDamage;
+    }
+    // Note: Self-buff powers don't log with powerUsed field; they're applied before the attack
+    // Only non-self-buff powers (enemy-targeting powers with dice) log with powerUsed
+    if (isDodged) {
+      logEntry.isDodged = true;
+      logEntry.dodgeRoll = battle.turn.dodgeRoll;
+    }
+    
     updates['battle/log'] = [...(battle.log || []), logEntry];
   }
   // skipDice powers: effect + log already written in selectAction()
