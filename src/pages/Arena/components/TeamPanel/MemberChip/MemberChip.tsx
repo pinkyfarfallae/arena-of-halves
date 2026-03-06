@@ -128,10 +128,17 @@ interface Props {
   /** Visual defender ID — used to highlight which minion is the defender */
   visualDefenderId?: string;
   /** Pulse id for transient minion hits — when this changes, play a hit flash */
-  minionHitPulseId?: string | undefined;
+  minionHitPulseId?: number | undefined;
+  /** Whether transient-driven hits (minion pulses) are permitted right now */
+  allowTransientHits?: boolean;
+  /** Optional unique key derived from a recent log entry so Floral Fragrance
+   *  from persistent logs is only shown once per client. If provided, the
+   *  chip will consult localStorage to avoid re-showing the scent after a
+   *  refresh. */
+  floralLogKey?: string | undefined;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, allowTransientHits = true, floralLogKey }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -164,16 +171,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // Trigger hit flash when a transient minion hit pulse occurs (even if
   // `isHit` hasn't toggled). This ensures the defender frame shakes when a
   // skeleton/minion DamageCard plays.
-  const prevPulseRef = useRef<string | undefined>(undefined);
+  const prevPulseRef = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (!minionHitPulseId) return;
+    if (!allowTransientHits) return;
+    if (minionHitPulseId == null) return;
     if (minionHitPulseId !== prevPulseRef.current) {
       prevPulseRef.current = minionHitPulseId;
       setIsHitActive(true);
       const timer = setTimeout(() => setIsHitActive(false), 1500);
       return () => clearTimeout(timer);
     }
-  }, [minionHitPulseId]);
+  }, [minionHitPulseId, allowTransientHits]);
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
@@ -206,30 +214,68 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   /* ── Scent wave + heal boost: brief 3s effect when Floral Scented applied ── */
   const [showScentWave, setShowScentWave] = useState(false);
   const prevScentRef = useRef(false);
+  const scentSuppressRef = useRef(false);
+  const scentSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isScentWaved && !prevScentRef.current) {
+    if (!isScentWaved) {
+      prevScentRef.current = false;
+      return;
+    }
+    if (prevScentRef.current) return;
+
+    // If this scent originates from a persistent log entry, check localStorage
+    // so we only show it once per client (prevents showing again after reload).
+    if (floralLogKey) {
+      try {
+        const seen = window.localStorage.getItem(floralLogKey);
+        if (seen) {
+          // Already shown before for this log — do not re-trigger.
+          prevScentRef.current = true;
+          return;
+        }
+      } catch (e) {}
+    }
+
+    if (!scentSuppressRef.current) {
       setShowScentWave(true);
       const timer = setTimeout(() => setShowScentWave(false), 3000);
       prevScentRef.current = true;
+      // Mark as shown if we were triggered by a persistent log
+      if (floralLogKey) {
+        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) {}
+      }
       return () => clearTimeout(timer);
     }
-    if (!isScentWaved) prevScentRef.current = false;
-  }, [isScentWaved]);
+    // Note: dependencies are normalized to stable primitives to avoid
+    // React complaining about dependency-array size changing between renders.
+  }, [Boolean(isScentWaved), floralLogKey ?? '']);
 
   // If the fighter's HP increases (heal applied), clear the scent wave visual
-  // shortly after to avoid leaving the +HP text/styling stuck after the heal.
+  // immediately to avoid leaving the +HP text/styling stuck after the heal.
   const prevHpRef = useRef<number>(fighter.currentHp);
   useEffect(() => {
     const prev = prevHpRef.current;
-    if (fighter.currentHp > prev && showScentWave) {
-      const t = setTimeout(() => setShowScentWave(false), 600);
-      prevHpRef.current = fighter.currentHp;
-      return () => clearTimeout(t);
+    if (fighter.currentHp > prev) {
+      // HP increased — immediately clear scent state and class.
+      setShowScentWave(false);
+      prevScentRef.current = false;
+      scentSuppressRef.current = true;
+      if (scentSuppressTimer.current) clearTimeout(scentSuppressTimer.current);
+      scentSuppressTimer.current = setTimeout(() => {
+        scentSuppressRef.current = false;
+        scentSuppressTimer.current = null;
+      }, 800);
     }
     prevHpRef.current = fighter.currentHp;
     return undefined;
-  }, [fighter.currentHp, showScentWave]);
+  }, [fighter.currentHp]);
+
+  useEffect(() => {
+    return () => {
+      if (scentSuppressTimer.current) clearTimeout(scentSuppressTimer.current);
+    };
+  }, []);
 
   /* ── Resurrecting: mist + falling lights for 2.5s, then purple glow flash on frame ── */
   const [showResurrecting, setShowResurrecting] = useState(false);

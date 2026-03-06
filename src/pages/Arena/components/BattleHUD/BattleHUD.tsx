@@ -49,6 +49,7 @@ interface Props {
   teamMinionsA?: any[];
   teamMinionsB?: any[];
   myId: string | undefined;
+  transientEffectsActive?: boolean;
   onSelectTarget: (defenderId: string) => void;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
   onSelectSeason: (season: SeasonKey) => void;
@@ -60,6 +61,8 @@ interface Props {
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
+  onTransientEffectsActive?: (active: boolean) => void;
+  onMinionHitPulse?: (attackerId: string, defenderId: string) => void;
 }
 
 /** Find a fighter across both teams */
@@ -85,7 +88,6 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
       theme: m.theme || DEFAULT_THEME[m.deityBlood] || DEFAULT_THEME[0],
       maxHp: m.maxHp || 1,
       currentHp: m.currentHp || 1,
-      damage: m.damage || 0,
       attackDiceUp: m.attackDiceUp || 0,
       defendDiceUp: m.defendDiceUp || 0,
       speed: m.speed || 0,
@@ -104,8 +106,8 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, transientEffectsActive,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -621,17 +623,18 @@ export default function BattleHUD({
   useEffect(() => {
     if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !critReady || !chainReady || !coAttackReady) return;
 
-    // Do not auto-resolve while there are pending transient skeleton hits or
-    // while a transient DamageCard is actively showing. Avoid relying on
-    // resolveCache.shownLogIndex which can cause races; prefer explicit
-    // transient buffer presence instead.
-    const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
-    const hasPendingPlayback = transientDamageActive || (Array.isArray(skBuffer) && skBuffer.length > 0);
-    if (hasPendingPlayback) return;
+    // Do not auto-resolve while there are pending transient skeleton DamageCards
+    // or while a transient DamageCard is actively showing. Use the counter ref
+    // so we can track scheduled playbacks that haven't yet finished.
+    const hasPendingPlayback = transientDamageActive || pendingSkeletonPlaybackRef.current > 0 || !!transientEffectsActive;
+    if (hasPendingPlayback) {
+      console.debug('[BattleHUD] auto-resolve blocked by pending playback', { transientDamageActive, pending: pendingSkeletonPlaybackRef.current, transientEffectsActive });
+      return;
+    }
 
     const timer = setTimeout(() => onResolve(), 5000);
     return () => clearTimeout(timer);
-  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, battle, transientDamageActive]);
+  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, transientEffectsActive]);
 
   /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
@@ -654,6 +657,35 @@ export default function BattleHUD({
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing
   const [showResolve, resolveExiting] = useFadeTransition(resolveVisible || transientDamageActive, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
+  // Track pending scheduled skeleton/minion playback so auto-resolve waits until
+  // every transient DamageCard has finished showing.
+  const pendingSkeletonPlaybackRef = useRef(0);
+  // Throttle DB writes for last-hit markers to avoid hitting rate limits
+  // when many skeletons play in quick succession. We batch the latest
+  // payload and write it at most once per `WRITE_THROTTLE_MS` window.
+  const lastHitWriteTimerRef = useRef<number | null>(null);
+  const pendingLastHitPayloadRef = useRef<Record<string, unknown> | null>(null);
+  const WRITE_THROTTLE_MS = 140; // ms
+
+  const scheduleLastHitUpdate = (payload: Record<string, unknown>) => {
+    pendingLastHitPayloadRef.current = payload;
+    if (lastHitWriteTimerRef.current != null) return;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    lastHitWriteTimerRef.current = window.setTimeout(() => {
+      const p = pendingLastHitPayloadRef.current;
+      pendingLastHitPayloadRef.current = null;
+      lastHitWriteTimerRef.current = null;
+      if (!p) return;
+      try { update(ref(db, `arenas/${arenaId}/battle`), p).catch(() => {}); } catch (e) {}
+    }, WRITE_THROTTLE_MS) as unknown as number;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (lastHitWriteTimerRef.current) clearTimeout(lastHitWriteTimerRef.current);
+      pendingLastHitPayloadRef.current = null;
+    };
+  }, []);
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   useEffect(() => {
     const skHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
@@ -663,6 +695,9 @@ export default function BattleHUD({
     const HIT_DISPLAY_MS = 1500;
     let delayAcc = 0;
 
+    // Count scheduled skeleton playbacks so auto-resolve can wait for them.
+    pendingSkeletonPlaybackRef.current += skHits.length;
+    console.debug('[BattleHUD] scheduled transient skeleton playbacks', { scheduled: skHits.length, pending: pendingSkeletonPlaybackRef.current, arenaId });
     for (let i = 0; i < skHits.length; i++) {
       const entry = skHits[i];
       const delay = delayAcc;
@@ -702,24 +737,32 @@ export default function BattleHUD({
 
         resolveCache.current = { ...resolveCache.current, ...rc } as any;
         onResolveVisible?.(true);
+        console.debug('[BattleHUD] playing transient skeleton hit', { entryIndex: i, attackerId: entry.attackerId, defenderId: entry.defenderId, isMinionHit: entry.isMinionHit });
         setTransientDamage(rc as any);
         setTransientDamageActive(true);
 
         // Pulse transient hit markers so MemberChip flashes correctly
+        // Always call onMinionHitPulse immediately so defender shake triggers reliably.
         try {
           const lastHitPayload: Record<string, unknown> = {};
           lastHitPayload.lastHitMinionId = entry.attackerId;
           lastHitPayload.lastHitTargetId = entry.defenderId;
-          update(ref(db, `arenas/${arenaId}/battle`), lastHitPayload).catch(() => {});
+          scheduleLastHitUpdate(lastHitPayload);
         } catch (e) {}
+        try { onMinionHitPulse?.(entry.attackerId, entry.defenderId); } catch (e) {}
 
-        // Clear transient after display time
-        setTimeout(() => { setTransientDamage(null); setTransientDamageActive(false); }, HIT_DISPLAY_MS + 50);
+        // Clear transient after display time and mark this playback complete
+        setTimeout(() => {
+          setTransientDamage(null);
+          setTransientDamageActive(false);
+          pendingSkeletonPlaybackRef.current = Math.max(0, pendingSkeletonPlaybackRef.current - 1);
+          console.debug('[BattleHUD] transient skeleton playback complete', { entryIndex: i, pending: pendingSkeletonPlaybackRef.current });
+        }, HIT_DISPLAY_MS + 50);
 
         // Clear visuals after display time
         setTimeout(() => {
           onResolveVisible?.(false);
-          try { update(ref(db, `arenas/${arenaId}/battle`), { lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
+          try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
         }, HIT_DISPLAY_MS);
       }, delay);
     }
@@ -729,6 +772,14 @@ export default function BattleHUD({
       try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
     }, delayAcc + HIT_DISPLAY_MS + 50);
   }, [battle, arenaId, teamA, teamB, onResolveVisible, turn]);
+
+  // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active
+  useEffect(() => {
+    const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
+    const hasPendingPlayback = transientDamageActive || (Array.isArray(skBuffer) && skBuffer.length > 0) || pendingSkeletonPlaybackRef.current > 0;
+    console.debug('[BattleHUD] transient effects state', { transientDamageActive, skBufferLength: Array.isArray(skBuffer) ? skBuffer.length : 0, pending: pendingSkeletonPlaybackRef.current, hasPendingPlayback });
+    onTransientEffectsActive?.(hasPendingPlayback);
+  }, [transientDamageActive, battle, onTransientEffectsActive]);
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
@@ -878,9 +929,13 @@ export default function BattleHUD({
     const STAGGER_MS = 400;
     const HIT_DISPLAY_MS = 1500;
     let delayAcc = 0;
+    // Count how many minion hits we'll schedule so auto-resolve can wait
+    // for them to finish.
+    let scheduledMinionHits = 0;
 
     for (let i = prevIndex; i < total; i++) {
       const entry = logArr[i];
+      if ((entry as any).isMinionHit) scheduledMinionHits++;
       const delay = delayAcc;
       delayAcc += STAGGER_MS;
 
@@ -927,10 +982,12 @@ export default function BattleHUD({
         resolveCache.current = { ...resolveCache.current, ...rc } as any;
         onResolveVisible?.(true);
         if ((entry as any).isMinionHit) {
+          // mark pending and show transient
+          pendingSkeletonPlaybackRef.current += 1;
           setTransientDamage(rc as any);
           setTransientDamageActive(true);
-          // clear transient after display time
-          setTimeout(() => { setTransientDamage(null); setTransientDamageActive(false); }, HIT_DISPLAY_MS + 50);
+          // clear transient after display time and mark playback complete
+          setTimeout(() => { setTransientDamage(null); setTransientDamageActive(false); pendingSkeletonPlaybackRef.current = Math.max(0, pendingSkeletonPlaybackRef.current - 1); }, HIT_DISPLAY_MS + 50);
         }
 
         // Pulse transient hit markers so MemberChip flashes correctly
@@ -945,6 +1002,7 @@ export default function BattleHUD({
             lastHitPayload.lastHitTargetId = entry.defenderId;
           }
           update(ref(db, `arenas/${arenaId}/battle`), lastHitPayload).catch(() => {});
+          if ((entry as any).isMinionHit) onMinionHitPulse?.(entry.attackerId, entry.defenderId);
         } catch (e) {}
 
         // Clear visuals after display time
@@ -956,6 +1014,7 @@ export default function BattleHUD({
     }
 
     // After scheduling, advance shown index and clear server transient skeleton hits to avoid duplicate playback
+    // (no need to update pending ref here — individual timeouts will decrement it).
     setTimeout(() => {
       resolveCache.current.shownLogIndex = total;
       try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
