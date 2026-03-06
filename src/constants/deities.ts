@@ -22,7 +22,7 @@ export const DEITY = {
   TYCHE: 'Tyche',
 } as const;
 
-export type DeityName = typeof DEITY[keyof typeof DEITY];
+export type DeityName = typeof DEITY[keyof typeof DEITY] | 'Hades and Persephone';
 
 /** Standard Camp Half-Blood cabin numbers by deity */
 export const DEITY_CABIN: Record<string, number> = {

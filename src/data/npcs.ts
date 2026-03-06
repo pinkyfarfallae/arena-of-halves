@@ -5,6 +5,7 @@ import { POWER_OVERRIDES } from '../pages/CharacterInfo/constants/overrides';
 import { csvUrl } from '../constants/sheets';
 import type { Theme25 } from '../types/character';
 import type { FighterState } from '../types/battle';
+import { DeityName } from '../types/deity';
 
 const NPC_GID = '1431163652';
 
@@ -58,7 +59,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     nicknameEng: get('nickname (eng)'),
     nicknameThai: get('nickname (thai)'),
     sex: get('sex'),
-    deityBlood: get('deity blood'),
+    deityBlood: get('deity blood') as DeityName,
     image: toDirectImageUrl(get('image url')),
     theme: parseTheme(get('theme'), get('deity blood')),
     maxHp: hp,

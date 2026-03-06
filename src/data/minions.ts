@@ -30,7 +30,7 @@ export function createSkeletonMinion(master: {
     theme: master.theme,
     maxHp: 1,
     currentHp: 1,
-    damage: Math.floor(master.damage * 0.5),
+    damage: Math.ceil(master.damage * 0.5),
     attackDiceUp: 0,
     defendDiceUp: 0,
     speed: 0,
