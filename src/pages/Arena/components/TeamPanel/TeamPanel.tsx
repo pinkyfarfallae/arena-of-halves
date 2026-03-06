@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
@@ -15,6 +15,10 @@ interface Props {
   teamMinions?: Minion[];
   /** True when BattleHUD's resolve panel is visible (after crit/chain checks) */
   resolveShown?: boolean;
+  /** True while transient damage/skeleton playback is active — used to suppress chained visuals */
+  transientEffectsActive?: boolean;
+  /** Optional map of transient minion pulse ids keyed by defenderId (from Arena) */
+  minionPulseMap?: Record<string, number>;
   onSelectTarget?: (defenderId: string) => void;
   /** Optional client-side visual override for NPC target selection */
   clientVisualDefenderId?: string | null;
@@ -38,9 +42,25 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
+  console.debug('[TeamPanel] render', { side, membersCount: members.length, phase: battle?.turn?.phase, resolveShown });
   const turn = battle?.turn;
   const activeEffects = battle?.activeEffects || [];
+  // Suppress hit visuals for a short window after leaving the select-target
+  // phase to avoid accidental frame shakes when the player cancels/back out
+  // of the target modal (race between UI and transient markers).
+  const prevPhaseRef = useRef<string | undefined>(undefined);
+  const [suppressHitAfterSelect, setSuppressHitAfterSelect] = useState(false);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    const curr = turn?.phase;
+    if (prev === 'select-target' && curr !== 'select-target') {
+      setSuppressHitAfterSelect(true);
+      const t = setTimeout(() => setSuppressHitAfterSelect(false), 400);
+      return () => clearTimeout(t);
+    }
+    prevPhaseRef.current = curr;
+  }, [turn?.phase]);
 
   // This panel's team is the opposite side's target pool
   const isOpposingTeam = turn && (
@@ -164,20 +184,25 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // is played from the transient `lastSkeletonHits` buffer.
         const transientLastMinionId = (battle as any)?.lastHitMinionId as string | undefined;
         const transientLastTargetId = (battle as any)?.lastHitTargetId as string | undefined;
-        // Accept transient minion markers outside strict resolving state so the
-        // defender's frame flashes immediately when a minion hit is played.
-        // Avoid honoring these markers during target selection to prevent false
-        // flashes while choosing a target.
-        const transientMinionMarkerHit = !!transientLastMinionId && transientLastTargetId === m.characterId && turn?.phase !== 'select-target';
-        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown) && (!!lastHitEntry || transientMinionMarkerHit);
+        // Block hit visuals entirely while the local player is selecting a target
+        // (prevents accidental frame shakes when opening/closing the select-target modal).
+        const allowHitVisuals = (turn?.phase !== 'select-target' && turn?.phase !== 'select-season' && turn?.phase !== 'select-action') && !suppressHitAfterSelect;
+        // Accept transient minion markers only while resolving/resolveShown or
+        // while transient effects are actively playing. Also explicitly block
+        // these markers during target selection and for a short suppression
+        // window after leaving selection (prevents false flashes on Back).
+        const transientMinionMarkerHit = !!transientLastMinionId && transientLastTargetId === m.characterId &&
+          (turn?.phase === 'resolving' || resolveShown || !!transientEffectsActive) &&
+          allowHitVisuals;
+        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown || !!transientEffectsActive) && (!!lastHitEntry || transientMinionMarkerHit);
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
         const isOpposing = !!(turn && ((side === 'left' && turn.attackerTeam === 'teamB') || (side === 'right' && turn.attackerTeam === 'teamA')));
         const isHit = !!(
           (isOpposing && (
-            transientTargetHit ||
-            (!hasMasterMinions && ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) || isAoeHit))
+            (allowHitVisuals && transientTargetHit) ||
+            (allowHitVisuals && !hasMasterMinions && ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) || isAoeHit))
           )) ||
           (!isOpposing && isAoeHit)
         );
@@ -269,16 +294,47 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const recentLog = Array.isArray(battle?.log)
           ? (battle!.log as any[]).slice(-8).filter((le) => le.round === battle?.roundNumber)
           : [];
-        const logHasFloral = recentLog.some((le) => typeof le.powerUsed === 'string' && le.powerUsed === 'Floral Fragrance' && le.defenderId === m.characterId);
+        // Only consider a recent Floral Fragrance log as a scent trigger if the
+        // log appears to be written but the heal hasn't been applied yet.
+        // For skipDice heal powers the log may contain a `defenderHpAfter` that
+        // reflects the defender's HP before the heal (server writes effect + log
+        // in one update). If the local fighter's currentHp is already greater
+        // than the log's `defenderHpAfter`, the heal has been applied — do not
+        // show the transient scent in that case.
+        const floralLogIndex = (() => {
+          for (let idx = recentLog.length - 1; idx >= 0; idx--) {
+            const le = recentLog[idx];
+            if (typeof le.powerUsed !== 'string' || le.powerUsed !== 'Floral Fragrance') continue;
+            if (le.defenderId !== m.characterId) continue;
+            if (typeof le.defenderHpAfter === 'number' && Number(le.defenderHpAfter) === Number(m.currentHp)) return idx;
+          }
+          return -1;
+        })();
+        const logHasFloral = floralLogIndex !== -1;
         const phaseOk = ['select-target', 'select-action', 'rolling-attack', 'rolling-defend'].includes(turn?.phase as string);
         const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === 'Floral Fragrance';
-        const isScentWaved = !!(
-          (
-            // server-driven case
-            turn?.allyTargetId === m.characterId &&
-            typeof turn?.usedPowerName === 'string' && turn.usedPowerName === 'Floral Fragrance'
-          ) || clientScent || logHasFloral
-        ) && phaseOk;
+        // Server-driven scent: prefer showing on the explicit ally target when present.
+        // If the server turn doesn't include an allyTargetId (edge cases), also
+        // allow showing the scent on the caster (attacker) so the user sees the
+        // Floral Fragrance visual immediately on the character who used it.
+        const serverScentOnTarget = turn?.allyTargetId === m.characterId && typeof turn?.usedPowerName === 'string' && turn.usedPowerName === 'Floral Fragrance';
+        // Show on caster only when there is no explicit ally target yet (avoid
+        // showing on both caster and target simultaneously when `allyTargetId` is present).
+        // Tighten: only show caster scent on the attacker's own panel (prevent showing on opposing side)
+        const attackerTeam = turn?.attackerTeam as 'teamA' | 'teamB' | undefined;
+        const panelTeam = side === 'left' ? 'teamA' : 'teamB';
+        const serverScentOnCaster = !!(
+          turn?.attackerId === m.characterId &&
+          !turn?.allyTargetId &&
+          typeof turn?.usedPowerName === 'string' &&
+          turn.usedPowerName === 'Floral Fragrance' &&
+          turn?.action === 'power' &&
+          attackerTeam === panelTeam
+        );
+        // Suppress scent wave visual while transient effects (minion hits, DamageCards)
+        // are actively playing so effects chain sequentially instead of overlapping.
+        const isScentWaved = !!(serverScentOnTarget || serverScentOnCaster || clientScent || logHasFloral) && phaseOk && !transientEffectsActive;
+        if (isScentWaved) console.debug('[TeamPanel] scent wave', { side, m: m.characterId, serverScentOnTarget, serverScentOnCaster, clientScent, logHasFloral });
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -320,8 +376,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
+            // Only allow transient-driven pulses when hit visuals are allowed
+            // (prevents Back/cancel selection from causing false shakes)
+            allowTransientHits={allowHitVisuals}
             visualDefenderId={visualDefenderId}
-            minionHitPulseId={transientLastMinionId && transientLastTargetId === m.characterId ? transientLastMinionId : undefined}
+            minionHitPulseId={
+              (minionPulseMap && minionPulseMap[m.characterId] != null)
+                ? Number(minionPulseMap[m.characterId])
+                : undefined
+            }
+            floralLogKey={
+              logHasFloral && battle?.roundNumber != null && floralLogIndex >= 0
+                ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
+                : undefined
+            }
           />
         );
       })}

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { ref, update } from 'firebase/database';
+import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
@@ -85,6 +87,8 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+  const [transientEffectsActive, setTransientEffectsActive] = useState(false);
+  const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   // Local visual override used when NPC schedules a target but server update is delayed
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -486,6 +490,13 @@ function Arena() {
 
   const handleCancelTarget = async () => {
     if (!arenaId) return;
+    // Clear local transient pulses immediately so UI won't flash when the
+    // player cancels selection (avoids Back causing opponent frames to shake).
+    try { setMinionPulseMap({}); } catch (e) {}
+    // Also clear transient markers on server to avoid cross-client races.
+    try {
+      await update(ref(db, `arenas/${arenaId}/battle`), { lastHitMinionId: null, lastHitTargetId: null });
+    } catch (e) {}
     await cancelTargetSelection(arenaId);
   };
 
@@ -593,6 +604,8 @@ function Arena() {
             teamMinions={room.teamA?.minions}
             myId={user?.characterId}
             resolveShown={resolveShown}
+            transientEffectsActive={transientEffectsActive}
+            minionPulseMap={minionPulseMap}
             onSelectTarget={handleSelectTarget}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
@@ -621,6 +634,8 @@ function Arena() {
               teamMinions={room.teamB?.minions}
               myId={user?.characterId}
               resolveShown={resolveShown}
+              transientEffectsActive={transientEffectsActive}
+              minionPulseMap={minionPulseMap}
               onSelectTarget={handleSelectTarget}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
@@ -644,6 +659,7 @@ function Arena() {
             teamMinionsA={room.teamA?.minions}
             teamMinionsB={room.teamB?.minions}
             myId={user?.characterId}
+            transientEffectsActive={transientEffectsActive}
             onSelectTarget={handleSelectTarget}
             onSelectAction={handleSelectAction}
             onSelectSeason={handleSelectSeason}
@@ -655,6 +671,21 @@ function Arena() {
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
             onResolveVisible={setResolveShown}
+            onTransientEffectsActive={setTransientEffectsActive}
+            onMinionHitPulse={(attackerId: string, defenderId: string) => {
+              console.debug('[Arena] onMinionHitPulse', { attackerId, defenderId });
+              setMinionPulseMap((m) => {
+                const copy = { ...m };
+                copy[defenderId] = (copy[defenderId] || 0) + 1;
+                return copy;
+              });
+              // clear after display duration
+              setTimeout(() => setMinionPulseMap((m) => {
+                const copy = { ...m };
+                delete copy[defenderId];
+                return copy;
+              }), 1800);
+            }}
           />
         )}
       </div>
