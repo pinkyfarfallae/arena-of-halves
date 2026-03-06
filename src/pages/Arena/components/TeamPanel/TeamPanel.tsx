@@ -159,7 +159,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           lastEntry.missed !== true &&
           ((lastEntry.damage as number) > 0 || (lastEntry as any).isMinionHit)
         );
-        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown) && !!lastHitEntry;
+        // Also honor transient server markers for minion hits while resolving so
+        // the defender's frame flashes immediately when a skeleton/minion hit
+        // is played from the transient `lastSkeletonHits` buffer.
+        const transientLastMinionId = (battle as any)?.lastHitMinionId as string | undefined;
+        const transientLastTargetId = (battle as any)?.lastHitTargetId as string | undefined;
+        // Accept transient minion markers outside strict resolving state so the
+        // defender's frame flashes immediately when a minion hit is played.
+        // Avoid honoring these markers during target selection to prevent false
+        // flashes while choosing a target.
+        const transientMinionMarkerHit = !!transientLastMinionId && transientLastTargetId === m.characterId && turn?.phase !== 'select-target';
+        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown) && (!!lastHitEntry || transientMinionMarkerHit);
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
@@ -311,6 +321,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
             visualDefenderId={visualDefenderId}
+            minionHitPulseId={transientLastMinionId && transientLastTargetId === m.characterId ? transientLastMinionId : undefined}
           />
         );
       })}
