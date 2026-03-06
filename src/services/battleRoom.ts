@@ -1442,7 +1442,12 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         const minions = room[attackerTeam]?.minions || [];
         const skeletons = minions.filter(m => m.masterId === attackerId);
         for (const skeleton of skeletons) {
-          const skeletonDmg = Math.floor(skeleton.damage * (isCrit ? 2 : 1));
+          let sDamage = Number((skeleton as any).damage) || 0;
+          if (sDamage <= 0) {
+            // Fallback: use snapshot of master's damage at time of attack (50%)
+            sDamage = Math.ceil(attacker.damage * 0.5);
+          }
+          const skeletonDmg = Math.ceil(sDamage * (isCrit ? 2 : 1));
           rawDmg += skeletonDmg;
         }
       }

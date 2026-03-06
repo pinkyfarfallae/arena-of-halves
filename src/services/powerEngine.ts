@@ -191,9 +191,8 @@ export function applyPowerEffect(
             // Use the centralized helper so skeletons have the canonical skeleton image/theme
             const skeleton = createSkeletonMinion(target as any);
             // Ensure deityBlood is set to the attacker's deity when available (Hades expected)
-            skeleton.deityBlood = attacker?.deityBlood || target.deityBlood || 'Hades';
-            // Adjust damage to 50% of master's snapshot (defensive safety)
-            skeleton.damage = Math.floor(target.damage * 0.5);
+            // Note: `createSkeletonMinion` already sets `damage = Math.ceil(master.damage * 0.5)`
+            // so we avoid overriding it here to keep a single source of truth.
             updates[`${team}/minions`] = [...existingMinions, skeleton];
           }
         }
