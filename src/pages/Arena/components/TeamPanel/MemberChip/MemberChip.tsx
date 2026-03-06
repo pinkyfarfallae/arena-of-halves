@@ -127,9 +127,11 @@ interface Props {
   minions?: Minion[];
   /** Visual defender ID — used to highlight which minion is the defender */
   visualDefenderId?: string;
+  /** Pulse id for transient minion hits — when this changes, play a hit flash */
+  minionHitPulseId?: string | undefined;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -158,6 +160,20 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
     if (!isHit) prevIsHitRef.current = false;
   }, [isHit]);
+
+  // Trigger hit flash when a transient minion hit pulse occurs (even if
+  // `isHit` hasn't toggled). This ensures the defender frame shakes when a
+  // skeleton/minion DamageCard plays.
+  const prevPulseRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!minionHitPulseId) return;
+    if (minionHitPulseId !== prevPulseRef.current) {
+      prevPulseRef.current = minionHitPulseId;
+      setIsHitActive(true);
+      const timer = setTimeout(() => setIsHitActive(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [minionHitPulseId]);
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
@@ -200,6 +216,20 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
     if (!isScentWaved) prevScentRef.current = false;
   }, [isScentWaved]);
+
+  // If the fighter's HP increases (heal applied), clear the scent wave visual
+  // shortly after to avoid leaving the +HP text/styling stuck after the heal.
+  const prevHpRef = useRef<number>(fighter.currentHp);
+  useEffect(() => {
+    const prev = prevHpRef.current;
+    if (fighter.currentHp > prev && showScentWave) {
+      const t = setTimeout(() => setShowScentWave(false), 600);
+      prevHpRef.current = fighter.currentHp;
+      return () => clearTimeout(t);
+    }
+    prevHpRef.current = fighter.currentHp;
+    return undefined;
+  }, [fighter.currentHp, showScentWave]);
 
   /* ── Resurrecting: mist + falling lights for 2.5s, then purple glow flash on frame ── */
   const [showResurrecting, setShowResurrecting] = useState(false);
