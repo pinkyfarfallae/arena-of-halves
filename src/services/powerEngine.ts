@@ -553,7 +553,7 @@ export function applyFloralScented(
   return updates;
 }
 
-/* ── Persephone: Borrowed Season — apply season effects to team ── */
+/* ── Persephone: Ephemeral Season — apply season effects to team ── */
 
 /**
  * Apply season-based effects to all alive teammates of the attacker.
@@ -607,8 +607,8 @@ export function applySeasonEffects(
     switch (season) {
       case 'summer': {
         effects.push({
-          id: makeEffectId(attackerId, 'Borrowed Season'),
-          powerName: 'Borrowed Season',
+          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          powerName: 'Ephemeral Season',
           effectType: 'buff',
           sourceId: attackerId,
           targetId: fighterId,
@@ -631,8 +631,8 @@ export function applySeasonEffects(
         }
         // Tracking effect for reversal on expiry
         effects.push({
-          id: makeEffectId(attackerId, 'Borrowed Season'),
-          powerName: 'Borrowed Season',
+          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          powerName: 'Ephemeral Season',
           effectType: 'buff',
           sourceId: attackerId,
           targetId: fighterId,
@@ -646,8 +646,8 @@ export function applySeasonEffects(
 
       case 'winter': {
         effects.push({
-          id: makeEffectId(attackerId, 'Borrowed Season'),
-          powerName: 'Borrowed Season',
+          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          powerName: 'Ephemeral Season',
           effectType: 'buff',
           sourceId: attackerId,
           targetId: fighterId,
@@ -661,8 +661,8 @@ export function applySeasonEffects(
 
       case 'spring': {
         effects.push({
-          id: makeEffectId(attackerId, 'Borrowed Season'),
-          powerName: 'Borrowed Season',
+          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          powerName: 'Ephemeral Season',
           effectType: 'buff',
           sourceId: attackerId,
           targetId: fighterId,

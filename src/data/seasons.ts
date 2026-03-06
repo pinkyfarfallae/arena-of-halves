@@ -1,5 +1,5 @@
 /**
- * Borrowed Season power configuration.
+ * Ephemeral Season power configuration.
  * Each season has a unique color, icon component, and Thai label.
  */
 

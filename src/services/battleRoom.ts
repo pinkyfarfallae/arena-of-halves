@@ -489,14 +489,23 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         if (defenderSkeletons.length > 0) {
           const visualDefenderId = defenderSkeletons[0].characterId;
           updates['battle/turn'] = { ...turn, defenderId, visualDefenderId, phase: 'rolling-attack' };
+          // Clear transient hit markers to avoid showing a hit flash when merely selecting a target
+          updates['battle/lastHitMinionId'] = null;
+          updates['battle/lastHitTargetId'] = null;
         } else {
           updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+          updates['battle/lastHitMinionId'] = null;
+          updates['battle/lastHitTargetId'] = null;
         }
       } else {
         updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+        updates['battle/lastHitMinionId'] = null;
+        updates['battle/lastHitTargetId'] = null;
       }
     } catch (e) {
       updates['battle/turn'] = { ...turn, defenderId, phase: 'rolling-attack' };
+      updates['battle/lastHitMinionId'] = null;
+      updates['battle/lastHitTargetId'] = null;
     }
     await update(ref(db, `arenas/${arenaId}`), updates);
     return;
@@ -702,7 +711,7 @@ export async function selectAction(
   const updates: Record<string, unknown> = {};
   if (atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
 
-  // ── Season selection power (e.g. Persephone's Borrowed Season): go to season selection ──
+  // ── Season selection power (e.g. Persephone's Ephemeral Season): go to season selection ──
   // Also check canonical definition so rooms created before the flag was added still work
   const canonicalPower = getPowers(attacker.deityBlood)?.find(p => p.name === power.name);
   if (power.requiresSeasonSelection || canonicalPower?.requiresSeasonSelection) {
@@ -887,6 +896,7 @@ export async function selectAction(
       powerUsed: power.name,
     };
     updates['battle/log'] = [...(battle.log || []), logEntry];
+    
 
     updates['battle/turn'] = {
       attackerId,
@@ -1036,7 +1046,7 @@ export async function selectAction(
   await update(roomRef(arenaId), updates);
 }
 
-/* ── select season for Persephone's Borrowed Season power ────── */
+/* ── select season for Persephone's Ephemeral Season power ────── */
 
 export async function selectSeason(
   arenaId: string,
@@ -1169,7 +1179,7 @@ export async function confirmSeason(arenaId: string): Promise<void> {
     defenderHpAfter: attacker.currentHp,
     eliminated: false,
     missed: false,
-    powerUsed: 'Borrowed Season',
+    powerUsed: 'Ephemeral Season',
     selectedSeason,
   };
   updates['battle/log'] = [...(battle.log || []), logEntry];
@@ -1334,6 +1344,14 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   let atkTotal = 0;
   let defTotal = 0;
   let defenderHpAfter = defender.currentHp;
+  // Collected skeletons to resolve after the main attack (separate logs)
+  let skeletonsForAttack: any[] = [];
+  // Capture the main attack log entry so we can guarantee it appears before minion entries
+  let mainAttackLogEntry: Record<string, unknown> | null = null;
+  // Crit / shock bookkeeping (may be set during attack resolution)
+  let isCrit = false;
+  let critRoll = 0;
+  let shockBonusDamage = 0;
 
   // Resolve power that went through dice rolling
   const { usedPowerIndex } = battle.turn;
@@ -1398,9 +1416,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       hit = false;
     }
 
-    let isCrit = false;
-    let critRoll = 0;
-    let shockBonusDamage = 0;
+    
 
     if (hit) {
       const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
@@ -1436,20 +1452,12 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         Object.assign(updates, shockResult.updates);
       }
 
-      // Skeleton bonus damage: when master attacks, skeletons deal 50% additional damage
+      // Collect skeletons belonging to the attacker — we will resolve them
+      // separately (so their hits appear as distinct log entries).
       const attackerTeam = findFighterTeam(room, attackerId);
       if (attackerTeam) {
         const minions = room[attackerTeam]?.minions || [];
-        const skeletons = minions.filter(m => m.masterId === attackerId);
-        for (const skeleton of skeletons) {
-          let sDamage = Number((skeleton as any).damage) || 0;
-          if (sDamage <= 0) {
-            // Fallback: use snapshot of master's damage at time of attack (50%)
-            sDamage = Math.ceil(attacker.damage * 0.5);
-          }
-          const skeletonDmg = Math.ceil(sDamage * (isCrit ? 2 : 1));
-          rawDmg += skeletonDmg;
-        }
+        skeletonsForAttack = minions.filter(m => m.masterId === attackerId);
       }
 
       // Skeleton protection: when master is attacked, lowest-index skeleton blocks damage and dies
@@ -1485,7 +1493,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
               [`${defenderTeam}/minions`]: immediateMinions,
             });
           } catch (err) {
-            console.warn('Failed to write minion hit marker', err);
           }
 
           // Schedule removal after a short display interval so clients can show the hit animation
@@ -1501,7 +1508,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
                 [hitMarkerKey]: null,
               });
             } catch (err) {
-              console.warn('Failed to remove blocked skeleton', err);
             }
           }, HIT_DISPLAY_MS);
 
@@ -1570,6 +1576,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       logEntry.dodgeRoll = battle.turn.dodgeRoll;
     }
     
+    // Capture and write the main attack log entry first
+    mainAttackLogEntry = logEntry;
     updates['battle/log'] = [...(battle.log || []), logEntry];
   }
   // skipDice powers: effect + log already written in selectAction()
@@ -1627,6 +1635,111 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Sync accumulated activeEffects changes so tickEffects sees them
+    // --- Resolve skeleton supplemental attacks as separate log entries ---
+    if (!isDodged && hit && skeletonsForAttack && skeletonsForAttack.length > 0) {
+      const defPath = findFighterPath(room, defenderId);
+      const skeletonHits: Record<string, unknown>[] = [];
+      // Keep a mutable view of active effects so shield modifications persist between skeleton hits
+      let mutableEffects = (updates['battle/activeEffects'] as ActiveEffect[]) || battle.activeEffects || [];
+      for (const sk of skeletonsForAttack) {
+        // Prefer stored minion damage, fall back to ceil(master.damage * 0.5)
+        const stored = Number((sk && sk.damage) ?? NaN);
+        const fallback = Math.ceil(attacker.damage * 0.5);
+        let skRaw = (!isNaN(stored) && stored > 0) ? stored : fallback;
+        if (isCrit) skRaw = skRaw * 2;
+
+        // Shield absorption: reduce shields targeting defender
+        let shieldRemaining = skRaw;
+        let shieldsModified = false;
+        if (mutableEffects && mutableEffects.length > 0) {
+          for (const se of mutableEffects) {
+            if (se.targetId !== defenderId || se.effectType !== 'shield') continue;
+            if (shieldRemaining <= 0) break;
+            const absorbed = Math.min(se.value, shieldRemaining);
+            se.value -= absorbed;
+            shieldRemaining -= absorbed;
+            shieldsModified = true;
+          }
+        }
+        if (shieldsModified) {
+          const cleaned = mutableEffects.filter(e => !(e.effectType === 'shield' && e.value <= 0 && !e.tag));
+          mutableEffects = cleaned;
+          updates['battle/activeEffects'] = cleaned;
+          // keep battle.activeEffects in-sync for subsequent logic
+          battle = { ...battle, activeEffects: cleaned };
+        }
+
+        // After shields, damage to apply
+        const dmgToApply = Math.max(0, shieldRemaining);
+
+        // Reflect handling: if defender has reflect, apply to skeleton's master (as proxy)
+        const currentEffectsForReflect = (updates['battle/activeEffects'] as ActiveEffect[]) || mutableEffects || [];
+        const reflectPct = getReflectPercent(currentEffectsForReflect, defenderId);
+        if (reflectPct > 0 && dmgToApply > 0) {
+          const reflectDmg = Math.floor(dmgToApply * reflectPct / 100);
+          const masterPath = findFighterPath(room, sk.masterId);
+          if (masterPath) {
+            const master = findFighter(room, sk.masterId);
+            const currentMasterHp = (updates[`${masterPath}/currentHp`] as number | undefined) ?? (master ? master.currentHp : 0);
+            updates[`${masterPath}/currentHp`] = Math.max(0, currentMasterHp - reflectDmg);
+          }
+        }
+
+        if (defPath) {
+          const currentDefHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+          const newHp = Math.max(0, currentDefHp - dmgToApply);
+          updates[`${defPath}/currentHp`] = newHp;
+
+          // Record a transient skeleton hit entry (do NOT append to persistent battle.log)
+          const skHit: Record<string, unknown> = {
+            round: battle.roundNumber,
+            attackerId: sk.characterId,
+            defenderId,
+            attackRoll: 0,
+            defendRoll: 0,
+            damage: dmgToApply,
+            defenderHpAfter: newHp,
+            eliminated: newHp <= 0,
+            missed: false,
+          };
+          if (isCrit) skHit.isCrit = true;
+          skeletonHits.push(skHit);
+
+          // Expose last hit minion id for immediate UI visuals
+          updates['battle/lastHitMinionId'] = sk.characterId;
+          // Transient target marker so defenders show hit effects when struck by minions
+          updates['battle/lastHitTargetId'] = defenderId;
+        }
+      }
+      // Write transient skeleton hits for clients to playback (cleared by clients)
+      if (skeletonHits.length > 0) {
+        updates['battle/lastSkeletonHits'] = skeletonHits;
+
+        // Also append skeleton hits to the persistent battle log so
+        // BHUD log and BattleLogModal display them. Mark them with
+        // `isMinionHit` so UI can style or filter if desired.
+        try {
+          const existingLog = (updates['battle/log'] as typeof battle.log) || [...(battle.log || [])];
+          // Ensure the main attack entry we captured earlier is present and ordered before minion hits
+          if (mainAttackLogEntry) {
+            const last = existingLog.length > 0 ? existingLog[existingLog.length - 1] : null;
+            const sameAsMain = last && last.attackerId === mainAttackLogEntry.attackerId && last.defenderId === mainAttackLogEntry.defenderId && last.round === mainAttackLogEntry.round && last.damage === mainAttackLogEntry.damage;
+            if (!sameAsMain) {
+              existingLog.push(mainAttackLogEntry as any);
+            }
+          }
+          for (const sk of skeletonHits) {
+            const persistentEntry = Object.assign({}, sk, { isMinionHit: true });
+            existingLog.push(persistentEntry as any);
+          }
+          updates['battle/log'] = existingLog;
+        } catch (e) {
+          // Avoid failing the whole turn if shapes are unexpected
+          // eslint-disable-next-line no-console
+          console.warn('Failed to append skeleton hits to persistent log', e);
+        }
+      }
+    }
   // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain, applySecretOfDryadPassive
   //  all write to updates['battle/activeEffects'] but tickEffects reads from battle)
   if (updates['battle/activeEffects']) {

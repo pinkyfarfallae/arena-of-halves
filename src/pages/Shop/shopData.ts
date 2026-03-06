@@ -38,7 +38,6 @@ export function parseCSV(csv: string): ShopItem[] {
         const driveUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
         const encodedUrl = encodeURIComponent(driveUrl);
         imageUrl = `https://images.weserv.nl/?url=${encodedUrl}&w=300&h=300&fit=cover`;
-        console.log(`Converted image URL: ${fileId} -> ${imageUrl}`);
       }
     }
 

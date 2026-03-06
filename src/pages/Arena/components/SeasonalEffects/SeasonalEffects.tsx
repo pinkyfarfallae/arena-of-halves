@@ -22,7 +22,7 @@ interface Props {
 
 /**
  * SeasonalEffects — Displays visual theme effects based on selected season
- * Appears on both sides of the arena field during Borrowed Season power duration
+ * Appears on both sides of the arena field during Ephemeral Season power duration
  */
 export default function SeasonalEffects({ season, side, isActive }: Props) {
   const effectClass = useMemo(() => {

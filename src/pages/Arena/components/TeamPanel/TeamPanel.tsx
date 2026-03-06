@@ -16,6 +16,9 @@ interface Props {
   /** True when BattleHUD's resolve panel is visible (after crit/chain checks) */
   resolveShown?: boolean;
   onSelectTarget?: (defenderId: string) => void;
+  /** Optional client-side visual override for NPC target selection */
+  clientVisualDefenderId?: string | null;
+  clientVisualPowerName?: string | null;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -35,7 +38,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, onSelectTarget }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
   const turn = battle?.turn;
   const activeEffects = battle?.activeEffects || [];
 
@@ -109,9 +112,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
       {members.map((m) => {
         // Allow a visual override so attacks can be visually retargeted to minions.
         // Prefer the turn-level `visualDefenderId` (set during selection) so selection
-        // highlights a minion (e.g. skeleton #1). Fall back to room-level
-        // `lastHitMinionId` for transient hit visuals emitted at resolve time.
-        const visualDefenderId = (turn as any)?.visualDefenderId ?? (battle as any)?.lastHitMinionId;
+        // highlights a minion (e.g. skeleton #1). Do NOT fall back to room-level
+        // `lastHitMinionId` while in `select-target` phase to avoid showing a hit
+        // flash when the player is merely choosing a target.
+        // Only honor room-level transient hit markers when we are actively resolving
+        // a hit (prevents stale `lastHitMinionId` from causing a frame shake on new turns).
+        // Priority: explicit turn visual override (selection), then client-side NPC visual override,
+        // then transient server `lastHitMinionId` during resolving.
+        const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === 'resolving' || resolveShown) ? (battle as any)?.lastHitMinionId : undefined));
         const isAttacker = turn?.attackerId === m.characterId;
         
         // Check if this master has any minions (skeletons)
@@ -138,10 +146,30 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           lastEntry?.aoeDamageMap?.[m.characterId]
         );
         // Master should NOT show hit effect if they have minions (skeleton shows hit instead)
+        // Ignore transient lastHitTargetId while selecting a target (prevents false hit flash)
+        // Only consider a transient hit if the persistent log's last entry
+        // indicates this defender was hit (not missed). This prevents false
+        // hit flashes caused by transient markers that may be set earlier.
+        // Only consider a persistent log entry a "hit" if it's not flagged as missed
+        // and either has positive damage or is a minion hit marker. This avoids
+        // treating blocked (0 damage) entries as hits that trigger visuals.
+        const lastHitEntry = !!(
+          lastEntry &&
+          lastEntry.defenderId === m.characterId &&
+          lastEntry.missed !== true &&
+          ((lastEntry.damage as number) > 0 || (lastEntry as any).isMinionHit)
+        );
+        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown) && !!lastHitEntry;
+        // Only show hit effects on the opposing team (normal hits). For the
+        // attacker's own side, only show hit effects for AoE/co-attack cases
+        // where allies actually take damage.
+        const isOpposing = !!(turn && ((side === 'left' && turn.attackerTeam === 'teamB') || (side === 'right' && turn.attackerTeam === 'teamA')));
         const isHit = !!(
-          !hasMasterMinions &&
-          ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) ||
-          isAoeHit)
+          (isOpposing && (
+            transientTargetHit ||
+            (!hasMasterMinions && ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) || isAoeHit))
+          )) ||
+          (!isOpposing && isAoeHit)
         );
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
@@ -223,12 +251,24 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase === 'select-action'
         );
 
-        // Floral Scented: brief trigger when just applied
+        // Floral Fragrance: brief trigger when just applied
+        // Also watch recent persistent log entries so we show the scent VFX even
+        // when the server wrote a log entry but the turn fields aren't present
+        // on the client yet. Only show the scent for the exact 'Floral Fragrance' power.
+        // Only consider recent persistent log entries from the current round
+        const recentLog = Array.isArray(battle?.log)
+          ? (battle!.log as any[]).slice(-8).filter((le) => le.round === battle?.roundNumber)
+          : [];
+        const logHasFloral = recentLog.some((le) => typeof le.powerUsed === 'string' && le.powerUsed === 'Floral Fragrance' && le.defenderId === m.characterId);
+        const phaseOk = ['select-target', 'select-action', 'rolling-attack', 'rolling-defend'].includes(turn?.phase as string);
+        const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === 'Floral Fragrance';
         const isScentWaved = !!(
-          turn?.allyTargetId === m.characterId &&
-          turn?.usedPowerName === 'Floral Scented' &&
-          (turn?.phase === 'select-target' || turn?.phase === 'rolling-attack' || turn?.phase === 'rolling-defend')
-        );
+          (
+            // server-driven case
+            turn?.allyTargetId === m.characterId &&
+            typeof turn?.usedPowerName === 'string' && turn.usedPowerName === 'Floral Fragrance'
+          ) || clientScent || logHasFloral
+        ) && phaseOk;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
