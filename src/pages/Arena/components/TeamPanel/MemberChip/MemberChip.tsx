@@ -173,7 +173,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // skeleton/minion DamageCard plays.
   const prevPulseRef = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (!allowTransientHits) return;
     if (minionHitPulseId == null) return;
     if (minionHitPulseId !== prevPulseRef.current) {
       prevPulseRef.current = minionHitPulseId;
@@ -181,7 +180,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       const timer = setTimeout(() => setIsHitActive(false), 1500);
       return () => clearTimeout(timer);
     }
-  }, [minionHitPulseId, allowTransientHits]);
+  }, [minionHitPulseId]);
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
