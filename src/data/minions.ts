@@ -25,7 +25,7 @@ export function createSkeletonMinion(master: {
     nicknameEng: `${master.nicknameEng}'s Skeleton`,
     nicknameThai: `โครงกระดูกของ${master.nicknameThai}`,
     sex: 'none',
-    deityBlood: 'none',
+    deityBlood: master.deityBlood,
     image: skeletonImg,
     theme: master.theme,
     maxHp: 1,
@@ -43,7 +43,7 @@ export function createSkeletonMinion(master: {
     maxQuota: 0,
     criticalRate: 0,
     powers: [],
-    description: "เมื่อทำการโจมตี โครงกระดูกจะทำการโจมตีสมทบ ทำดาเมจ 50% ของดาเมจโจมตีปกติของผู้ร่าย และหากผู้ร่ายโดนโจมตี โครงกระดูกจะเข้ารับดาเมจแทนทั้งหมด จากนั้นจะหายไปทันที ทั้งนี้ ดาเมจสมทบจากโครงกระดูกติดคริติคอลได้ โดยนับการโจมตีหลักของผู้ร่ายว่าติดคริติคอลหรือไม่",
+    description: "เมื่อทายาทแห่งฮาเดสทำการโจมตี โครงกระดูกจะทำการโจมตีสมทบ ทำดาเมจ 50% ของดาเมจโจมตีปกติของผู้ร่าย และหากผู้ร่ายโดนโจมตี โครงกระดูกจะเข้ารับดาเมจแทนทั้งหมด จากนั้นจะหายไปทันที ทั้งนี้ ดาเมจสมทบจากโครงกระดูกติดคริติคอลได้ โดยนับการโจมตีหลักของผู้ร่ายว่าติดคริติคอลหรือไม่",
     type: 'skeleton',
     createdAt: Date.now(),
   };
