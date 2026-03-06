@@ -19,6 +19,8 @@ const ICONS_PER_ROW = 30;
 
 // Spawn animation duration (ms) — keep in sync with SCSS animation
 const MINION_SPAWN_MS = 1400;
+// Despawn animation duration (ms) — matches dust (1000) + linger (750) + buffer
+const MINION_DESPAWN_MS = 1900;
 
 export interface EffectPip {
   powerName: string;
@@ -299,10 +301,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         return copy;
       });
     }, 420);
-    // schedule removal after animation duration
+    // schedule removal after despawn animation completes so mist can finish
     const t = setTimeout(() => {
       setExitingMinions((existing) => existing.filter((e) => !removed.find((r) => r.characterId === e.characterId)));
-    }, MINION_SPAWN_MS + 80);
+    }, MINION_DESPAWN_MS + 80);
     return () => {
       clearTimeout(t);
       clearTimeout(hitClear);

@@ -1,4 +1,5 @@
 import { Theme25 } from './character';
+import { DeityName } from './deity';
 import { Minion } from './minions';
 import type { PowerDefinition, ActiveEffect } from './power';
 
@@ -8,7 +9,7 @@ export interface FighterState {
   nicknameEng: string;
   nicknameThai: string;
   sex: string;
-  deityBlood: string;
+  deityBlood: DeityName;
   image?: string;
   theme: Theme25;
 
