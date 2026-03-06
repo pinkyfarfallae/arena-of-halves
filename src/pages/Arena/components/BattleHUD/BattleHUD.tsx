@@ -660,6 +660,9 @@ export default function BattleHUD({
   // Track pending scheduled skeleton/minion playback so auto-resolve waits until
   // every transient DamageCard has finished showing.
   const pendingSkeletonPlaybackRef = useRef(0);
+  // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
+  // (Firebase may update unrelated fields, causing `battle` to change refs).
+  const lastSkeletonHitsKeyRef = useRef<string | null>(null);
   // Throttle DB writes for last-hit markers to avoid hitting rate limits
   // when many skeletons play in quick succession. We batch the latest
   // payload and write it at most once per `WRITE_THROTTLE_MS` window.
@@ -690,6 +693,12 @@ export default function BattleHUD({
   useEffect(() => {
     const skHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
     if (!Array.isArray(skHits) || skHits.length === 0) return;
+
+    // Build a stable key for this buffer so we don't reprocess the same data
+    // multiple times if unrelated parts of `battle` change.
+    const skKey = skHits.map((e: any) => `${String(e.attackerId)}|${String(e.defenderId)}|${String(e.isMinionHit)}|${String(e.damage ?? 0)}`).join(',');
+    if (lastSkeletonHitsKeyRef.current === skKey) return;
+    lastSkeletonHitsKeyRef.current = skKey;
 
     const STAGGER_MS = 400;
     const HIT_DISPLAY_MS = 1500;
@@ -770,8 +779,11 @@ export default function BattleHUD({
     // After scheduling, clear server transient skeleton buffer so clients don't duplicate
     setTimeout(() => {
       try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
+      // Allow future buffers to be processed again
+      lastSkeletonHitsKeyRef.current = null;
     }, delayAcc + HIT_DISPLAY_MS + 50);
-  }, [battle, arenaId, teamA, teamB, onResolveVisible, turn]);
+  // Only run when the `lastSkeletonHits` buffer changes (not the whole battle object)
+  }, [(battle as any)?.lastSkeletonHits, arenaId, teamA, teamB, onResolveVisible, turn]);
 
   // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active
   useEffect(() => {
