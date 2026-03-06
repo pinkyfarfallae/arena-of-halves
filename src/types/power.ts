@@ -54,7 +54,7 @@ export interface PowerDefinition {
   /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
   skipDice?: boolean;
 
-  /** If true, power requires season selection before targeting (e.g. Persephone's Borrowed Season) */
+  /** If true, power requires season selection before targeting (e.g. Persephone's Ephemeral Season) */
   requiresSeasonSelection?: boolean;
 
   /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */

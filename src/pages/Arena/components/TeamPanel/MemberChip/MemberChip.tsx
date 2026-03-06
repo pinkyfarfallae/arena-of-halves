@@ -281,12 +281,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (removed.length === 0) return;
     // add to exiting list
     setExitingMinions((existing) => [...existing, ...removed]);
-    // debug log for removed minions
-    try {
-      console.debug('MemberChip: removed minions detected', removed.map(r => ({ id: r.characterId, type: r.type })));
-    } catch (e) {
-      // ignore
-    }
     // trigger brief hit effect on removed minions (like a target hit)
     setExitingHitMap((m) => {
       const copy = { ...m };

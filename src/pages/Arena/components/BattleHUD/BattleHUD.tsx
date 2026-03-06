@@ -14,6 +14,7 @@ import DiceModal from './components/DiceModal/DiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
+import { DEFAULT_THEME } from '../../../../constants/theme';
 
 /** Keep element rendered during a fade-out exit animation. */
 function useFadeTransition(visible: boolean, ms = 250) {
@@ -45,6 +46,8 @@ interface Props {
   battle: BattleState;
   teamA: FighterState[];
   teamB: FighterState[];
+  teamMinionsA?: any[];
+  teamMinionsB?: any[];
   myId: string | undefined;
   onSelectTarget: (defenderId: string) => void;
   onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
@@ -61,11 +64,47 @@ interface Props {
 
 /** Find a fighter across both teams */
 function find(teamA: FighterState[], teamB: FighterState[], id: string): FighterState | undefined {
-  return [...teamA, ...teamB].find((f) => f.characterId === id);
+  // Search main members first
+  const found = [...teamA, ...teamB].find((f) => f.characterId === id);
+  if (found) return found;
+  // Fallback: search team-level minions for transient display (map to FighterState-like)
+  // @ts-ignore: minions may be absent in some battle formats
+  const minionsA = (teamA as any[]).flatMap((m: any) => m?.minions ? m.minions : []);
+  // @ts-ignore
+  const minionsB = (teamB as any[]).flatMap((m: any) => m?.minions ? m.minions : []);
+  const allMinions = [...minionsA, ...minionsB];
+  const m = allMinions.find((mn: any) => mn && mn.characterId === id);
+  if (m) {
+    return {
+      characterId: m.characterId,
+      nicknameEng: m.nicknameEng || m.characterId,
+      nicknameThai: m.nicknameThai || m.nicknameEng || m.characterId,
+      sex: m.sex || 'unknown',
+      deityBlood: m.deityBlood || 'unknown',
+      image: m.image,
+      theme: m.theme || DEFAULT_THEME[m.deityBlood] || DEFAULT_THEME[0],
+      maxHp: m.maxHp || 1,
+      currentHp: m.currentHp || 1,
+      damage: m.damage || 0,
+      attackDiceUp: m.attackDiceUp || 0,
+      defendDiceUp: m.defendDiceUp || 0,
+      speed: m.speed || 0,
+      rerollsLeft: m.rerollsLeft || 0,
+      passiveSkillPoint: m.passiveSkillPoint || '',
+      skillPoint: m.skillPoint || '',
+      ultimateSkillPoint: m.ultimateSkillPoint || '',
+      technique: m.technique || 0,
+      quota: m.quota || 0,
+      maxQuota: m.maxQuota || 0,
+      criticalRate: m.criticalRate || 0,
+      powers: m.powers || [],
+    } as FighterState;
+  }
+  return undefined;
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, myId,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
@@ -576,10 +615,10 @@ export default function BattleHUD({
     return () => clearTimeout(timer);
   }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve]);
 
-  /* ── Floral Scented: delay target selection so scent wave visual plays ── */
+  /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
   useEffect(() => {
-    if (turn?.phase === 'select-target' && turn.usedPowerName === 'Floral Scented' && turn.allyTargetId) {
+    if (turn?.phase === 'select-target' && turn.usedPowerName === 'Floral Fragrance' && turn.allyTargetId) {
       setFloralDelay(true);
       const t = setTimeout(() => setFloralDelay(false), 3000);
       return () => clearTimeout(t);
@@ -590,13 +629,17 @@ export default function BattleHUD({
   /* ── Fade transitions for resolve & waiting panels ── */
   const resolveVisible = turn?.phase === 'resolving' && resolveReady && dodgeReady && critReady && chainReady && coAttackReady && !!attacker && !!defender;
   const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target' && !floralDelay);
-
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
     onResolveVisible?.(resolveVisible);
   }, [resolveVisible, onResolveVisible]);
-  const [showResolve, resolveExiting] = useFadeTransition(resolveVisible, 250);
+  // Keep resolve panel visible while a transient DamageCard (minion hit) is showing
+  const [transientDamageActive, setTransientDamageActive] = useState(false);
+  const [showResolve, resolveExiting] = useFadeTransition(resolveVisible || transientDamageActive, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
+
+  // Transient DamageCard for replayed log entries (eg. skeleton/minion hits)
+  const [transientDamage, setTransientDamage] = useState<ResolveCacheType | null>(null);
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
@@ -631,13 +674,40 @@ export default function BattleHUD({
   }, [showResurrecting]);
 
   // Cache resolve data so content doesn't flicker during exit animation
-  const resolveCache = useRef({
+  type ResolveCacheType = {
+    atkRoll: number;
+    defRoll: number;
+    atkBonus: number;
+    defBonus: number;
+    atkTotal: number;
+    defTotal: number;
+    isHit: boolean;
+    damage: number;
+    baseDmg: number;
+    shockBonus: number;
+    isPower: boolean;
+    powerName: string;
+    critEligible: boolean;
+    isCrit: boolean;
+    critRoll: number;
+    isDodged: boolean;
+    coAttackHit: boolean;
+    coAttackDamage: number;
+    attackerName: string;
+    attackerTheme: string;
+    defenderName: string;
+    defenderTheme: string;
+    side: 'left' | 'right';
+    shownLogIndex?: number;
+    [key: string]: any;
+  };
+  const resolveCache = useRef<ResolveCacheType>({
     atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
     isHit: false, damage: 0, baseDmg: 0, shockBonus: 0,
     isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0,
     isDodged: false, coAttackHit: false, coAttackDamage: 0,
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
-    side: 'right' as 'left' | 'right',
+    side: 'right',
   });
   if (resolveVisible && turn && attacker && defender) {
     const isSkipDicePower = turn.action === 'power' && !turn.attackRoll;
@@ -698,6 +768,102 @@ export default function BattleHUD({
       };
     }
   }
+
+  // Play back new entries in the persistent battle.log so every hit (master + minions)
+  // shows a DamageCard and triggers hit visuals. We track which log entries we've
+  // already rendered using `shownLogIndex` to only play new entries.
+  useEffect(() => {
+    if (!arenaId) return;
+    const logArr = battle.log || [];
+    if (!Array.isArray(logArr)) return;
+    const total = logArr.length;
+    if (!('shownLogIndex' in resolveCache.current)) {
+      // initialize to current length (don't replay old entries on mount)
+      resolveCache.current.shownLogIndex = total;
+      return;
+    }
+
+    const prevIndex: number = resolveCache.current.shownLogIndex || 0;
+    if (total <= prevIndex) return;
+
+    const STAGGER_MS = 400;
+    const HIT_DISPLAY_MS = 1500;
+    let delayAcc = 0;
+
+    for (let i = prevIndex; i < total; i++) {
+      const entry = logArr[i];
+      const delay = delayAcc;
+      delayAcc += STAGGER_MS;
+
+      setTimeout(() => {
+        // Map attacker/defender to fighter/minion display names
+        const atk = find(teamA, teamB, entry.attackerId);
+        const def = find(teamA, teamB, entry.defenderId);
+        // fallback to teamMinions arrays
+        let minionFromTeams: any | undefined;
+        if (!atk && (teamMinionsA || teamMinionsB)) {
+          const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
+          minionFromTeams = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
+        }
+
+        const rc = {
+          isHit: !entry.missed,
+          isPower: !!entry.powerUsed,
+          powerName: entry.powerUsed || '',
+          isCrit: !!entry.isCrit,
+          baseDmg: 0,
+          damage: (entry.damage as number) || 0,
+          shockBonus: (entry.shockDamage as number) || 0,
+          atkRoll: (entry.attackRoll as number) || 0,
+          isDodged: !!entry.isDodged,
+          coAttackHit: !!entry.coAttackDamage,
+          coAttackDamage: (entry.coAttackDamage as number) || 0,
+          attackerName: atk?.nicknameEng || minionFromTeams?.nicknameEng || entry.attackerId,
+          attackerTheme: atk?.theme?.[0] || (minionFromTeams?.theme ? minionFromTeams.theme[0] : '#666'),
+          defenderName: def?.nicknameEng || entry.defenderId,
+          defenderTheme: def?.theme?.[0] || '#666',
+          side: (turn && turn.attackerTeam === 'teamA') ? 'right' : 'left',
+        } as any;
+
+        // Show DamageCard in resolve panel if currently resolving, otherwise show
+        // a transient DamageCard for minion hits so skeletons produce a DamageCard.
+        resolveCache.current = { ...resolveCache.current, ...rc } as any;
+        onResolveVisible?.(true);
+        if ((entry as any).isMinionHit) {
+          setTransientDamage(rc as any);
+          setTransientDamageActive(true);
+          // clear transient after display time
+          setTimeout(() => { setTransientDamage(null); setTransientDamageActive(false); }, HIT_DISPLAY_MS + 50);
+        }
+
+        // Pulse transient hit markers so MemberChip flashes correctly
+        try {
+          const lastHitPayload: Record<string, unknown> = {};
+          if ((entry as any).isMinionHit) {
+            lastHitPayload.lastHitMinionId = entry.attackerId;
+            lastHitPayload.lastHitTargetId = entry.defenderId;
+          } else {
+            // master attack: pulse only target marker
+            lastHitPayload.lastHitMinionId = null;
+            lastHitPayload.lastHitTargetId = entry.defenderId;
+          }
+          update(ref(db, `arenas/${arenaId}/battle`), lastHitPayload).catch(() => {});
+        } catch (e) {}
+
+        // Clear visuals after display time
+        setTimeout(() => {
+          onResolveVisible?.(false);
+          try { update(ref(db, `arenas/${arenaId}/battle`), { lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
+        }, HIT_DISPLAY_MS);
+      }, delay);
+    }
+
+    // After scheduling, advance shown index and clear server transient skeleton hits to avoid duplicate playback
+    setTimeout(() => {
+      resolveCache.current.shownLogIndex = total;
+      try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
+    }, delayAcc + HIT_DISPLAY_MS + 50);
+  }, [battle.log, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, turn]);
 
   /* ── Winner ── */
   if (winner) {
@@ -829,7 +995,7 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Season selection (Persephone's Borrowed Season) */}
+      {/* Season selection (Persephone's Ephemeral Season) */}
       {turn.phase === 'select-season' && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <SeasonSelectModal
@@ -954,6 +1120,11 @@ export default function BattleHUD({
         <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
       )}
 
+      {/* Transient DamageCard for replayed log entries (minion hits like skeletons) */}
+      {transientDamage && (
+        <DamageCard data={transientDamage} exiting={false} side={transientDamage.side} />
+      )}
+
       {/* Waiting for opponent to select target */}
       {showWaiting && (
         <div className={`bhud__waiting ${waitingExiting ? 'bhud__waiting--exit' : ''}`}>
@@ -966,12 +1137,88 @@ export default function BattleHUD({
         {log.length === 0 ? (
           <div className="bhud__log-empty">No actions yet</div>
         ) : [...log].reverse().map((entry, i) => {
-          const atkFighter = find(teamA, teamB, entry.attackerId);
-          const defFighter = find(teamA, teamB, entry.defenderId);
+          let atkFighter = find(teamA, teamB, entry.attackerId);
+          let defFighter = find(teamA, teamB, entry.defenderId);
+          // Fallback: look through team-level minions passed from Arena
+          if (!atkFighter && (teamMinionsA || teamMinionsB)) {
+            const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
+            const m = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
+            if (m) atkFighter = ({
+              characterId: m.characterId,
+              nicknameEng: m.nicknameEng || m.characterId,
+              nicknameThai: m.nicknameThai || m.nicknameEng || m.characterId,
+              sex: m.sex || 'unknown',
+              deityBlood: m.deityBlood || 'unknown',
+              image: m.image,
+              theme: m.theme || DEFAULT_THEME[m.deityBlood] || DEFAULT_THEME[0],
+              maxHp: m.maxHp || 1,
+              currentHp: m.currentHp || 1,
+              damage: m.damage || 0,
+              attackDiceUp: m.attackDiceUp || 0,
+              defendDiceUp: m.defendDiceUp || 0,
+              speed: m.speed || 0,
+              rerollsLeft: m.rerollsLeft || 0,
+              passiveSkillPoint: m.passiveSkillPoint || '',
+              skillPoint: m.skillPoint || '',
+              ultimateSkillPoint: m.ultimateSkillPoint || '',
+              technique: m.technique || 0,
+              quota: m.quota || 0,
+              maxQuota: m.maxQuota || 0,
+              criticalRate: m.criticalRate || 0,
+              powers: m.powers || [],
+            } as FighterState);
+          }
+          if (!defFighter && (teamMinionsA || teamMinionsB)) {
+            const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
+            const m = allMinions.find((mn: any) => mn && mn.characterId === entry.defenderId);
+            if (m) defFighter = ({
+              characterId: m.characterId,
+              nicknameEng: m.nicknameEng || m.characterId,
+              nicknameThai: m.nicknameThai || m.nicknameEng || m.characterId,
+              sex: m.sex || 'unknown',
+              deityBlood: m.deityBlood || 'unknown',
+              image: m.image,
+              theme: m.theme || DEFAULT_THEME[m.deityBlood] || DEFAULT_THEME[0],
+              maxHp: m.maxHp || 1,
+              currentHp: m.currentHp || 1,
+              damage: m.damage || 0,
+              attackDiceUp: m.attackDiceUp || 0,
+              defendDiceUp: m.defendDiceUp || 0,
+              speed: m.speed || 0,
+              rerollsLeft: m.rerollsLeft || 0,
+              passiveSkillPoint: m.passiveSkillPoint || '',
+              skillPoint: m.skillPoint || '',
+              ultimateSkillPoint: m.ultimateSkillPoint || '',
+              technique: m.technique || 0,
+              quota: m.quota || 0,
+              maxQuota: m.maxQuota || 0,
+              criticalRate: m.criticalRate || 0,
+              powers: m.powers || [],
+            } as FighterState);
+          }
           const atkName = atkFighter?.nicknameEng ?? '???';
           const defName = defFighter?.nicknameEng ?? '???';
           const atkColor = atkFighter?.theme[0];
           const defColor = defFighter?.theme[0];
+
+          if ((entry as any).isMinionHit) {
+            // Compact minion log: do not render dice breakdown for minion hits
+            return (
+              <div className="bhud__log-entry bhud__log-entry--minion" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-vs">vs</span>
+                <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                <span className="bhud__log-sep">—</span>
+                {entry.missed ? (
+                  <span>{atkName} missed {defName}</span>
+                ) : (
+                  <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+                )}
+                {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
+              </div>
+            );
+          }
 
           if (entry.powerUsed) {
             return (

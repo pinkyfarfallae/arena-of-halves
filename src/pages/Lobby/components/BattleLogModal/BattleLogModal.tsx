@@ -2,6 +2,7 @@ import type { BattleRoom, BattleLogEntry, FighterState } from '../../../../types
 import Close from '../../../../icons/Close';
 import Swords from '../../../../icons/Swords';
 import './BattleLogModal.scss';
+import { DEFAULT_THEME } from '../../../../constants/theme';
 
 interface Props {
   room: BattleRoom;
@@ -16,8 +17,46 @@ function toArray<T>(val: T[] | Record<string, T> | undefined): T[] {
 }
 
 function findFighter(room: BattleRoom, id: string): FighterState | undefined {
-  return [...toArray(room.teamA?.members), ...toArray(room.teamB?.members)]
-    .find((m) => m.characterId === id);
+  // Search main members first
+  const members = [...toArray(room.teamA?.members), ...toArray(room.teamB?.members)];
+  const found = members.find((m) => m.characterId === id);
+  if (found) return found;
+
+  // Fallback: search team-level minions so log entries for minions show proper names
+  // @ts-ignore: minions may be stored in different places or legacy formats
+  const minionsA = toArray((room.teamA as any)?.minions) as any[];
+  const minionsB = toArray((room.teamB as any)?.minions) as any[];
+  const allMinions = [...minionsA, ...minionsB];
+  const m = allMinions.find((mn) => mn && mn.characterId === id);
+  if (m) {
+    // Map minion shape to FighterState-like object for display only
+    return {
+      characterId: m.characterId,
+      nicknameEng: m.nicknameEng || m.characterId,
+      nicknameThai: m.nicknameThai || m.nicknameEng || m.characterId,
+      sex: m.sex || 'unknown',
+      deityBlood: m.deityBlood || 'unknown',
+      image: m.image,
+      theme: m.theme || DEFAULT_THEME[m.deityBlood] || DEFAULT_THEME[0],
+      maxHp: m.maxHp || 1,
+      currentHp: m.currentHp || 1,
+      damage: m.damage || 0,
+      attackDiceUp: m.attackDiceUp || 0,
+      defendDiceUp: m.defendDiceUp || 0,
+      speed: m.speed || 0,
+      rerollsLeft: m.rerollsLeft || 0,
+      passiveSkillPoint: m.passiveSkillPoint || '',
+      skillPoint: m.skillPoint || '',
+      ultimateSkillPoint: m.ultimateSkillPoint || '',
+      technique: m.technique || 0,
+      quota: m.quota || 0,
+      maxQuota: m.maxQuota || 0,
+      criticalRate: m.criticalRate || 0,
+      powers: m.powers || [],
+      skeletonCount: undefined,
+    } as FighterState;
+  }
+  return undefined;
 }
 
 export default function BattleLogModal({ room, onClose }: Props) {
@@ -62,6 +101,25 @@ export default function BattleLogModal({ room, onClose }: Props) {
             const defName = def?.nicknameEng ?? '???';
             const atkColor = atk?.theme[0];
             const defColor = def?.theme[0];
+
+            // Compact rendering for minion hits (skeletons): no dice breakdown — single-line text
+            if ((entry as any).isMinionHit) {
+              return (
+                <div className="blm__entry blm__entry--minion" key={i}>
+                  <span className="blm__round">R{entry.round}</span>
+                  <span className="blm__name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                  <span className="blm__vs-sm">vs</span>
+                  <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                  <span className="blm__sep">&mdash;</span>
+                  {entry.missed ? (
+                    <span className="blm__block">{atkName} missed {defName}</span>
+                  ) : (
+                    <span className="blm__hit">{atkName} hit {defName} for <strong>{entry.damage}</strong> dmg</span>
+                  )}
+                  {entry.eliminated && <span className="blm__ko">KO</span>}
+                </div>
+              );
+            }
 
             return (
               <div className="blm__entry" key={i}>

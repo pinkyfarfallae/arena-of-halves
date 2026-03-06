@@ -85,8 +85,11 @@ function Arena() {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+  // Local visual override used when NPC schedules a target but server update is delayed
+  const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
+  const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
 
-  // Track active season from Borrowed Season power (displayed for 2 turns)
+  // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
   const [returnFromSeason, setReturnFromSeason] = useState(false);
 
@@ -155,7 +158,7 @@ function Arena() {
     setJoined(true);
   }, [room, user, arenaId, joined, watchOnly]);
 
-  /* ── Track active season from Borrowed Season power ── */
+  /* ── Track active season from Ephemeral Season power ── */
   useEffect(() => {
     if (!room?.battle) {
       setActiveSeason(null);
@@ -277,9 +280,16 @@ function Arena() {
 
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        // Extra delay after Floral Scented so scent wave visual plays
-        const delay = turn.usedPowerName === 'Floral Scented' ? 5000 : 2000;
+        // Extra delay after Floral Fragrance so scent wave visual plays
+        const delay = turn.usedPowerName === 'Floral Fragrance' ? 5000 : 2000;
+        // Show client-side visual selection immediately so NPC appears to aim (e.g., at skeletons)
+        setNpcVisualTarget(target.characterId);
+        // Preserve any known used power name (server may set turn.usedPowerName when arriving at select-target).
+        // This ensures Floral powers have their visual name set so TeamPanel can show the scent VFX.
+        setNpcVisualPowerName(turn?.usedPowerName ?? null);
         schedule(() => selectTarget(arenaId, target.characterId), delay);
+        // Clear the client-side visual after the scheduled action completes (+ small buffer)
+        setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, delay + 2500);
       }
       return;
     }
@@ -320,7 +330,7 @@ function Arena() {
           // Ally-targeting power: pick a random alive teammate
           if (pick.power.target === 'ally') {
             const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
-            if (teammates.length > 0) {
+              if (teammates.length > 0) {
               // Pomegranate's Oath: prefer other allies, self only if no others alive
               let pool = teammates;
               if (pick.power.name === "Pomegranate's Oath") {
@@ -328,7 +338,14 @@ function Arena() {
                 if (others.length > 0) pool = others;
               }
               const ally = pool[Math.floor(Math.random() * pool.length)];
-              schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), 1000);
+              // Show client-side visual for NPC ally-targeting powers (e.g., Floral Fragrance)
+              setNpcVisualTarget(ally.characterId);
+              setNpcVisualPowerName(pick.power.name);
+              const actionDelay = 1000;
+              // If Floral Fragrance, keep visual longer to allow scent VFX to play
+              const keepMs = pick.power.name === 'Floral Fragrance' ? 5000 : 2500;
+              schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), actionDelay);
+              setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, actionDelay + keepMs);
             } else {
               schedule(() => selectAction(arenaId, 'attack'), 800);
             }
@@ -344,7 +361,7 @@ function Arena() {
       return;
     }
 
-    // NPC needs to select season (Borrowed Season)
+    // NPC needs to select season (Ephemeral Season)
     if (turn.phase === 'select-season' && teamBIds.has(turn.attackerId)) {
       const seasons: SeasonKey[] = ['summer', 'autumn', 'winter', 'spring'];
       const pick = seasons[Math.floor(Math.random() * seasons.length)];
@@ -577,6 +594,8 @@ function Arena() {
             myId={user?.characterId}
             resolveShown={resolveShown}
             onSelectTarget={handleSelectTarget}
+            clientVisualDefenderId={npcVisualTarget}
+            clientVisualPowerName={npcVisualPowerName}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason && room?.status !== 'finished'} />
@@ -603,6 +622,8 @@ function Arena() {
               myId={user?.characterId}
               resolveShown={resolveShown}
               onSelectTarget={handleSelectTarget}
+              clientVisualDefenderId={npcVisualTarget}
+              clientVisualPowerName={npcVisualPowerName}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -620,6 +641,8 @@ function Arena() {
             battle={battle}
             teamA={teamAMembers}
             teamB={teamBMembers}
+            teamMinionsA={room.teamA?.minions}
+            teamMinionsB={room.teamB?.minions}
             myId={user?.characterId}
             onSelectTarget={handleSelectTarget}
             onSelectAction={handleSelectAction}

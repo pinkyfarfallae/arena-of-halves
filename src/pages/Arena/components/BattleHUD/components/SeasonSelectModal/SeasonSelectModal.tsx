@@ -139,7 +139,7 @@ export default function SeasonSelectModal({
   return (
     <div className="bhud__action-modal bhud__action-modal--season" style={themeStyle}>
       <span className="bhud__dice-label">Choose Season</span>
-      <span className="bhud__dice-sub">Borrowed Season</span>
+      <span className="bhud__dice-sub">Ephemeral Season</span>
 
       {currentSeason && (
         <span className="bhud__season-note">

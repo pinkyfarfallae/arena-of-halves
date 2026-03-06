@@ -29,7 +29,6 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
         });
         setFighters(fighterList);
       } catch (e) {
-        console.error('Failed to load characters:', e);
       } finally {
         setLoading(false);
       }
