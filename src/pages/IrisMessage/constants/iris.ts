@@ -1,5 +1,5 @@
-import type { Phase } from '../../../types/iris';
-export type { Phase };
+/** Re-export Iris phase constant and type from shared constants; keep page-specific ORB_SCATTER here. */
+export { IRIS_PHASE, type Phase } from '../../../constants/iris';
 
 /* Scattered deity orb positions [left%, top%] */
 export const ORB_SCATTER: [number, number][] = [

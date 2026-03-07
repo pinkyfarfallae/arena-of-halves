@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../../types/battle';
 import { getQuotaCost } from '../../../../../../types/power';
 import { getAffordablePowers } from '../../../../../../services/powerEngine';
+import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
+import { SKILL_UNLOCK } from '../../../../../../constants/character';
+import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
+import { PANEL_SIDE, TURN_ACTION, type PanelSide } from '../../../../../../constants/battle';
 import './ActionSelectModal.scss';
 
 interface Props {
@@ -12,7 +16,7 @@ interface Props {
   phase: string;
   themeColor?: string;
   themeColorDark?: string;
-  side?: 'left' | 'right';
+  side?: PanelSide;
   /** Power names that are conditionally disabled (e.g. Jolt Arc when no shocks) */
   disabledPowerNames?: Set<string>;
   /** Attacker's teammates including self (for ally-targeting powers) */
@@ -71,7 +75,7 @@ function FormatDesc({ text }: { text: string }) {
 }
 
 /** Hover tooltip via portal — below on compact, side on larger screens */
-function PowerTooltip({ description, rect, themeStyle, side }: { description: string; rect: DOMRect; themeStyle: React.CSSProperties; side: 'left' | 'right' }) {
+function PowerTooltip({ description, rect, themeStyle, side }: { description: string; rect: DOMRect; themeStyle: React.CSSProperties; side: PanelSide }) {
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
@@ -85,7 +89,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
       const left = Math.max(8, Math.min(rect.left + rect.width / 2 - tipW / 2, window.innerWidth - tipW - 8));
       setPos({ top, left });
     } else {
-      const preferLeft = side === 'right';
+      const preferLeft = side === PANEL_SIDE.RIGHT;
       const left = preferLeft ? rect.left - tipW - 8 : rect.right + 8;
       const top = Math.max(8, Math.min(rect.top, window.innerHeight - tip.offsetHeight - 8));
       setPos({ top, left });
@@ -104,7 +108,7 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = 'left', disabledPowerNames, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
   const [showPowerPicker, setShowPowerPicker] = useState(false);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -140,19 +144,19 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   const handlePowerConfirm = () => {
     if (selectedPowerIdx == null) return;
     const power = attacker.powers[selectedPowerIdx];
-    if (power?.target === 'ally' && teammates && teammates.length > 0) {
+    if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0) {
       setAllyPowerIdx(selectedPowerIdx);
       setAllyStep(true);
       setShowPowerPicker(false);
       return;
     }
     setShowPowerPicker(false);
-    onSelectAction('power', selectedPowerIdx);
+    onSelectAction(TURN_ACTION.POWER, selectedPowerIdx);
   };
 
   const handleAllyConfirm = () => {
     if (allyPowerIdx != null && selectedAllyId) {
-      onSelectAction('power', allyPowerIdx, selectedAllyId);
+      onSelectAction(TURN_ACTION.POWER, allyPowerIdx, selectedAllyId);
     }
   };
 
@@ -181,12 +185,12 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   // Ally selection step
   if (allyStep && allyPowerIdx != null) {
     const allyPower = attacker.powers[allyPowerIdx];
-    const isDeathKeeper = allyPower?.name === 'Death Keeper';
+    const isDeathKeeper = allyPower?.name === POWER_NAMES.DEATH_KEEPER;
     const allAlive = (teammates || []).filter(m => m.currentHp > 0);
     const allDead = (teammates || []).filter(m => m.currentHp <= 0);
     // Death Keeper: show dead teammates only
     // Pomegranate's Oath: self only if no other allies alive
-    const isPomegranate = allyPower?.name === "Pomegranate's Oath";
+    const isPomegranate = allyPower?.name === POWER_NAMES.POMEGRANATES_OATH;
     const othersAlive = allAlive.filter(m => m.characterId !== attacker.characterId);
     const aliveTeammates = isDeathKeeper ? allDead : (isPomegranate && othersAlive.length > 0 ? othersAlive : allAlive);
     return (
@@ -259,7 +263,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
 
       {!showPowerPicker ? (
         <div className="bhud__action-btns">
-          <button className="bhud__action-btn bhud__action-btn--attack" onClick={() => onSelectAction('attack')}>
+          <button className="bhud__action-btn bhud__action-btn--attack" onClick={() => onSelectAction(TURN_ACTION.ATTACK)}>
             Attack
           </button>
           <button
@@ -274,15 +278,15 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
         <>
           <div className="bhud__power-picker">
             {attacker.powers.filter(p => {
-              if (p.type === 'Passive' && p.name === 'Death Keeper') return true;
+              if (p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.DEATH_KEEPER) return true;
               return p.type !== 'Passive';
             }).map((p, idx: number) => {
             const realIdx = attacker.powers.indexOf(p);
             const cost = getQuotaCost(p.type);
-            const isDK = p.name === 'Death Keeper';
+            const isDK = p.name === POWER_NAMES.DEATH_KEEPER;
             const unlocked = isDK || (
-              (p.type === 'Ultimate' && attacker.ultimateSkillPoint === 'unlock') ||
-              ((p.type === '1st Skill' || p.type === '2nd Skill') && attacker.skillPoint === 'unlock')
+              (p.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
+              ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
             );
             const canAfford = isDK || attacker.quota >= cost;
             const usable = isDK

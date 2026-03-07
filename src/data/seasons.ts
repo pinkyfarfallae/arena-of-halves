@@ -12,7 +12,15 @@ const MapleLeafIcon = lazy(() => import('./icons/seasons/MapleLeafIcon').then(m 
 const SnowflakeIcon = lazy(() => import('./icons/seasons/SnowflakeIcon').then(m => ({ default: m.default })));
 const RoseIcon = lazy(() => import('./icons/seasons/RoseIcon').then(m => ({ default: m.default })));
 
-export type SeasonKey = 'summer' | 'autumn' | 'winter' | 'spring';
+/** Season key constants — use instead of string literals (e.g. season === SEASON_KEYS.AUTUMN). */
+export const SEASON_KEYS = {
+  SUMMER: 'summer',
+  AUTUMN: 'autumn',
+  WINTER: 'winter',
+  SPRING: 'spring',
+} as const;
+
+export type SeasonKey = (typeof SEASON_KEYS)[keyof typeof SEASON_KEYS];
 
 export interface SeasonConfig {
   key: SeasonKey;

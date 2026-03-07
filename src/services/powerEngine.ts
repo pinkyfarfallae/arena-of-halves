@@ -1,8 +1,12 @@
 import type { BattleRoom, BattleState, FighterState } from '../types/battle';
-import { Minion } from '../types/minions';
 import { createSkeletonMinion } from '../data/minions';
 import type { ActiveEffect, PowerDefinition, ModStat } from '../types/power';
 import { getQuotaCost } from '../types/power';
+import { EFFECT_TAGS } from '../constants/effectTags';
+import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
+import { SKILL_UNLOCK } from '../constants/character';
+import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
+import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -19,9 +23,9 @@ function findFighterPath(room: BattleRoom, id: string): string | null {
   return null;
 }
 
-function findFighterTeam(room: BattleRoom, id: string): 'teamA' | 'teamB' | null {
-  if ((room.teamA?.members || []).some(m => m.characterId === id)) return 'teamA';
-  if ((room.teamB?.members || []).some(m => m.characterId === id)) return 'teamB';
+function findFighterTeam(room: BattleRoom, id: string): BattleTeamKey | null {
+  if ((room.teamA?.members || []).some(m => m.characterId === id)) return BATTLE_TEAM.A;
+  if ((room.teamB?.members || []).some(m => m.characterId === id)) return BATTLE_TEAM.B;
   return null;
 }
 
@@ -39,26 +43,26 @@ export function getStatModifier(
 ): number {
   return (effects || [])
     .filter(e => e.targetId === fighterId && e.modStat === stat)
-    .reduce((sum, e) => sum + (e.effectType === 'buff' ? e.value : -e.value), 0);
+    .reduce((sum, e) => sum + (e.effectType === EFFECT_TYPES.BUFF ? e.value : -e.value), 0);
 }
 
 /** Get total shield value on a fighter */
 export function getShieldValue(effects: ActiveEffect[], fighterId: string): number {
   return (effects || [])
-    .filter(e => e.targetId === fighterId && e.effectType === 'shield')
+    .filter(e => e.targetId === fighterId && e.effectType === EFFECT_TYPES.SHIELD)
     .reduce((sum, e) => sum + e.value, 0);
 }
 
 /** Get total reflect % on a fighter */
 export function getReflectPercent(effects: ActiveEffect[], fighterId: string): number {
   return (effects || [])
-    .filter(e => e.targetId === fighterId && e.effectType === 'reflect')
+    .filter(e => e.targetId === fighterId && e.effectType === EFFECT_TYPES.REFLECT)
     .reduce((sum, e) => sum + e.value, 0);
 }
 
 /** Check if a fighter is stunned */
 export function isStunned(effects: ActiveEffect[], fighterId: string): boolean {
-  return (effects || []).some(e => e.targetId === fighterId && e.effectType === 'stun' && e.turnsRemaining > 0);
+  return (effects || []).some(e => e.targetId === fighterId && e.effectType === EFFECT_TYPES.STUN && e.turnsRemaining > 0);
 }
 
 /** Check if a fighter has any unlocked active (non-passive) powers they can afford */
@@ -66,11 +70,11 @@ export function getAffordablePowers(fighter: FighterState): { power: PowerDefini
   const result: { power: PowerDefinition; index: number }[] = [];
   for (let i = 0; i < fighter.powers.length; i++) {
     const p = fighter.powers[i];
-    if (p.type === 'Passive') continue;
+    if (p.type === POWER_TYPES.PASSIVE) continue;
 
     // Check unlock
-    if (p.type === 'Ultimate' && fighter.ultimateSkillPoint !== 'unlock') continue;
-    if ((p.type === '1st Skill' || p.type === '2nd Skill') && fighter.skillPoint !== 'unlock') continue;
+    if (p.type === POWER_TYPES.ULTIMATE && fighter.ultimateSkillPoint !== SKILL_UNLOCK) continue;
+    if ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && fighter.skillPoint !== SKILL_UNLOCK) continue;
 
     // Check quota
     const cost = getQuotaCost(p.type);
@@ -113,19 +117,19 @@ export function applyPowerEffect(
         ...battle,
         activeEffects: effectsCopy,
       });
-      if (subUpdates['battle/activeEffects']) {
-        effectsCopy = subUpdates['battle/activeEffects'] as ActiveEffect[];
+      if (subUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
+        effectsCopy = subUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[];
       }
       Object.assign(combined, subUpdates);
     }
-    combined['battle/activeEffects'] = effectsCopy;
+    combined[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effectsCopy;
     return combined;
   }
 
   const updates: Record<string, unknown> = {};
   const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
-  const targetId = power.target === 'self' ? attackerId : defenderId;
+  const targetId = power.target === TARGET_TYPES.SELF ? attackerId : defenderId;
   const target = findFighter(room, targetId);
   const attacker = findFighter(room, attackerId);
   if (!target || !attacker) return updates;
@@ -135,27 +139,27 @@ export function applyPowerEffect(
 
   // Petal-shield immunity: block debuff/stun/dot on shielded target
   if (
-    (power.effect === 'debuff' || power.effect === 'stun' || power.effect === 'dot') &&
+    (power.effect === EFFECT_TYPES.DEBUFF || power.effect === EFFECT_TYPES.STUN || power.effect === EFFECT_TYPES.DOT) &&
     power.target !== 'self' &&
-    effects.some(e => e.targetId === targetId && e.tag === 'petal-shield')
+    effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.PETAL_SHIELD)
   ) {
     return updates; // blocked by status immunity
   }
 
   switch (power.effect) {
-    case 'damage': {
+    case EFFECT_TYPES.DAMAGE: {
       const newHp = Math.max(0, target.currentHp - power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
       break;
     }
 
-    case 'heal': {
+    case EFFECT_TYPES.HEAL: {
       const newHp = Math.min(target.maxHp, target.currentHp + power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
       break;
     }
 
-    case 'lifesteal': {
+    case EFFECT_TYPES.LIFESTEAL: {
       const newTargetHp = Math.max(0, target.currentHp - power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newTargetHp;
       const healAmount = Math.floor(power.value * 0.5);
@@ -164,8 +168,8 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'buff':
-    case 'debuff': {
+    case EFFECT_TYPES.BUFF:
+    case EFFECT_TYPES.DEBUFF: {
       const eff: ActiveEffect = {
         id: makeEffectId(attackerId, power.name),
         powerName: power.name,
@@ -179,7 +183,7 @@ export function applyPowerEffect(
       effects.push(eff);
 
       // Undead Army: create skeleton minion (max 2)
-      if (power.modStat === 'skeletonCount' && targetPath) {
+      if (power.modStat === MOD_STAT.SKELETON_COUNT && targetPath) {
         const currentCount = target.skeletonCount || 0;
         if (currentCount < 2) {
           updates[`${targetPath}/skeletonCount`] = currentCount + power.value;
@@ -200,11 +204,11 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'shield': {
+    case EFFECT_TYPES.SHIELD: {
       effects.push({
         id: makeEffectId(attackerId, power.name),
         powerName: power.name,
-        effectType: 'shield',
+        effectType: EFFECT_TYPES.SHIELD,
         sourceId: attackerId,
         targetId,
         value: power.value,
@@ -213,11 +217,11 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'dot': {
+    case EFFECT_TYPES.DOT: {
       effects.push({
         id: makeEffectId(attackerId, power.name),
         powerName: power.name,
-        effectType: 'dot',
+        effectType: EFFECT_TYPES.DOT,
         sourceId: attackerId,
         targetId,
         value: power.value,
@@ -226,11 +230,11 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'stun': {
+    case EFFECT_TYPES.STUN: {
       effects.push({
         id: makeEffectId(attackerId, power.name),
         powerName: power.name,
-        effectType: 'stun',
+        effectType: EFFECT_TYPES.STUN,
         sourceId: attackerId,
         targetId,
         value: 0,
@@ -239,11 +243,11 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'reflect': {
+    case EFFECT_TYPES.REFLECT: {
       effects.push({
         id: makeEffectId(attackerId, power.name),
         powerName: power.name,
-        effectType: 'reflect',
+        effectType: EFFECT_TYPES.REFLECT,
         sourceId: attackerId,
         targetId: attackerId, // reflect is always on self
         value: power.value,
@@ -252,17 +256,17 @@ export function applyPowerEffect(
       break;
     }
 
-    case 'cleanse': {
+    case EFFECT_TYPES.CLEANSE: {
       // Remove all debuff + dot + stun effects from self
       const cleaned = effects.filter(e =>
-        !(e.targetId === attackerId && (e.effectType === 'debuff' || e.effectType === 'dot' || e.effectType === 'stun')),
+        !(e.targetId === attackerId && (e.effectType === EFFECT_TYPES.DEBUFF || e.effectType === EFFECT_TYPES.DOT || e.effectType === EFFECT_TYPES.STUN)),
       );
       effects.length = 0;
       effects.push(...cleaned);
       break;
     }
 
-    case 'reroll_grant': {
+    case EFFECT_TYPES.REROLL_GRANT: {
       if (attackerPath) {
         updates[`${attackerPath}/rerollsLeft`] = attacker.rerollsLeft + power.value;
       }
@@ -270,7 +274,7 @@ export function applyPowerEffect(
     }
   }
 
-  updates['battle/activeEffects'] = effects;
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return updates;
 }
 
@@ -291,7 +295,7 @@ export function tickEffects(
   // Process DOT damage
   // Read HP from: own updates (multiple DOTs) > priorUpdates (normal attack damage) > snapshot
   for (const e of effects) {
-    if (e.effectType === 'dot' && e.turnsRemaining > 0 && e.value > 0) {
+    if (e.effectType === EFFECT_TYPES.DOT && e.turnsRemaining > 0 && e.value > 0) {
       const target = findFighter(room, e.targetId);
       if (target) {
         const path = findFighterPath(room, e.targetId);
@@ -311,7 +315,7 @@ export function tickEffects(
 
   // Spring heal: heal fighters with season-spring tag
   for (const e of effects) {
-    if (e.tag === 'season-spring' && e.turnsRemaining > 0 && e.value > 0) {
+    if (e.tag === EFFECT_TAGS.SEASON_SPRING && e.turnsRemaining > 0 && e.value > 0) {
       const target = findFighter(room, e.targetId);
       if (target && target.currentHp > 0) {
         const path = findFighterPath(room, e.targetId);
@@ -335,7 +339,7 @@ export function tickEffects(
 
   // Autumn maxHP reversal: when season-autumn effect expires, reverse maxHp and currentHp
   const expiredAutumn = effects.filter(
-    e => e.tag === 'season-autumn' && e.turnsRemaining < 999 && e.turnsRemaining - 1 <= 0,
+    e => e.tag === EFFECT_TAGS.SEASON_AUTUMN && e.turnsRemaining < 999 && e.turnsRemaining - 1 <= 0,
   );
   for (const e of expiredAutumn) {
     const target = findFighter(room, e.targetId);
@@ -361,7 +365,7 @@ export function tickEffects(
   }
 
   // Consume 1 stun turn (stun prevents action, then wears off)
-  updates['battle/activeEffects'] = remaining;
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = remaining;
   return updates;
 }
 
@@ -383,36 +387,36 @@ export function applyLightningReflexPassive(
   const effects = [...(battle.activeEffects || [])];
 
   const attacker = findFighter(room, attackerId);
-  if (!attacker || attacker.passiveSkillPoint !== 'unlock') return { updates, bonusDamage: 0 };
+  if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return { updates, bonusDamage: 0 };
 
-  const passive = attacker.powers.find(p => p.type === 'Passive' && p.name === 'Lightning Reflex');
+  const passive = attacker.powers.find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
   if (!passive) return { updates, bonusDamage: 0 };
 
   const existingShocks = effects.filter(
-    e => e.targetId === defenderId && e.tag === 'shock',
+    e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK,
   );
 
   if (existingShocks.length > 0) {
     // Double-shock: bonus damage = baseDamage, remove all shocks on defender
     const cleaned = effects.filter(
-      e => !(e.targetId === defenderId && e.tag === 'shock'),
+      e => !(e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK),
     );
-    updates['battle/activeEffects'] = cleaned;
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
     return { updates, bonusDamage: baseDamage };
   }
 
   // First shock: apply permanent DOT with tag
   effects.push({
-    id: makeEffectId(attackerId, 'Lightning Reflex'),
-    powerName: 'Lightning Reflex',
-    effectType: 'dot',
+    id: makeEffectId(attackerId, POWER_NAMES.LIGHTNING_REFLEX),
+    powerName: POWER_NAMES.LIGHTNING_REFLEX,
+    effectType: EFFECT_TYPES.DOT,
     sourceId: attackerId,
     targetId: defenderId,
     value: 0,
     turnsRemaining: 999,
-    tag: 'shock',
+    tag: EFFECT_TAGS.SHOCK,
   });
-  updates['battle/activeEffects'] = effects;
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return { updates, bonusDamage: 0 };
 }
 
@@ -441,7 +445,7 @@ export function applyJoltArc(
     if (enemy.currentHp <= 0) continue;
 
     const shockCount = effects.filter(
-      e => e.targetId === enemy.characterId && e.tag === 'shock',
+      e => e.targetId === enemy.characterId && e.tag === EFFECT_TAGS.SHOCK,
     ).length;
 
     if (shockCount > 0) {
@@ -454,8 +458,8 @@ export function applyJoltArc(
   }
 
   // Remove ALL shock DOTs
-  const cleaned = effects.filter(e => e.tag !== 'shock');
-  updates['battle/activeEffects'] = cleaned;
+  const cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
   return { updates, aoeDamageMap };
 }
 
@@ -504,31 +508,31 @@ export function applySecretOfDryadPassive(
   if (atkTotal <= 10) return {};
 
   const attacker = findFighter(room, attackerId);
-  if (!attacker || attacker.passiveSkillPoint !== 'unlock') return {};
+  if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
 
   const passive = attacker.powers.find(
-    p => p.type === 'Passive' && p.name === 'Secret of Dryad',
+    p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.SECRET_OF_DRYAD,
   );
   if (!passive) return {};
 
   // Already has petal-shield? Skip (don't stack)
   const effects = [...(battle.activeEffects || [])];
-  if (effects.some(e => e.targetId === attackerId && e.tag === 'petal-shield')) return {};
+  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.PETAL_SHIELD)) return {};
 
   // Duration = turnQueue.length + 1 (offset: tickEffects decrements 1 in same resolve)
   const queueLen = battle.turnQueue?.length || 1;
   effects.push({
-    id: makeEffectId(attackerId, 'Secret of Dryad'),
-    powerName: 'Secret of Dryad',
-    effectType: 'shield',
+    id: makeEffectId(attackerId, POWER_NAMES.SECRET_OF_DRYAD),
+    powerName: POWER_NAMES.SECRET_OF_DRYAD,
+    effectType: EFFECT_TYPES.SHIELD,
     sourceId: attackerId,
     targetId: attackerId,
     value: 0,
     turnsRemaining: queueLen + 1,
-    tag: 'petal-shield',
+    tag: EFFECT_TAGS.PETAL_SHIELD,
   });
 
-  return { 'battle/activeEffects': effects };
+  return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
 }
 
 /* ── Persephone: Floral Scented (1st Skill) ──────────── */
@@ -579,7 +583,7 @@ export function applySeasonEffects(
 
   // ── Remove existing season effects before applying new ones ──
   // Reverse autumn maxHp/currentHp changes first
-  const oldAutumn = effects.filter(e => e.tag === 'season-autumn');
+  const oldAutumn = effects.filter(e => e.tag === EFFECT_TAGS.SEASON_AUTUMN);
   for (const e of oldAutumn) {
     const target = findFighter(room, e.targetId);
     if (target) {
@@ -608,8 +612,8 @@ export function applySeasonEffects(
       case 'summer': {
         effects.push({
           id: makeEffectId(attackerId, 'Ephemeral Season'),
-          powerName: 'Ephemeral Season',
-          effectType: 'buff',
+          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
@@ -632,8 +636,8 @@ export function applySeasonEffects(
         // Tracking effect for reversal on expiry
         effects.push({
           id: makeEffectId(attackerId, 'Ephemeral Season'),
-          powerName: 'Ephemeral Season',
-          effectType: 'buff',
+          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
@@ -647,8 +651,8 @@ export function applySeasonEffects(
       case 'winter': {
         effects.push({
           id: makeEffectId(attackerId, 'Ephemeral Season'),
-          powerName: 'Ephemeral Season',
-          effectType: 'buff',
+          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
@@ -662,8 +666,8 @@ export function applySeasonEffects(
       case 'spring': {
         effects.push({
           id: makeEffectId(attackerId, 'Ephemeral Season'),
-          powerName: 'Ephemeral Season',
-          effectType: 'buff',
+          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 1,
@@ -675,7 +679,7 @@ export function applySeasonEffects(
     }
   }
 
-  updates['battle/activeEffects'] = effects;
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return updates;
 }
 
@@ -704,9 +708,9 @@ export function applyPomegranateOath(
   const duration = queueLen * 3;
 
   effects.push({
-    id: makeEffectId(attackerId, "Pomegranate's Oath"),
-    powerName: "Pomegranate's Oath",
-    effectType: 'buff',
+    id: makeEffectId(attackerId, POWER_NAMES.POMEGRANATES_OATH),
+    powerName: POWER_NAMES.POMEGRANATES_OATH,
+    effectType: EFFECT_TYPES.BUFF,
     sourceId: attackerId,
     targetId: allyTargetId,
     value: 0,
@@ -714,7 +718,7 @@ export function applyPomegranateOath(
     tag: 'pomegranate-spirit',
   });
 
-  updates['battle/activeEffects'] = effects;
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return updates;
 }
 
@@ -729,28 +733,28 @@ export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
   const allMembers = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
 
   for (const fighter of allMembers) {
-    if (fighter.passiveSkillPoint !== 'unlock') continue;
+    if (fighter.passiveSkillPoint !== SKILL_UNLOCK) continue;
     if (!fighter.powers || fighter.powers.length === 0) continue;
-    const passive = fighter.powers.find(p => p.type === 'Passive');
+    const passive = fighter.powers.find(p => p.type === POWER_TYPES.PASSIVE);
     if (!passive) continue;
 
     // Death Keeper: one-time resurrection passive
-    if (passive.name === 'Death Keeper') {
+    if (passive.name === POWER_NAMES.DEATH_KEEPER) {
       effects.push({
-        id: makeEffectId(fighter.characterId, 'Death Keeper'),
-        powerName: 'Death Keeper',
-        effectType: 'buff',
+        id: makeEffectId(fighter.characterId, POWER_NAMES.DEATH_KEEPER),
+        powerName: POWER_NAMES.DEATH_KEEPER,
+        effectType: EFFECT_TYPES.BUFF,
         sourceId: fighter.characterId,
         targetId: fighter.characterId,
         value: 0,
         turnsRemaining: 999,
-        tag: 'death-keeper',
+        tag: EFFECT_TAGS.DEATH_KEEPER,
       });
       continue;
     }
 
     // Only buff/debuff passives make sense as permanent effects
-    if (passive.effect === 'buff' || passive.effect === 'debuff') {
+    if (passive.effect === EFFECT_TYPES.BUFF || passive.effect === EFFECT_TYPES.DEBUFF) {
       const eff: ActiveEffect = {
         id: makeEffectId(fighter.characterId, passive.name),
         powerName: passive.name,

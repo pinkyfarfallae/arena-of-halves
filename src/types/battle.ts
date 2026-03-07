@@ -1,3 +1,4 @@
+import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
 import { Theme25 } from './character';
 import { DeityName } from './deity';
 import { Minion } from './minions';
@@ -42,8 +43,8 @@ export interface FighterState {
   skeletonCount?: number;
 }
 
-/** Battle room statuses */
-export type RoomStatus = 'configuring' | 'waiting' | 'ready' | 'battling' | 'finished';
+/** Battle room statuses (derived from ROOM_STATUS so type and runtime stay in sync). */
+export type RoomStatus = (typeof ROOM_STATUS)[keyof typeof ROOM_STATUS];
 
 /** Who is viewing */
 export interface Viewer {
@@ -63,31 +64,24 @@ export interface Team {
 /** A single entry in the SPD-sorted turn queue */
 export interface TurnQueueEntry {
   characterId: string;
-  team: 'teamA' | 'teamB';
+  team: BattleTeamKey;
   speed: number;
 }
 
-/** Phase within a single turn */
-export type TurnPhase =
-  | 'select-target'
-  | 'select-action'    // choose normal attack or use a power
-  | 'select-season'    // Persephone's Ephemeral Season season selection
-  | 'rolling-attack'
-  | 'rolling-defend'
-  | 'resolving'
-  | 'done';
+/** Phase within a single turn (derived from PHASE so type and runtime stay in sync). */
+export type TurnPhase = (typeof PHASE)[keyof typeof PHASE];
 
 /** State of the current turn */
 export interface TurnState {
   attackerId: string;
-  attackerTeam: 'teamA' | 'teamB';
+  attackerTeam: BattleTeamKey;
   defenderId?: string;
   phase: TurnPhase;
   attackRoll?: number;
   defendRoll?: number;
 
   /* Power usage */
-  action?: 'attack' | 'power';
+  action?: (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
   usedPowerIndex?: number;
   usedPowerName?: string;
 
@@ -154,7 +148,7 @@ export interface BattleState {
   turn?: TurnState;
   log: BattleLogEntry[];
   activeEffects: ActiveEffect[];
-  winner?: 'teamA' | 'teamB';
+  winner?: BattleTeamKey;
 }
 
 /** The battle room stored in Firebase */
