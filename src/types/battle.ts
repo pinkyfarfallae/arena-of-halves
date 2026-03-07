@@ -1,6 +1,6 @@
 import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
 import { Theme25 } from './character';
-import { DeityName } from './deity';
+import { Deity } from './deity';
 import { Minion } from './minions';
 import type { PowerDefinition, ActiveEffect } from './power';
 
@@ -10,7 +10,7 @@ export interface FighterState {
   nicknameEng: string;
   nicknameThai: string;
   sex: string;
-  deityBlood: DeityName;
+  deityBlood: Deity;
   image?: string;
   theme: Theme25;
 
@@ -114,6 +114,11 @@ export interface TurnState {
 
   /* Death Keeper resurrection */
   resurrectTargetId?: string;
+
+  /* Soul Devourer (Hades): skip dice and resolve as HP drain */
+  soulDevourerDrain?: boolean;
+  /* Soul Devourer: chose Use Power that cannot attack — end turn without resolving */
+  soulDevourerEndTurnOnly?: boolean;
 }
 
 /** A log entry for the battle feed */

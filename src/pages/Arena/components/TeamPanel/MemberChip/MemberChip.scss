@@ -1282,6 +1282,146 @@ $ink-faint: #9a8b76;
   }
 }
 
+/* ══════════════════════════════════════
+   SOUL DEVOURER — Hades Ultimate (3 rounds)
+   Souls from every edge & corner inhaled to center (black, purple, white)
+   ══════════════════════════════════════ */
+
+.mchip__soul-float {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.85;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46), transparent 100%);
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46) 95%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: destination-in;
+}
+
+/* Shared soul layer: black/purple + white orbs, inhaled to center */
+.mchip__soul-layer {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-origin: 50% 50%;
+  /* Black & purple souls */
+  background:
+    radial-gradient(ellipse 10px 14px at 12% 8%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 72% 12%, rgba(#0d0512, 0.85) 0%, rgba(#6b2d7a, 0.45) 50%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 35% 22%, rgba(#2d1535, 0.88) 0%, rgba(#8b5a9e, 0.4) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 13px at 88% 28%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
+    radial-gradient(ellipse 12px 8px at 18% 45%, rgba(#0d0512, 0.82) 0%, rgba(#6b2d7a, 0.48) 45%, transparent 100%),
+    radial-gradient(ellipse 10px 11px at 58% 52%, rgba(#2d1535, 0.85) 0%, rgba(#8b5a9e, 0.42) 50%, transparent 100%),
+    radial-gradient(ellipse 8px 10px at 82% 65%, rgba(#1a0a22, 0.88) 0%, rgba(#4a2060, 0.45) 40%, transparent 100%),
+    radial-gradient(ellipse 11px 12px at 8% 72%, rgba(#0d0512, 0.9) 0%, rgba(#6b2d7a, 0.4) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 9px at 48% 78%, rgba(#2d1535, 0.86) 0%, rgba(#8b5a9e, 0.45) 48%, transparent 100%),
+    /* White souls */
+    radial-gradient(ellipse 9px 11px at 28% 15%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%),
+    radial-gradient(ellipse 10px 8px at 65% 38%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.52) 45%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 15% 58%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.58) 48%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 82% 82%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
+    radial-gradient(ellipse 9px 10px at 42% 92%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.54) 45%, transparent 100%);
+  animation-duration: 5s;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+/* From each edge/corner → center; staggered delays */
+.mchip__soul-layer--tl { animation-name: soul-inhale-tl; animation-delay: 0s; }
+.mchip__soul-layer--tr { animation-name: soul-inhale-tr; animation-delay: -0.6s; }
+.mchip__soul-layer--br { animation-name: soul-inhale-br; animation-delay: -1.2s; }
+.mchip__soul-layer--bl { animation-name: soul-inhale-bl; animation-delay: -1.8s; }
+.mchip__soul-layer--t  { animation-name: soul-inhale-t;  animation-delay: -2.4s; }
+.mchip__soul-layer--r  { animation-name: soul-inhale-r;  animation-delay: -3s; }
+.mchip__soul-layer--b  { animation-name: soul-inhale-b;  animation-delay: -3.6s; }
+.mchip__soul-layer--l  { animation-name: soul-inhale-l;  animation-delay: -4.2s; }
+
+@keyframes soul-inhale-tl {
+  0%   { transform: translate(-36%, -36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-tr {
+  0%   { transform: translate(36%, -36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-br {
+  0%   { transform: translate(36%, 36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-bl {
+  0%   { transform: translate(-36%, 36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-t {
+  0%   { transform: translate(0, -36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-r {
+  0%   { transform: translate(36%, 0) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-b {
+  0%   { transform: translate(0, 36%) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+@keyframes soul-inhale-l {
+  0%   { transform: translate(-36%, 0) scale(1); opacity: 0.9; }
+  100% { transform: translate(0, 0) scale(0.12); opacity: 0; }
+}
+
+.mchip--soul-devourer {
+  .mchip__frame {
+    position: relative;
+    overflow: hidden;
+    /* No ::before — keep frame visible; only border/glow */
+    box-shadow: inset 0 0 12px rgba(#1a0a1f, 0.35),
+      inset 0 0 24px rgba(#4a2060, 0.2),
+      0 0 10px rgba(#6b2d7a, 0.45),
+      0 0 20px rgba(#2d1535, 0.4);
+    animation: soul-devourer-pulse 2.5s ease-in-out infinite;
+  }
+
+  .mchip__inner-border {
+    border-color: rgba(#6b2d7a, 0.65);
+    box-shadow: inset 0 0 10px rgba(#2d1535, 0.6),
+      inset 0 0 20px rgba(#4a2060, 0.35),
+      0 0 5px rgba(#8b5a9e, 0.35);
+  }
+
+  /* Frame-only soul effect: no-signal TV static + soul tint */
+  .mchip__soul-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: inherit;
+    overflow: hidden;
+    /* TV static (feTurbulence noise) — coarse grain, animated via seed */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' stitchTiles='stitch' result='t'%3E%3Canimate attributeName='seed' from='0' to='100' dur='0.4s' repeatCount='indefinite'/%3E%3C/feTurbulence%3E%3CfeColorMatrix in='t' type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' fill='%23fff' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    background-repeat: repeat;
+    background-color: rgba(#0d0512, 0.55);
+    box-shadow:
+      inset 0 0 30px rgba(#4a2060, 0.35),
+      inset 0 0 60px rgba(#1a0a22, 0.3);
+  }
+}
+
+@keyframes soul-devourer-pulse {
+  0%, 100% { filter: brightness(0.96) contrast(1.03); }
+  50% { filter: brightness(1.02) contrast(1.06); }
+}
+
 @keyframes shadow-glitch {
 
   0%,
@@ -1810,6 +1950,42 @@ $ink-faint: #9a8b76;
   100% {
     opacity: 1;
     transform: scale(1.1);
+  }
+}
+
+/* ── Soul Devourer lifesteal: inline +{n} HP in frame only ── */
+.mchip__soul-devourer-heal {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: rgba(#ce93d8, 0.95);
+  text-shadow: 0 0 6px rgba(#4a148c, 0.8), 0 0 12px rgba(#0d0015, 0.9);
+  animation: soul-devourer-heal-in 0.4s ease-out, soul-devourer-heal-out 0.5s ease-in 2.5s forwards;
+}
+
+@keyframes soul-devourer-heal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes soul-devourer-heal-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

@@ -5,7 +5,7 @@ import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlaye
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
-import { DEITY_SVG } from '../../data/deities';
+import { DEITY_SVG, toDeityKey } from '../../data/deities';
 import Drachma from '../../icons/Drachma';
 import VitalBar from './components/VitalBar/VitalBar';
 import StatOrb from './components/StatOrb/StatOrb';
@@ -345,13 +345,16 @@ function CharacterInfo() {
             <div className="cs__wishes">
               <h3 className="cs__wishes-title"><span className="cs__wishes-diamond">◆</span>Divine Wishes</h3>
               <div className="cs__wishes-grid">
-                {wishes.map(({ deity, count }) => (
+                {wishes.map(({ deity, count }) => {
+                  const iconKey = toDeityKey(deity);
+                  return (
                   <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
-                    <span className="cs__wish-icon">{DEITY_SVG[deity.toLowerCase()] || <span>⚡</span>}</span>
+                    <span className="cs__wish-icon">{iconKey ? DEITY_SVG[iconKey] : <span>⚡</span>}</span>
                     <span className="cs__wish-deity">{deity}</span>
                     <span className="cs__wish-count">{count}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -497,11 +500,18 @@ function CharacterInfo() {
           </div>
 
           {/* Traits */}
-          <div className="cs__trait-row">
-            <TraitBox label="Strengths" raw={char.strengths} variant="primary" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
-            <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
-          </div>
-          <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
+          {(() => {
+            const displayDeityIconKey = displayDeity ? toDeityKey(displayDeity) : undefined;
+            return (
+              <>
+                <div className="cs__trait-row">
+                  <TraitBox label="Strengths" raw={char.strengths} variant="primary" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+                  <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+                </div>
+                <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+              </>
+            );
+          })()}
         </div>
       </main>
 

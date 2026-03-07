@@ -29,7 +29,7 @@ function findFighterTeam(room: BattleRoom, id: string): BattleTeamKey | null {
   return null;
 }
 
-function makeEffectId(sourceId: string, powerName: string): string {
+export function makeEffectId(sourceId: string, powerName: string): string {
   return `${sourceId}_${powerName}_${Date.now()}`;
 }
 
@@ -182,21 +182,18 @@ export function applyPowerEffect(
       if (power.modStat) eff.modStat = power.modStat;
       effects.push(eff);
 
-      // Undead Army: create skeleton minion (max 2)
+      // Undead Army: create skeleton minion (max 2 total)
       if (power.modStat === MOD_STAT.SKELETON_COUNT && targetPath) {
-        const currentCount = target.skeletonCount || 0;
+        const team = findFighterTeam(room, targetId);
+        const existingMinions = team ? (room[team]?.minions || []) : [];
+        const skeletonCountForMaster = existingMinions.filter((m: any) => m.masterId === targetId).length;
+        const currentCount = Math.max(target.skeletonCount || 0, skeletonCountForMaster);
         if (currentCount < 2) {
-          updates[`${targetPath}/skeletonCount`] = currentCount + power.value;
-          
-          // Create minion
-          const team = findFighterTeam(room, targetId);
+          const newCount = Math.min(2, currentCount + power.value);
+          updates[`${targetPath}/skeletonCount`] = newCount;
+
           if (team) {
-            const existingMinions = room[team]?.minions || [];
-            // Use the centralized helper so skeletons have the canonical skeleton image/theme
             const skeleton = createSkeletonMinion(target as any);
-            // Ensure deityBlood is set to the attacker's deity when available (Hades expected)
-            // Note: `createSkeletonMinion` already sets `damage = Math.ceil(master.damage * 0.5)`
-            // so we avoid overriding it here to keep a single source of truth.
             updates[`${team}/minions`] = [...existingMinions, skeleton];
           }
         }

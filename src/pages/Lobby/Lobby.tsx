@@ -224,44 +224,49 @@ function Lobby() {
                   <div className="lobby__banner lobby__banner--r1" />
                 </div>
                 <div className="lobby__rooms-list">
-                  {activeRooms.map((room) => (
-                    <button
-                      key={room.arenaId}
-                      className="lobby__room"
-                      onClick={() => navigate(`${room.arenaId}?watch=true`)}
-                    >
-                      <span className="lobby__room-name">{room.roomName}</span>
-                      {room.teamSize > 1 && (
-                        <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
-                      )}
-                      <span className={`lobby__room-status lobby__room-status--${room.status}`}>
-                        {statusLabel(room.status)}
-                      </span>
-                      {room.status === ROOM_STATUS.FINISHED ? (
-                        <span
-                          className="lobby__room-log"
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setLogRoom(room); }}
+                  {activeRooms.map((room, index) => {
+                    if (!room.roomName || room.roomName.trim().length === 0) return null;
+                    return (
+                      (
+                        <button
+                          key={room.arenaId ?? `room-${index}`}
+                          className="lobby__room"
+                          onClick={() => navigate(`${room.arenaId}?watch=true`)}
                         >
-                          <Eye width={12} height={12} />
-                          Log
-                        </span>
-                      ) : (
-                        <span className="lobby__room-code">{room.arenaId}</span>
-                      )}
-                      {role === ROLE.DEVELOPER && (
-                        <span
-                          className="lobby__room-delete"
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); deleteRoom(room.arenaId); }}
-                        >
-                          <Trash width={14} height={14} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                          <span className="lobby__room-name">{room.roomName?.trim() || 'Arena'}</span>
+                          {room.teamSize > 1 && (
+                            <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
+                          )}
+                          <span className={`lobby__room-status lobby__room-status--${room.status}`}>
+                            {statusLabel(room.status)}
+                          </span>
+                          {room.status === ROOM_STATUS.FINISHED ? (
+                            <span
+                              className="lobby__room-log"
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); setLogRoom(room); }}
+                            >
+                              <Eye width={12} height={12} />
+                              Log
+                            </span>
+                          ) : (
+                            <span className="lobby__room-code">{room.arenaId}</span>
+                          )}
+                          {role === ROLE.DEVELOPER && (
+                            <span
+                              className="lobby__room-delete"
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); deleteRoom(room.arenaId); }}
+                            >
+                              <Trash width={14} height={14} />
+                            </span>
+                          )}
+                        </button>
+                      )
+                    );
+                  })}
                 </div>
               </div>
             )}

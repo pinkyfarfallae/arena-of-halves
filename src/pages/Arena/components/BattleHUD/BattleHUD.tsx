@@ -17,7 +17,7 @@ import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal'
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
-import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
+import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
 import { TARGET_TYPES } from '../../../../constants/effectTypes';
 
 /** Keep element rendered during a fade-out exit animation. */
@@ -55,7 +55,7 @@ interface Props {
   myId: string | undefined;
   transientEffectsActive?: boolean;
   onSelectTarget: (defenderId: string) => void;
-  onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
+  onSelectAction: (action: TurnAction, powerName?: string, allyTargetId?: string) => void;
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
   onCancelSeason?: () => void;
@@ -67,6 +67,8 @@ interface Props {
   onResolveVisible?: (visible: boolean) => void;
   onTransientEffectsActive?: (active: boolean) => void;
   onMinionHitPulse?: (attackerId: string, defenderId: string) => void;
+  /** Power name just confirmed in action modal (e.g. "Soul Devourer") — used to disable Back on target select when needed */
+  confirmedPowerName?: string | null;
 }
 
 /** Find a fighter across both teams */
@@ -111,17 +113,20 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse, confirmedPowerName,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
   const attacker = turn ? find(teamA, teamB, turn.attackerId) : undefined;
-    // Keep canonical defender for HUD: even if a minion visually intercepted, the HUD should
-    // still show the master as the defending target during resolving.
-    const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
-    const isMyTurn = turn && turn.attackerId === myId;
-    const isMyDefend = turn?.defenderId === myId;
+  // Keep canonical defender for HUD: even if a minion visually intercepted, the HUD should
+  // still show the master as the defending target during resolving.
+  const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
+  const isMyTurn = turn && turn.attackerId === myId;
+  const isMyDefend = turn?.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === BATTLE_TEAM.A ? teamB : teamA;
+
+  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target). */
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -217,6 +222,22 @@ export default function BattleHUD({
       return () => clearTimeout(t);
     }
   }, [turn?.phase, turn?.action, turn?.attackRoll]);
+
+  // Soul Devourer drain: no dice; show resolve bar after short delay so user can resolve
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerDrain) {
+      const t = setTimeout(() => setResolveReady(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [turn?.phase, (turn as any)?.soulDevourerDrain]);
+
+  // Soul Devourer end turn only (Use Power that cannot attack): advance immediately
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerEndTurnOnly) {
+      const t = setTimeout(() => onResolve(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [turn?.phase, (turn as any)?.soulDevourerEndTurnOnly, onResolve]);
 
   // If I defended, no replay to wait for → short delay (skip for skipDice powers)
   useEffect(() => {
@@ -628,7 +649,10 @@ export default function BattleHUD({
   // State-based count so auto-resolve re-runs when all skeleton playbacks finish
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
   useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !dodgeReady || !critReady || !chainReady || !coAttackReady) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady) return;
+    const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
+    const allChecksDone = soulDevourerDrainTurn || (dodgeReady && critReady && chainReady && coAttackReady);
+    if (!allChecksDone) return;
 
     // Do not auto-resolve until every skeleton/minion DamageCard has finished.
     const hasPendingPlayback = transientDamageActive || pendingSkeletonCount > 0 || !!transientEffectsActive;
@@ -652,7 +676,11 @@ export default function BattleHUD({
   }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
 
   /* ── Fade transitions for resolve & waiting panels ── */
-  const resolveVisible = turn?.phase === PHASE.RESOLVING && resolveReady && dodgeReady && critReady && chainReady && coAttackReady && !!attacker && !!defender;
+  const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
+  const resolveVisible = turn?.phase === PHASE.RESOLVING && !!attacker && !!defender && (
+    (resolveReady && dodgeReady && critReady && chainReady && coAttackReady) ||
+    (soulDevourerDrain && resolveReady)
+  );
   const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay);
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
@@ -664,6 +692,12 @@ export default function BattleHUD({
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
   // (Firebase may update unrelated fields, causing `battle` to change refs).
   const lastSkeletonHitsKeyRef = useRef<string | null>(null);
+  // Timeouts for the skeleton-hit chain; cleared only when starting a new chain or on unmount (not when effect re-runs with same buffer).
+  const skeletonChainTimeoutsRef = useRef<number[]>([]);
+  // After we play from buffer we clear lastSkeletonHits; log effect would then replay. Skip log minion hits for this turn.
+  const lastSkeletonPlaybackTurnKeyRef = useRef<string | null>(null);
+  // When true, this turn had skeleton/minion hits — never show main (caster) DamageCard to avoid flash before turn change.
+  const hadSkeletonHitsThisTurnRef = useRef(false);
   // Throttle DB writes for last-hit markers to avoid hitting rate limits
   // when many skeletons play in quick succession. We batch the latest
   // payload and write it at most once per `WRITE_THROTTLE_MS` window.
@@ -680,7 +714,7 @@ export default function BattleHUD({
       pendingLastHitPayloadRef.current = null;
       lastHitWriteTimerRef.current = null;
       if (!p) return;
-      try { update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), p).catch(() => {}); } catch (e) {}
+      try { update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), p).catch(() => { }); } catch (e) { }
     }, WRITE_THROTTLE_MS) as unknown as number;
   };
 
@@ -690,26 +724,49 @@ export default function BattleHUD({
       pendingLastHitPayloadRef.current = null;
     };
   }, []);
+
+  // On unmount, stop any running skeleton-hit chain so we don't setState after unmount.
+  useEffect(() => {
+    return () => {
+      skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      skeletonChainTimeoutsRef.current = [];
+    };
+  }, []);
+
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
   useEffect(() => {
     const skHits = lastSkeletonHits;
-    if (!Array.isArray(skHits) || skHits.length === 0) return;
+    if (!Array.isArray(skHits) || skHits.length === 0) {
+      lastSkeletonHitsKeyRef.current = null;
+      skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      skeletonChainTimeoutsRef.current = [];
+      return;
+    }
 
     // Build a stable key for this buffer so we don't reprocess the same data
     // multiple times if unrelated parts of `battle` change.
     const skKey = skHits.map((e: any) => `${String(e.attackerId)}|${String(e.defenderId)}|${String(e.isMinionHit)}|${String(e.damage ?? 0)}`).join(',');
     if (lastSkeletonHitsKeyRef.current === skKey) return;
+
+    // New chain: stop any previous chain, then start this one (each hit shows one-by-one).
+    skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    skeletonChainTimeoutsRef.current = [];
     lastSkeletonHitsKeyRef.current = skKey;
+    hadSkeletonHitsThisTurnRef.current = true;
+
+    const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
+    lastSkeletonPlaybackTurnKeyRef.current = turnKey;
 
     const HIT_DISPLAY_MS = 1500;
     setPendingSkeletonCount((c) => c + skHits.length);
 
+    const timeoutsRef = skeletonChainTimeoutsRef;
     let index = 0;
     const showNext = () => {
       if (index >= skHits.length) {
-        try { update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }); } catch (e) {}
-        lastSkeletonHitsKeyRef.current = null;
+        // Clear at arena root (same path as server) so skeleton hits don't replay.
+        try { update(ref(db, `arenas/${arenaId}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }); } catch (e) { }
         return;
       }
       const entry = skHits[index];
@@ -720,7 +777,13 @@ export default function BattleHUD({
         const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
         transientMinion = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
       }
-      const attackerIsTeamA = !!(teamA || []).find(f => f.characterId === entry.attackerId);
+      // Skeleton/minion hit: always show minion name on card, never caster. Fallback to "skeleton" when minion not in list.
+      const isMinionAttacker = !atk && (transientMinion || /skeleton|_skeleton_/i.test(String(entry.attackerId)));
+      const attackerDisplayName = isMinionAttacker
+        ? (transientMinion?.nicknameEng?.toLowerCase() || 'skeleton')
+        : (atk?.nicknameEng || entry.attackerId);
+      const attackerDisplayTheme = (transientMinion?.theme?.[0] ?? atk?.theme?.[0]) || '#666';
+      const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
       const rc = {
         isHit: !entry.missed,
         isPower: false,
@@ -733,41 +796,48 @@ export default function BattleHUD({
         isDodged: false,
         coAttackHit: false,
         coAttackDamage: 0,
-        attackerName: transientMinion?.nicknameEng?.toLowerCase() || atk?.nicknameEng || entry.attackerId,
-        attackerTheme: atk?.theme?.[0] || (transientMinion?.theme ? transientMinion.theme[0] : '#666'),
+        attackerName: attackerDisplayName,
+        attackerTheme: attackerDisplayTheme,
         defenderName: def?.nicknameEng || entry.defenderId,
         defenderTheme: def?.theme?.[0] || '#666',
-        side: (entry as any).isMinionHit
-          ? (attackerIsTeamA ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
-          : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
+        side: defenderSideForMinion,
       } as any;
 
-      resolveCache.current = { ...resolveCache.current, ...rc } as any;
+      console.log('[skeleton damage card]', { source: 'lastSkeletonHits', index: index + 1, total: skHits.length, attackerId: entry.attackerId, defenderId: entry.defenderId, damage: rc.damage, attackerName: rc.attackerName, defenderName: rc.defenderName, side: rc.side });
+
       onResolveVisible?.(true);
       setTransientDamage(rc as any);
       setTransientDamageActive(true);
 
       try {
         scheduleLastHitUpdate({ lastHitMinionId: entry.attackerId, lastHitTargetId: entry.defenderId });
-      } catch (e) {}
-      try { onMinionHitPulse?.(entry.attackerId, entry.defenderId); } catch (e) {}
+      } catch (e) { }
+      // Defer pulse to next macrotask so card state is committed first; then pulse triggers shake (n hits → n shakes)
+      const pulseAtk = entry.attackerId;
+      const pulseDef = entry.defenderId;
+      window.setTimeout(() => {
+        try { onMinionHitPulse?.(pulseAtk, pulseDef); } catch (e) { }
+      }, 0);
 
-      setTimeout(() => {
+      const t = window.setTimeout(() => {
         setTransientDamage(null);
         setTransientDamageActive(false);
         setPendingSkeletonCount((c) => Math.max(0, c - 1));
         index++;
         showNext();
       }, HIT_DISPLAY_MS + 50);
+      timeoutsRef.current.push(t);
     };
 
     const totalDisplayMs = skHits.length * (HIT_DISPLAY_MS + 50);
-    setTimeout(() => {
+    const tEnd = window.setTimeout(() => {
       onResolveVisible?.(false);
-      try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
+      try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
     }, totalDisplayMs);
+    timeoutsRef.current.push(tEnd);
 
     showNext();
+    // No cleanup here: effect re-runs (e.g. battle ref change) must not cancel the chain. Timeouts are cleared only when starting a new chain or on unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
   }, [lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
@@ -778,18 +848,36 @@ export default function BattleHUD({
     onTransientEffectsActive?.(hasPendingPlayback);
   }, [transientDamageActive, battle, pendingSkeletonCount, onTransientEffectsActive]);
 
+  // When phase advances to next turn, clear transient minion card and "had skeleton hits" so main card can show again next turn
+  const prevPhaseRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = turn?.phase;
+    if (prev === PHASE.RESOLVING && turn?.phase === PHASE.SELECT_ACTION) {
+      hadSkeletonHitsThisTurnRef.current = false;
+      setTransientDamage(null);
+      setTransientDamageActive(false);
+    }
+  }, [turn?.phase]);
+
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
   const [showResurrecting, setShowResurrecting] = useState(false);
   const selfResurrectShown = useRef('');
+
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_ACTION && showResolve) {
       setActionReady(false);
     } else if (turn?.phase === PHASE.SELECT_ACTION && !showResolve && !actionReady && !showResurrecting) {
-      const timer = setTimeout(() => setActionReady(true), 750);
+      // Soul Devourer: delay next phase so +{n} HP heal wave can show on caster (log may end with minion hits)
+      const logArr = battle?.log || [];
+      const lastSoulDevourer = (logArr as any[]).slice().reverse().find((e: any) => e.soulDevourerDrain);
+      const needHealWaveDelay = lastSoulDevourer && lastSoulDevourer.attackerId === turn?.attackerId;
+      const delayMs = needHealWaveDelay ? 3500 : 750;
+      const timer = setTimeout(() => setActionReady(true), delayMs);
       return () => clearTimeout(timer);
     }
-  }, [turn?.phase, showResolve, actionReady, showResurrecting]);
+  }, [turn?.phase, turn?.attackerId, showResolve, actionReady, showResurrecting, battle?.log]);
 
   // Self-resurrect: trigger overlay only after DamageCard is gone
   useEffect(() => {
@@ -848,6 +936,7 @@ export default function BattleHUD({
   });
   if (resolveVisible && turn && attacker && defender) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
+    const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
       // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log)
       const lastLog = (battle.log || []).at(-1);
@@ -855,12 +944,27 @@ export default function BattleHUD({
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
         isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
-        isPower: true, powerName: turn.usedPowerName ?? 'Power',
+        isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
         critEligible: false, isCrit: false, critRoll: 0,
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
         side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+      };
+    } else if (soulDevourerDrainTurn) {
+      const activeEffects = battle.activeEffects || [];
+      const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
+      const drainDmg = Math.max(0, attacker.damage + dmgBuff);
+      resolveCache.current = {
+        atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+        isHit: true, damage: drainDmg, baseDmg: drainDmg, shockBonus: 0,
+        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? (turn.action === TURN_ACTION.POWER ? 'Soul Devourer' : 'Attack'),
+        critEligible: false, isCrit: false, critRoll: 0,
+        isDodged: false, coAttackHit: false, coAttackDamage: 0,
+        attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+        defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        soulDevourerDrain: true,
       };
     } else {
       const activeEffects = battle.activeEffects || [];
@@ -923,10 +1027,15 @@ export default function BattleHUD({
     const prevIndex: number = resolveCache.current.shownLogIndex || 0;
     if (total <= prevIndex) return;
 
-    // If lastSkeletonHits is present, minion hits will be played from that buffer (chained);
-    // skip playing them from log to avoid duplicate playback.
+    // If lastSkeletonHits is present, minion hits are played from that buffer. After we clear it,
+    // log would replay them unless we skip: use turn key so we skip minion hits for the turn we already played from buffer.
     const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
-    const minionHitsPlayedElsewhere = Array.isArray(skBuffer) && skBuffer.length > 0;
+    const currentTurnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
+    if (lastSkeletonPlaybackTurnKeyRef.current !== null && lastSkeletonPlaybackTurnKeyRef.current !== currentTurnKey) {
+      lastSkeletonPlaybackTurnKeyRef.current = null;
+    }
+    const minionHitsPlayedElsewhere =
+      (Array.isArray(skBuffer) && skBuffer.length > 0) || lastSkeletonPlaybackTurnKeyRef.current === currentTurnKey;
 
     const STAGGER_MS = 400;
     const HIT_DISPLAY_MS = 1500;
@@ -952,8 +1061,10 @@ export default function BattleHUD({
           minionFromTeams = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
         }
 
-        // Determine whether the attacker belongs to teamA (used for deciding DamageCard side)
+        // Determine whether the attacker belongs to teamA (used for deciding DamageCard side for main attack)
         const attackerIsTeamA = !!(teamA || []).find((f: any) => f.characterId === entry.attackerId);
+        // Minion hit: show card on defender side (opposite of master). Use turn.attackerTeam.
+        const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
         const rc = {
           isHit: !entry.missed,
@@ -969,19 +1080,22 @@ export default function BattleHUD({
           coAttackDamage: (entry.coAttackDamage as number) || 0,
           // Use lowercase minion nickname for minion attacker when available
           attackerName: (entry as any).isMinionHit
-            ? (minionFromTeams?.nicknameEng?.toLowerCase().slice(0,11) + "..." || atk?.nicknameEng || entry.attackerId)
+            ? (minionFromTeams?.nicknameEng?.toLowerCase().slice(0, 11) + "..." || atk?.nicknameEng || entry.attackerId)
             : (atk?.nicknameEng || minionFromTeams?.nicknameEng || entry.attackerId),
           attackerTheme: atk?.theme?.[0] || (minionFromTeams?.theme ? minionFromTeams.theme[0] : '#666'),
           defenderName: def?.nicknameEng || entry.defenderId,
           defenderTheme: def?.theme?.[0] || '#666',
-          // For minion hits, show DamageCard on defender side (opposite of attacker);
-          // otherwise show on attacker side.
-          side: (entry as any).isMinionHit ? (attackerIsTeamA ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT) : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
+          // For minion hits: show on defender side (opposite of master). Main attack: show on attacker side.
+          side: (entry as any).isMinionHit ? defenderSideForMinion : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
         } as any;
 
-        // Show DamageCard in resolve panel if currently resolving, otherwise show
-        // a transient DamageCard for minion hits so skeletons produce a DamageCard.
-        resolveCache.current = { ...resolveCache.current, ...rc } as any;
+        if ((entry as any).isMinionHit) {
+          console.log('[skeleton damage card]', { source: 'logPlayback', attackerId: entry.attackerId, defenderId: entry.defenderId, side: rc.side, turnAttackerTeam: turn?.attackerTeam });
+        }
+        // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
+        if (!(entry as any).isMinionHit) {
+          resolveCache.current = { ...resolveCache.current, ...rc } as any;
+        }
         onResolveVisible?.(true);
         if ((entry as any).isMinionHit) {
           setPendingSkeletonCount((c) => c + 1);
@@ -1006,7 +1120,7 @@ export default function BattleHUD({
           }
           scheduleLastHitUpdate(lastHitPayload);
           if ((entry as any).isMinionHit) onMinionHitPulse?.(entry.attackerId, entry.defenderId);
-        } catch (e) {}
+        } catch (e) { }
 
         // Clear visuals after display time
         setTimeout(() => {
@@ -1020,10 +1134,10 @@ export default function BattleHUD({
       resolveCache.current.shownLogIndex = total;
       try {
         scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null });
-        update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }).catch(() => {});
-      } catch (e) {}
+        update(ref(db, `arenas/${arenaId}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }).catch(() => { });
+      } catch (e) { }
     }, delayAcc + HIT_DISPLAY_MS + 50);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
   }, [battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
   /* ── Winner: show only after all minion/skeleton hit effects have played ── */
@@ -1122,6 +1236,7 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
             onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
+            backDisabled={backDisabled}
           />
         </div>
       )}
@@ -1133,8 +1248,8 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Action selection (attack or power) — delayed until DamageCard exits */}
-      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && (
+      {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). */}
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && !confirmedPowerName && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -1147,7 +1262,7 @@ export default function BattleHUD({
             disabledPowerNames={disabledPowerNames}
             teammates={turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB}
             deadTeammateIds={deadTeammateIds}
-            onSelectAction={(...args) => setTimeout(() => onSelectAction(...args), 0)}
+            onSelectAction={onSelectAction}
             initialShowPowers={initialShowPowers}
           />
         </div>
@@ -1273,14 +1388,14 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Damage breakdown card — on defender side */}
-      {showResolve && !transientDamageActive && (
+      {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
+      {showResolve && !transientDamageActive && resolveVisible && !hadSkeletonHitsThisTurnRef.current && (
         <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
       )}
 
-      {/* Transient DamageCard for replayed log entries (minion hits like skeletons) */}
+      {/* Transient DamageCard for minion/skeleton hits — always defender side; stable key to avoid jitter */}
       {transientDamage && (
-        <DamageCard data={transientDamage} exiting={false} side={transientDamage.side} />
+        <DamageCard key="transient-minion-card" data={transientDamage} exiting={false} side={transientDamage.side} />
       )}
 
       {/* Waiting for opponent to select target */}

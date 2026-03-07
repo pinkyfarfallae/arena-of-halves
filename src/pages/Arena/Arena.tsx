@@ -9,7 +9,7 @@ import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { EFFECT_TAGS } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
 import { TARGET_TYPES } from '../../constants/effectTypes';
-import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, type ArenaRole, type PanelSide } from '../../constants/battle';
+import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, type ArenaRole, type PanelSide } from '../../constants/battle';
 import { COPY_TYPE, type CopyType } from '../../constants/lobby';
 import {
   onRoomChange,
@@ -92,6 +92,16 @@ function Arena() {
   const [resolveShown, setResolveShown] = useState(false);
   const [transientEffectsActive, setTransientEffectsActive] = useState(false);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
+  const minionPulseCounterRef = useRef(0);
+  // Clear hit-pulse state when leaving RESOLVING so the next target selection doesn't show a stored shake
+  const prevPhaseRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const phase = room?.battle?.turn?.phase;
+    if (prevPhaseRef.current === PHASE.RESOLVING && phase !== PHASE.RESOLVING) {
+      setMinionPulseMap({});
+    }
+    prevPhaseRef.current = phase;
+  }, [room?.battle?.turn?.phase]);
   // Local visual override used when NPC schedules a target but server update is delayed
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -99,6 +109,9 @@ function Arena() {
   // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
   const [returnFromSeason, setReturnFromSeason] = useState(false);
+
+  /** Set when user confirms a power in the action modal (action === POWER). Cleared when turn/phase changes. */
+  const [lastConfirmedPowerName, setLastConfirmedPowerName] = useState<string | null>(null);
 
   /* ── Handlers (must be before any early return for rules-of-hooks) ── */
   const handleStartBattle = useCallback(async () => {
@@ -110,10 +123,22 @@ function Arena() {
     if (arenaId) await selectTarget(arenaId, defenderId);
   }, [arenaId]);
 
-  const handleSelectAction = useCallback(async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+  const handleSelectAction = useCallback(async (action: TurnAction, powerName?: string, allyTargetId?: string) => {
     setReturnFromSeason(false);
+    if (action === TURN_ACTION.POWER && powerName) {
+      setLastConfirmedPowerName(powerName);
+    } else {
+      setLastConfirmedPowerName(null);
+    }
+    let powerIndex: number | undefined;
+    if (action === TURN_ACTION.POWER && powerName && room?.battle?.turn?.attackerId) {
+      const allMembers = [...(room.teamA?.members ?? []), ...(room.teamB?.members ?? [])];
+      const attacker = allMembers.find((m) => m.characterId === room.battle!.turn!.attackerId);
+      powerIndex = attacker?.powers?.findIndex((p) => p.name === powerName) ?? -1;
+      if (powerIndex < 0) powerIndex = undefined;
+    }
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
-  }, [arenaId]);
+  }, [arenaId, room]);
 
   const handleClose = useCallback(async () => {
     if (arenaId) {
@@ -130,9 +155,22 @@ function Arena() {
     runAsync(() => handleSelectTarget(defenderId));
   }, [runAsync, handleSelectTarget]);
 
-  const onSelectActionDeferred = useCallback((action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
-    runAsync(() => handleSelectAction(action, powerIndex, allyTargetId));
+  const onSelectActionDeferred = useCallback((action: TurnAction, powerName?: string, allyTargetId?: string) => {
+    if (action === TURN_ACTION.POWER && powerName) {
+      setLastConfirmedPowerName(powerName);
+    } else {
+      setLastConfirmedPowerName(null);
+    }
+    runAsync(() => handleSelectAction(action, powerName, allyTargetId));
   }, [runAsync, handleSelectAction]);
+
+  /* ── Clear confirmed power name when leaving action/target flow (so next turn shows action modal) ── */
+  useEffect(() => {
+    const phase = room?.battle?.turn?.phase;
+    if (phase && phase !== PHASE.SELECT_ACTION && phase !== PHASE.SELECT_TARGET) {
+      setLastConfirmedPowerName(null);
+    }
+  }, [room?.battle?.turn?.phase]);
 
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
@@ -487,6 +525,9 @@ function Arena() {
   const battle = room.battle;
   const isBattling = room.status === ROOM_STATUS.BATTLING || room.status === ROOM_STATUS.FINISHED;
 
+  /** Which power is selected this turn: from server (battle.turn.usedPowerName) or from last confirm (lastConfirmedPowerName). */
+  const selectedPowerName = battle?.turn?.usedPowerName ?? lastConfirmedPowerName;
+
   const handlePreviewSeason = (season: SeasonKey | null) => {
     setActiveSeason(season);
   };
@@ -679,6 +720,7 @@ function Arena() {
             teamMinionsB={room.teamB?.minions}
             myId={user?.characterId}
             transientEffectsActive={transientEffectsActive}
+            confirmedPowerName={selectedPowerName}
             onSelectTarget={onSelectTargetDeferred}
             onSelectAction={onSelectActionDeferred}
             onSelectSeason={handleSelectSeason}
@@ -692,15 +734,13 @@ function Arena() {
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
-              setMinionPulseMap((m) => {
-                const copy = { ...m };
-                copy[defenderId] = (copy[defenderId] || 0) + 1;
-                return copy;
-              });
-              // clear after display duration
+              minionPulseCounterRef.current += 1;
+              const pulseId = minionPulseCounterRef.current;
+              setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId }));
+              // clear after display duration so the same defender can get a fresh pulse next time
               setTimeout(() => setMinionPulseMap((m) => {
                 const copy = { ...m };
-                delete copy[defenderId];
+                if (copy[defenderId] === pulseId) delete copy[defenderId];
                 return copy;
               }), 1800);
             }}

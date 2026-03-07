@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchWishes, WISHES_FALLBACK, Wish } from '../../data/wishes';
-import { DEITY_SVG } from '../../data/deities';
+import { DEITY_SVG, toDeityKey } from '../../data/deities';
 import Drachma from '../../icons/Drachma';
 import FountainIllustration from './components/FountainIllustration/FountainIllustration';
 import CoinCircle from './icons/CoinCircle';
@@ -45,7 +45,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
     setWish(null);
   }, []);
 
-  const deityLabel = wish ? wish.deity.charAt(0).toUpperCase() + wish.deity.slice(1) : '';
+  const deityLabel = wish?.deity ?? '';
 
   return (
     <>
@@ -97,7 +97,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
                 style={{ top: `${t}%`, left: `${l}%`, '--i': i } as React.CSSProperties}
               >
                 <div className="iris__orb-icon">
-                  {DEITY_SVG[deity]}
+                  {(() => { const k = toDeityKey(deity); return k ? DEITY_SVG[k] : null; })()}
                 </div>
               </div>
             );
@@ -171,7 +171,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
                 <div className="iris__card-frame">
                   <div className="iris__card-inner">
                     <div className="iris__card-icon">
-                      {DEITY_SVG[wish.deity]}
+                      {(() => { const k = toDeityKey(wish.deity); return k ? DEITY_SVG[k] : null; })()}
                     </div>
                     <div className="iris__card-deity">
                       <span className="iris__card-diamond">◆</span>

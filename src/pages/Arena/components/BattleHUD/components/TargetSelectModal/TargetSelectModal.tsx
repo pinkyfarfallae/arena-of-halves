@@ -9,9 +9,11 @@ interface Props {
   themeColorDark?: string;
   onSelect: (defenderId: string) => void;
   onBack?: () => void;
+  /** When true, Back is hidden (e.g. Soul Devourer must pick target and cannot cancel). */
+  backDisabled?: boolean;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
@@ -42,8 +44,10 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
         ))}
       </div>
       <div className="bhud__target-actions">
-        {onBack && (
-          <button className="bhud__target-back" onClick={onBack}>Back</button>
+        {onBack != null && !backDisabled && (
+          <button type="button" className="bhud__target-back" onClick={onBack}>
+            Back
+          </button>
         )}
         <button
           className="bhud__target-confirm"

@@ -3,14 +3,22 @@
  * Use these constants instead of string literals everywhere.
  */
 export const EFFECT_TAGS = {
-  DEATH_KEEPER: 'death-keeper',
+  // Zeus
   SHOCK: 'shock',
-  POMEGRANATE_SPIRIT: 'pomegranate-spirit',
-  PETAL_SHIELD: 'petal-shield',
-  RESURRECTED: 'resurrected',
+
+  // Poseidon
   STUN: 'stun',
+
+  // Hades
+  RESURRECTED: 'resurrected',
+  DEATH_KEEPER: 'death-keeper',
+  SOUL_DEVOURER: 'soul-devourer',
+
+  // Persephone
+  PETAL_SHIELD: 'petal-shield',
   SEASON_SPRING: 'season-spring',
   SEASON_AUTUMN: 'season-autumn',
+  POMEGRANATE_SPIRIT: 'pomegranate-spirit',
 } as const;
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];
