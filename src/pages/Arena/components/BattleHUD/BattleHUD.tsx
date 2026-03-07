@@ -224,20 +224,25 @@ export default function BattleHUD({
   }, [turn?.phase, turn?.action, turn?.attackRoll]);
 
   // Soul Devourer drain: no dice; show resolve bar after short delay so user can resolve
+  const turnPhase = turn?.phase;
+  const soulDevourerDrainTurn = (turn as any)?.soulDevourerDrain;
   useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerDrain) {
+    if (turnPhase === PHASE.RESOLVING && soulDevourerDrainTurn) {
       const t = setTimeout(() => setResolveReady(true), 800);
       return () => clearTimeout(t);
     }
-  }, [turn?.phase, (turn as any)?.soulDevourerDrain]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerDrainTurn are derived from turn; keep deps array length constant
+  }, [turnPhase, soulDevourerDrainTurn]);
 
   // Soul Devourer end turn only (Use Power that cannot attack): advance immediately
+  const soulDevourerEndTurnOnlyTurn = (turn as any)?.soulDevourerEndTurnOnly;
   useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerEndTurnOnly) {
+    if (turnPhase === PHASE.RESOLVING && soulDevourerEndTurnOnlyTurn) {
       const t = setTimeout(() => onResolve(), 600);
       return () => clearTimeout(t);
     }
-  }, [turn?.phase, (turn as any)?.soulDevourerEndTurnOnly, onResolve]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerEndTurnOnlyTurn derived from turn; keep deps array length constant
+  }, [turnPhase, soulDevourerEndTurnOnlyTurn, onResolve]);
 
   // If I defended, no replay to wait for → short delay (skip for skipDice powers)
   useEffect(() => {
@@ -662,6 +667,7 @@ export default function BattleHUD({
 
     const timer = setTimeout(() => onResolve(), 5000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- turn?.phase is the trigger; including full turn changes array size between renders
   }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
 
   /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
