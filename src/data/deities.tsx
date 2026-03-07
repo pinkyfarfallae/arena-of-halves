@@ -22,33 +22,47 @@ import Nike from './icons/deities/Nike';
 import Hebe from './icons/deities/Hebe';
 import Tyche from './icons/deities/Tyche';
 
-export const DEITY_SVG: Record<string, React.ReactNode> = {
-  zeus: <Zeus />,
-  poseidon: <Poseidon />,
-  demeter: <Demeter />,
-  ares: <Ares />,
-  athena: <Athena />,
-  apollo: <Apollo />,
-  hephaestus: <Hephaestus />,
-  aphrodite: <Aphrodite />,
-  hermes: <Hermes />,
-  dionysus: <Dionysus />,
-  hades: <Hades />,
-  persephone: <Persephone />,
-  hypnos: <Hypnos />,
-  nemesis: <Nemesis />,
-  hecate: <Hecate />,
-  hera: <Hera />,
-  artemis: <Artemis />,
-  iris: <Iris />,
-  nike: <Nike />,
-  hebe: <Hebe />,
-  tyche: <Tyche />,
+export const DEITY_SVG: Record<(typeof DEITY)[keyof typeof DEITY], React.ReactNode> = {
+  [DEITY.ZEUS]: <Zeus />,
+  [DEITY.POSEIDON]: <Poseidon />,
+  [DEITY.DEMETER]: <Demeter />,
+  [DEITY.ARES]: <Ares />,
+  [DEITY.ATHENA]: <Athena />,
+  [DEITY.APOLLO]: <Apollo />,
+  [DEITY.HEPHAESTUS]: <Hephaestus />,
+  [DEITY.APHRODITE]: <Aphrodite />,
+  [DEITY.HERMES]: <Hermes />,
+  [DEITY.DIONYSUS]: <Dionysus />,
+  [DEITY.HADES]: <Hades />,
+  [DEITY.PERSEPHONE]: <Persephone />,
+  [DEITY.HYPNOS]: <Hypnos />,
+  [DEITY.NEMESIS]: <Nemesis />,
+  [DEITY.HECATE]: <Hecate />,
+  [DEITY.HERA]: <Hera />,
+  [DEITY.ARTEMIS]: <Artemis />,
+  [DEITY.IRIS]: <Iris />,
+  [DEITY.NIKE]: <Nike />,
+  [DEITY.HEBE]: <Hebe />,
+  [DEITY.TYCHE]: <Tyche />,
 };
 
-export const DEITY_ALIASES: Record<string, string> = {
-  persaphone: DEITY.PERSEPHONE.toLowerCase(),
+export const DEITY_ALIASES: Record<string, (typeof DEITY)[keyof typeof DEITY]> = {
+  persaphone: DEITY.PERSEPHONE,
 };
+
+/** Resolve deity string (any case) to DEITY key for DEITY_SVG lookup. */
+export function toDeityKey(name: string): (typeof DEITY)[keyof typeof DEITY] | undefined {
+  const key = name.trim();
+  if (key in DEITY_SVG) return key as (typeof DEITY)[keyof typeof DEITY];
+  const clean = key.toLowerCase().replace(/[^a-z]/g, '');
+  const fromAlias = DEITY_ALIASES[clean];
+  if (fromAlias) return fromAlias;
+  for (const k of Object.keys(DEITY_SVG) as (keyof typeof DEITY_SVG)[]) {
+    if (k.toLowerCase().replace(/[^a-z]/g, '').startsWith(clean) || clean.startsWith(k.toLowerCase().replace(/[^a-z]/g, '')))
+      return k;
+  }
+  return undefined;
+}
 
 export function parseDeityNames(raw: string): string[] {
   return raw.toLowerCase().trim()
@@ -56,9 +70,10 @@ export function parseDeityNames(raw: string): string[] {
     .map(n => {
       const clean = n.replace(/[^a-z]/g, '');
       if (DEITY_ALIASES[clean]) return DEITY_ALIASES[clean];
-      for (const key of Object.keys(DEITY_SVG)) {
-        if (key.startsWith(clean) || clean.startsWith(key)) return key;
+      for (const key of Object.keys(DEITY_SVG) as (keyof typeof DEITY_SVG)[]) {
+        const keyLc = key.toLowerCase().replace(/[^a-z]/g, '');
+        if (keyLc.startsWith(clean) || clean.startsWith(keyLc)) return key;
       }
-      return clean;
+      return n.trim();
     });
 }

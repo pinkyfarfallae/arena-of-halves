@@ -149,8 +149,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — show defend result dice (opponent defended, I need to see their roll) ── */}
-      {phase === PHASE.RESOLVING && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
+      {/* ── RESOLVING — show defend result dice (opponent defended, I need to see their roll). Skip when Soul Devourer drain (no defend roll). ── */}
+      {phase === PHASE.RESOLVING && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -202,8 +202,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar ── */}
-      {phase === PHASE.RESOLVING && resolveReady && dodgeReady && !critReady && critEligible && (
+      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar. Skip when Soul Devourer drain (no crit). ── */}
+      {phase === PHASE.RESOLVING && !(turn as any).soulDevourerDrain && resolveReady && dodgeReady && !critReady && critEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Critical Check</span>

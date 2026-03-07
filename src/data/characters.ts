@@ -3,7 +3,7 @@ import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character } from '.
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl } from '../constants/sheets';
-import { DeityName } from '../constants/deities';
+import { Deity } from '../constants/deities';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export type { PowerDefinition };
@@ -92,7 +92,7 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     nameThai: get('name (thai)'),
     nameEng: get('name (eng)'),
     sex: get('sex'),
-    deityBlood: get('deity blood') as DeityName,
+    deityBlood: get('deity blood') as Deity,
     cabin: num('cabin'),
     hp: num('hp'),
     damage: num('damage'),

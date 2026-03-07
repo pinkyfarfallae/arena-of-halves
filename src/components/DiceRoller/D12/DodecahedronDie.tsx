@@ -239,8 +239,10 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
-    targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
+    const raw = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
+    targetResult.current = (typeof raw === 'number' && raw >= 1 && raw <= 12) ? raw : 1;
+    const quat = TARGET_QUATS[targetResult.current];
+    if (quat) targetQuat.current.copy(quat);
   }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash

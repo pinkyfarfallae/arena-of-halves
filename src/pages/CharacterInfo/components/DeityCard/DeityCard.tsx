@@ -1,4 +1,4 @@
-import { DEITY_SVG, parseDeityNames } from '../../../../data/deities';
+import { DEITY_SVG, parseDeityNames, toDeityKey } from '../../../../data/deities';
 import './DeityCard.scss';
 
 export default function DeityCard({ deity }: { deity: string }) {
@@ -7,14 +7,17 @@ export default function DeityCard({ deity }: { deity: string }) {
   return (
     <div className="dcard">
       <div className={`dcard__icons ${names.length > 1 ? 'dcard__icons--dual' : ''}`}>
-        {names.map(name => (
+        {names.map(name => {
+          const iconKey = toDeityKey(name);
+          return (
           <div key={name} className="dcard__deity">
             <div className="dcard__icon">
-              {DEITY_SVG[name] || <span className="dcard__fallback">⚡</span>}
+              {iconKey ? DEITY_SVG[iconKey] : <span className="dcard__fallback">⚡</span>}
             </div>
             <span className="dcard__label">{name}</span>
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="dcard__line" />
       <span className="dcard__sub">Divine Parent</span>

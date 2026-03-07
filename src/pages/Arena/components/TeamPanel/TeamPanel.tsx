@@ -278,6 +278,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         );
 
         // Death Keeper: subtle frame on caster, dark mist on resurrected target
+        const hasSoulDevourer = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
+        );
         const hasDeathKeeper = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER,
         );
@@ -316,6 +319,24 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return -1;
         })();
         const logHasFloral = floralLogIndex !== -1;
+
+        // Soul Devourer lifesteal: show +{n} HP on caster from most recent soulDevourerDrain log.
+        // Use last N entries of full log (no round filter) so we still find the drain when the
+        // turn/round advances in the same update (rounds 2 and 3 of Soul Devourer).
+        const soulDevourerHealFromLog = (() => {
+          const logArr = Array.isArray(battle?.log) ? (battle.log as any[]) : [];
+          const recent = logArr.slice(-12);
+          for (let i = recent.length - 1; i >= 0; i--) {
+            const le = recent[i] as any;
+            if (!le.soulDevourerDrain || le.attackerId !== m.characterId) continue;
+            const amount = typeof le.soulDevourerHealAmount === 'number' ? le.soulDevourerHealAmount : Math.ceil((Number(le.damage) || 0) * 0.5);
+            if (amount <= 0) continue;
+            const logIndex = logArr.length - recent.length + i;
+            return { amount, key: `soul_devourer_heal_${logIndex}_${m.characterId}` };
+          }
+          return null;
+        })();
+
         const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
         const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
         // Server-driven scent: show only on the explicit ally target.
@@ -357,6 +378,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
             isShadowCamouflaged={isShadowCamouflaged}
+            hasSoulDevourer={hasSoulDevourer}
             hasDeathKeeper={hasDeathKeeper}
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}
@@ -376,11 +398,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                 ? Number(minionPulseMap[m.characterId])
                 : undefined
             }
+            minionPulseMap={minionPulseMap}
             floralLogKey={
               logHasFloral && battle?.roundNumber != null && floralLogIndex >= 0
                 ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
                 : undefined
             }
+            soulDevourerHealAmount={soulDevourerHealFromLog?.amount}
+            soulDevourerHealKey={soulDevourerHealFromLog?.key}
           />
         );
       })}

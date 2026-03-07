@@ -6,7 +6,7 @@ import { getAffordablePowers } from '../../../../../../services/powerEngine';
 import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCK } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
-import { PANEL_SIDE, TURN_ACTION, type PanelSide } from '../../../../../../constants/battle';
+import { PANEL_SIDE, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
 import './ActionSelectModal.scss';
 
 interface Props {
@@ -23,7 +23,7 @@ interface Props {
   teammates?: FighterState[];
   /** Character IDs of dead teammates (for Death Keeper targeting) */
   deadTeammateIds?: Set<string>;
-  onSelectAction: (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => void;
+  onSelectAction: (action: TurnAction, powerName?: string, allyTargetId?: string) => void;
   initialShowPowers?: boolean;
 }
 
@@ -151,12 +151,13 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
       return;
     }
     setShowPowerPicker(false);
-    onSelectAction(TURN_ACTION.POWER, selectedPowerIdx);
+    onSelectAction(TURN_ACTION.POWER, power?.name);
   };
 
   const handleAllyConfirm = () => {
     if (allyPowerIdx != null && selectedAllyId) {
-      onSelectAction(TURN_ACTION.POWER, allyPowerIdx, selectedAllyId);
+      const allyPowerName = attacker.powers[allyPowerIdx]?.name;
+      onSelectAction(TURN_ACTION.POWER, allyPowerName, selectedAllyId);
     }
   };
 

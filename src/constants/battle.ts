@@ -19,6 +19,7 @@ export const TURN_ACTION = {
   POWER: 'power',
 } as const;
 
+export type TurnAction = (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
 /**
  * Room status values (must match RoomStatus type).
  */

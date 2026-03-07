@@ -149,9 +149,14 @@ $ink-faint: #9a8b76;
   flex: 1;
   transition: color 0.15s, border-color 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: $ink;
     border-color: color-mix(in srgb, $ink-faint 30%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   @media (max-width: $bp-compact) {

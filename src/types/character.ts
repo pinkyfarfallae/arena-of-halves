@@ -1,4 +1,4 @@
-import { DeityName } from "./deity";
+import { Deity } from "./deity";
 
 export type Theme25 = [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
 // [primary, dark, light, accent, bg, fg, surface, muted, border, primaryHover, accentSoft, surfaceHover, bgAlt, shadow, highlight, overlay, navIcon, overlayText, primaryDark, accentDark, leftGrad1, leftGrad2, rightGrad1, rightGrad2, tagColor]
@@ -36,7 +36,7 @@ export interface Character {
   nameThai: string;
   nameEng: string;
   sex: string;
-  deityBlood: DeityName;
+  deityBlood: Deity;
   cabin: number;
   hp: number;
   damage: number;
