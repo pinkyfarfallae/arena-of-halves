@@ -1,4 +1,6 @@
 import type { PowerDefinition } from '../types/power';
+import { EFFECT_TAGS } from '../constants/effectTags';
+import { MOD_STAT } from '../constants/effectTypes';
 
 /**
  * All deity power definitions — single source of truth for battle logic.
@@ -52,7 +54,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       value: 0,
       duration: 0,
       skipDice: true,
-      requiresTargetHasEffect: 'shock',
+      requiresTargetHasEffect: EFFECT_TAGS.SHOCK,
     },
     {
       deity: 'Zeus',
@@ -573,7 +575,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       target: 'self',
       value: 0,
       duration: 2,
-      modStat: 'shadowCamouflaged',
+      modStat: MOD_STAT.SHADOW_CAMOUFLAGED,
       skipDice: true,
     },
     {
@@ -587,7 +589,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       target: 'self',
       value: 1,
       duration: 999,
-      modStat: 'skeletonCount',
+      modStat: MOD_STAT.SKELETON_COUNT,
       skipDice: true,
     },
     {
@@ -596,7 +598,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       name: 'Soul Eater',
       skipDice: true,
       description:
-        '/ * เข้าสถานะ "ผู้กลืนวิญญาณ" เป็นเวลา 3 รอบ โดยการโจมตีปกติ ไม่ว่าจะทอยโจมตีสำเร็จหรือไม่สำเร็จก็ตาม จะดูดกลืน HP ของศัตรูอย่างแน่นอนแน่นอน 1 หน่วย และนำมาฟื้นฟู HP ให้กับตนเอง โดยจะไม่สามารถป้องกันได้และนับเป็นการโจมตี  ซึ่งโครงกระดูกช่วยตีได้ / * เมื่อร่าย "Soul Eater" เป็นการจะร่าย "Undead Army" โดยทันทีและเมื่อใช้พลังแล้วจะยังสามารถโจมตีตามปกติได้ในเทิร์นเดียวกันนั้นอีกด้วย',
+        '/ * เข้าสถานะ "ผู้กลืนวิญญาณ" เป็นเวลา 3 รอบและทำการโจมตีต่อทันที จากนั้นการโจมตีปกติจะเปลี่ยนเป็นการดูดกลืน HP ของเป้าหมายแทน โดยจะดูดกลืน 50% ของดาเมจที่ทำได้มาฟื้นฟูเป็น HP ให้กับตนเองโดยจะไม่สามารถป้องกันได้และจะนับเป็นการโจมตี ที่โครงกระดูกสามารถช่วยตีได้ / * เมื่อร่าย "Soul Eater" เป็นการจะร่าย "Undead Army" โดยทันที',
       available: true,
       effect: 'lifesteal',
       target: 'enemy',

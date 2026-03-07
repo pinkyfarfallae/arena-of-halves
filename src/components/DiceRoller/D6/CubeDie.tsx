@@ -124,7 +124,7 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark, f
 
     targetResult.current = fixedResult ?? (Math.floor(Math.random() * 6) + 1);
     targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
-  }, [rollTrigger]);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {

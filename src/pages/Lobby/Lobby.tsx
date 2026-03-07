@@ -5,6 +5,7 @@ import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
 import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
+import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';
 import Swords from '../../icons/Swords';
 import ChevronLeft from '../../icons/ChevronLeft';
@@ -91,10 +92,10 @@ function Lobby() {
 
   const statusLabel = (s: string) => {
     switch (s) {
-      case 'waiting': return 'Waiting';
-      case 'ready': return 'Ready';
-      case 'battling': return 'Live';
-      case 'finished': return 'Ended';
+      case ROOM_STATUS.WAITING: return 'Waiting';
+      case ROOM_STATUS.READY: return 'Ready';
+      case ROOM_STATUS.BATTLING: return 'Live';
+      case ROOM_STATUS.FINISHED: return 'Ended';
       default: return s;
     }
   };
@@ -236,7 +237,7 @@ function Lobby() {
                       <span className={`lobby__room-status lobby__room-status--${room.status}`}>
                         {statusLabel(room.status)}
                       </span>
-                      {room.status === 'finished' ? (
+                      {room.status === ROOM_STATUS.FINISHED ? (
                         <span
                           className="lobby__room-log"
                           role="button"

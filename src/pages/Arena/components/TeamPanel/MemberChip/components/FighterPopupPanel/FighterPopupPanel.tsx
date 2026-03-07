@@ -4,6 +4,7 @@ import SkillOrb from '../../icons/SkillOrb';
 import LockOpen from '../../../../../../CharacterInfo/icons/LockOpen';
 import LockClosed from '../../../../../../CharacterInfo/icons/LockClosed';
 import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta';
+import { isSkillUnlocked } from '../../../../../../../constants/character';
 import './FighterPopupPanel.scss';
 
 const BP_COMPACT = 600;
@@ -103,7 +104,7 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
           ['SKILL', fighter.skillPoint],
           ['ULTIMATE', fighter.ultimateSkillPoint],
         ] as [string, string][]).map(([label, val]) => {
-          const unlocked = val.toLowerCase() === 'unlock';
+          const unlocked = isSkillUnlocked(val);
           return (
             <div key={label} className={`mchip__so ${unlocked ? '' : 'mchip__so--locked'}`}>
               <div className="mchip__so-orb">

@@ -4,12 +4,16 @@ import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
+import { EFFECT_TAGS } from '../../../../constants/effectTags';
+import { POWER_NAMES } from '../../../../constants/powers';
+import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
+import { MOD_STAT } from '../../../../constants/effectTypes';
 import './TeamPanel.scss';
 
 interface Props {
   members: FighterState[];
   allMembers?: FighterState[];
-  side: 'left' | 'right';
+  side: PanelSide;
   battle?: BattleState;
   myId?: string;
   teamMinions?: Minion[];
@@ -43,9 +47,9 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
 }
 
 export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
-  console.debug('[TeamPanel] render', { side, membersCount: members.length, phase: battle?.turn?.phase, resolveShown });
   const turn = battle?.turn;
-  const activeEffects = battle?.activeEffects || [];
+  const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
+
   // Suppress hit visuals for a short window after leaving the select-target
   // phase to avoid accidental frame shakes when the player cancels/back out
   // of the target modal (race between UI and transient markers).
@@ -54,7 +58,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
   useEffect(() => {
     const prev = prevPhaseRef.current;
     const curr = turn?.phase;
-    if (prev === 'select-target' && curr !== 'select-target') {
+    if (prev === PHASE.SELECT_TARGET && curr !== PHASE.SELECT_TARGET) {
       setSuppressHitAfterSelect(true);
       const t = setTimeout(() => setSuppressHitAfterSelect(false), 400);
       return () => clearTimeout(t);
@@ -64,10 +68,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
   // This panel's team is the opposite side's target pool
   const isOpposingTeam = turn && (
-    (side === 'left' && turn.attackerTeam === 'teamB') ||
-    (side === 'right' && turn.attackerTeam === 'teamA')
+    (side === PANEL_SIDE.LEFT && turn.attackerTeam === BATTLE_TEAM.B) ||
+    (side === PANEL_SIDE.RIGHT && turn.attackerTeam === BATTLE_TEAM.A)
   );
-  const canSelectTarget = turn?.phase === 'select-target' && turn.attackerId === myId && isOpposingTeam;
+  const canSelectTarget = turn?.phase === PHASE.SELECT_TARGET && turn.attackerId === myId && isOpposingTeam;
 
   // Build a lookup map: characterId → FighterState (for effect pip source themes)
   const fighterMap = useMemo(() => {
@@ -80,7 +84,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
   const minionsMap = useMemo(() => {
     const map = new Map<string, Minion[]>();
     // Find the correct team (side)
-    const teamKey = side === 'left' ? 'teamA' : 'teamB';
+    const teamKey = side === PANEL_SIDE.LEFT ? BATTLE_TEAM.A : BATTLE_TEAM.B;
     // Prefer explicit room/team-level minions (passed via `teamMinions`), fall back to legacy battle-level storage
     // @ts-ignore: minions may be undefined in some legacy battles or formats
     const minions = (teamMinions || (battle && (battle as any)[teamKey]?.minions) || []) as any[];
@@ -110,9 +114,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
   // Pre-compute whether the current attack actually landed (atkTotal > defTotal)
   const attackLanded = useMemo(() => {
-    if (!turn || turn.phase !== 'resolving' || !resolveShown) return false;
+    if (!turn || turn.phase !== PHASE.RESOLVING || !resolveShown) return false;
     // skipDice powers always hit
-    if (turn.action === 'power' && !turn.attackRoll) return true;
+    if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return true;
     const atk = turn.attackerId ? fighterMap.get(turn.attackerId) : undefined;
     const def = turn.defenderId ? fighterMap.get(turn.defenderId) : undefined;
     if (!atk || !def) return false;
@@ -139,7 +143,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // a hit (prevents stale `lastHitMinionId` from causing a frame shake on new turns).
         // Priority: explicit turn visual override (selection), then client-side NPC visual override,
         // then transient server `lastHitMinionId` during resolving.
-        const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === 'resolving' || resolveShown) ? (battle as any)?.lastHitMinionId : undefined));
+        const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === PHASE.RESOLVING || resolveShown) ? (battle as any)?.lastHitMinionId : undefined));
         const isAttacker = turn?.attackerId === m.characterId;
         
         // Check if this master has any minions (skeletons)
@@ -148,11 +152,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         
         // Show defender badge on the master ONLY if they don't have minions (otherwise minion shows it)
         const isDefender = !hasMasterMinions && (turn?.defenderId === m.characterId);
-        const isEliminated = m.currentHp <= 0;
+        // Defer eliminated state for current defender while minion/skeleton hit effects are still playing
+        const isEliminated = m.currentHp <= 0 && !(transientEffectsActive && turn?.defenderId === m.characterId);
         const isTargetable = !!(canSelectTarget && !isEliminated);
         const isSpotlight =
-          (isAttacker && (turn?.phase === 'select-target' || turn?.phase === 'rolling-attack')) ||
-          (isDefender && turn?.phase === 'rolling-defend');
+          (isAttacker && (turn?.phase === PHASE.SELECT_TARGET || turn?.phase === PHASE.ROLLING_ATTACK)) ||
+          (isDefender && turn?.phase === PHASE.ROLLING_DEFEND);
 
         const log = battle?.log;
         const lastEntry = log && log.length > 0 ? log[log.length - 1] : undefined;
@@ -161,7 +166,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Hit effect: only when attack actually landed (not blocked)
         // AoE path: only for skipDice powers whose log was already written (check attackerId matches)
         const isAoeHit = !!(
-          resolveShown && turn?.phase === 'resolving' &&
+          resolveShown && turn?.phase === PHASE.RESOLVING &&
           lastEntry?.attackerId === turn?.attackerId &&
           lastEntry?.aoeDamageMap?.[m.characterId]
         );
@@ -186,23 +191,23 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const transientLastTargetId = (battle as any)?.lastHitTargetId as string | undefined;
         // Block hit visuals entirely while the local player is selecting a target
         // (prevents accidental frame shakes when opening/closing the select-target modal).
-        const allowHitVisuals = (turn?.phase !== 'select-target' && turn?.phase !== 'select-season' && turn?.phase !== 'select-action') && !suppressHitAfterSelect;
+        const allowHitVisuals = (turn?.phase !== PHASE.SELECT_TARGET && turn?.phase !== PHASE.SELECT_SEASON && turn?.phase !== PHASE.SELECT_ACTION) && !suppressHitAfterSelect;
         // Accept transient minion markers only while resolving/resolveShown or
         // while transient effects are actively playing. Also explicitly block
         // these markers during target selection and for a short suppression
         // window after leaving selection (prevents false flashes on Back).
         const transientMinionMarkerHit = !!transientLastMinionId && transientLastTargetId === m.characterId &&
-          (turn?.phase === 'resolving' || resolveShown || !!transientEffectsActive) &&
+          (turn?.phase === PHASE.RESOLVING || resolveShown || !!transientEffectsActive) &&
           allowHitVisuals;
-        const transientTargetHit = (turn?.phase === 'resolving' || resolveShown || !!transientEffectsActive) && (!!lastHitEntry || transientMinionMarkerHit);
+        const transientTargetHit = (turn?.phase === PHASE.RESOLVING || resolveShown || !!transientEffectsActive) && (!!lastHitEntry || transientMinionMarkerHit);
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
-        const isOpposing = !!(turn && ((side === 'left' && turn.attackerTeam === 'teamB') || (side === 'right' && turn.attackerTeam === 'teamA')));
+        const isOpposing = !!(turn && ((side === PANEL_SIDE.LEFT && turn.attackerTeam === BATTLE_TEAM.B) || (side === PANEL_SIDE.RIGHT && turn.attackerTeam === BATTLE_TEAM.A)));
         const isHit = !!(
           (isOpposing && (
             (allowHitVisuals && transientTargetHit) ||
-            (allowHitVisuals && !hasMasterMinions && ((attackLanded && turn?.phase === 'resolving' && (turn?.defenderId === m.characterId)) || isAoeHit))
+            (allowHitVisuals && !hasMasterMinions && ((attackLanded && turn?.phase === PHASE.RESOLVING && (turn?.defenderId === m.characterId)) || isAoeHit))
           )) ||
           (!isOpposing && isAoeHit)
         );
@@ -217,12 +222,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Thunderbolt hit: massive lightning strike effect
         const isThunderboltHit = !!(
-          isHit && turn?.usedPowerName === 'Thunderbolt'
+          isHit && turn?.usedPowerName === POWER_NAMES.THUNDERBOLT
         );
 
         // Shock visual: has any active shock DOT
         const isShocked = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === 'shock',
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SHOCK,
         );
 
         // Active effect pips (deduplicate same power from same source)
@@ -254,36 +259,36 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Petal-shield (Secret of Dryad) status immunity
         const isPetalShielded = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === 'petal-shield',
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
         );
 
         // Pomegranate's Oath: ruby seed effect on both caster and target
         const hasPomegranateEffect = activeEffects.some(
-          e => e.tag === 'pomegranate-spirit' && (e.targetId === m.characterId || e.sourceId === m.characterId),
+          e => e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT && (e.targetId === m.characterId || e.sourceId === m.characterId),
         );
 
         // Spirit form: ethereal ghost effect on target only (includes self-target)
         const isSpiritForm = activeEffects.some(
-          e => e.tag === 'pomegranate-spirit' && e.targetId === m.characterId,
+          e => e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT && e.targetId === m.characterId,
         );
 
         // Shadow Camouflaging: dark wisps + shadow particles effect
         const isShadowCamouflaged = activeEffects.some(
-          e => e.targetId === m.characterId && e.modStat === 'shadowCamouflaged',
+          e => e.targetId === m.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED,
         );
 
         // Death Keeper: subtle frame on caster, dark mist on resurrected target
         const hasDeathKeeper = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === 'death-keeper',
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER,
         );
         const isResurrected = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === 'resurrected',
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.RESURRECTED,
         );
 
         // Resurrecting: mid-resurrection visual (self-resurrect overlay active)
         const isResurrecting = !!(
           turn?.resurrectTargetId === m.characterId &&
-          turn?.phase === 'select-action'
+          turn?.phase === PHASE.SELECT_ACTION
         );
 
         // Floral Fragrance: brief trigger when just applied
@@ -304,37 +309,23 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const floralLogIndex = (() => {
           for (let idx = recentLog.length - 1; idx >= 0; idx--) {
             const le = recentLog[idx];
-            if (typeof le.powerUsed !== 'string' || le.powerUsed !== 'Floral Fragrance') continue;
+            if (typeof le.powerUsed !== 'string' || le.powerUsed !== POWER_NAMES.FLORAL_FRAGRANCE) continue;
             if (le.defenderId !== m.characterId) continue;
             if (typeof le.defenderHpAfter === 'number' && Number(le.defenderHpAfter) === Number(m.currentHp)) return idx;
           }
           return -1;
         })();
         const logHasFloral = floralLogIndex !== -1;
-        const phaseOk = ['select-target', 'select-action', 'rolling-attack', 'rolling-defend'].includes(turn?.phase as string);
-        const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === 'Floral Fragrance';
-        // Server-driven scent: prefer showing on the explicit ally target when present.
-        // If the server turn doesn't include an allyTargetId (edge cases), also
-        // allow showing the scent on the caster (attacker) so the user sees the
-        // Floral Fragrance visual immediately on the character who used it.
-        const serverScentOnTarget = turn?.allyTargetId === m.characterId && typeof turn?.usedPowerName === 'string' && turn.usedPowerName === 'Floral Fragrance';
-        // Show on caster only when there is no explicit ally target yet (avoid
-        // showing on both caster and target simultaneously when `allyTargetId` is present).
-        // Tighten: only show caster scent on the attacker's own panel (prevent showing on opposing side)
-        const attackerTeam = turn?.attackerTeam as 'teamA' | 'teamB' | undefined;
-        const panelTeam = side === 'left' ? 'teamA' : 'teamB';
-        const serverScentOnCaster = !!(
-          turn?.attackerId === m.characterId &&
-          !turn?.allyTargetId &&
-          typeof turn?.usedPowerName === 'string' &&
-          turn.usedPowerName === 'Floral Fragrance' &&
-          turn?.action === 'power' &&
-          attackerTeam === panelTeam
-        );
+        const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
+        const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
+        // Server-driven scent: show only on the explicit ally target.
+        // Floral Fragrance is always an ally-target power, so scent should only
+        // appear on the target, never on the caster side.
+        const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
+        const serverScentOnTarget = turn?.allyTargetId === m.characterId && isFloralPowerInUse;
         // Suppress scent wave visual while transient effects (minion hits, DamageCards)
         // are actively playing so effects chain sequentially instead of overlapping.
-        const isScentWaved = !!(serverScentOnTarget || serverScentOnCaster || clientScent || logHasFloral) && phaseOk && !transientEffectsActive;
-        if (isScentWaved) console.debug('[TeamPanel] scent wave', { side, m: m.characterId, serverScentOnTarget, serverScentOnCaster, clientScent, logHasFloral });
+        const isScentWaved = !!(serverScentOnTarget || clientScent || logHasFloral) && phaseOk && !transientEffectsActive;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {

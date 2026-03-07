@@ -246,8 +246,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       }
       return () => clearTimeout(timer);
     }
-    // Note: dependencies are normalized to stable primitives to avoid
-    // React complaining about dependency-array size changing between renders.
+    // Dependencies normalized to stable primitives to avoid array size changing between renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(isScentWaved), floralLogKey ?? '']);
 
   // If the fighter's HP increases (heal applied), clear the scent wave visual
@@ -278,7 +278,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   /* ── Resurrecting: mist + falling lights for 2.5s, then purple glow flash on frame ── */
   const [showResurrecting, setShowResurrecting] = useState(false);
-  const [showResFlash, setShowResFlash] = useState(false);
+  const [showResFlash] = useState(false);
   const [showResGlow, setShowResGlow] = useState(false);
   const prevResurrecting = useRef(false);
   useEffect(() => {

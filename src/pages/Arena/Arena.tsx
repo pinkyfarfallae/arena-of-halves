@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
@@ -6,6 +6,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
+import { EFFECT_TAGS } from '../../constants/effectTags';
+import { POWER_NAMES } from '../../constants/powers';
+import { TARGET_TYPES } from '../../constants/effectTypes';
+import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, type ArenaRole, type PanelSide } from '../../constants/battle';
+import { COPY_TYPE, type CopyType } from '../../constants/lobby';
 import {
   onRoomChange,
   joinRoom,
@@ -39,13 +44,11 @@ import CheckIcon from './icons/CheckIcon';
 import Eye from '../../icons/Eye';
 import './Arena.scss';
 
-type Role = 'teamA' | 'teamB' | 'viewer';
-
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
   members: FighterState[],
   otherMembers: FighterState[],
-  side: 'left' | 'right',
+  side: PanelSide,
 ): React.CSSProperties {
   const primaries = members.map((m) => m.theme[0]);
   const otherPrimaries = otherMembers.map((m) => m.theme[0]);
@@ -57,7 +60,7 @@ function buildHalfStyle(
     primaries.every((c) => otherPrimaries.includes(c)) &&
     otherPrimaries.every((c) => primaries.includes(c));
 
-  const opacity = allSame ? (side === 'left' ? 18 : 8) : 14;
+  const opacity = allSame ? (side === PANEL_SIDE.LEFT ? 18 : 8) : 14;
 
   const stops = primaries.map(
     (c) => `color-mix(in srgb, ${c} ${opacity}%, transparent)`,
@@ -80,10 +83,10 @@ function Arena() {
   const navigate = useNavigate();
 
   const [room, setRoom] = useState<BattleRoom | null>(null);
-  const [role, setRole] = useState<Role | null>(null);
+  const [role, setRole] = useState<ArenaRole | null>(null);
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState<CopyType | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
@@ -97,16 +100,54 @@ function Arena() {
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
   const [returnFromSeason, setReturnFromSeason] = useState(false);
 
+  /* ── Handlers (must be before any early return for rules-of-hooks) ── */
+  const handleStartBattle = useCallback(async () => {
+    if (!arenaId) return;
+    await startBattle(arenaId);
+  }, [arenaId]);
+
+  const handleSelectTarget = useCallback(async (defenderId: string) => {
+    if (arenaId) await selectTarget(arenaId, defenderId);
+  }, [arenaId]);
+
+  const handleSelectAction = useCallback(async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+    setReturnFromSeason(false);
+    if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
+  }, [arenaId]);
+
+  const handleClose = useCallback(async () => {
+    if (arenaId) {
+      await deleteRoom(arenaId);
+      navigate('/arena');
+    }
+  }, [arenaId, navigate]);
+
+  const runAsync = useCallback((fn: () => void | Promise<void>) => {
+    setTimeout(() => { fn(); }, 0);
+  }, []);
+
+  const onSelectTargetDeferred = useCallback((defenderId: string) => {
+    runAsync(() => handleSelectTarget(defenderId));
+  }, [runAsync, handleSelectTarget]);
+
+  const onSelectActionDeferred = useCallback((action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
+    runAsync(() => handleSelectAction(action, powerIndex, allyTargetId));
+  }, [runAsync, handleSelectAction]);
+
   /* ── Subscribe to room changes ──────────────── */
   useEffect(() => {
     if (!arenaId) return;
     const unsub = onRoomChange(arenaId, (r) => {
-      if (!r) {
-        setError('Room has been closed.');
-        setRoom(null);
-        return;
-      }
-      setRoom(r);
+      const apply = () => {
+        if (!r) {
+          setError('Room has been closed.');
+          startTransition(() => setRoom(null));
+          return;
+        }
+        startTransition(() => setRoom(r));
+      };
+      // Defer to next frame so scheduler message handler stays short (avoids violation)
+      requestAnimationFrame(apply);
     });
     return unsub;
   }, [arenaId]);
@@ -121,33 +162,33 @@ function Arena() {
 
     // Already in team A
     if (teamAMembers.some(m => m.characterId === myId)) {
-      setRole('teamA');
+      setRole(ARENA_ROLE.TEAM_A);
       setJoined(true);
       return;
     }
 
     // Already in team B
     if (teamBMembers.some(m => m.characterId === myId)) {
-      setRole('teamB');
+      setRole(ARENA_ROLE.TEAM_B);
       setJoined(true);
       return;
     }
 
     // Room is waiting & not watch-only — join team B
     const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
-    if (!watchOnly && room.status === 'waiting' && !teamBFull) {
+    if (!watchOnly && room.status === ROOM_STATUS.WAITING && !teamBFull) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = getPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
-          setRole('teamB');
+          setRole(ARENA_ROLE.TEAM_B);
           setJoined(true);
         } else {
           // slot taken, become viewer
           await joinAsViewer(arenaId, { characterId: myId, nicknameEng: user.nicknameEng });
-          setRole('viewer');
+          setRole(ARENA_ROLE.VIEWER);
           setJoined(true);
         }
       } catch {
@@ -158,7 +199,7 @@ function Arena() {
 
     // Watch-only or teams full — join as viewer
     await joinAsViewer(arenaId, { characterId: myId, nicknameEng: user.nicknameEng });
-    setRole('viewer');
+    setRole(ARENA_ROLE.VIEWER);
     setJoined(true);
   }, [room, user, arenaId, joined, watchOnly]);
 
@@ -174,7 +215,7 @@ function Arena() {
     const { turn } = battle;
 
     // During select-season: only the selecting player sees the preview
-    if (turn?.selectedSeason && turn?.phase === 'select-season') {
+    if (turn?.selectedSeason && turn?.phase === PHASE.SELECT_SEASON) {
       if (user?.characterId === turn.attackerId) {
         setActiveSeason(turn.selectedSeason as SeasonKey);
       }
@@ -194,7 +235,7 @@ function Arena() {
       setActiveSeason(null);
       ;
     }
-  }, [room?.battle?.roundNumber, room?.battle?.turn, room?.battle?.activeEffects, user?.characterId]);
+  }, [room, room?.battle?.roundNumber, room?.battle?.turn, room?.battle?.activeEffects, user?.characterId]);
 
   useEffect(() => {
     join();
@@ -204,7 +245,7 @@ function Arena() {
   const npcJoining = useRef(false);
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
-    if (room.status !== 'waiting') return;
+    if (room.status !== ROOM_STATUS.WAITING) return;
     const teamBMembers = room.teamB?.members || [];
     if (teamBMembers.length > 0) return;
     if (npcJoining.current) return;
@@ -240,7 +281,7 @@ function Arena() {
 
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
-    if (room.status !== 'battling' || !room.battle?.turn) return;
+    if (room.status !== ROOM_STATUS.BATTLING || !room.battle?.turn) return;
 
     const turn = room.battle.turn;
     const toArr = <T,>(v: T[] | Record<string, T> | undefined): T[] =>
@@ -264,7 +305,7 @@ function Arena() {
     };
 
     // NPC's turn to select target → pick random alive opponent (filtered by power requirements)
-    if (turn.phase === 'select-target' && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId)) {
       let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
 
       // If power requires specific effect on target, filter valid targets
@@ -285,7 +326,7 @@ function Arena() {
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
         // Extra delay after Floral Fragrance so scent wave visual plays
-        const delay = turn.usedPowerName === 'Floral Fragrance' ? 5000 : 2000;
+        const delay = turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2000;
         // Show client-side visual selection immediately so NPC appears to aim (e.g., at skeletons)
         setNpcVisualTarget(target.characterId);
         // Preserve any known used power name (server may set turn.usedPowerName when arriving at select-target).
@@ -299,15 +340,15 @@ function Arena() {
     }
 
     // NPC chooses action (attack or power)
-    if (turn.phase === 'select-action' && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.SELECT_ACTION && teamBIds.has(turn.attackerId)) {
       // Death Keeper: always resurrect if available + dead allies exist
       const npcEffects = battle?.activeEffects || [];
-      const hasDeathKeeper = npcEffects.some(e => e.targetId === turn.attackerId && e.tag === 'death-keeper');
+      const hasDeathKeeper = npcEffects.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
       const deadAllies = toArr(room.teamB?.members).filter(m => m.currentHp <= 0);
       if (hasDeathKeeper && deadAllies.length > 0 && !turn.resurrectTargetId) {
         const target = deadAllies[Math.floor(Math.random() * deadAllies.length)];
         // Death Keeper is always index 0 (Passive)
-        schedule(() => selectAction(arenaId, 'power', 0, target.characterId), 1500);
+        schedule(() => selectAction(arenaId, TURN_ACTION.POWER, 0, target.characterId), 1500);
         return;
       }
 
@@ -332,12 +373,12 @@ function Arena() {
         if (usablePowers.length > 0 && Math.random() < 0.8) {
           const pick = usablePowers[Math.floor(Math.random() * usablePowers.length)];
           // Ally-targeting power: pick a random alive teammate
-          if (pick.power.target === 'ally') {
+          if (pick.power.target === TARGET_TYPES.ALLY) {
             const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
               if (teammates.length > 0) {
               // Pomegranate's Oath: prefer other allies, self only if no others alive
               let pool = teammates;
-              if (pick.power.name === "Pomegranate's Oath") {
+              if (pick.power.name === POWER_NAMES.POMEGRANATES_OATH) {
                 const others = teammates.filter(m => m.characterId !== turn.attackerId);
                 if (others.length > 0) pool = others;
               }
@@ -347,26 +388,26 @@ function Arena() {
               setNpcVisualPowerName(pick.power.name);
               const actionDelay = 1000;
               // If Floral Fragrance, keep visual longer to allow scent VFX to play
-              const keepMs = pick.power.name === 'Floral Fragrance' ? 5000 : 2500;
-              schedule(() => selectAction(arenaId, 'power', pick.index, ally.characterId), actionDelay);
+              const keepMs = pick.power.name === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2500;
+              schedule(() => selectAction(arenaId, TURN_ACTION.POWER, pick.index, ally.characterId), actionDelay);
               setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, actionDelay + keepMs);
             } else {
-              schedule(() => selectAction(arenaId, 'attack'), 800);
+              schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
             }
           } else {
-            schedule(() => selectAction(arenaId, 'power', pick.index), 1000);
+            schedule(() => selectAction(arenaId, TURN_ACTION.POWER, pick.index), 1000);
           }
         } else {
-          schedule(() => selectAction(arenaId, 'attack'), 800);
+          schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
         }
       } else {
-        schedule(() => selectAction(arenaId, 'attack'), 800);
+        schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
       }
       return;
     }
 
     // NPC needs to select season (Ephemeral Season)
-    if (turn.phase === 'select-season' && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.SELECT_SEASON && teamBIds.has(turn.attackerId)) {
       const seasons: SeasonKey[] = ['summer', 'autumn', 'winter', 'spring'];
       const pick = seasons[Math.floor(Math.random() * seasons.length)];
       schedule(() => handleSelectSeason(pick), 1500);
@@ -374,30 +415,30 @@ function Arena() {
     }
 
     // NPC needs to roll attack dice (D12)
-    if (turn.phase === 'rolling-attack' && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.ROLLING_ATTACK && teamBIds.has(turn.attackerId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
       schedule(() => submitAttackRoll(arenaId, roll), 1800);
       return;
     }
 
     // NPC needs to roll defend dice (D12)
-    if (turn.phase === 'rolling-defend' && turn.defenderId && teamBIds.has(turn.defenderId)) {
+    if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && teamBIds.has(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
       schedule(() => submitDefendRoll(arenaId, roll), 4500);
       return;
     }
 
     // Fallback: auto-resolve for NPC attacker only (BattleHUD handles player turns including crit)
-    if (turn.phase === 'resolving' && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.RESOLVING && teamBIds.has(turn.attackerId)) {
       schedule(() => resolveTurn(arenaId), 15000);
     }
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- battle/handleSelectSeason from room; omit to avoid extra NPC auto-actions
   }, [room, arenaId]);
 
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
     return () => {
-      if (role === 'viewer' && arenaId && user) {
+      if (role === ARENA_ROLE.VIEWER && arenaId && user) {
         leaveViewer(arenaId, user.characterId);
       }
     };
@@ -406,27 +447,18 @@ function Arena() {
   /* ── Copy helpers ────────────────────────────── */
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
-  const handleCopy = async (type: 'code' | 'link') => {
-    const text = type === 'code' ? (arenaId || '') : viewerLink;
+  const handleCopy = async (type: CopyType) => {
+    const text = type === COPY_TYPE.CODE ? (arenaId || '') : viewerLink;
     await navigator.clipboard.writeText(text);
     setCopied(type);
-    setToast(type === 'code' ? 'Room code copied!' : 'Viewer link copied!');
+    setToast(type === COPY_TYPE.CODE ? 'Room code copied!' : 'Viewer link copied!');
     setTimeout(() => { setCopied(null); setToast(null); }, 2000);
-  };
-
-  /* ── Close room (teamA creator only) ────────── */
-  const handleClose = async () => {
-    if (arenaId) {
-      await deleteRoom(arenaId);
-      navigate('/arena');
-    }
   };
 
   /* ── Loading / Error states ─────────────────── */
   if (error) {
     return (
       <div className="arena">
-
         <div className="arena__state">
           <p className="arena__state-msg">{error}</p>
           <Link to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</Link>
@@ -453,20 +485,7 @@ function Arena() {
   const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = room.battle;
-  const isBattling = room.status === 'battling' || room.status === 'finished';
-
-  const handleStartBattle = async () => {
-    if (arenaId) await startBattle(arenaId);
-  };
-
-  const handleSelectTarget = async (defenderId: string) => {
-    if (arenaId) await selectTarget(arenaId, defenderId);
-  };
-
-  const handleSelectAction = async (action: 'attack' | 'power', powerIndex?: number, allyTargetId?: string) => {
-    setReturnFromSeason(false);
-    if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
-  };
+  const isBattling = room.status === ROOM_STATUS.BATTLING || room.status === ROOM_STATUS.FINISHED;
 
   const handlePreviewSeason = (season: SeasonKey | null) => {
     setActiveSeason(season);
@@ -495,7 +514,7 @@ function Arena() {
     try { setMinionPulseMap({}); } catch (e) {}
     // Also clear transient markers on server to avoid cross-client races.
     try {
-      await update(ref(db, `arenas/${arenaId}/battle`), { lastHitMinionId: null, lastHitTargetId: null });
+      await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null, [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null });
     } catch (e) {}
     await cancelTargetSelection(arenaId);
   };
@@ -538,7 +557,7 @@ function Arena() {
           {room.teamSize > 1 && (
             <span className="arena__bar-badge">{room.teamSize}v{room.teamSize}</span>
           )}
-          {role === 'viewer' && (
+          {role === ARENA_ROLE.VIEWER && (
             <span className="arena__bar-badge arena__bar-badge--spectator">Spectating</span>
           )}
           {viewerCount > 0 && (
@@ -546,7 +565,7 @@ function Arena() {
           )}
         </div>
 
-        {room.status === 'finished' ? (
+        {room.status === ROOM_STATUS.FINISHED ? (
           <div className="arena__bar-share">
             <button
               className="arena__share-btn"
@@ -557,61 +576,61 @@ function Arena() {
               <Eye width={14} height={14} />
             </button>
             <button
-              className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
-              onClick={() => handleCopy('link')}
-              data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+              className={`arena__share-btn ${copied === COPY_TYPE.LINK ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy(COPY_TYPE.LINK)}
+              data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
-              {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
+              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <LinkIcon />}
             </button>
           </div>
         ) : (
           <div className="arena__bar-share">
-            {room.status === 'waiting' && (
+            {room.status === ROOM_STATUS.WAITING && (
               <button
-                className={`arena__share-btn ${copied === 'code' ? 'arena__share-btn--copied' : ''}`}
-                onClick={() => handleCopy('code')}
-                data-tooltip={copied === 'code' ? 'Copied!' : 'Copy room code'}
+                className={`arena__share-btn ${copied === COPY_TYPE.CODE ? 'arena__share-btn--copied' : ''}`}
+                onClick={() => handleCopy(COPY_TYPE.CODE)}
+                data-tooltip={copied === COPY_TYPE.CODE ? 'Copied!' : 'Copy room code'}
                 data-tooltip-pos="bottom"
               >
-                {copied === 'code' ? <CheckIcon /> : <CopyIcon />}
+                {copied === COPY_TYPE.CODE ? <CheckIcon /> : <CopyIcon />}
               </button>
             )}
             <button
-              className={`arena__share-btn ${copied === 'link' ? 'arena__share-btn--copied' : ''}`}
-              onClick={() => handleCopy('link')}
-              data-tooltip={copied === 'link' ? 'Copied!' : 'Copy viewer link'}
+              className={`arena__share-btn ${copied === COPY_TYPE.LINK ? 'arena__share-btn--copied' : ''}`}
+              onClick={() => handleCopy(COPY_TYPE.LINK)}
+              data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
-              {copied === 'link' ? <CheckIcon /> : <LinkIcon />}
+              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <LinkIcon />}
             </button>
           </div>
         )}
       </header>
 
       {/* ── Battle field ── */}
-      <div className={`arena__field ${room.status !== 'battling' ? 'arena__field--finished' : ''}`}>
+      <div className={`arena__field ${room.status !== ROOM_STATUS.BATTLING ? 'arena__field--finished' : ''}`}>
         {/* Team A */}
         <div
           className="arena__half arena__half--left"
-          style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, 'left') : undefined}
+          style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, PANEL_SIDE.LEFT) : undefined}
         >
           <TeamPanel
             members={teamAMembers}
             allMembers={[...teamAMembers, ...teamBMembers]}
-            side="left"
+            side={PANEL_SIDE.LEFT}
             battle={battle}
             teamMinions={room.teamA?.minions}
             myId={user?.characterId}
             resolveShown={resolveShown}
             transientEffectsActive={transientEffectsActive}
             minionPulseMap={minionPulseMap}
-            onSelectTarget={handleSelectTarget}
+            onSelectTarget={onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
           />
           {/* Seasonal effects overlay (left side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side="left" isActive={!!activeSeason && room?.status !== 'finished'} />
+          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
         </div>
 
         <div className="arena__divider">
@@ -623,20 +642,20 @@ function Arena() {
         {/* Team B */}
         <div
           className={`arena__half arena__half--right ${!teamBFull ? 'arena__half--empty' : ''}`}
-          style={teamBMembers.length ? buildHalfStyle(teamBMembers, teamAMembers, 'right') : undefined}
+          style={teamBMembers.length ? buildHalfStyle(teamBMembers, teamAMembers, PANEL_SIDE.RIGHT) : undefined}
         >
           {teamBMembers.length > 0 ? (
             <TeamPanel
               members={teamBMembers}
               allMembers={[...teamAMembers, ...teamBMembers]}
-              side="right"
+              side={PANEL_SIDE.RIGHT}
               battle={battle}
               teamMinions={room.teamB?.minions}
               myId={user?.characterId}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
               minionPulseMap={minionPulseMap}
-              onSelectTarget={handleSelectTarget}
+              onSelectTarget={onSelectTargetDeferred}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
             />
@@ -646,7 +665,7 @@ function Arena() {
             </div>
           )}
           {/* Seasonal effects overlay (right side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side="right" isActive={!!activeSeason && room?.status !== 'finished'} />
+          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
         </div>
 
         {/* Battle HUD overlay */}
@@ -660,8 +679,8 @@ function Arena() {
             teamMinionsB={room.teamB?.minions}
             myId={user?.characterId}
             transientEffectsActive={transientEffectsActive}
-            onSelectTarget={handleSelectTarget}
-            onSelectAction={handleSelectAction}
+            onSelectTarget={onSelectTargetDeferred}
+            onSelectAction={onSelectActionDeferred}
             onSelectSeason={handleSelectSeason}
             onPreviewSeason={handlePreviewSeason}
             onCancelSeason={handleCancelSeason}
@@ -673,7 +692,6 @@ function Arena() {
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
-              console.debug('[Arena] onMinionHitPulse', { attackerId, defenderId });
               setMinionPulseMap((m) => {
                 const copy = { ...m };
                 copy[defenderId] = (copy[defenderId] || 0) + 1;
@@ -692,13 +710,13 @@ function Arena() {
 
       {/* ── Footer actions ── */}
       <div className="arena__actions">
-        {isCreator && room.status === 'ready' && (
-          <button className="arena__action-btn arena__action-btn--primary" onClick={handleStartBattle}>
+        {isCreator && room.status === ROOM_STATUS.READY && (
+          <button className="arena__action-btn arena__action-btn--primary" onClick={() => runAsync(handleStartBattle)}>
             Start Battle
           </button>
         )}
-        {isCreator && room.status === 'waiting' && (
-          <button className="arena__action-btn arena__action-btn--danger" onClick={handleClose}>
+        {isCreator && room.status === ROOM_STATUS.WAITING && (
+          <button className="arena__action-btn arena__action-btn--danger" onClick={() => runAsync(handleClose)}>
             Close Room
           </button>
         )}

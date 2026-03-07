@@ -15,6 +15,10 @@ import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 import { DEFAULT_THEME } from '../../../../constants/theme';
+import { EFFECT_TAGS } from '../../../../constants/effectTags';
+import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
+import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
+import { TARGET_TYPES } from '../../../../constants/effectTypes';
 
 /** Keep element rendered during a fade-out exit animation. */
 function useFadeTransition(visible: boolean, ms = 250) {
@@ -117,15 +121,15 @@ export default function BattleHUD({
     const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
     const isMyTurn = turn && turn.attackerId === myId;
     const isMyDefend = turn?.defenderId === myId;
-  const opposingTeam = turn?.attackerTeam === 'teamA' ? teamB : teamA;
+  const opposingTeam = turn?.attackerTeam === BATTLE_TEAM.A ? teamB : teamA;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
     // Death Keeper: show dead teammates instead of alive enemies
     if (turn?.usedPowerIndex != null && attacker) {
       const power = attacker.powers[turn.usedPowerIndex];
-      if (power?.name === 'Death Keeper') {
-        const myTeam = turn.attackerTeam === 'teamA' ? teamA : teamB;
+      if (power?.name === POWER_NAMES.DEATH_KEEPER) {
+        const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp <= 0);
       }
     }
@@ -152,8 +156,8 @@ export default function BattleHUD({
   const defSubmitted = useRef(false);
 
   // Reset submitted flags when phase changes
-  if (turn?.phase === 'rolling-attack') defSubmitted.current = false;
-  if (turn?.phase === 'select-action') atkSubmitted.current = false;
+  if (turn?.phase === PHASE.ROLLING_ATTACK) defSubmitted.current = false;
+  if (turn?.phase === PHASE.SELECT_ACTION) atkSubmitted.current = false;
 
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
@@ -180,18 +184,19 @@ export default function BattleHUD({
   const [resolveReady, setResolveReady] = useState(false);
 
   // Reset ready flags when phase changes
-  useEffect(() => { if (turn?.phase === 'rolling-defend') setDefendReady(false); }, [turn?.phase]);
-  useEffect(() => { if (turn?.phase === 'resolving') setResolveReady(false); }, [turn?.phase]);
+  useEffect(() => { if (turn?.phase === PHASE.ROLLING_DEFEND) setDefendReady(false); }, [turn?.phase]);
+  useEffect(() => { if (turn?.phase === PHASE.RESOLVING) setResolveReady(false); }, [turn?.phase]);
 
   // Clear transient DamageCard state when turn changes (avoid overlap into next attacker)
   useEffect(() => {
     setTransientDamage(null);
     setTransientDamageActive(false);
+    setPendingSkeletonCount(0);
   }, [turn?.attackerId, turn?.defenderId, roundNumber]);
 
   // If I attacked, no attack replay to wait for → short delay
   useEffect(() => {
-    if (turn?.phase === 'rolling-defend' && turn.attackerId === myId) {
+    if (turn?.phase === PHASE.ROLLING_DEFEND && turn.attackerId === myId) {
       const t = setTimeout(() => setDefendReady(true), 500);
       return () => clearTimeout(t);
     }
@@ -199,7 +204,7 @@ export default function BattleHUD({
 
   // If opponent attacked, wait for their roll animation to end + 2s viewing time
   useEffect(() => {
-    if (atkRollDone && turn?.phase === 'rolling-defend') {
+    if (atkRollDone && turn?.phase === PHASE.ROLLING_DEFEND) {
       const t = setTimeout(() => setDefendReady(true), 2000);
       return () => clearTimeout(t);
     }
@@ -207,7 +212,7 @@ export default function BattleHUD({
 
   // If skipDice power was used, resolve immediately (no dice to show)
   useEffect(() => {
-    if (turn?.phase === 'resolving' && turn.action === 'power' && !turn.attackRoll) {
+    if (turn?.phase === PHASE.RESOLVING && turn.action === TURN_ACTION.POWER && !turn.attackRoll) {
       const t = setTimeout(() => setResolveReady(true), 800);
       return () => clearTimeout(t);
     }
@@ -215,7 +220,7 @@ export default function BattleHUD({
 
   // If I defended, no replay to wait for → short delay (skip for skipDice powers)
   useEffect(() => {
-    if (turn?.phase === 'resolving' && turn.defenderId === myId && !(turn.action === 'power' && !turn.attackRoll)) {
+    if (turn?.phase === PHASE.RESOLVING && turn.defenderId === myId && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll)) {
       const t = setTimeout(() => setResolveReady(true), 500);
       return () => clearTimeout(t);
     }
@@ -223,7 +228,7 @@ export default function BattleHUD({
 
   // If opponent defended, wait for their roll animation to end + 2s viewing time
   useEffect(() => {
-    if (defRollDone && turn?.phase === 'resolving') {
+    if (defRollDone && turn?.phase === PHASE.RESOLVING) {
       const t = setTimeout(() => setResolveReady(true), 2000);
       return () => clearTimeout(t);
     }
@@ -249,17 +254,17 @@ export default function BattleHUD({
 
   // Compute dodge eligibility when resolve is ready
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !attacker || !defender || !turn.defenderId) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !attacker || !defender || !turn.defenderId) return;
     const key = `dodge:${turn.attackerId}:${turn.defenderId}:${turn.attackRoll}:${turn.defendRoll}`;
     if (dodgeInitKey.current === key) return;
     dodgeInitKey.current = key;
 
-    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     if (isSkipDice) { setDodgeReady(true); return; }
 
     // Check if defender has pomegranate-spirit
     const ae = battle.activeEffects || [];
-    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === 'pomegranate-spirit');
+    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT);
     if (!hasSpirit) { setDodgeReady(true); return; }
 
     // Check if attack actually hit (need hit to dodge)
@@ -274,7 +279,7 @@ export default function BattleHUD({
 
     if (isMyDefend) {
       dodgeRef.current = { winFaces, isDodged: false, roll: 0 };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { dodgeWinFaces: winFaces });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { dodgeWinFaces: winFaces });
       setDodgeEligible(true);
     } else if (turn.dodgeRoll != null && turn.dodgeRoll > 0) {
       dodgeRef.current = { winFaces, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
@@ -286,7 +291,7 @@ export default function BattleHUD({
       const roll = Math.ceil(Math.random() * 4);
       const dg = winFaces.includes(roll);
       dodgeRef.current = { winFaces, isDodged: dg, roll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isDodged: dg, dodgeRoll: roll, dodgeWinFaces: winFaces });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isDodged: dg, dodgeRoll: roll, dodgeWinFaces: winFaces });
       setDodgeRollResult(roll);
       setDodgeEligible(true);
       setTimeout(() => setDodgeReady(true), 3500);
@@ -300,13 +305,13 @@ export default function BattleHUD({
     const dr = dodgeRef.current;
     const dg = dr.winFaces.includes(roll);
     dodgeRef.current = { ...dr, isDodged: dg, roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isDodged: dg, dodgeRoll: roll });
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isDodged: dg, dodgeRoll: roll });
     setTimeout(() => setDodgeReady(true), 1500);
   }, [arenaId]);
 
   // PvP watcher: defender rolled dodge D4 after we entered resolving
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || dodgeReady || !dodgeEligible) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || dodgeReady || !dodgeEligible) return;
     if (isMyDefend) return;
     if (dodgeRollResult > 0) return;
     if (turn?.dodgeRoll == null) return;
@@ -336,7 +341,7 @@ export default function BattleHUD({
 
   // Compute crit eligibility when dodge check is done
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !attacker || !defender || !turn.defenderId) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !dodgeReady || !attacker || !defender || !turn.defenderId) return;
     const key = `${turn.attackerId}:${turn.defenderId}:${turn.attackRoll}:${turn.defendRoll}`;
     if (critInitKey.current === key) return;
     critInitKey.current = key;
@@ -344,15 +349,15 @@ export default function BattleHUD({
     // Dodged → skip crit
     if (dodgeRef.current.isDodged) { setCritReady(true); return; }
 
-    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     if (isSkipDice) {
       setCritReady(true);
       return;
     }
     // Self-buff powers (e.g. Beyond the Cloud) still do normal attacks → allow crit
-    const usedPowerDef = turn.action === 'power' && turn.usedPowerIndex != null
+    const usedPowerDef = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null
       ? attacker?.powers?.[turn.usedPowerIndex] : undefined;
-    if (turn.action === 'power' && usedPowerDef?.target !== 'self') {
+    if (turn.action === TURN_ACTION.POWER && usedPowerDef?.target !== TARGET_TYPES.SELF) {
       setCritReady(true);
       return;
     }
@@ -378,7 +383,7 @@ export default function BattleHUD({
 
     if (effectiveCrit >= 100) {
       critRef.current = { effectiveCrit, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
       setCritEligible(true);
       setCritReady(true);
       return;
@@ -390,7 +395,7 @@ export default function BattleHUD({
     if (isMyTurn) {
       // Player: manual D4 roll — write winFaces so PvP opponent sees the same faces
       critRef.current = { effectiveCrit, winFaces, isCrit: false, critRoll: 0 };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { critWinFaces: winFaces });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { critWinFaces: winFaces });
       setCritEligible(true);
     } else if (turn.critRoll != null && turn.critRoll > 0) {
       // PvP: opponent already rolled before we got here
@@ -402,7 +407,7 @@ export default function BattleHUD({
       // NPC: compute crit now, show replay immediately (no waiting)
       const crit = checkCritical(effectiveCrit, winFaces);
       critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
       setCritRollResult(crit.critRoll);
       setCritEligible(true);
       setTimeout(() => setCritReady(true), 3500);
@@ -416,13 +421,13 @@ export default function BattleHUD({
     const cd = critRef.current;
     const isCrit = cd.winFaces.includes(roll);
     critRef.current = { ...cd, isCrit, critRoll: roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { isCrit, critRoll: roll });
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit, critRoll: roll });
     setTimeout(() => setCritReady(true), 1500);
   }, [arenaId]);
 
   // PvP watcher: opponent rolled D4 after we entered resolving
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || critReady || !critEligible) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || critReady || !critEligible) return;
     if (isMyTurn) return;
     if (critRollResult > 0) return; // Already have result (NPC or early PvP)
     if (turn?.critRoll == null) return;
@@ -450,10 +455,10 @@ export default function BattleHUD({
 
   // Compute chain eligibility when crit check is done
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !critReady) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady) return;
     // Dodged → skip chain
     if (dodgeRef.current.isDodged) { setChainReady(true); return; }
-    if (turn.usedPowerName !== 'Thunderbolt') {
+    if (turn.usedPowerName !== POWER_NAMES.THUNDERBOLT) {
       setChainReady(true);
       return;
     }
@@ -479,7 +484,7 @@ export default function BattleHUD({
       const roll = Math.ceil(Math.random() * 4);
       const success = winFaces.includes(roll);
       chainRef.current = { winFaces, success, roll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { chainRoll: roll, chainSuccess: success });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { chainRoll: roll, chainSuccess: success });
       setChainRollResult(roll);
       setChainEligible(true);
       setTimeout(() => setChainReady(true), 3500);
@@ -493,13 +498,13 @@ export default function BattleHUD({
     const cr = chainRef.current;
     const success = cr.winFaces.includes(roll);
     chainRef.current = { ...cr, success, roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { chainRoll: roll, chainSuccess: success });
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { chainRoll: roll, chainSuccess: success });
     setTimeout(() => setChainReady(true), 1500);
   }, [arenaId]);
 
   // PvP watcher: opponent rolled chain D4 after we entered resolving
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || chainReady || !chainEligible) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady || chainReady || !chainEligible) return;
     if (isMyTurn) return;
     if (chainRollResult > 0) return;
     if (turn?.chainRoll == null) return;
@@ -527,18 +532,18 @@ export default function BattleHUD({
 
   // Compute co-attack eligibility when all prior checks done
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !critReady || !chainReady) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !dodgeReady || !critReady || !chainReady) return;
     if (!attacker || !defender || !turn.defenderId) { setCoAttackReady(true); return; }
 
     // Dodged → no co-attack
     if (dodgeRef.current.isDodged) { setCoAttackReady(true); return; }
 
-    const isSkipDice = turn.action === 'power' && !turn.attackRoll;
+    const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     if (isSkipDice) { setCoAttackReady(true); return; }
 
     // Check if attacker (the one attacking this turn) has pomegranate-spirit
     const ae = battle.activeEffects || [];
-    const spiritEffect = ae.find(e => e.targetId === turn.attackerId && e.tag === 'pomegranate-spirit');
+    const spiritEffect = ae.find(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT);
     if (!spiritEffect) { setCoAttackReady(true); return; }
 
     // Self-target (caster === oath-bearer): no co-attack
@@ -560,7 +565,7 @@ export default function BattleHUD({
     const isMyCaster = casterId === myId;
 
     if (isMyCaster) {
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackerId: casterId });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackerId: casterId });
       setCoAttackEligible(true);
     } else if (turn.coAttackRoll != null && turn.coAttackRoll > 0) {
       // PvP: opponent already rolled
@@ -577,7 +582,7 @@ export default function BattleHUD({
       const coDmgBuff = getStatModifier(ae, casterId, 'damage');
       const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
       coAttackRef.current = { casterId, hit: coHit, damage: coDmg, roll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
+      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
       setCoAttackRollResult(roll);
       setCoAttackEligible(true);
       setTimeout(() => setCoAttackReady(true), 3500);
@@ -600,13 +605,13 @@ export default function BattleHUD({
     const coDmgBuff = getStatModifier(ae, cr.casterId, 'damage');
     const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
     coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/battle/turn`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
     setTimeout(() => setCoAttackReady(true), 1500);
   }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
 
   // PvP watcher: caster rolled co-attack after we entered resolving
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !critReady || !chainReady || coAttackReady || !coAttackEligible) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady || !chainReady || coAttackReady || !coAttackEligible) return;
     if (coAttackRef.current.casterId === myId) return;
     if (coAttackRollResult > 0) return;
     if (turn?.coAttackRoll == null) return;
@@ -620,26 +625,25 @@ export default function BattleHUD({
   // Transient DamageCard state (declare early so effects can reference)
   const [transientDamageActive, setTransientDamageActive] = useState(false);
   const [transientDamage, setTransientDamage] = useState<ResolveCacheType | null>(null);
+  // State-based count so auto-resolve re-runs when all skeleton playbacks finish
+  const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
   useEffect(() => {
-    if (turn?.phase !== 'resolving' || !resolveReady || !dodgeReady || !critReady || !chainReady || !coAttackReady) return;
+    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !dodgeReady || !critReady || !chainReady || !coAttackReady) return;
 
-    // Do not auto-resolve while there are pending transient skeleton DamageCards
-    // or while a transient DamageCard is actively showing. Use the counter ref
-    // so we can track scheduled playbacks that haven't yet finished.
-    const hasPendingPlayback = transientDamageActive || pendingSkeletonPlaybackRef.current > 0 || !!transientEffectsActive;
+    // Do not auto-resolve until every skeleton/minion DamageCard has finished.
+    const hasPendingPlayback = transientDamageActive || pendingSkeletonCount > 0 || !!transientEffectsActive;
     if (hasPendingPlayback) {
-      console.debug('[BattleHUD] auto-resolve blocked by pending playback', { transientDamageActive, pending: pendingSkeletonPlaybackRef.current, transientEffectsActive });
       return;
     }
 
     const timer = setTimeout(() => onResolve(), 5000);
     return () => clearTimeout(timer);
-  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, transientEffectsActive]);
+  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
 
   /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
   useEffect(() => {
-    if (turn?.phase === 'select-target' && turn.usedPowerName === 'Floral Fragrance' && turn.allyTargetId) {
+    if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && turn.allyTargetId) {
       setFloralDelay(true);
       const t = setTimeout(() => setFloralDelay(false), 3000);
       return () => clearTimeout(t);
@@ -648,8 +652,8 @@ export default function BattleHUD({
   }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
 
   /* ── Fade transitions for resolve & waiting panels ── */
-  const resolveVisible = turn?.phase === 'resolving' && resolveReady && dodgeReady && critReady && chainReady && coAttackReady && !!attacker && !!defender;
-  const waitingVisible = !!(!isMyTurn && turn?.phase === 'select-target' && !floralDelay);
+  const resolveVisible = turn?.phase === PHASE.RESOLVING && resolveReady && dodgeReady && critReady && chainReady && coAttackReady && !!attacker && !!defender;
+  const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay);
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
     onResolveVisible?.(resolveVisible);
@@ -657,9 +661,6 @@ export default function BattleHUD({
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing
   const [showResolve, resolveExiting] = useFadeTransition(resolveVisible || transientDamageActive, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
-  // Track pending scheduled skeleton/minion playback so auto-resolve waits until
-  // every transient DamageCard has finished showing.
-  const pendingSkeletonPlaybackRef = useRef(0);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
   // (Firebase may update unrelated fields, causing `battle` to change refs).
   const lastSkeletonHitsKeyRef = useRef<string | null>(null);
@@ -679,7 +680,7 @@ export default function BattleHUD({
       pendingLastHitPayloadRef.current = null;
       lastHitWriteTimerRef.current = null;
       if (!p) return;
-      try { update(ref(db, `arenas/${arenaId}/battle`), p).catch(() => {}); } catch (e) {}
+      try { update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), p).catch(() => {}); } catch (e) {}
     }, WRITE_THROTTLE_MS) as unknown as number;
   };
 
@@ -690,8 +691,9 @@ export default function BattleHUD({
     };
   }, []);
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
+  const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
   useEffect(() => {
-    const skHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
+    const skHits = lastSkeletonHits;
     if (!Array.isArray(skHits) || skHits.length === 0) return;
 
     // Build a stable key for this buffer so we don't reprocess the same data
@@ -700,107 +702,90 @@ export default function BattleHUD({
     if (lastSkeletonHitsKeyRef.current === skKey) return;
     lastSkeletonHitsKeyRef.current = skKey;
 
-    const STAGGER_MS = 400;
     const HIT_DISPLAY_MS = 1500;
-    let delayAcc = 0;
+    setPendingSkeletonCount((c) => c + skHits.length);
 
-    // Count scheduled skeleton playbacks so auto-resolve can wait for them.
-    pendingSkeletonPlaybackRef.current += skHits.length;
-    console.debug('[BattleHUD] scheduled transient skeleton playbacks', { scheduled: skHits.length, pending: pendingSkeletonPlaybackRef.current, arenaId });
-    for (let i = 0; i < skHits.length; i++) {
-      const entry = skHits[i];
-      const delay = delayAcc;
-      delayAcc += STAGGER_MS;
+    let index = 0;
+    const showNext = () => {
+      if (index >= skHits.length) {
+        try { update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }); } catch (e) {}
+        lastSkeletonHitsKeyRef.current = null;
+        return;
+      }
+      const entry = skHits[index];
+      const atk = find(teamA, teamB, entry.attackerId);
+      const def = find(teamA, teamB, entry.defenderId);
+      let transientMinion: any | undefined;
+      if (!atk && (teamMinionsA || teamMinionsB)) {
+        const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
+        transientMinion = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
+      }
+      const attackerIsTeamA = !!(teamA || []).find(f => f.characterId === entry.attackerId);
+      const rc = {
+        isHit: !entry.missed,
+        isPower: false,
+        powerName: '',
+        isCrit: !!(entry.isCrit),
+        baseDmg: Number(entry.baseDmg) || 0,
+        damage: (entry.damage as number) || 0,
+        shockBonus: 0,
+        atkRoll: 0,
+        isDodged: false,
+        coAttackHit: false,
+        coAttackDamage: 0,
+        attackerName: transientMinion?.nicknameEng?.toLowerCase() || atk?.nicknameEng || entry.attackerId,
+        attackerTheme: atk?.theme?.[0] || (transientMinion?.theme ? transientMinion.theme[0] : '#666'),
+        defenderName: def?.nicknameEng || entry.defenderId,
+        defenderTheme: def?.theme?.[0] || '#666',
+        side: (entry as any).isMinionHit
+          ? (attackerIsTeamA ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
+          : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
+      } as any;
+
+      resolveCache.current = { ...resolveCache.current, ...rc } as any;
+      onResolveVisible?.(true);
+      setTransientDamage(rc as any);
+      setTransientDamageActive(true);
+
+      try {
+        scheduleLastHitUpdate({ lastHitMinionId: entry.attackerId, lastHitTargetId: entry.defenderId });
+      } catch (e) {}
+      try { onMinionHitPulse?.(entry.attackerId, entry.defenderId); } catch (e) {}
 
       setTimeout(() => {
-        const atk = find(teamA, teamB, entry.attackerId);
-        const def = find(teamA, teamB, entry.defenderId);
-        // Try to resolve transient minion from team arrays for lowercase nickname
-        let transientMinion: any | undefined;
-        if (!atk && (teamMinionsA || teamMinionsB)) {
-          const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
-          transientMinion = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
-        }
-        const attackerIsTeamA = !!(teamA || []).find(f => f.characterId === entry.attackerId);
-        const rc = {
-          isHit: !entry.missed,
-          isPower: false,
-          powerName: '',
-          isCrit: !!entry.isCrit,
-          baseDmg: 0,
-          damage: (entry.damage as number) || 0,
-          shockBonus: 0,
-          atkRoll: 0,
-          isDodged: false,
-          coAttackHit: false,
-          coAttackDamage: 0,
-          attackerName: transientMinion?.nicknameEng?.toLowerCase() || atk?.nicknameEng || entry.attackerId,
-          attackerTheme: atk?.theme?.[0] || (transientMinion?.theme ? transientMinion.theme[0] : '#666'),
-          defenderName: def?.nicknameEng || entry.defenderId,
-          defenderTheme: def?.theme?.[0] || '#666',
-          // For minion hits, show DamageCard on the defender side (minion hit effects appear on defender)
-          side: (entry as any).isMinionHit
-            ? (attackerIsTeamA ? 'right' : 'left')
-            : (attackerIsTeamA ? 'left' : 'right'),
-        } as any;
+        setTransientDamage(null);
+        setTransientDamageActive(false);
+        setPendingSkeletonCount((c) => Math.max(0, c - 1));
+        index++;
+        showNext();
+      }, HIT_DISPLAY_MS + 50);
+    };
 
-        resolveCache.current = { ...resolveCache.current, ...rc } as any;
-        onResolveVisible?.(true);
-        console.debug('[BattleHUD] playing transient skeleton hit', { entryIndex: i, attackerId: entry.attackerId, defenderId: entry.defenderId, isMinionHit: entry.isMinionHit });
-        setTransientDamage(rc as any);
-        setTransientDamageActive(true);
-
-        // Pulse transient hit markers so MemberChip flashes correctly
-        // Always call onMinionHitPulse immediately so defender shake triggers reliably.
-        try {
-          const lastHitPayload: Record<string, unknown> = {};
-          lastHitPayload.lastHitMinionId = entry.attackerId;
-          lastHitPayload.lastHitTargetId = entry.defenderId;
-          scheduleLastHitUpdate(lastHitPayload);
-        } catch (e) {}
-        try { onMinionHitPulse?.(entry.attackerId, entry.defenderId); } catch (e) {}
-
-        // Clear transient after display time and mark this playback complete
-        setTimeout(() => {
-          setTransientDamage(null);
-          setTransientDamageActive(false);
-          pendingSkeletonPlaybackRef.current = Math.max(0, pendingSkeletonPlaybackRef.current - 1);
-          console.debug('[BattleHUD] transient skeleton playback complete', { entryIndex: i, pending: pendingSkeletonPlaybackRef.current });
-        }, HIT_DISPLAY_MS + 50);
-
-        // Clear visuals after display time
-        setTimeout(() => {
-          onResolveVisible?.(false);
-          try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
-        }, HIT_DISPLAY_MS);
-      }, delay);
-    }
-
-    // After scheduling, clear server transient skeleton buffer so clients don't duplicate
+    const totalDisplayMs = skHits.length * (HIT_DISPLAY_MS + 50);
     setTimeout(() => {
-      try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
-      // Allow future buffers to be processed again
-      lastSkeletonHitsKeyRef.current = null;
-    }, delayAcc + HIT_DISPLAY_MS + 50);
-  // Only run when the `lastSkeletonHits` buffer changes (not the whole battle object)
-  }, [(battle as any)?.lastSkeletonHits, arenaId, teamA, teamB, onResolveVisible, turn]);
+      onResolveVisible?.(false);
+      try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
+    }, totalDisplayMs);
+
+    showNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
+  }, [lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
   // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active
   useEffect(() => {
     const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
-    const hasPendingPlayback = transientDamageActive || (Array.isArray(skBuffer) && skBuffer.length > 0) || pendingSkeletonPlaybackRef.current > 0;
-    console.debug('[BattleHUD] transient effects state', { transientDamageActive, skBufferLength: Array.isArray(skBuffer) ? skBuffer.length : 0, pending: pendingSkeletonPlaybackRef.current, hasPendingPlayback });
+    const hasPendingPlayback = transientDamageActive || (Array.isArray(skBuffer) && skBuffer.length > 0) || pendingSkeletonCount > 0;
     onTransientEffectsActive?.(hasPendingPlayback);
-  }, [transientDamageActive, battle, onTransientEffectsActive]);
+  }, [transientDamageActive, battle, pendingSkeletonCount, onTransientEffectsActive]);
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
   const [showResurrecting, setShowResurrecting] = useState(false);
   const selfResurrectShown = useRef('');
   useEffect(() => {
-    if (turn?.phase === 'select-action' && showResolve) {
+    if (turn?.phase === PHASE.SELECT_ACTION && showResolve) {
       setActionReady(false);
-    } else if (turn?.phase === 'select-action' && !showResolve && !actionReady && !showResurrecting) {
+    } else if (turn?.phase === PHASE.SELECT_ACTION && !showResolve && !actionReady && !showResurrecting) {
       const timer = setTimeout(() => setActionReady(true), 750);
       return () => clearTimeout(timer);
     }
@@ -808,7 +793,7 @@ export default function BattleHUD({
 
   // Self-resurrect: trigger overlay only after DamageCard is gone
   useEffect(() => {
-    if (turn?.phase === 'select-action' && turn.resurrectTargetId === turn.attackerId && !showResolve) {
+    if (turn?.phase === PHASE.SELECT_ACTION && turn.resurrectTargetId === turn.attackerId && !showResolve) {
       const key = `${turn.attackerId}:${battle.roundNumber}`;
       if (selfResurrectShown.current !== key) {
         selfResurrectShown.current = key;
@@ -849,7 +834,7 @@ export default function BattleHUD({
     attackerTheme: string;
     defenderName: string;
     defenderTheme: string;
-    side: 'left' | 'right';
+    side: PanelSide;
     shownLogIndex?: number;
     [key: string]: any;
   };
@@ -859,10 +844,10 @@ export default function BattleHUD({
     isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0,
     isDodged: false, coAttackHit: false, coAttackDamage: 0,
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
-    side: 'right',
+    side: PANEL_SIDE.RIGHT,
   });
   if (resolveVisible && turn && attacker && defender) {
-    const isSkipDicePower = turn.action === 'power' && !turn.attackRoll;
+    const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     if (isSkipDicePower) {
       // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log)
       const lastLog = (battle.log || []).at(-1);
@@ -875,7 +860,7 @@ export default function BattleHUD({
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
+        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
       };
     } else {
       const activeEffects = battle.activeEffects || [];
@@ -894,11 +879,11 @@ export default function BattleHUD({
       // Shock detonation bonus: compute client-side (log isn't written until resolveTurn)
       // Lightning Reflex passive: if attacker has it + defender has shock DOTs → bonus = baseDmg
       let shockBonus = 0;
-      if (at > dt && turn.action !== 'power') {
+      if (at > dt && turn.action !== TURN_ACTION.POWER) {
         const hasLR = attacker.passiveSkillPoint === 'unlock' &&
-          attacker.powers?.some(p => p.type === 'Passive' && p.name === 'Lightning Reflex');
+          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
         const defShocks = hasLR && activeEffects.some(
-          e => e.targetId === turn.defenderId && e.tag === 'shock',
+          e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
         );
         if (defShocks) shockBonus = baseDmg;
       }
@@ -911,12 +896,12 @@ export default function BattleHUD({
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
         atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damage, baseDmg, shockBonus,
-        isPower: turn.action === 'power', powerName: turn.usedPowerName ?? '',
+        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? '',
         critEligible: !dgd && critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
         isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === 'teamA' ? 'right' : 'left',
+        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
       };
     }
   }
@@ -938,16 +923,21 @@ export default function BattleHUD({
     const prevIndex: number = resolveCache.current.shownLogIndex || 0;
     if (total <= prevIndex) return;
 
+    // If lastSkeletonHits is present, minion hits will be played from that buffer (chained);
+    // skip playing them from log to avoid duplicate playback.
+    const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
+    const minionHitsPlayedElsewhere = Array.isArray(skBuffer) && skBuffer.length > 0;
+
     const STAGGER_MS = 400;
     const HIT_DISPLAY_MS = 1500;
     let delayAcc = 0;
-    // Count how many minion hits we'll schedule so auto-resolve can wait
-    // for them to finish.
-    let scheduledMinionHits = 0;
 
     for (let i = prevIndex; i < total; i++) {
       const entry = logArr[i];
-      if ((entry as any).isMinionHit) scheduledMinionHits++;
+      if ((entry as any).isMinionHit && minionHitsPlayedElsewhere) {
+        delayAcc += STAGGER_MS;
+        continue;
+      }
       const delay = delayAcc;
       delayAcc += STAGGER_MS;
 
@@ -969,8 +959,8 @@ export default function BattleHUD({
           isHit: !entry.missed,
           isPower: !!entry.powerUsed,
           powerName: entry.powerUsed || '',
-          isCrit: !!entry.isCrit,
-          baseDmg: 0,
+          isCrit: !!(entry.isCrit),
+          baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
           shockBonus: (entry.shockDamage as number) || 0,
           atkRoll: (entry.attackRoll as number) || 0,
@@ -986,7 +976,7 @@ export default function BattleHUD({
           defenderTheme: def?.theme?.[0] || '#666',
           // For minion hits, show DamageCard on defender side (opposite of attacker);
           // otherwise show on attacker side.
-          side: (entry as any).isMinionHit ? (attackerIsTeamA ? 'right' : 'left') : (attackerIsTeamA ? 'left' : 'right'),
+          side: (entry as any).isMinionHit ? (attackerIsTeamA ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT) : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
         } as any;
 
         // Show DamageCard in resolve panel if currently resolving, otherwise show
@@ -994,106 +984,113 @@ export default function BattleHUD({
         resolveCache.current = { ...resolveCache.current, ...rc } as any;
         onResolveVisible?.(true);
         if ((entry as any).isMinionHit) {
-          // mark pending and show transient
-          pendingSkeletonPlaybackRef.current += 1;
+          setPendingSkeletonCount((c) => c + 1);
           setTransientDamage(rc as any);
           setTransientDamageActive(true);
-          // clear transient after display time and mark playback complete
-          setTimeout(() => { setTransientDamage(null); setTransientDamageActive(false); pendingSkeletonPlaybackRef.current = Math.max(0, pendingSkeletonPlaybackRef.current - 1); }, HIT_DISPLAY_MS + 50);
+          setTimeout(() => {
+            setTransientDamage(null);
+            setTransientDamageActive(false);
+            setPendingSkeletonCount((c) => Math.max(0, c - 1));
+          }, HIT_DISPLAY_MS + 50);
         }
 
-        // Pulse transient hit markers so MemberChip flashes correctly
+        // Pulse transient hit markers (throttled to avoid rate limit)
         try {
           const lastHitPayload: Record<string, unknown> = {};
           if ((entry as any).isMinionHit) {
             lastHitPayload.lastHitMinionId = entry.attackerId;
             lastHitPayload.lastHitTargetId = entry.defenderId;
           } else {
-            // master attack: pulse only target marker
             lastHitPayload.lastHitMinionId = null;
             lastHitPayload.lastHitTargetId = entry.defenderId;
           }
-          update(ref(db, `arenas/${arenaId}/battle`), lastHitPayload).catch(() => {});
+          scheduleLastHitUpdate(lastHitPayload);
           if ((entry as any).isMinionHit) onMinionHitPulse?.(entry.attackerId, entry.defenderId);
         } catch (e) {}
 
         // Clear visuals after display time
         setTimeout(() => {
           onResolveVisible?.(false);
-          try { update(ref(db, `arenas/${arenaId}/battle`), { lastHitMinionId: null, lastHitTargetId: null }); } catch (e) {}
         }, HIT_DISPLAY_MS);
       }, delay);
     }
 
-    // After scheduling, advance shown index and clear server transient skeleton hits to avoid duplicate playback
-    // (no need to update pending ref here — individual timeouts will decrement it).
+    // After all cards, clear last-hit markers once (throttled) and advance shown index
     setTimeout(() => {
       resolveCache.current.shownLogIndex = total;
-      try { update(ref(db, `arenas/${arenaId}/battle`), { lastSkeletonHits: null }); } catch (e) {}
+      try {
+        scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null });
+        update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }).catch(() => {});
+      } catch (e) {}
     }, delayAcc + HIT_DISPLAY_MS + 50);
-  }, [battle.log, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, turn]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
+  }, [battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
-  /* ── Winner ── */
+  /* ── Winner: show only after all minion/skeleton hit effects have played ── */
   if (winner) {
-    const isTeamAWinner = winner === 'teamA';
-    const winTeam = isTeamAWinner ? teamA : teamB;
-    const loseTeam = isTeamAWinner ? teamB : teamA;
-    const winSide = isTeamAWinner ? 'left' : 'right';
-    const loseSide = isTeamAWinner ? 'right' : 'left';
-    const winNames = [...winTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
-    const loseNames = [...loseTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
+    const stillPlayingEffects = transientDamageActive || pendingSkeletonCount > 0;
+    if (!stillPlayingEffects) {
+      const isTeamAWinner = winner === BATTLE_TEAM.A;
+      const winTeam = isTeamAWinner ? teamA : teamB;
+      const loseTeam = isTeamAWinner ? teamB : teamA;
+      const winSide = isTeamAWinner ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
+      const loseSide = isTeamAWinner ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
+      const winNames = [...winTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
+      const loseNames = [...loseTeam].sort((a, b) => a.nicknameEng.length - b.nicknameEng.length).map((f) => f.nicknameEng);
 
-    return (
-      <div className="bhud">
-        <div className={`bhud__dice-zone bhud__dice-zone--${winSide} bhud__dice-zone--finished`}>
-          <div className="bhud__result-badge bhud__result-badge--winner">
-            <WinBadge className="bhud__result-icon" />
-            <span className="bhud__result-label">Victory</span>
-            <div className="bhud__result-names">
-              {winNames.map((name) => <span key={name}>{name}</span>)}
+      return (
+        <div className="bhud">
+          <div className={`bhud__dice-zone bhud__dice-zone--${winSide} bhud__dice-zone--finished`}>
+            <div className="bhud__result-badge bhud__result-badge--winner">
+              <WinBadge className="bhud__result-icon" />
+              <span className="bhud__result-label">Victory</span>
+              <div className="bhud__result-names">
+                {winNames.map((name) => <span key={name}>{name}</span>)}
+              </div>
             </div>
           </div>
-        </div>
-        <div className={`bhud__dice-zone bhud__dice-zone--${loseSide} bhud__dice-zone--finished`}>
-          <div className="bhud__result-badge bhud__result-badge--loser">
-            <LoseBadge className="bhud__result-icon" />
-            <span className="bhud__result-label">Defeat</span>
-            <div className="bhud__result-names">
-              {loseNames.map((name) => <span key={name}>{name}</span>)}
+          <div className={`bhud__dice-zone bhud__dice-zone--${loseSide} bhud__dice-zone--finished`}>
+            <div className="bhud__result-badge bhud__result-badge--loser">
+              <LoseBadge className="bhud__result-icon" />
+              <span className="bhud__result-label">Defeat</span>
+              <div className="bhud__result-names">
+                {loseNames.map((name) => <span key={name}>{name}</span>)}
+              </div>
             </div>
           </div>
+          <div className="bhud__winner">
+            <span className="bhud__winner-label">Victory</span>
+            <span className="bhud__winner-name">{winNames.join(' & ')}</span>
+          </div>
         </div>
-        <div className="bhud__winner">
-          <span className="bhud__winner-label">Victory</span>
-          <span className="bhud__winner-name">{winNames.join(' & ')}</span>
-        </div>
-      </div>
-    );
+      );
+    }
+    // Fall through: keep showing resolve/turn UI until all skeleton cards have played
   }
 
   if (!turn) return null;
 
-  const atkSide = turn.attackerTeam === 'teamA' ? 'left' : 'right';
-  const defSide = turn.attackerTeam === 'teamA' ? 'right' : 'left';
+  const atkSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
+  const defSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
   // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy shocks)
   const ae = battle.activeEffects || [];
   const disabledPowerNames = (() => {
     const disabled = new Set<string>();
     const enemyIds = new Set(opposingTeam?.map(f => f.characterId) ?? []);
-    const hasEnemyShock = ae.some(e => e.tag === 'shock' && enemyIds.has(e.targetId));
-    if (!hasEnemyShock) disabled.add('Jolt Arc');
+    const hasEnemyShock = ae.some(e => e.tag === EFFECT_TAGS.SHOCK && enemyIds.has(e.targetId));
+    if (!hasEnemyShock) disabled.add(POWER_NAMES.JOLT_ARC);
     // Death Keeper: disabled once consumed (tag no longer exists on attacker)
-    const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === 'death-keeper');
-    if (!hasDeathKeeper) disabled.add('Death Keeper');
+    const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
+    if (!hasDeathKeeper) disabled.add(POWER_NAMES.DEATH_KEEPER);
     // Undead Army: cannot summon more than 2 skeletons
     const attackerSkeletonCount = attacker ? (attacker.skeletonCount || 0) : 0;
-    if (attackerSkeletonCount >= 2) disabled.add('Undead Army');
+    if (attackerSkeletonCount >= 2) disabled.add(POWER_NAMES.UNDEAD_ARMY);
     return disabled;
   })();
 
   // Dead teammates for Death Keeper targeting
-  const myTeamMembers = turn.attackerTeam === 'teamA' ? teamA : teamB;
+  const myTeamMembers = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
   const deadTeammateIds = new Set(
     (myTeamMembers || []).filter(m => m.currentHp <= 0).map(m => m.characterId),
   );
@@ -1108,14 +1105,7 @@ export default function BattleHUD({
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
               <span className="bhud__phase-label">
-                {turn.phase === 'select-target' && 'selecting target...'}
-                {turn.phase === 'select-action' && 'choosing action...'}
-                {turn.phase === 'select-season' && 'choosing season...'}
-                {turn.phase === 'rolling-attack' && 'rolling...'}
-                {turn.phase === 'rolling-defend' && `→ ${defender?.nicknameEng ?? '...'} defending...`}
-                {turn.phase === 'resolving' && turn.action === 'power' && !turn.attackRoll && `used ${turn.usedPowerName ?? 'a power'}!`}
-                {turn.phase === 'resolving' && turn.action === 'power' && !!turn.attackRoll && `${turn.usedPowerName ?? 'power'} → ${defender?.nicknameEng ?? '...'}`}
-                {turn.phase === 'resolving' && turn.action !== 'power' && `→ ${defender?.nicknameEng ?? '...'}`}
+                {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action })}
               </span>
             </>
           )}
@@ -1123,15 +1113,15 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection */}
-      {isMyTurn && turn.phase === 'select-target' && !floralDelay && (
+      {isMyTurn && turn.phase === PHASE.SELECT_TARGET && !floralDelay && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <TargetSelectModal
             attackerName={attacker?.nicknameEng ?? ''}
             targets={targets}
             themeColor={attacker?.theme[0]}
             themeColorDark={attacker?.theme[18]}
-            onSelect={onSelectTarget}
-            onBack={onCancelTarget}
+            onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
+            onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
           />
         </div>
       )}
@@ -1144,7 +1134,7 @@ export default function BattleHUD({
       )}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits */}
-      {isMyTurn && turn.phase === 'select-action' && actionReady && !showResolve && attacker && !transientDamageActive && (
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -1155,16 +1145,16 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
-            teammates={turn.attackerTeam === 'teamA' ? teamA : teamB}
+            teammates={turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB}
             deadTeammateIds={deadTeammateIds}
-            onSelectAction={onSelectAction}
+            onSelectAction={(...args) => setTimeout(() => onSelectAction(...args), 0)}
             initialShowPowers={initialShowPowers}
           />
         </div>
       )}
 
       {/* Season selection (Persephone's Ephemeral Season) */}
-      {turn.phase === 'select-season' && attacker && (
+      {turn.phase === PHASE.SELECT_SEASON && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <SeasonSelectModal
             attacker={attacker}
@@ -1174,15 +1164,15 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             currentSeason={(battle.activeEffects || []).find(e => e.tag?.startsWith('season-'))?.tag?.replace('season-', '') as SeasonKey | undefined}
-            onSelectSeason={onSelectSeason}
+            onSelectSeason={(s) => setTimeout(() => onSelectSeason(s), 0)}
             onPreviewSeason={onPreviewSeason}
-            onBack={onCancelSeason}
+            onBack={() => setTimeout(() => onCancelSeason?.(), 0)}
           />
         </div>
       )}
 
       {/* Dice rolling (attack, defend, resolving replay) */}
-      {turn && (turn.phase === 'rolling-attack' || turn.phase === 'rolling-defend' || turn.phase === 'resolving') && (
+      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && (
         <DiceModal
           turn={turn}
           attacker={attacker}

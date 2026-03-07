@@ -241,7 +241,7 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
 
     targetResult.current = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
     targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
-  }, [rollTrigger]);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {

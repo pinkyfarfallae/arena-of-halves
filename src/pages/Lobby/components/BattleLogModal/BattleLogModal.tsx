@@ -2,6 +2,7 @@ import type { BattleRoom, BattleLogEntry, FighterState } from '../../../../types
 import Close from '../../../../icons/Close';
 import Swords from '../../../../icons/Swords';
 import './BattleLogModal.scss';
+import { BATTLE_TEAM } from '../../../../constants/battle';
 import { DEFAULT_THEME } from '../../../../constants/theme';
 
 interface Props {
@@ -87,7 +88,7 @@ export default function BattleLogModal({ room, onClose }: Props) {
 
         {winner && (
           <div className="blm__winner">
-            Winner: {winner === 'teamA' ? teamANames : teamBNames}
+            Winner: {winner === BATTLE_TEAM.A ? teamANames : teamBNames}
           </div>
         )}
 

@@ -145,7 +145,7 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
     targetResult.current = fixedResult ?? (Math.floor(Math.random() * 4) + 1);
     const faceIndex = FACE_RESULTS.indexOf(targetResult.current);
     targetQuat.current.copy(TARGET_QUATS[faceIndex]);
-  }, [rollTrigger]);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces: front-facing = true color, others darken + flash & scale punch
   const tintFaces = () => {

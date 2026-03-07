@@ -7,7 +7,7 @@ import FountainIllustration from './components/FountainIllustration/FountainIllu
 import CoinCircle from './icons/CoinCircle';
 import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
-import { Phase, ORB_SCATTER } from './constants/iris';
+import { Phase, ORB_SCATTER, IRIS_PHASE } from './constants/iris';
 import './IrisMessage.scss';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
 }
 
 function IrisMessage({ retossable = false, embedded = false }: Props) {
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [phase, setPhase] = useState<Phase>(IRIS_PHASE.IDLE);
   const [wish, setWish] = useState<Wish | null>(null);
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   const [wishes, setWishes] = useState<Wish[]>(WISHES_FALLBACK);
@@ -30,18 +30,18 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
   const deityOrder = wishes.map(w => w.deity).slice(0, ORB_SCATTER.length);
 
   const toss = useCallback(() => {
-    if (phase === 'tossing') return;
+    if (phase === IRIS_PHASE.TOSSING) return;
     const pick = wishes[Math.floor(Math.random() * wishes.length)];
     setWish(pick);
-    setPhase('tossing');
+    setPhase(IRIS_PHASE.TOSSING);
     setTimeout(() => {
-      setPhase('reveal');
+      setPhase(IRIS_PHASE.REVEAL);
       setDiscovered(prev => new Set(prev).add(pick.deity));
     }, 2200);
   }, [phase, wishes]);
 
   const reset = useCallback(() => {
-    setPhase('idle');
+    setPhase(IRIS_PHASE.IDLE);
     setWish(null);
   }, []);
 
@@ -89,7 +89,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
           {deityOrder.map((deity, i) => {
             const [t, l] = ORB_SCATTER[i] ?? [50, 50];
             const found = discovered.has(deity);
-            const isActive = wish?.deity === deity && phase === 'reveal';
+            const isActive = wish?.deity === deity && phase === IRIS_PHASE.REVEAL;
             return (
               <div
                 key={deity}
@@ -105,7 +105,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
         </div>
 
         {/* Rainbow ring burst + convergence flash */}
-        {phase === 'tossing' && (
+        {phase === IRIS_PHASE.TOSSING && (
           <>
             <div className="iris__burst" />
             <div className="iris__flash" />
@@ -127,7 +127,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
             <div className="iris__center">
               {/* Coin (above fountain) */}
               {phase !== 'reveal' && (
-                <div className={`iris__coin ${phase === 'tossing' ? 'iris__coin--drop' : ''}`}>
+                <div className={`iris__coin ${phase === IRIS_PHASE.TOSSING ? 'iris__coin--drop' : ''}`}>
                   <div className="iris__coin-inner">
                     <Drachma />
                   </div>
@@ -138,7 +138,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
               <FountainIllustration />
 
               {/* Ripples */}
-              {phase === 'tossing' && (
+              {phase === IRIS_PHASE.TOSSING && (
                 <div className="iris__ripples">
                   <div className="iris__ripple" />
                   <div className="iris__ripple iris__ripple--2" />
@@ -155,7 +155,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
                 <p className="iris__sub">
                   Toss a golden drachma into the rainbow mist and receive a blessing from the gods.
                 </p>
-                <button className="iris__btn" onClick={toss} disabled={phase === 'tossing'}>
+                <button className="iris__btn" onClick={toss} disabled={phase === IRIS_PHASE.TOSSING}>
                   <span className="iris__btn-icon">
                     <CoinCircle />
                   </span>
@@ -165,7 +165,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
             )}
 
             {/* Reveal — Tarot card */}
-            {phase === 'reveal' && wish && (
+            {phase === IRIS_PHASE.REVEAL && wish && (
               <div className="iris__card" data-deity={wish.deity.toLowerCase()}>
                 <div className="iris__card-glow" />
                 <div className="iris__card-frame">

@@ -1,3 +1,4 @@
+import type { PanelSide } from '../../../../../../constants/battle';
 import './DamageCard.scss';
 
 interface ResolveData {
@@ -21,7 +22,7 @@ interface ResolveData {
 interface Props {
   data: ResolveData;
   exiting: boolean;
-  side: 'left' | 'right';
+  side: PanelSide;
 }
 
 export type { ResolveData };

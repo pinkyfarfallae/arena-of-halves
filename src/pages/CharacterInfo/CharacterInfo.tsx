@@ -32,6 +32,7 @@ import EditPencil from './icons/EditPencil';
 import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
+import { isSkillUnlocked } from '../../constants/character';
 import './CharacterInfo.scss';
 import { SEX } from '../../constants/sex';
 
@@ -68,8 +69,9 @@ function CharacterInfo() {
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
   const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [weaponModal, setWeaponModal] = useState(false);
-  const [itemModal, setItemModal] = useState(false);
+  // Modal open state (setters used by UI; values reserved for future use)
+  const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [itemModal, setItemModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -249,7 +251,7 @@ function CharacterInfo() {
             ['SKILL', char.skillPoint],
             ['ULTIMATE', char.ultimateSkillPoint],
           ] as [string, string][]).map(([label, val]) => {
-            const unlocked = val.toLowerCase() === 'unlock';
+            const unlocked = isSkillUnlocked(val);
             return (
               <div key={label} className={`so so--accent ${unlocked ? 'so--unlocked' : 'so--locked'}`}>
                 <div className="so__orb">

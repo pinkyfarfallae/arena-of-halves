@@ -7,6 +7,7 @@ import Male from '../../../../icons/Male';
 import Female from '../../../../icons/Female';
 import Plus from '../../../../icons/Plus';
 import './EditCharacterModal.scss';
+import { EDIT_FIELD_TYPE } from '../../../../constants/editField';
 import { SEX } from '../../../../constants/sex';
 
 interface Props {
@@ -37,7 +38,7 @@ function parseChips(raw: string): string[] {
 
 const TRAIT_KEYS = new Set(['strengths', 'weaknesses', 'abilities']);
 const ALIAS_KEY = 'aliases';
-const TEXTAREA_KEYS = new Set(EDIT_FIELDS.filter(f => f.type === 'textarea').map(f => f.key));
+const TEXTAREA_KEYS = new Set(EDIT_FIELDS.filter(f => f.type === EDIT_FIELD_TYPE.TEXTAREA).map(f => f.key));
 
 /* Convert stored format → editable (\n and / → real newline) */
 function toEditable(val: string): string {
@@ -336,7 +337,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                     }
 
                     /* ── Sex toggle ── */
-                    if (f.type === 'sex') {
+                    if (f.type === EDIT_FIELD_TYPE.SEX) {
                       return (
                         <div key={f.key} className="cs__edit-field">
                           <label className="cs__edit-label">
@@ -367,12 +368,12 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
 
                     /* ── Standard fields ── */
                     return (
-                      <div key={f.key} className={`cs__edit-field ${f.type === 'textarea' ? 'cs__edit-field--wide' : ''} ${hasError ? 'cs__edit-field--error' : ''}`}>
+                      <div key={f.key} className={`cs__edit-field ${f.type === EDIT_FIELD_TYPE.TEXTAREA ? 'cs__edit-field--wide' : ''} ${hasError ? 'cs__edit-field--error' : ''}`}>
                         <label className="cs__edit-label">
                           {f.label}
                           {f.required && <span className="cs__edit-req">*</span>}
                         </label>
-                        {f.type === 'textarea' ? (
+                        {f.type === EDIT_FIELD_TYPE.TEXTAREA ? (
                           <>
                             <textarea
                               className={`cs__edit-input cs__edit-textarea ${hasError ? 'cs__edit-input--error' : ''}`}
@@ -383,7 +384,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                             />
                             <span className="cs__edit-hint"><b>Note</b>Use * or - at line start for bullets</span>
                           </>
-                        ) : f.type === 'color' ? (
+                        ) : f.type === EDIT_FIELD_TYPE.COLOR ? (
                           <div className="cs__edit-color-wrap">
                             <input
                               type="color"
