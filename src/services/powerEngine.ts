@@ -170,14 +170,18 @@ export function applyPowerEffect(
 
     case EFFECT_TYPES.BUFF:
     case EFFECT_TYPES.DEBUFF: {
-      // Shadow Camouflaging: no stack; new select = reset to full duration (no add, no stack)
+      // Shadow Camouflaging: no stack; new select = reset to 2 rounds (design duration).
+      // UI shows Math.ceil(turnsRemaining / queueLen) as "rounds", so store 2 * queueLen to display 2.
       const isShadowCamouflaging = power.name === POWER_NAMES.SHADOW_CAMOUFLAGING || power.modStat === MOD_STAT.SHADOW_CAMOUFLAGED;
+      const queueLen = battle.turnQueue?.length || 1;
+      const shadowCamouflageDuration = 2 * queueLen;
       const existingShadow = isShadowCamouflaging
         ? effects.find(e => e.targetId === targetId && (e.powerName === POWER_NAMES.SHADOW_CAMOUFLAGING || e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED))
         : null;
       if (existingShadow) {
-        existingShadow.turnsRemaining = power.duration ?? existingShadow.turnsRemaining;
+        existingShadow.turnsRemaining = shadowCamouflageDuration;
       } else {
+        const turnsRemaining = isShadowCamouflaging ? shadowCamouflageDuration : power.duration;
         const eff: ActiveEffect = {
           id: makeEffectId(attackerId, power.name),
           powerName: power.name,
@@ -185,20 +189,21 @@ export function applyPowerEffect(
           sourceId: attackerId,
           targetId,
           value: power.value,
-          turnsRemaining: power.duration,
+          turnsRemaining,
         };
         if (power.modStat) eff.modStat = power.modStat;
         effects.push(eff);
       }
 
-      // Undead Army: create skeleton minion (max 2 total)
+      // Undead Army: create skeleton minion (max 2 total); use actual minion count so 2nd skeleton is allowed
       if (power.modStat === MOD_STAT.SKELETON_COUNT && targetPath) {
         const team = findFighterTeam(room, targetId);
         const existingMinions = team ? (room[team]?.minions || []) : [];
         const skeletonCountForMaster = existingMinions.filter((m: any) => m.masterId === targetId).length;
-        const currentCount = Math.max(target.skeletonCount || 0, skeletonCountForMaster);
+        // Prefer actual minion count so we allow 2nd skeleton even if stored skeletonCount was wrong
+        const currentCount = skeletonCountForMaster;
         if (currentCount < 2) {
-          const newCount = Math.min(2, currentCount + power.value);
+          const newCount = Math.min(2, currentCount + (power.value || 1));
           updates[`${targetPath}/skeletonCount`] = newCount;
 
           if (team) {

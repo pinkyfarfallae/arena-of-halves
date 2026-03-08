@@ -205,12 +205,14 @@ export default function BattleHUD({
   // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
   const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
 
-  // Clear transient DamageCard and skip card state when turn changes (avoid overlap into next attacker)
-  // Exception: when the last log entry is a skip (no valid target), do NOT clear skipCard here so that
-  // log playback can set it first — then choose action modal shows only after skip card is dismissed.
+  // Clear transient DamageCard and skip card state when turn/round changes (avoid overlap into next attacker).
+  // Intentionally omit battle?.log from deps: during skeleton playback the log updates and would run this
+  // effect and wipe the card early. We only want to clear when attacker/defender/round actually change.
+  // We still read battle?.log inside for the skipCard exception (latest log when effect runs).
   useEffect(() => {
     setTransientDamage(null);
     setTransientDamageActive(false);
+    setTransientSkeletonCardKey('');
     setPendingSkeletonCount(0);
     const logArr = battle?.log || [];
     const lastEntry = Array.isArray(logArr) && logArr.length > 0 ? logArr[logArr.length - 1] : null;
@@ -218,7 +220,7 @@ export default function BattleHUD({
       return;
     }
     setSkipCard(null);
-  }, [turn?.attackerId, turn?.defenderId, roundNumber, battle?.log]);
+  }, [turn?.attackerId, turn?.defenderId, roundNumber]);
 
   // No-target modal: track when shown so we can keep it visible at least 3s before skip
   const noTargetShownAtRef = useRef<number | null>(null);
@@ -683,6 +685,8 @@ export default function BattleHUD({
   // Transient DamageCard state (declare early so effects can reference)
   const [transientDamageActive, setTransientDamageActive] = useState(false);
   const [transientDamage, setTransientDamage] = useState<ResolveCacheType | null>(null);
+  /** Unique key per skeleton hit so each damage card shows distinctly (no flicker between hits) */
+  const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
   // State-based count so auto-resolve re-runs when all skeleton playbacks finish
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
   useEffect(() => {
@@ -734,8 +738,10 @@ export default function BattleHUD({
   useEffect(() => {
     onResolveVisible?.(resolveVisible);
   }, [resolveVisible, onResolveVisible]);
-  // Keep resolve panel visible while a transient DamageCard (minion hit) is showing
-  const [showResolve, resolveExiting] = useFadeTransition(resolveVisible || transientDamageActive, 250);
+  // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
+  // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
+  const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || transientDamageActive || pendingSkeletonCount > 0;
+  const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
   // (Firebase may update unrelated fields, causing `battle` to change refs).
@@ -806,7 +812,7 @@ export default function BattleHUD({
     const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
     lastSkeletonPlaybackTurnKeyRef.current = turnKey;
 
-    const HIT_DISPLAY_MS = 1500;
+    const HIT_DISPLAY_MS = 2500; // ~2.5s per skeleton so damage card stays visible
     setPendingSkeletonCount((c) => c + skHits.length);
 
     const timeoutsRef = skeletonChainTimeoutsRef;
@@ -852,6 +858,7 @@ export default function BattleHUD({
       } as any;
 
       onResolveVisible?.(true);
+      setTransientSkeletonCardKey(`skeleton-${index}-${entry.attackerId}-${entry.damage ?? 0}`);
       setTransientDamage(rc as any);
       setTransientDamageActive(true);
 
@@ -868,6 +875,7 @@ export default function BattleHUD({
       const t = window.setTimeout(() => {
         setTransientDamage(null);
         setTransientDamageActive(false);
+        setTransientSkeletonCardKey('');
         setPendingSkeletonCount((c) => Math.max(0, c - 1));
         index++;
         showNext();
@@ -894,17 +902,20 @@ export default function BattleHUD({
     onTransientEffectsActive?.(hasPendingPlayback);
   }, [transientDamageActive, battle, pendingSkeletonCount, onTransientEffectsActive]);
 
-  // When phase advances to next turn, clear transient minion card and "had skeleton hits" so main card can show again next turn
+  // When phase advances to next turn, clear transient minion card and "had skeleton hits" only after all skeleton cards have finished (so modal stays visible for full 2.5s per skeleton)
   const prevPhaseRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const prev = prevPhaseRef.current;
     prevPhaseRef.current = turn?.phase;
-    if (prev === PHASE.RESOLVING && turn?.phase === PHASE.SELECT_ACTION) {
+    const phaseJustAdvanced = prev === PHASE.RESOLVING && turn?.phase === PHASE.SELECT_ACTION;
+    const skeletonChainDone = turn?.phase === PHASE.SELECT_ACTION && pendingSkeletonCount === 0;
+    if ((phaseJustAdvanced || skeletonChainDone) && pendingSkeletonCount === 0) {
       hadSkeletonHitsThisTurnRef.current = false;
       setTransientDamage(null);
       setTransientDamageActive(false);
+      setTransientSkeletonCardKey('');
     }
-  }, [turn?.phase]);
+  }, [turn?.phase, pendingSkeletonCount]);
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
@@ -1276,8 +1287,14 @@ export default function BattleHUD({
     // Death Keeper: disabled once consumed (tag no longer exists on attacker)
     const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
     if (!hasDeathKeeper) disabled.add(POWER_NAMES.DEATH_KEEPER);
-    // Undead Army: cannot summon more than 2 skeletons
-    const attackerSkeletonCount = attacker ? (attacker.skeletonCount || 0) : 0;
+    // Undead Army: cannot summon more than 2 skeletons (use actual minion list so 2nd skeleton is allowed when only 1 exists)
+    const attackerTeamMinions = (turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB) ?? [];
+    const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
+      ? attackerTeamMinions.filter((m: any) => m?.masterId === turn?.attackerId).length
+      : 0;
+    const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
+      ? skeletonCountFromMinions
+      : (attacker ? (attacker.skeletonCount ?? 0) : 0);
     if (attackerSkeletonCount >= 2) disabled.add(POWER_NAMES.UNDEAD_ARMY);
     return disabled;
   })();
@@ -1363,7 +1380,7 @@ export default function BattleHUD({
       )}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). Hide when skip card is showing (card before next attacker turn). */}
-      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && !confirmedPowerName && !skipCard && (
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -1539,9 +1556,9 @@ export default function BattleHUD({
         <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
       )}
 
-      {/* Transient DamageCard for minion/skeleton hits — always defender side; stable key to avoid jitter */}
+      {/* Transient DamageCard for minion/skeleton hits — always defender side; unique key per hit so card always shows during each skeleton's hit effect */}
       {transientDamage && (
-        <DamageCard key="transient-minion-card" data={transientDamage} exiting={false} side={transientDamage.side} />
+        <DamageCard key={transientSkeletonCardKey || 'transient-minion-card'} data={transientDamage} exiting={false} side={transientDamage.side} />
       )}
 
       {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}

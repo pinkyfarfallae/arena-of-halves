@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import type { FighterState } from '../../../../../../types/battle';
 import type { PanelSide } from '../../../../../../constants/battle';
 import './RefillSPDiceModal.scss';
 
-/** Time to show dice result before switching to refill card (let dice + effects finish). */
-export const REFILL_DICE_VIEW_MS = 2800;
+/** Fallback: show result card after this ms if onRollEnd was not received (e.g. replay already finished). */
+export const REFILL_DICE_VIEW_MS = 3500;
 
 /** Time refill card stays visible before advance (at least as long as damage card in resolve). */
 export const REFILL_CARD_VIEW_MS = 2000;
+
+/** Short view of dice result after animation ends before showing refill card. */
+const REFILL_RESULT_VIEW_MS = 700;
 
 export interface RefillSPDiceModalProps {
   attacker?: FighterState;
@@ -17,11 +20,11 @@ export interface RefillSPDiceModalProps {
   roll: number | null | undefined;
   atkSide: PanelSide;
   onRoll: (roll: number) => void | Promise<void>;
-  /** Ms to show dice before showing refill card (default REFILL_DICE_VIEW_MS). */
+  /** Ms to show dice before showing refill card (fallback if onRollEnd not fired). */
   diceViewMs?: number;
 }
 
-/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Reuses same modal + DiceRoller pattern as DiceModal. */
+/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Waits for dice animation to end before showing result card. */
 export default function RefillSPDiceModal({
   attacker,
   isMyTurn,
@@ -32,17 +35,38 @@ export default function RefillSPDiceModal({
   diceViewMs = REFILL_DICE_VIEW_MS,
 }: RefillSPDiceModalProps) {
   const [showRefillCard, setShowRefillCard] = useState(false);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // After roll is set, show dice for diceViewMs then switch to refill card (so dice + effects can finish)
+  const clearTimers = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+    if (resultTimerRef.current) {
+      clearTimeout(resultTimerRef.current);
+      resultTimerRef.current = null;
+    }
+  }, []);
+
+  // When dice animation ends, wait briefly then show result card
+  const handleRollEnd = useCallback(() => {
+    clearTimers();
+    resultTimerRef.current = setTimeout(() => setShowRefillCard(true), REFILL_RESULT_VIEW_MS);
+  }, [clearTimers]);
+
+  // When roll is set: show dice only; start fallback timer. Transition to result card only after onRollEnd or fallback.
   useEffect(() => {
     if (roll == null) {
       setShowRefillCard(false);
+      clearTimers();
       return;
     }
     setShowRefillCard(false);
-    const t = setTimeout(() => setShowRefillCard(true), diceViewMs);
-    return () => clearTimeout(t);
-  }, [roll, diceViewMs]);
+    clearTimers();
+    fallbackTimerRef.current = setTimeout(() => setShowRefillCard(true), diceViewMs);
+    return () => clearTimers();
+  }, [roll, diceViewMs, clearTimers]);
 
   const themeStyle: React.CSSProperties = {
     '--modal-primary': attacker?.theme?.[0] ?? '#666',
@@ -53,7 +77,7 @@ export default function RefillSPDiceModal({
     ? { primary: attacker.theme?.[0] ?? '#666', primaryDark: attacker.theme?.[18] ?? '#333' }
     : undefined;
 
-  // Refill card after diceViewMs
+  // Refill result card (shown after dice animation ends + brief view, or fallback timer)
   if (roll != null && showRefillCard) {
     const won = winFaces.includes(roll);
     const cardStyle = { '--refill-atk': themeColors?.primary ?? '#666', '--refill-def': themeColors?.primaryDark ?? '#333' } as React.CSSProperties;
@@ -86,6 +110,7 @@ export default function RefillSPDiceModal({
             lockedDie={4}
             fixedResult={roll ?? undefined}
             onRollResult={roll == null ? onRoll : undefined}
+            onRollEnd={roll != null ? handleRollEnd : undefined}
             themeColors={themeColors}
             hidePrompt
           />
@@ -96,6 +121,7 @@ export default function RefillSPDiceModal({
             lockedDie={4}
             fixedResult={roll}
             autoRoll
+            onRollEnd={handleRollEnd}
             hidePrompt
             themeColors={themeColors}
           />

@@ -55,6 +55,11 @@ export function getWinningFaces(critRate: number): number[] {
   return winners;
 }
 
+/** Ensure no log entry has powerUsed === undefined (Firebase rejects undefined). */
+function sanitizeBattleLog(log: unknown[]): unknown[] {
+  return log.map((e: any) => ({ ...e, powerUsed: e.powerUsed ?? '' }));
+}
+
 /** Generate a 6-char uppercase room code */
 function generateArenaId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 to avoid confusion
@@ -449,7 +454,7 @@ function applySelfResurrect(
     resurrectTargetId: nextCharId,
     resurrectHpRestored: resHp,
   };
-  updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log as unknown[] || []), logEntry];
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log as unknown[] || []), logEntry]);
 
   return true;
 }
@@ -600,7 +605,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         missed: false,
         powerUsed: power.name,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), selfLogEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), selfLogEntry]);
       updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
       await update(roomRef(arenaId), updates);
       return;
@@ -639,7 +644,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           powerUsed: power.name,
           ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
         };
-        updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
         updates[ARENA_PATH.BATTLE_TURN] = {
           attackerId,
@@ -676,7 +681,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           missed: false,
           powerUsed: power.name,
         };
-        updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
         updates[ARENA_PATH.BATTLE_TURN] = {
           attackerId,
@@ -720,7 +725,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           missed: false,
           powerUsed: power.name,
         };
-        updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
         updates[ARENA_PATH.BATTLE_TURN] = {
           attackerId,
@@ -752,7 +757,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         missed: false,
         powerUsed: power.name,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), targetLogEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
       const turnUpdate: Record<string, unknown> = {
         ...turn,
         defenderId,
@@ -785,7 +790,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
       missed: false,
       powerUsed: power.name,
     };
-    updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), targetLogEntry];
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
     updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
     await update(roomRef(arenaId), updates);
     return;
@@ -836,8 +841,8 @@ export async function selectAction(
   const updates: Record<string, unknown> = {};
 
   // Soul Devourer: Use Power that cannot attack → end turn (no quota spent; resolveTurn will advance)
-  // Exception: Shadow Camouflaging has its own flow (apply buff + D4 refill); do not treat as "end turn only"
-  if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && !powerCanAttack(power) && power.name !== POWER_NAMES.SHADOW_CAMOUFLAGING) {
+  // Exceptions: Shadow Camouflaging (D4 refill flow); Undead Army (must apply to add 2nd skeleton)
+  if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && !powerCanAttack(power) && power.name !== POWER_NAMES.SHADOW_CAMOUFLAGING && power.name !== POWER_NAMES.UNDEAD_ARMY) {
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
@@ -915,7 +920,7 @@ export async function selectAction(
         resurrectTargetId: allyTargetId,
         resurrectHpRestored: resHp,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
       // Free action: return to select-action (don't advance turn)
       updates[ARENA_PATH.BATTLE_TURN] = {
@@ -956,7 +961,7 @@ export async function selectAction(
         missed: false,
         powerUsed: power.name,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
       // Win condition check (DOT from tick may have eliminated someone)
       const getHp = (m: FighterState) => {
@@ -1038,7 +1043,7 @@ export async function selectAction(
       missed: false,
       powerUsed: power.name,
     };
-    updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
     
 
     updates[ARENA_PATH.BATTLE_TURN] = {
@@ -1073,7 +1078,7 @@ export async function selectAction(
     // Shadow Camouflaging: show D4 roll for 25% refill SP (quota); server sets winning faces, player taps to roll (like crit D4)
     if (power.name === POWER_NAMES.SHADOW_CAMOUFLAGING) {
       const winFaces = getWinningFaces(25); // 25% = 1 winning face
-      updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), {
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), {
         round: battle.roundNumber,
         attackerId,
         defenderId: attackerId,
@@ -1084,7 +1089,7 @@ export async function selectAction(
         eliminated: false,
         missed: false,
         powerUsed: power.name,
-      }];
+      }]);
       updates[ARENA_PATH.BATTLE_TURN] = {
         attackerId,
         attackerTeam: battle.turn!.attackerTeam,
@@ -1122,7 +1127,7 @@ export async function selectAction(
       missed: false,
       powerUsed: power.name,
     };
-    updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
     // Win condition check (DOT from tick may have eliminated someone)
     const getHp = (m: FighterState) => {
@@ -1275,7 +1280,7 @@ export async function selectAction(
       powerUsed: power.name,
       ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
     };
-    updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
@@ -1441,7 +1446,7 @@ export async function skipTurnNoValidTarget(arenaId: string): Promise<void> {
     skippedNoValidTarget: true,
     skipReason: SKIP_REASON_SHADOW_CAMOUFLAGE,
   };
-  updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
   // Tick effects, win check, then advance to next attacker (same as soulDevourerEndTurnOnly)
   const effectUpdates = tickEffects(room, battle, updates);
@@ -1532,10 +1537,12 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
 
   const updates: Record<string, unknown> = {};
   const atkPath = findFighterPath(room, attackerId);
-  const winFaces = turn.shadowCamouflageRefillWinFaces;
-  const roll = turn.shadowCamouflageRefillRoll;
-  if (atkPath && winFaces.includes(roll) && attacker.quota < (attacker.maxQuota ?? 0)) {
-    updates[`${atkPath}/quota`] = Math.min(attacker.quota + 1, attacker.maxQuota ?? attacker.quota);
+  const winFaces = (turn.shadowCamouflageRefillWinFaces ?? []).map((f: unknown) => Number(f));
+  const roll = Number(turn.shadowCamouflageRefillRoll);
+  const won = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
+  const maxQuota = typeof attacker.maxQuota === 'number' && !isNaN(attacker.maxQuota) ? attacker.maxQuota : 3;
+  if (atkPath && won && attacker.quota < maxQuota) {
+    updates[`${atkPath}/quota`] = Math.min(attacker.quota + 1, maxQuota);
   }
 
   const getHp = (m: FighterState) => {
@@ -1643,7 +1650,7 @@ export async function confirmSeason(arenaId: string): Promise<void> {
     missed: false,
     powerUsed: `Ephemeral Season: ${seasonLabel}`,
   };
-  updates[ARENA_PATH.BATTLE_LOG] = [...(battle.log || []), logEntry];
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
   // Build updated HP map for win condition check
   const getHp = (m: FighterState) => {
@@ -1946,9 +1953,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       lastPrev.powerUsed === usedPower.name &&
       lastPrev.damage === 0;
     if (canUpdate) {
-      updates[ARENA_PATH.BATTLE_LOG] = [...prevLog.slice(0, -1), { ...lastPrev, ...logEntry }];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLog.slice(0, -1), { ...lastPrev, ...logEntry }]);
     } else {
-      updates[ARENA_PATH.BATTLE_LOG] = [...prevLog, logEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLog, logEntry]);
     }
 
   } else if (action !== TURN_ACTION.POWER || isSelfBuffPower) {
@@ -1996,9 +2003,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         lastSd.damage === 0 &&
         lastSd.powerUsed === battle.turn.usedPowerName;
       if (canUpdateSd) {
-        updates[ARENA_PATH.BATTLE_LOG] = [...prevLogSd.slice(0, -1), { ...lastSd, ...mainAttackLogEntry }];
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogSd.slice(0, -1), { ...lastSd, ...mainAttackLogEntry }]);
       } else {
-        updates[ARENA_PATH.BATTLE_LOG] = [...prevLogSd, mainAttackLogEntry];
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogSd, mainAttackLogEntry]);
       }
     } else {
     // Normal attack: compare dice with active effect modifiers
@@ -2202,9 +2209,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       lastPrevNorm.damage === 0 &&
       (lastPrevNorm.powerUsed === battle.turn.usedPowerName || (isSelfBuffPower && lastPrevNorm.powerUsed));
     if (canUpdateNorm) {
-      updates[ARENA_PATH.BATTLE_LOG] = [...prevLogNorm.slice(0, -1), { ...lastPrevNorm, ...logEntry }];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), { ...lastPrevNorm, ...logEntry }]);
     } else {
-      updates[ARENA_PATH.BATTLE_LOG] = [...prevLogNorm, logEntry];
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
     }
     }
   }
@@ -2219,7 +2226,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const existingLog = (updates[ARENA_PATH.BATTLE_LOG] as typeof battle.log) || [...(battle.log || [])];
     if (existingLog.length > 0) {
       existingLog[existingLog.length - 1].aoeDamageMap = aoeDamageMap;
-      updates[ARENA_PATH.BATTLE_LOG] = existingLog;
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
     }
   }
 
@@ -2255,7 +2262,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           if (logArr.length > 0) {
             logArr[logArr.length - 1].coAttackDamage = coDmg;
             logArr[logArr.length - 1].coAttackerId = casterId;
-            updates[ARENA_PATH.BATTLE_LOG] = logArr;
+            updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
           }
         }
       }
@@ -2364,7 +2371,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             const persistentEntry = Object.assign({}, sk, { isMinionHit: true });
             existingLog.push(persistentEntry as any);
           }
-          updates[ARENA_PATH.BATTLE_LOG] = existingLog;
+          updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
         } catch (e) {
           // Avoid failing the whole turn if shapes are unexpected
         }
