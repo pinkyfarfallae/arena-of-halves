@@ -2479,12 +2479,17 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
 
   // When there are skeleton hits, delay advancing to next attacker so the client can show
-  // VFX while phase is still RESOLVING (avoids card flashing on wrong side on phase change).
-  const hasSkeletonHits = Array.isArray(updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS]) &&
-    (updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[]).length > 0;
-  const SKELETON_PLAYBACK_DELAY_MS = 5500; // ~3 hits × (1500 + 350) ms
+  // all skeleton damage cards + shakes (2500+50 ms per hit in BattleHUD). Soul Devourer
+  // waits 4500ms (master + soul float + heal) before first skeleton card.
+  const skeletonHitsArr = updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[] | undefined;
+  const hasSkeletonHits = Array.isArray(skeletonHitsArr) && skeletonHitsArr.length > 0;
+  const skeletonCount = hasSkeletonHits ? skeletonHitsArr.length : 0;
+  const SKELETON_MS_PER_HIT = 2600; // slightly more than client 2500+50 so all cards finish
+  const SOUL_DEVOURER_CHAIN_START_MS = 4500; // match BattleHUD SOUL_DEVOURER_MASTER_AND_HEAL_MS
+  const isSoulDevourerDrain = !!(battle.turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
+  const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
   let advancePayload: Record<string, unknown> | null = null;
-  if (hasSkeletonHits) {
+  if (hasSkeletonHits && SKELETON_PLAYBACK_DELAY_MS > 0) {
     advancePayload = {
       [ARENA_PATH.BATTLE_TURN]: updates[ARENA_PATH.BATTLE_TURN],
       [ARENA_PATH.BATTLE_CURRENT_TURN_INDEX]: updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX],
