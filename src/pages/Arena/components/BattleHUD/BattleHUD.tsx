@@ -707,7 +707,10 @@ export default function BattleHUD({
       return;
     }
 
-    const timer = setTimeout(() => onResolve(), 5000);
+    // Soul Devourer drain: resolve sooner so server sends lastSkeletonHits early; skeleton chain then uses
+    // chainStartDelayMs so soul float + heal still play before first skeleton card.
+    const autoResolveMs = soulDevourerDrainTurn ? 1800 : 5000;
+    const timer = setTimeout(() => onResolve(), autoResolveMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turn?.phase is the trigger; including full turn changes array size between renders
   }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
@@ -825,7 +828,7 @@ export default function BattleHUD({
     lastSkeletonHitsKeyRef.current = skKey;
     // Set hadSkeletonHits only when first skeleton card shows (so master damage + heal can show first on Soul Devourer drain)
     const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
-    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500; // master + soul float + explode + heal, then skeleton cards
+    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 2500; // master + soul float + explode + heal, then skeleton cards
 
     const HIT_DISPLAY_MS = 2500; // ~2.5s per skeleton so damage card stays visible
     setPendingSkeletonCount((c) => c + skHits.length);
