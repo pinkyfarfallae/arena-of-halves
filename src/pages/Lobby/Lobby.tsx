@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
-import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';
@@ -45,6 +45,21 @@ function Lobby() {
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  const handleDeleteAllRooms = async () => {
+    if (!window.confirm('Delete ALL arena rooms on the server? This cannot be undone.')) return;
+    setDeletingAll(true);
+    setError('');
+    try {
+      await deleteAllArenaRooms();
+      setActiveRooms([]);
+    } catch {
+      setError('Failed to delete all rooms.');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = onRoomsList(setActiveRooms);
@@ -222,6 +237,17 @@ function Lobby() {
                   <span className="lobby__rooms-line" />
                   <div className="lobby__banner lobby__banner--r2" />
                   <div className="lobby__banner lobby__banner--r1" />
+                  {/* {role === ROLE.DEVELOPER && (
+                    <button
+                      type="button"
+                      className="lobby__delete-all"
+                      onClick={handleDeleteAllRooms}
+                      disabled={deletingAll}
+                      title="Delete all arena rooms on server"
+                    >
+                      {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                    </button>
+                  )} */}
                 </div>
                 <div className="lobby__rooms-list">
                   {activeRooms.map((room, index) => {
@@ -275,6 +301,17 @@ function Lobby() {
               <div className="lobby__empty">
                 <Colosseum className="lobby__empty-icon" width={64} height={64} />
                 <p>No active battles. Create one to begin.</p>
+                {/* {role === ROLE.DEVELOPER && (
+                  <button
+                    type="button"
+                    className="lobby__delete-all"
+                    onClick={handleDeleteAllRooms}
+                    disabled={deletingAll}
+                    title="Delete all arena rooms on server"
+                  >
+                    {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                  </button>
+                )} */}
               </div>
             )}
           </div>

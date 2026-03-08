@@ -93,6 +93,16 @@ function Arena() {
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
   const [transientEffectsActive, setTransientEffectsActive] = useState(false);
+  /** True 2s after RESOLVING with Soul Devourer drain (when soul lands on caster) so heal shows */
+  const [soulDevourerHealReady, setSoulDevourerHealReady] = useState(false);
+  /** Soul float VFX: true 0.5s–2s into RESOLVING with Soul Devourer drain (soul flies defender → caster) */
+  const [soulFloatActive, setSoulFloatActive] = useState(false);
+  /** Center of caster's mchip__frame (viewport px) so soul lands on caster chip */
+  const [casterFrameCenter, setCasterFrameCenter] = useState<{ x: number; y: number } | null>(null);
+  /** Center of defender's mchip__frame (viewport px) so soul starts from target chip */
+  const [defenderFrameCenter, setDefenderFrameCenter] = useState<{ x: number; y: number } | null>(null);
+  const casterFrameRef = useRef<HTMLDivElement | null>(null);
+  const defenderFrameRef = useRef<HTMLDivElement | null>(null);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   const minionPulseCounterRef = useRef(0);
   // Clear hit-pulse state when leaving RESOLVING so the next target selection doesn't show a stored shake
@@ -104,6 +114,51 @@ function Arena() {
     }
     prevPhaseRef.current = phase;
   }, [room?.battle?.turn?.phase]);
+
+  // Reset Soul Devourer heal-ready and soul float when turn or phase changes
+  useEffect(() => {
+    setSoulDevourerHealReady(false);
+    setSoulFloatActive(false);
+    setCasterFrameCenter(null);
+    setDefenderFrameCenter(null);
+  }, [room?.battle?.turn?.phase, room?.battle?.turn?.attackerId]);
+
+  // When soul float starts, measure defender and caster frame centers (viewport px)
+  useEffect(() => {
+    if (!soulFloatActive) {
+      setCasterFrameCenter(null);
+      setDefenderFrameCenter(null);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      const casterEl = casterFrameRef.current;
+      const defenderEl = defenderFrameRef.current;
+      if (casterEl) {
+        const r = casterEl.getBoundingClientRect();
+        setCasterFrameCenter({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }
+      if (defenderEl) {
+        const r = defenderEl.getBoundingClientRect();
+        setDefenderFrameCenter({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [soulFloatActive]);
+
+  // Soul Devourer: start soul float 0.5s into RESOLVING (after hit); float 2.8s + explode 0.5s, hide at 3.8s then heal shows
+  const soulDrainTurn = room?.battle?.turn;
+  useEffect(() => {
+    if (soulDrainTurn?.phase !== PHASE.RESOLVING || !(soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain) {
+      setSoulFloatActive(false);
+      return;
+    }
+    const tStart = setTimeout(() => setSoulFloatActive(true), 500);
+    const tEnd = setTimeout(() => setSoulFloatActive(false), 3800); // 0.5s delay + 2.8s float + 0.5s explode
+    return () => {
+      clearTimeout(tStart);
+      clearTimeout(tEnd);
+    };
+  }, [soulDrainTurn?.phase, (soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain]);
   // Local visual override used when NPC schedules a target but server update is delayed
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -700,6 +755,9 @@ function Arena() {
             myId={user?.characterId}
             resolveShown={resolveShown}
             transientEffectsActive={transientEffectsActive}
+            soulDevourerHealReady={soulDevourerHealReady}
+            casterFrameRef={casterFrameRef}
+            defenderFrameRef={defenderFrameRef}
             minionPulseMap={minionPulseMap}
             onSelectTarget={onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
@@ -730,6 +788,9 @@ function Arena() {
               myId={user?.characterId}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
+              soulDevourerHealReady={soulDevourerHealReady}
+              casterFrameRef={casterFrameRef}
+              defenderFrameRef={defenderFrameRef}
               minionPulseMap={minionPulseMap}
               onSelectTarget={onSelectTargetDeferred}
               clientVisualDefenderId={npcVisualTarget}
@@ -743,6 +804,37 @@ function Arena() {
           {/* Seasonal effects overlay (right side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
         </div>
+
+        {/* Soul Devourer: soul floats from defender frame center to caster frame center, then explodes */}
+        {soulFloatActive && casterFrameCenter && defenderFrameCenter && battle?.turn?.defenderId && battle?.turn?.attackerId && (() => {
+          const allMembers = [...teamAMembers, ...teamBMembers];
+          const defender = allMembers.find((m) => m.characterId === battle.turn?.defenderId);
+          const caster = allMembers.find((m) => m.characterId === battle.turn?.attackerId);
+          const defenderPrimary = defender?.theme?.[0] ?? 'rgba(94, 53, 117, 0.9)';
+          const casterPrimary = caster?.theme?.[0] ?? 'rgba(94, 53, 117, 0.9)';
+          return (
+            <div
+              className={`arena__soul-float arena__soul-float--${teamAMembers.some((m) => m.characterId === battle.turn?.defenderId) ? 'left-to-right' : 'right-to-left'}`}
+              style={
+                {
+                  '--soul-start-x': `${defenderFrameCenter.x}px`,
+                  '--soul-start-y': `${defenderFrameCenter.y}px`,
+                  '--soul-end-x': `${casterFrameCenter.x}px`,
+                  '--soul-end-y': `${casterFrameCenter.y}px`,
+                  '--soul-color-start': defenderPrimary,
+                  '--soul-color-end': casterPrimary,
+                } as React.CSSProperties
+              }
+              aria-hidden
+            >
+              <div className="arena__soul-float-orb">
+                <div className="arena__soul-float-orb-base" aria-hidden />
+                <div className="arena__soul-float-orb-blend" aria-hidden />
+              </div>
+              <div className="arena__soul-float-burst" />
+            </div>
+          );
+        })()}
 
         {/* Battle HUD overlay */}
         {isBattling && battle && (
@@ -769,6 +861,7 @@ function Arena() {
             onResolve={handleResolveTurn}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
+            onSoulDevourerHealReady={setSoulDevourerHealReady}
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
               minionPulseCounterRef.current += 1;
               const pulseId = minionPulseCounterRef.current;

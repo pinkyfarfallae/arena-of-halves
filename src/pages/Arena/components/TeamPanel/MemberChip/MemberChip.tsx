@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
@@ -141,9 +142,13 @@ interface Props {
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
+  /** Ref for Arena soul float to target this chip's frame center (caster only). */
+  casterFrameRef?: RefObject<HTMLDivElement | null>;
+  /** Ref for Arena soul float to start from this chip's frame center (defender only). */
+  defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -581,7 +586,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Card frame — outside body so it's not masked */}
-      <div className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      <div ref={casterFrameRef ?? defenderFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
         {fighter.image ? (
           <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
         ) : (

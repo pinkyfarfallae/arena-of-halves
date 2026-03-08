@@ -322,6 +322,11 @@ export async function deleteRoom(arenaId: string): Promise<void> {
   await remove(roomRef(arenaId));
 }
 
+/** Delete every arena room on the server (entire `arenas` node). Use with caution. */
+export async function deleteAllArenaRooms(): Promise<void> {
+  await remove(ref(db, 'arenas'));
+}
+
 /* ══════════════════════════════════════════════════════════
    BATTLE — turn-based combat
    ══════════════════════════════════════════════════════════ */
