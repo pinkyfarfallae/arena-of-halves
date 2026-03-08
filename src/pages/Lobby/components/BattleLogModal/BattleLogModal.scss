@@ -263,6 +263,24 @@ $ink-faint: #9a8b76;
   border-radius: 2px;
 }
 
+.blm__power {
+  font-weight: 700;
+  font-size: 0.58rem;
+  color: $ink;
+}
+
+.blm__skip {
+  font-weight: 700;
+  font-size: 0.58rem;
+  color: $ink-faint;
+}
+
+.blm__heal {
+  font-weight: 700;
+  font-size: 0.55rem;
+  color: #0d6b0d;
+}
+
 .blm__empty {
   font-family: 'Inter', sans-serif;
   font-size: 0.7rem;

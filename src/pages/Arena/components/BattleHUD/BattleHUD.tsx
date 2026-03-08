@@ -206,12 +206,19 @@ export default function BattleHUD({
   const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
 
   // Clear transient DamageCard and skip card state when turn changes (avoid overlap into next attacker)
+  // Exception: when the last log entry is a skip (no valid target), do NOT clear skipCard here so that
+  // log playback can set it first — then choose action modal shows only after skip card is dismissed.
   useEffect(() => {
     setTransientDamage(null);
     setTransientDamageActive(false);
     setPendingSkeletonCount(0);
+    const logArr = battle?.log || [];
+    const lastEntry = Array.isArray(logArr) && logArr.length > 0 ? logArr[logArr.length - 1] : null;
+    if (lastEntry && (lastEntry as any).skippedNoValidTarget && lastEntry.attackerId !== turn?.attackerId) {
+      return;
+    }
     setSkipCard(null);
-  }, [turn?.attackerId, turn?.defenderId, roundNumber]);
+  }, [turn?.attackerId, turn?.defenderId, roundNumber, battle?.log]);
 
   // No-target modal: track when shown so we can keep it visible at least 3s before skip
   const noTargetShownAtRef = useRef<number | null>(null);
@@ -1066,6 +1073,23 @@ export default function BattleHUD({
 
     const prevIndex: number = resolveCache.current.shownLogIndex || 0;
     if (total <= prevIndex) return;
+
+    // If the new batch includes a skip entry, set skipCard immediately so the choose-action modal
+    // for the next attacker doesn't flash before the skip card is shown.
+    for (let j = prevIndex; j < total; j++) {
+      const e = logArr[j];
+      if ((e as any).skippedNoValidTarget) {
+        const atk = find(teamA, teamB, e.attackerId);
+        const attackerIsTeamA = !!(teamA || []).find((f: any) => f.characterId === e.attackerId);
+        const side = attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
+        setSkipCard({
+          attackerName: atk?.nicknameEng ?? e.attackerId,
+          attackerTheme: atk?.theme?.[0] ?? '#666',
+          side,
+        });
+        break;
+      }
+    }
 
     // If lastSkeletonHits is present, minion hits are played from that buffer. After we clear it,
     // log would replay them unless we skip: use turn key so we skip minion hits for the turn we already played from buffer.
