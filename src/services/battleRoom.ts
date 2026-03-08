@@ -1208,7 +1208,7 @@ export async function selectAction(
     return;
   }
 
-  // ── Soul Devourer (Hades Ultimate): enter 3-round state (round n = cast, then n+1, n+2). tickEffects decrements once per turn, so 3 rounds = 3 * queueLen ──
+  // ── Soul Devourer (Hades Ultimate): no stack; new select = reset to full 3 rounds (no add, no stack) ──
   const SOUL_DEVOURER_DURATION_ROUNDS = 3;
   if (power.name === POWER_NAMES.SOUL_DEVOURER) {
     const queueLen = battle.turnQueue?.length || 1;
