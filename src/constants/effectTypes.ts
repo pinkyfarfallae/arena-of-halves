@@ -22,6 +22,7 @@ export type EffectTypeValue = (typeof EFFECT_TYPES)[keyof typeof EFFECT_TYPES];
  * Target type strings (must match TargetType in types/power.ts).
  */
 export const TARGET_TYPES = {
+  AREA: 'area',
   ENEMY: 'enemy',
   SELF: 'self',
   ALLY: 'ally',

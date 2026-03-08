@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
-import { checkCritical, getWinningFaces } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4 } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -11,14 +11,16 @@ import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal'
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
 import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
+import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './components/RefillSPDiceModal/RefillSPDiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
+import { getPowers } from '../../../../data/powers';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
-import { TARGET_TYPES } from '../../../../constants/effectTypes';
+import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 
 /** Keep element rendered during a fade-out exit animation. */
 function useFadeTransition(visible: boolean, ms = 250) {
@@ -69,6 +71,8 @@ interface Props {
   onMinionHitPulse?: (attackerId: string, defenderId: string) => void;
   /** Power name just confirmed in action modal (e.g. "Soul Devourer") — used to disable Back on target select when needed */
   confirmedPowerName?: string | null;
+  /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
+  onSkipTurnNoTarget?: () => void;
 }
 
 /** Find a fighter across both teams */
@@ -113,7 +117,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse, confirmedPowerName,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -153,7 +157,13 @@ export default function BattleHUD({
       }
     }
 
-    return alive;
+    // Shadow Camouflage: exclude enemies that cannot be targeted (only area attacks can target them)
+    const effects = battle.activeEffects || [];
+    const isAreaAttack = !!(turn?.action === TURN_ACTION.POWER && turn?.usedPowerIndex != null && attacker?.powers?.[turn.usedPowerIndex]?.target === TARGET_TYPES.AREA);
+    return alive.filter((f) => {
+      const hasShadowCamouflage = effects.some((e) => e.targetId === f.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED);
+      return !hasShadowCamouflage || isAreaAttack;
+    });
   })();
 
   /* ── Dice submit with brief delay so user sees result ── */
@@ -192,12 +202,27 @@ export default function BattleHUD({
   useEffect(() => { if (turn?.phase === PHASE.ROLLING_DEFEND) setDefendReady(false); }, [turn?.phase]);
   useEffect(() => { if (turn?.phase === PHASE.RESOLVING) setResolveReady(false); }, [turn?.phase]);
 
-  // Clear transient DamageCard state when turn changes (avoid overlap into next attacker)
+  // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
+  const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
+
+  // Clear transient DamageCard and skip card state when turn changes (avoid overlap into next attacker)
   useEffect(() => {
     setTransientDamage(null);
     setTransientDamageActive(false);
     setPendingSkeletonCount(0);
+    setSkipCard(null);
   }, [turn?.attackerId, turn?.defenderId, roundNumber]);
+
+  // No-target modal: track when shown so we can keep it visible at least 3s before skip
+  const noTargetShownAtRef = useRef<number | null>(null);
+  const noTargetMinShowMs = 3000;
+  useEffect(() => {
+    if (turn?.phase === PHASE.SELECT_TARGET && targets.length === 0) {
+      if (noTargetShownAtRef.current == null) noTargetShownAtRef.current = Date.now();
+    } else {
+      noTargetShownAtRef.current = null;
+    }
+  }, [turn?.phase, targets.length]);
 
   // If I attacked, no attack replay to wait for → short delay
   useEffect(() => {
@@ -655,6 +680,10 @@ export default function BattleHUD({
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING || !resolveReady) return;
+    // Shadow Camouflaging D4: never auto-resolve — wait for player to roll D4
+    const shadowCamouflageD4Wait = !!(turn as any)?.shadowCamouflageRefillWinFaces?.length && (turn as any).shadowCamouflageRefillRoll == null;
+    if (shadowCamouflageD4Wait) return;
+
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     const allChecksDone = soulDevourerDrainTurn || (dodgeReady && critReady && chainReady && coAttackReady);
     if (!allChecksDone) return;
@@ -683,11 +712,17 @@ export default function BattleHUD({
 
   /* ── Fade transitions for resolve & waiting panels ── */
   const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
-  const resolveVisible = turn?.phase === PHASE.RESOLVING && !!attacker && !!defender && (
-    (resolveReady && dodgeReady && critReady && chainReady && coAttackReady) ||
-    (soulDevourerDrain && resolveReady)
+  // Shadow Camouflaging D4: show roll-for-refill UI (no defender needed; phase + winFaces only)
+  const shadowCamouflageD4 = turn?.phase === PHASE.RESOLVING && !!(turn as any)?.shadowCamouflageRefillWinFaces?.length;
+  const resolveVisible = turn?.phase === PHASE.RESOLVING && (
+    (!!attacker && !!defender && (
+      (resolveReady && dodgeReady && critReady && chainReady && coAttackReady) ||
+      (soulDevourerDrain && resolveReady)
+    )) ||
+    (shadowCamouflageD4 && !!attacker)
   );
-  const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay);
+  // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
+  const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
   // Signal parent when resolve becomes visible (for hit effects)
   useEffect(() => {
     onResolveVisible?.(resolveVisible);
@@ -808,8 +843,6 @@ export default function BattleHUD({
         defenderTheme: def?.theme?.[0] || '#666',
         side: defenderSideForMinion,
       } as any;
-
-      console.log('[skeleton damage card]', { source: 'lastSkeletonHits', index: index + 1, total: skHits.length, attackerId: entry.attackerId, defenderId: entry.defenderId, damage: rc.damage, attackerName: rc.attackerName, defenderName: rc.defenderName, side: rc.side });
 
       onResolveVisible?.(true);
       setTransientDamage(rc as any);
@@ -940,7 +973,8 @@ export default function BattleHUD({
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
     side: PANEL_SIDE.RIGHT,
   });
-  if (resolveVisible && turn && attacker && defender) {
+  // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
+  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
@@ -1057,6 +1091,23 @@ export default function BattleHUD({
       delayAcc += STAGGER_MS;
 
       setTimeout(() => {
+        // Skip Shadow Camouflaging log entry — no damage card, no HP; we show D4 roll UI only
+        if (entry.powerUsed === POWER_NAMES.SHADOW_CAMOUFLAGING && entry.defenderId === entry.attackerId && (entry.damage ?? 0) === 0) {
+          return;
+        }
+        // Turn skipped (no valid target): show card on attacker side, same style as DamageCard
+        if ((entry as any).skippedNoValidTarget) {
+          const atk = find(teamA, teamB, entry.attackerId);
+          const attackerIsTeamA = !!(teamA || []).find((f: any) => f.characterId === entry.attackerId);
+          const side = attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
+          setSkipCard({
+            attackerName: atk?.nicknameEng ?? entry.attackerId,
+            attackerTheme: atk?.theme?.[0] ?? '#666',
+            side,
+          });
+          setTimeout(() => setSkipCard(null), HIT_DISPLAY_MS);
+          return;
+        }
         // Map attacker/defender to fighter/minion display names
         const atk = find(teamA, teamB, entry.attackerId);
         const def = find(teamA, teamB, entry.defenderId);
@@ -1084,6 +1135,7 @@ export default function BattleHUD({
           isDodged: !!entry.isDodged,
           coAttackHit: !!entry.coAttackDamage,
           coAttackDamage: (entry.coAttackDamage as number) || 0,
+          soulDevourerDrain: !!(entry as any).soulDevourerDrain,
           // Use lowercase minion nickname for minion attacker when available
           attackerName: (entry as any).isMinionHit
             ? (minionFromTeams?.nicknameEng?.toLowerCase().slice(0, 11) + "..." || atk?.nicknameEng || entry.attackerId)
@@ -1095,9 +1147,6 @@ export default function BattleHUD({
           side: (entry as any).isMinionHit ? defenderSideForMinion : (attackerIsTeamA ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT),
         } as any;
 
-        if ((entry as any).isMinionHit) {
-          console.log('[skeleton damage card]', { source: 'logPlayback', attackerId: entry.attackerId, defenderId: entry.defenderId, side: rc.side, turnAttackerTeam: turn?.attackerTeam });
-        }
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         if (!(entry as any).isMinionHit) {
           resolveCache.current = { ...resolveCache.current, ...rc } as any;
@@ -1232,18 +1281,53 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection */}
-      {isMyTurn && turn.phase === PHASE.SELECT_TARGET && !floralDelay && (
+      {/* Target selection (attacker only) — or "No valid target" on attacker side for everyone; only attacker sees Roger that */}
+      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && ((targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <TargetSelectModal
-            attackerName={attacker?.nicknameEng ?? ''}
-            targets={targets}
-            themeColor={attacker?.theme[0]}
-            themeColorDark={attacker?.theme[18]}
-            onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
-            onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
-            backDisabled={backDisabled}
-          />
+          {targets.length > 0 ? (
+            <TargetSelectModal
+              attackerName={attacker?.nicknameEng ?? ''}
+              targets={targets}
+              themeColor={attacker?.theme[0]}
+              themeColorDark={attacker?.theme[18]}
+              onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
+              onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
+              backDisabled={backDisabled}
+            />
+          ) : targets.length === 0 ? (
+            <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">No valid target</span>
+              <p className="bhud__no-target-reason">
+                All enemies are under Shadow Camouflage. Only area attacks can target them. {isMyTurn ? 'Your turn will be skipped unless you have a self-buff (use Back to choose another action).' : ''}
+              </p>
+              {isMyTurn && onSkipTurnNoTarget ? (
+                <div className="bhud__target-actions">
+                  {onCancelTarget && (
+                    <button type="button" className="bhud__target-back" onClick={() => setTimeout(() => onCancelTarget(), 0)}>
+                      Back
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => {
+                      const shownAt = noTargetShownAtRef.current ?? Date.now();
+                      const elapsed = Date.now() - shownAt;
+                      if (elapsed >= noTargetMinShowMs) {
+                        onSkipTurnNoTarget();
+                      } else {
+                        setTimeout(() => onSkipTurnNoTarget(), noTargetMinShowMs - elapsed);
+                      }
+                    }}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}…</p>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1254,8 +1338,8 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). */}
-      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && !confirmedPowerName && (
+      {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). Hide when skip card is showing (card before next attacker turn). */}
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && attacker && !transientDamageActive && !confirmedPowerName && !skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
@@ -1292,8 +1376,29 @@ export default function BattleHUD({
         </div>
       )}
 
+      {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota) */}
+      {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
+        <RefillSPDiceModal
+          attacker={attacker}
+          isMyTurn={!!isMyTurn}
+          winFaces={(turn as any).shadowCamouflageRefillWinFaces ?? []}
+          roll={(turn as any).shadowCamouflageRefillRoll}
+          atkSide={atkSide}
+          diceViewMs={REFILL_DICE_VIEW_MS}
+          onRoll={async (roll: number) => {
+            if (!arenaId) return;
+            try {
+              await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
+              // Dice view (diceViewMs) + refill card view (REFILL_CARD_VIEW_MS) so player sees dice then card at least as long as damage card
+              await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+              await advanceAfterShadowCamouflageD4(arenaId);
+            } catch (e) {}
+          }}
+        />
+      )}
+
       {/* Dice rolling (attack, defend, resolving replay) */}
-      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && (
+      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && (
         <DiceModal
           turn={turn}
           attacker={attacker}
@@ -1335,14 +1440,25 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Resolve bar */}
-      {showResolve && (() => {
+      {/* Resolve bar (hidden for Shadow Camouflage D4 — we show D4 roll only) */}
+      {showResolve && !shadowCamouflageD4 && (() => {
         const rc = resolveCache.current;
         if (rc.isPower && rc.atkRoll === 0) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
               <div className="bhud__resolve-info">
                 <span className="bhud__resolve-power-name">{rc.powerName}</span>
+              </div>
+            </div>
+          );
+        }
+        // No defendable (e.g. Soul Devourer drain): resolve bar without dice
+        if (rc.soulDevourerDrain) {
+          return (
+            <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+              <div className="bhud__resolve-info">
+                {rc.powerName && <span className="bhud__resolve-power-name">{rc.powerName}</span>}
+                <span className="bhud__resolve-dmg">-{rc.damage} DMG</span>
               </div>
             </div>
           );
@@ -1395,13 +1511,26 @@ export default function BattleHUD({
       })()}
 
       {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
-      {showResolve && !transientDamageActive && resolveVisible && !hadSkeletonHitsThisTurnRef.current && (
+      {showResolve && !shadowCamouflageD4 && !transientDamageActive && resolveVisible && !hadSkeletonHitsThisTurnRef.current && (
         <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
       )}
 
       {/* Transient DamageCard for minion/skeleton hits — always defender side; stable key to avoid jitter */}
       {transientDamage && (
         <DamageCard key="transient-minion-card" data={transientDamage} exiting={false} side={transientDamage.side} />
+      )}
+
+      {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
+      {skipCard && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${skipCard.side}`}>
+          <div className="dmg-card dmg-card--power" style={{ '--card-atk': skipCard.attackerTheme, '--card-def': '#666' } as React.CSSProperties}>
+            <div className="dmg-card__header">
+              <span className="dmg-card__atkname" style={{ color: skipCard.attackerTheme }}>{skipCard.attackerName}</span>
+            </div>
+            <span className="dmg-card__power">No valid target</span>
+            <span className="dmg-card__invoked">Turn skipped</span>
+          </div>
+        </div>
       )}
 
       {/* Waiting for opponent to select target */}
@@ -1480,6 +1609,20 @@ export default function BattleHUD({
           const atkColor = atkFighter?.theme[0];
           const defColor = defFighter?.theme[0];
 
+          if ((entry as any).skippedNoValidTarget) {
+            return (
+              <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-sep">—</span>
+                <span className="bhud__log-skip">Skip turn</span>
+                {(entry as any).skipReason === POWER_NAMES.SHADOW_CAMOUFLAGING && (
+                  <span className="bhud__log-skip-reason">(no valid target)</span>
+                )}
+              </div>
+            );
+          }
+
           if ((entry as any).isMinionHit) {
             // Compact minion log: do not render dice breakdown for minion hits
             return (
@@ -1500,14 +1643,42 @@ export default function BattleHUD({
           }
 
           if (entry.powerUsed) {
+            const power = atkFighter ? getPowers(atkFighter.deityBlood).find((p: { name: string }) => p.name === entry.powerUsed) : undefined;
+            const isSelfTarget = power?.target === TARGET_TYPES.SELF;
+            const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed?.startsWith?.('Ephemeral Season:');
+            const pendingTarget = !!(entry as any).pendingTarget;
+            const noTarget = isSelfTarget || isSeasonPower || pendingTarget;
             return (
               <div className="bhud__log-entry bhud__log-entry--power" key={i}>
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="bhud__log-power">{entry.powerUsed}</span>
+                {!noTarget && (
+                  <>
+                    <span className="bhud__log-sep">→</span>
+                    <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                  </>
+                )}
+                {entry.damage > 0 && <span className="bhud__log-hit">{entry.damage} dmg</span>}
+                {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
+              </div>
+            );
+          }
+
+          // No defendable (e.g. Soul Devourer drain): log without dice
+          if ((entry as any).soulDevourerDrain) {
+            return (
+              <div className="bhud__log-entry bhud__log-entry--no-dice" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="bhud__log-sep">→</span>
                 <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
-                {entry.damage > 0 && <span className="bhud__log-hit">{entry.damage} dmg</span>}
+                <span className="bhud__log-sep">—</span>
+                {entry.missed ? (
+                  <span>{defName} blocked {atkName}</span>
+                ) : (
+                  <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+                )}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
               </div>
             );

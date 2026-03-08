@@ -8,7 +8,7 @@ import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { EFFECT_TAGS } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
-import { TARGET_TYPES } from '../../constants/effectTypes';
+import { TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, type ArenaRole, type PanelSide } from '../../constants/battle';
 import { COPY_TYPE, type CopyType } from '../../constants/lobby';
 import {
@@ -29,6 +29,8 @@ import {
   submitDefendRoll,
   resolveTurn,
   normalizeFighter,
+  advanceAfterShadowCamouflageD4,
+  skipTurnNoValidTarget,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
@@ -342,23 +344,49 @@ function Arena() {
       }, delay);
     };
 
-    // NPC's turn to select target → pick random alive opponent (filtered by power requirements)
+    // NPC cast Shadow Camouflaging: roll D4 for refill SP, then advance
+    const scWinFaces = (turn as any)?.shadowCamouflageRefillWinFaces;
+    const scRoll = (turn as any)?.shadowCamouflageRefillRoll;
+    if (turn.phase === PHASE.RESOLVING && Array.isArray(scWinFaces) && scWinFaces.length > 0 && scRoll == null && teamBIds.has(turn.attackerId)) {
+      schedule(async () => {
+        const roll = Math.ceil(Math.random() * 4);
+        try {
+          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
+          await advanceAfterShadowCamouflageD4(arenaId);
+        } catch (e) {}
+      }, 2000);
+      return;
+    }
+
+    // NPC's turn to select target → pick random alive opponent (filtered by power requirements and Shadow Camouflage)
     if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId)) {
       let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
 
-      // If power requires specific effect on target, filter valid targets
       if (turn.usedPowerIndex != null && battle) {
         const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
         if (npcFighter) {
           const power = npcFighter.powers[turn.usedPowerIndex];
+          const effects = battle.activeEffects || [];
+          // If power requires specific effect on target, filter valid targets
           if (power?.requiresTargetHasEffect) {
             const requiredTag = power.requiresTargetHasEffect;
-            const effects = battle.activeEffects || [];
             teamAAlive = teamAAlive.filter(enemy =>
               effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
             );
           }
         }
+      }
+      // Shadow Camouflage: exclude shadow-camouflaged enemies unless current action is area attack
+      if (battle) {
+        const effects = battle.activeEffects || [];
+        const isAreaAttack = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && (() => {
+          const npcF = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
+          const p = npcF?.powers?.[turn.usedPowerIndex!];
+          return p?.target === TARGET_TYPES.AREA;
+        })();
+        teamAAlive = teamAAlive.filter(enemy =>
+          !effects.some(e => e.targetId === enemy.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED) || isAreaAttack
+        );
       }
 
       if (teamAAlive.length > 0) {
@@ -373,6 +401,9 @@ function Arena() {
         schedule(() => selectTarget(arenaId, target.characterId), delay);
         // Clear the client-side visual after the scheduled action completes (+ small buffer)
         setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, delay + 2500);
+      } else {
+        // No valid target (e.g. all enemies under Shadow Camouflage) — skip turn; modal will show when log updates
+        schedule(() => skipTurnNoValidTarget(arenaId), 1500);
       }
       return;
     }
@@ -481,6 +512,10 @@ function Arena() {
       }
     };
   }, [role, arenaId, user]);
+
+  const handleSkipTurnNoTarget = useCallback(async () => {
+    if (arenaId) await skipTurnNoValidTarget(arenaId);
+  }, [arenaId]);
 
   /* ── Copy helpers ────────────────────────────── */
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
@@ -727,6 +762,7 @@ function Arena() {
             onPreviewSeason={handlePreviewSeason}
             onCancelSeason={handleCancelSeason}
             onCancelTarget={handleCancelTarget}
+            onSkipTurnNoTarget={handleSkipTurnNoTarget}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}

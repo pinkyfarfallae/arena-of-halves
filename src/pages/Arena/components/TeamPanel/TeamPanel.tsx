@@ -7,7 +7,7 @@ import type { EffectPip } from './MemberChip/MemberChip';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
 import { POWER_NAMES } from '../../../../constants/powers';
 import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
-import { MOD_STAT } from '../../../../constants/effectTypes';
+import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
 import './TeamPanel.scss';
 
 interface Props {
@@ -134,16 +134,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
       style={buildPanelBg(members)}
     >
       {members.map((m) => {
-        // Allow a visual override so attacks can be visually retargeted to minions.
-        // Prefer the turn-level `visualDefenderId` (set during selection) so selection
-        // highlights a minion (e.g. skeleton #1). Do NOT fall back to room-level
-        // `lastHitMinionId` while in `select-target` phase to avoid showing a hit
-        // flash when the player is merely choosing a target.
-        // Only honor room-level transient hit markers when we are actively resolving
-        // a hit (prevents stale `lastHitMinionId` from causing a frame shake on new turns).
-        // Priority: explicit turn visual override (selection), then client-side NPC visual override,
-        // then transient server `lastHitMinionId` during resolving.
-        const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === PHASE.RESOLVING || resolveShown) ? (battle as any)?.lastHitMinionId : undefined));
+        // Who is shown as "target" (defender): the one actually targeted, not the skeleton that dealt the hit.
+        // Prefer turn-level visualDefenderId (selection), then client NPC override, then during RESOLVING
+        // use lastHitTargetId (the defender who was hit) — never lastHitMinionId (skeleton/attacker).
+        const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === PHASE.RESOLVING || resolveShown) ? (battle as any)?.lastHitTargetId : undefined));
         const isAttacker = turn?.attackerId === m.characterId;
         
         // Check if this master has any minions (skeletons)
@@ -154,7 +148,16 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const isDefender = !hasMasterMinions && (turn?.defenderId === m.characterId);
         // Defer eliminated state for current defender while minion/skeleton hit effects are still playing
         const isEliminated = m.currentHp <= 0 && !(transientEffectsActive && turn?.defenderId === m.characterId);
-        const isTargetable = !!(canSelectTarget && !isEliminated);
+        // Shadow Camouflaging: immune to single-target actions; area attacks bypass (no target selection for area)
+        const isShadowCamouflaged = activeEffects.some(
+          e => e.targetId === m.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED,
+        );
+        const isAreaAttack = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.action === TURN_ACTION.POWER && turn?.usedPowerIndex != null && (() => {
+          const atk = fighterMap.get(turn.attackerId!);
+          const p = atk?.powers?.[turn.usedPowerIndex!];
+          return p?.target === TARGET_TYPES.AREA;
+        })());
+        const isTargetable = !!(canSelectTarget && !isEliminated && (!isShadowCamouflaged || isAreaAttack));
         const isSpotlight =
           (isAttacker && (turn?.phase === PHASE.SELECT_TARGET || turn?.phase === PHASE.ROLLING_ATTACK)) ||
           (isDefender && turn?.phase === PHASE.ROLLING_DEFEND);
@@ -272,11 +275,6 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           e => e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT && e.targetId === m.characterId,
         );
 
-        // Shadow Camouflaging: dark wisps + shadow particles effect
-        const isShadowCamouflaged = activeEffects.some(
-          e => e.targetId === m.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED,
-        );
-
         // Death Keeper: subtle frame on caster, dark mist on resurrected target
         const hasSoulDevourer = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
@@ -320,21 +318,18 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const logHasFloral = floralLogIndex !== -1;
 
-        // Soul Devourer lifesteal: show +{n} HP on caster from most recent soulDevourerDrain log.
-        // Use last N entries of full log (no round filter) so we still find the drain when the
-        // turn/round advances in the same update (rounds 2 and 3 of Soul Devourer).
+        // Soul Devourer lifesteal: show +{n} HP on caster once after resolve caster hit, before skeleton hits.
+        // Only when this turn is actually a Soul Devourer drain (never use old log from R1 when in R2 e.g. Shadow Camouflaging).
         const soulDevourerHealFromLog = (() => {
-          const logArr = Array.isArray(battle?.log) ? (battle.log as any[]) : [];
-          const recent = logArr.slice(-12);
-          for (let i = recent.length - 1; i >= 0; i--) {
-            const le = recent[i] as any;
-            if (!le.soulDevourerDrain || le.attackerId !== m.characterId) continue;
-            const amount = typeof le.soulDevourerHealAmount === 'number' ? le.soulDevourerHealAmount : Math.ceil((Number(le.damage) || 0) * 0.5);
-            if (amount <= 0) continue;
-            const logIndex = logArr.length - recent.length + i;
-            return { amount, key: `soul_devourer_heal_${logIndex}_${m.characterId}` };
-          }
-          return null;
+          const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
+          if (!turnDrain) return null;
+          const dmgBuff = getStatModifier(activeEffects, m.characterId, MOD_STAT.DAMAGE);
+          const mainDmg = Math.max(0, (m.damage ?? 0) + dmgBuff);
+          const amount = Math.ceil(mainDmg * 0.5);
+          if (amount <= 0) return null;
+          const r = (battle as any)?.roundNumber ?? 0;
+          const ti = (battle as any)?.currentTurnIndex ?? 0;
+          return { amount, key: `soul_devourer_heal_turn_${r}_${ti}_${m.characterId}` };
         })();
 
         const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);

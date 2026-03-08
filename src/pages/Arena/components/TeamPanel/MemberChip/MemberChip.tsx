@@ -294,7 +294,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           prevScentRef.current = true;
           return;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (!scentSuppressRef.current) {
@@ -303,7 +303,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       prevScentRef.current = true;
       // Mark as shown if we were triggered by a persistent log
       if (floralLogKey) {
-        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) {}
+        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
       }
       return () => clearTimeout(timer);
     }
@@ -337,24 +337,20 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     };
   }, []);
 
-  /* ── Soul Devourer lifesteal: show +{n} HP in frame once per key (inline, no separate file) ── */
+  /* ── Soul Devourer lifesteal: same style as Floral Fragrance (wave + border + accents + heal text), black/purple; show 3s when key+amount appear ── */
   const [showSoulDevourerHeal, setShowSoulDevourerHeal] = useState(false);
+  const [soulDevourerHealDisplayAmount, setSoulDevourerHealDisplayAmount] = useState(0);
   const prevSoulDevourerHealKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!soulDevourerHealKey || soulDevourerHealAmount <= 0) return;
     if (prevSoulDevourerHealKeyRef.current === soulDevourerHealKey) return;
-    try {
-      if (window.localStorage.getItem(soulDevourerHealKey)) {
-        prevSoulDevourerHealKeyRef.current = soulDevourerHealKey;
-        return;
-      }
-    } catch (_) {}
-    setShowSoulDevourerHeal(true);
     prevSoulDevourerHealKeyRef.current = soulDevourerHealKey;
-    const t = setTimeout(() => setShowSoulDevourerHeal(false), 3000);
-    try {
-      window.localStorage.setItem(soulDevourerHealKey, '1');
-    } catch (_) {}
+    setSoulDevourerHealDisplayAmount(soulDevourerHealAmount);
+    setShowSoulDevourerHeal(true);
+    const t = setTimeout(() => {
+      setShowSoulDevourerHeal(false);
+      setSoulDevourerHealDisplayAmount(0);
+    }, 3000);
     return () => clearTimeout(t);
   }, [soulDevourerHealKey, soulDevourerHealAmount]);
 
@@ -555,11 +551,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {/* Scent Wave — falling flower/leaf particles for Floral Scented buff */}
       {showScentWave && battleLive && <div className="mchip__scent-wave" aria-hidden="true" />}
 
-      {/* Soul Devourer lifesteal — inline +{n} HP in frame only (no separate file) */}
-      {battleLive && showSoulDevourerHeal && soulDevourerHealAmount > 0 && (
-        <div className="mchip__soul-devourer-heal" aria-hidden="true">
-          +{soulDevourerHealAmount} HP
-        </div>
+      {/* Soul Devourer lifesteal — same layout as Floral: wave (particles) only here; border + accents + text inside frame below */}
+      {battleLive && showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
+        <div className="mchip__soul-devourer-wave" aria-hidden="true" />
       )}
 
       {/* Falling white light motes — like sunlight through leaves */}
@@ -612,17 +606,24 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             {/* Petal leaf accents — green spots around frame edge */}
             {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
 
-            {/* Scent Wave border + accents (separate divs) */}
+            {/* Scent Wave border + accents (separate divs) + heal boost floating text */}
             {showScentWave && (
               <>
                 <div className="mchip__scent-border" aria-hidden="true" />
                 <div className="mchip__scent-accents" aria-hidden="true" />
+                <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
               </>
             )}
 
-            {/* Heal boost floating text */}
-            {showScentWave && (
-              <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+            {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
+            {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
+              <>
+                <div className="mchip__soul-devourer-border" aria-hidden="true" />
+                <div className="mchip__soul-devourer-accents" aria-hidden="true" />
+                <div className="mchip__soul-devourer-heal" aria-hidden="true">
+                  +{soulDevourerHealDisplayAmount} HP
+                </div>
+              </>
             )}
 
             {/* Petal shield badge — Secret of Dryad status immunity */}

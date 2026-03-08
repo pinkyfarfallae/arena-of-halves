@@ -119,6 +119,10 @@ export interface TurnState {
   soulDevourerDrain?: boolean;
   /* Soul Devourer: chose Use Power that cannot attack — end turn without resolving */
   soulDevourerEndTurnOnly?: boolean;
+
+  /* Shadow Camouflaging: D4 roll for 25% refill SP (quota) — server sets winFaces, client writes roll then calls advanceAfterShadowCamouflageD4 */
+  shadowCamouflageRefillWinFaces?: number[];
+  shadowCamouflageRefillRoll?: number;
 }
 
 /** A log entry for the battle feed */
@@ -143,6 +147,11 @@ export interface BattleLogEntry {
   coAttackerId?: string;
   resurrectTargetId?: string;
   resurrectHpRestored?: number;
+  /** Turn was skipped because attacker had no valid target (e.g. all enemies under Shadow Camouflage) */
+  skippedNoValidTarget?: boolean;
+  skipReason?: string;
+  /** Logged when confirming power before target/season; show power name only, no arrow/target until resolved */
+  pendingTarget?: boolean;
 }
 
 /** Full battle state stored alongside the room */
