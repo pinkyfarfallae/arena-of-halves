@@ -170,17 +170,26 @@ export function applyPowerEffect(
 
     case EFFECT_TYPES.BUFF:
     case EFFECT_TYPES.DEBUFF: {
-      const eff: ActiveEffect = {
-        id: makeEffectId(attackerId, power.name),
-        powerName: power.name,
-        effectType: power.effect,
-        sourceId: attackerId,
-        targetId,
-        value: power.value,
-        turnsRemaining: power.duration,
-      };
-      if (power.modStat) eff.modStat = power.modStat;
-      effects.push(eff);
+      // Shadow Camouflaging: no stack; new select = reset to full duration (no add, no stack)
+      const isShadowCamouflaging = power.name === POWER_NAMES.SHADOW_CAMOUFLAGING || power.modStat === MOD_STAT.SHADOW_CAMOUFLAGED;
+      const existingShadow = isShadowCamouflaging
+        ? effects.find(e => e.targetId === targetId && (e.powerName === POWER_NAMES.SHADOW_CAMOUFLAGING || e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED))
+        : null;
+      if (existingShadow) {
+        existingShadow.turnsRemaining = power.duration ?? existingShadow.turnsRemaining;
+      } else {
+        const eff: ActiveEffect = {
+          id: makeEffectId(attackerId, power.name),
+          powerName: power.name,
+          effectType: power.effect,
+          sourceId: attackerId,
+          targetId,
+          value: power.value,
+          turnsRemaining: power.duration,
+        };
+        if (power.modStat) eff.modStat = power.modStat;
+        effects.push(eff);
+      }
 
       // Undead Army: create skeleton minion (max 2 total)
       if (power.modStat === MOD_STAT.SKELETON_COUNT && targetPath) {
