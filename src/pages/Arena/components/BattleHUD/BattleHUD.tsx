@@ -692,13 +692,16 @@ export default function BattleHUD({
   // State-based count so auto-resolve re-runs when all skeleton playbacks finish
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
   useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING || !resolveReady) return;
+    if (turn?.phase !== PHASE.RESOLVING) return;
+    const resolvingHitIndex = (turn as any).resolvingHitIndex as number | undefined;
+    const isPerHitSkeletonPhase = resolvingHitIndex != null && resolvingHitIndex >= 1;
+    if (!isPerHitSkeletonPhase && !resolveReady) return;
     // Shadow Camouflaging D4: never auto-resolve — wait for player to roll D4
     const shadowCamouflageD4Wait = !!(turn as any)?.shadowCamouflageRefillWinFaces?.length && (turn as any).shadowCamouflageRefillRoll == null;
     if (shadowCamouflageD4Wait) return;
 
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
-    const allChecksDone = soulDevourerDrainTurn || (dodgeReady && critReady && chainReady && coAttackReady);
+    const allChecksDone = isPerHitSkeletonPhase || soulDevourerDrainTurn || (dodgeReady && critReady && chainReady && coAttackReady);
     if (!allChecksDone) return;
 
     // Do not auto-resolve until every skeleton/minion DamageCard has finished.
@@ -707,13 +710,19 @@ export default function BattleHUD({
       return;
     }
 
-    // Soul Devourer drain: resolve sooner so server sends lastSkeletonHits early; skeleton chain then uses
-    // chainStartDelayMs so soul float + heal still play before first skeleton card.
-    const autoResolveMs = soulDevourerDrainTurn ? 1800 : 5000;
+    // 1800ms when master hit is followed by skeleton/minion hits (Soul Devourer drain or normal attack with skeleton)
+    const attackerTeamMinions = turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB;
+    const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
+      ? (attackerTeamMinions as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
+      : (attacker?.skeletonCount ?? 0);
+    const masterHasSkeleton = attackerSkeletonCount > 0;
+    const normalAttackWithSkeleton = turn?.action === TURN_ACTION.ATTACK && masterHasSkeleton;
+    let autoResolveMs = (soulDevourerDrainTurn || normalAttackWithSkeleton) ? 1800 : 5000;
+    if (isPerHitSkeletonPhase) autoResolveMs = 400;
     const timer = setTimeout(() => onResolve(), autoResolveMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turn?.phase is the trigger; including full turn changes array size between renders
-  }, [turn?.phase, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
+  }, [turn?.phase, (turn as any)?.resolvingHitIndex, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
 
   /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
@@ -739,8 +748,11 @@ export default function BattleHUD({
   );
   // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
   const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
-  // Signal parent when resolve becomes visible (for hit effects)
+  // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
+  const lastResolveVisibleRef = useRef<boolean | null>(null);
   useEffect(() => {
+    if (lastResolveVisibleRef.current === resolveVisible) return;
+    lastResolveVisibleRef.current = resolveVisible;
     onResolveVisible?.(resolveVisible);
   }, [resolveVisible, onResolveVisible]);
 
@@ -923,12 +935,16 @@ export default function BattleHUD({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
   }, [lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
-  // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active
+  // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active.
+  // Use primitive deps and only call when value changes to avoid update loops from parent re-renders.
+  const skBufferLength = Array.isArray((battle as any)?.lastSkeletonHits) ? (battle as any).lastSkeletonHits.length : 0;
+  const lastTransientActiveRef = useRef<boolean | null>(null);
   useEffect(() => {
-    const skBuffer = (battle as any)?.lastSkeletonHits as any[] | undefined;
-    const hasPendingPlayback = transientDamageActive || (Array.isArray(skBuffer) && skBuffer.length > 0) || pendingSkeletonCount > 0;
+    const hasPendingPlayback = transientDamageActive || skBufferLength > 0 || pendingSkeletonCount > 0;
+    if (lastTransientActiveRef.current === hasPendingPlayback) return;
+    lastTransientActiveRef.current = hasPendingPlayback;
     onTransientEffectsActive?.(hasPendingPlayback);
-  }, [transientDamageActive, battle, pendingSkeletonCount, onTransientEffectsActive]);
+  }, [transientDamageActive, skBufferLength, pendingSkeletonCount, onTransientEffectsActive]);
 
   // When phase advances to next turn, clear transient minion card and "had skeleton hits" only after all skeleton cards have finished (so modal stays visible for full 2.5s per skeleton)
   const prevPhaseRef = useRef<string | undefined>(undefined);
