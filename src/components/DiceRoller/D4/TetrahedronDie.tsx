@@ -186,6 +186,14 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
     if (!spinning.current) return;
 
     if (spinStart.current === 0) {
+      // Set initial orientation to a random quat so we never show a single wrong face on the first frame (avoids jitter)
+      groupRef.current.quaternion.setFromEuler(
+        new THREE.Euler(
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+        ),
+      );
       spinStart.current = performance.now() / 1000;
       settleStart.current = 0;
     }

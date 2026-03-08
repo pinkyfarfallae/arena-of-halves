@@ -3,6 +3,7 @@ import Close from '../../../../icons/Close';
 import Swords from '../../../../icons/Swords';
 import './BattleLogModal.scss';
 import { BATTLE_TEAM } from '../../../../constants/battle';
+import { POWER_NAMES } from '../../../../constants/powers';
 import { DEFAULT_THEME } from '../../../../constants/theme';
 
 interface Props {
@@ -122,6 +123,62 @@ export default function BattleLogModal({ room, onClose }: Props) {
               );
             }
 
+            // Skip (no valid target, e.g. Shadow Camouflage)
+            if ((entry as any).skippedNoValidTarget) {
+              const reason = (entry as any).skipReason ?? 'No valid target';
+              return (
+                <div className="blm__entry blm__entry--skip" key={i}>
+                  <span className="blm__round">R{entry.round}</span>
+                  <span className="blm__skip">Skip turn ({reason})</span>
+                </div>
+              );
+            }
+
+            // Soul Devourer drain: no dice, show drain result
+            if ((entry as any).soulDevourerDrain) {
+              return (
+                <div className="blm__entry blm__entry--power" key={i}>
+                  <span className="blm__round">R{entry.round}</span>
+                  <span className="blm__name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                  <span className="blm__vs-sm">→</span>
+                  <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                  <span className="blm__sep">&mdash;</span>
+                  <span className="blm__hit">-{entry.damage} dmg</span>
+                  {(entry as any).soulDevourerHealAmount != null && (
+                    <span className="blm__heal">+{(entry as any).soulDevourerHealAmount} heal</span>
+                  )}
+                  {entry.eliminated && <span className="blm__ko">KO</span>}
+                </div>
+              );
+            }
+
+            // Power entry: "AttackerName PowerName [→ DefenderName] [damage]"
+            // Ephemeral Season / self-target: no arrow (log is written after choose season / choose target)
+            if (entry.powerUsed) {
+              const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed.startsWith('Ephemeral Season:');
+              const isSelfTarget = entry.defenderId === entry.attackerId;
+              const noTarget = isSeasonPower || isSelfTarget;
+              return (
+                <div className="blm__entry blm__entry--power" key={i}>
+                  <span className="blm__round">R{entry.round}</span>
+                  <span className="blm__name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                  <span className="blm__power">{entry.powerUsed}</span>
+                  {!noTarget && (
+                    <>
+                      <span className="blm__vs-sm">→</span>
+                      <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                    </>
+                  )}
+                  {entry.damage > 0 && (
+                    <span className="blm__sep">&mdash;</span>
+                  )}
+                  {entry.damage > 0 && <span className="blm__hit">-{entry.damage} dmg</span>}
+                  {entry.eliminated && <span className="blm__ko">KO</span>}
+                </div>
+              );
+            }
+
+            // Default: normal attack (dice vs dice)
             return (
               <div className="blm__entry" key={i}>
                 <span className="blm__round">R{entry.round}</span>
