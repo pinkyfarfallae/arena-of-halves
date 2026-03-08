@@ -194,6 +194,25 @@ $ink-faint: #9a8b76;
   }
 }
 
+/* ── No valid target (e.g. Shadow Camouflage) ── */
+.bhud__targets-modal--no-target {
+  .bhud__no-target-reason {
+    margin: 0 0 0.5rem;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: $ink-faint;
+    text-align: center;
+  }
+
+  .bhud__no-target-waiting {
+    margin: 0;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: $ink-faint;
+    text-align: center;
+  }
+}
+
 /* ── Responsive ── */
 @media (max-width: $bp-medium) {
   .bhud__targets-modal {

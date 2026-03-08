@@ -58,7 +58,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
         'ทำการระเบิดช็อตที่อยู่บนตัวศัตรูทุกเป้าหมายให้ทำดาเมจทันที',
       available: true,
       effect: EFFECT_TYPES.DAMAGE,
-      target: TARGET_TYPES.ENEMY,
+      target: TARGET_TYPES.AREA,
       value: 0,
       duration: 0,
       skipDice: true,
@@ -577,7 +577,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: POWER_TYPES.FIRST_SKILL,
       name: DEITY_POWER_NAMES.SHADOW_CAMOUFLAGING,
       description:
-        'เสียสละโอกาสในการโจมตีเพื่อเข้าสู่สถานะ "เงาพรางตัว" เป็นเวลา 2 รอบ นั่นคือ ไม่ตกเป็นเป้าหมายของแอคชั่นใดๆ ยกเว้นในการโจมตีหมู่อันหมายถึงทุกคนในทีมตกเป็นเป้าหมายของศัตรู',
+        'เสียสละโอกาสในการโจมตีเพื่อเข้าสู่สถานะ "เงาพรางตัว" เป็นเวลา 2 รอบ นั่นคือ ไม่ตกเป็นเป้าหมายของแอคชั่นใดๆ ยกเว้นในการโจมตีหมู่อันหมายถึงทุกคนในทีมตกเป็นเป้าหมายของศัตรู ทั้งนี้ ในเทิร์นที่ร่ายพลัง ทายาทแห่งฮาเดสจะได้รับสิทธิ์ในการทอยเต๋า D4 เพื่อรับโอกาสเติม Skill Point 1 ครั้งด้วยโอกาส 25%',
       available: true,
       effect: EFFECT_TYPES.BUFF,
       target: TARGET_TYPES.SELF,

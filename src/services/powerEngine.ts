@@ -162,7 +162,7 @@ export function applyPowerEffect(
     case EFFECT_TYPES.LIFESTEAL: {
       const newTargetHp = Math.max(0, target.currentHp - power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newTargetHp;
-      const healAmount = Math.floor(power.value * 0.5);
+      const healAmount = Math.ceil(power.value * 0.5);
       const newAttackerHp = Math.min(attacker.maxHp, attacker.currentHp + healAmount);
       if (attackerPath) updates[`${attackerPath}/currentHp`] = newAttackerHp;
       break;

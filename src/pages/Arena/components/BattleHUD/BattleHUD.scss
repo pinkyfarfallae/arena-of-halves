@@ -467,6 +467,17 @@ $crimson-bright: #c41e3a;
   font-style: italic;
 }
 
+.bhud__log-entry--skip .bhud__log-skip {
+  font-weight: 700;
+  color: $ink-mid;
+}
+
+.bhud__log-skip-reason {
+  font-size: 0.55rem;
+  color: $ink-faint;
+  font-style: italic;
+}
+
 /* ── Responsive ── */
 @media (max-width: $bp-medium) {
   .bhud {
