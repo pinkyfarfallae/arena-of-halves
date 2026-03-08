@@ -65,6 +65,8 @@ export const ARENA_PATH = {
   BATTLE_LAST_HIT_TARGET_ID: 'battle/lastHitTargetId',
   BATTLE_LAST_SKELETON_HITS: 'battle/lastSkeletonHits',
   BATTLE_WINNER: 'battle/winner',
+  /** Set when damage eliminated a team; winner is written after delay so hit effects can play */
+  BATTLE_WINNER_DELAYED_AT: 'battle/winnerDelayedAt',
   BATTLE_TURN_QUEUE: 'battle/turnQueue',
   BATTLE_CURRENT_TURN_INDEX: 'battle/currentTurnIndex',
   BATTLE_ROUND_NUMBER: 'battle/roundNumber',

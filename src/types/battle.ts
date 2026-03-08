@@ -123,6 +123,9 @@ export interface TurnState {
   /* Shadow Camouflaging: D4 roll for 25% refill SP (quota) — server sets winFaces, client writes roll then calls advanceAfterShadowCamouflageD4 */
   shadowCamouflageRefillWinFaces?: number[];
   shadowCamouflageRefillRoll?: number;
+
+  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
+  resolvingHitIndex?: number;
 }
 
 /** A log entry for the battle feed */
@@ -163,6 +166,8 @@ export interface BattleState {
   log: BattleLogEntry[];
   activeEffects: ActiveEffect[];
   winner?: BattleTeamKey;
+  /** Timestamp when winner will be set after delay (so hit effects can play before end arena) */
+  winnerDelayedAt?: number;
 }
 
 /** The battle room stored in Firebase */
