@@ -68,6 +68,8 @@ interface Props {
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
   onTransientEffectsActive?: (active: boolean) => void;
+  /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
+  onSoulDevourerHealReady?: (ready: boolean) => void;
   onMinionHitPulse?: (attackerId: string, defenderId: string) => void;
   /** Power name just confirmed in action modal (e.g. "Soul Devourer") — used to disable Back on target select when needed */
   confirmedPowerName?: string | null;
@@ -117,7 +119,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -738,6 +740,20 @@ export default function BattleHUD({
   useEffect(() => {
     onResolveVisible?.(resolveVisible);
   }, [resolveVisible, onResolveVisible]);
+
+  // Soul Devourer: soul floats 2.8s, lands and explodes 0.5s, then heal shows. Heal ready at 3.8s (after explode).
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING || !(turn as any)?.soulDevourerDrain) {
+      onSoulDevourerHealReady?.(false);
+      return;
+    }
+    const t = setTimeout(() => onSoulDevourerHealReady?.(true), 3800);
+    return () => {
+      clearTimeout(t);
+      onSoulDevourerHealReady?.(false);
+    };
+  }, [turn?.phase, (turn as any)?.soulDevourerDrain, onSoulDevourerHealReady]);
+
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
   const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || transientDamageActive || pendingSkeletonCount > 0;
@@ -807,10 +823,9 @@ export default function BattleHUD({
     skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
     skeletonChainTimeoutsRef.current = [];
     lastSkeletonHitsKeyRef.current = skKey;
-    hadSkeletonHitsThisTurnRef.current = true;
-
-    const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
-    lastSkeletonPlaybackTurnKeyRef.current = turnKey;
+    // Set hadSkeletonHits only when first skeleton card shows (so master damage + heal can show first on Soul Devourer drain)
+    const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
+    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500; // master + soul float + explode + heal, then skeleton cards
 
     const HIT_DISPLAY_MS = 2500; // ~2.5s per skeleton so damage card stays visible
     setPendingSkeletonCount((c) => c + skHits.length);
@@ -823,6 +838,7 @@ export default function BattleHUD({
         try { update(ref(db, `arenas/${arenaId}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }); } catch (e) { }
         return;
       }
+      if (index === 0) hadSkeletonHitsThisTurnRef.current = true;
       const entry = skHits[index];
       const atk = find(teamA, teamB, entry.attackerId);
       const def = find(teamA, teamB, entry.defenderId);
@@ -883,14 +899,23 @@ export default function BattleHUD({
       timeoutsRef.current.push(t);
     };
 
-    const totalDisplayMs = skHits.length * (HIT_DISPLAY_MS + 50);
+    const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
+    lastSkeletonPlaybackTurnKeyRef.current = turnKey;
+
+    const chainStartDelayMs = soulDevourerDrain ? SOUL_DEVOURER_MASTER_AND_HEAL_MS : 0;
+    const totalDisplayMs = chainStartDelayMs + skHits.length * (HIT_DISPLAY_MS + 50);
     const tEnd = window.setTimeout(() => {
       onResolveVisible?.(false);
       try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
     }, totalDisplayMs);
     timeoutsRef.current.push(tEnd);
 
-    showNext();
+    if (chainStartDelayMs > 0) {
+      const tStart = window.setTimeout(() => showNext(), chainStartDelayMs);
+      timeoutsRef.current.push(tStart);
+    } else {
+      showNext();
+    }
     // No cleanup here: effect re-runs (e.g. battle ref change) must not cancel the chain. Timeouts are cleared only when starting a new chain or on unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
   }, [lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);

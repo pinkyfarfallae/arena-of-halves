@@ -348,6 +348,189 @@ $ink-faint: #9a8b76;
   z-index: 1;
 }
 
+/* Soul Devourer: soul orb floats slowly from defender to caster frame center, lands then explodes. */
+$soul-float-duration: 2.8s;
+$soul-explode-duration: 0.5s;
+$soul-total-duration: $soul-float-duration + $soul-explode-duration;
+
+.arena__soul-float {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Orb wrapper: runs position/scale animation */
+.arena__soul-float-orb {
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  border-radius: 50%;
+  animation-duration: $soul-total-duration;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+/* Base layer: defender primary, blurred edge */
+.arena__soul-float-orb-base {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 40%,
+    color-mix(in srgb, var(--soul-color-start, #5e3575) 55%, transparent) 0%,
+    color-mix(in srgb, var(--soul-color-start, #5e3575) 75%, transparent) 40%,
+    color-mix(in srgb, var(--soul-color-start, #5e3575) 25%, transparent) 70%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--soul-color-start, #5e3575) 40%, transparent),
+    0 0 20px color-mix(in srgb, var(--soul-color-start, #5e3575) 20%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--soul-color-start, #5e3575) 25%, transparent);
+  filter: blur(2px);
+}
+
+/* Blend layer: caster primary fades in over the float so orb goes defender → caster */
+.arena__soul-float-orb-blend {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 40%,
+    color-mix(in srgb, var(--soul-color-end, #5e3575) 55%, transparent) 0%,
+    color-mix(in srgb, var(--soul-color-end, #5e3575) 75%, transparent) 40%,
+    color-mix(in srgb, var(--soul-color-end, #5e3575) 25%, transparent) 70%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--soul-color-end, #5e3575) 40%, transparent),
+    0 0 20px color-mix(in srgb, var(--soul-color-end, #5e3575) 20%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--soul-color-end, #5e3575) 25%, transparent);
+  filter: blur(2px);
+  animation: arena-soul-orb-blend $soul-float-duration ease-in-out forwards;
+}
+
+@keyframes arena-soul-orb-blend {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Burst at caster center (position set by --soul-end-x/y), uses caster primary */
+.arena__soul-float-burst {
+  position: absolute;
+  left: var(--soul-end-x, 50%);
+  top: var(--soul-end-y, 50%);
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--soul-color-end, #5e3575) 60%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--soul-color-end, #5e3575) 40%, transparent);
+  animation-duration: $soul-explode-duration;
+  animation-timing-function: ease-out;
+  animation-delay: $soul-float-duration;
+  animation-fill-mode: forwards;
+  animation-name: arena-soul-burst;
+  opacity: 0;
+}
+
+.arena__soul-float--left-to-right .arena__soul-float-orb {
+  animation-name: arena-soul-float-ltr;
+}
+
+.arena__soul-float--right-to-left .arena__soul-float-orb {
+  animation-name: arena-soul-float-rtl;
+}
+
+@keyframes arena-soul-float-ltr {
+  0% {
+    left: var(--soul-start-x, 12%);
+    top: var(--soul-start-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  50% {
+    left: 50%;
+    margin-left: -14px;
+    transform: translateY(calc(-50% - 10px)) scale(1);
+  }
+  88% {
+    left: var(--soul-end-x, 88%);
+    top: var(--soul-end-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    left: var(--soul-end-x, 88%);
+    top: var(--soul-end-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(2);
+    opacity: 0;
+    box-shadow: 0 0 24px rgba(45, 25, 65, 0.6), 0 0 48px rgba(26, 26, 46, 0.4);
+  }
+}
+
+@keyframes arena-soul-float-rtl {
+  0% {
+    left: var(--soul-start-x, 88%);
+    top: var(--soul-start-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  50% {
+    left: 50%;
+    margin-left: -14px;
+    transform: translateY(calc(-50% - 10px)) scale(1);
+  }
+  88% {
+    left: var(--soul-end-x, 12%);
+    top: var(--soul-end-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    left: var(--soul-end-x, 12%);
+    top: var(--soul-end-y, 50%);
+    margin-left: -14px;
+    margin-top: -14px;
+    transform: scale(2);
+    opacity: 0;
+    box-shadow: 0 0 24px rgba(45, 25, 65, 0.6), 0 0 48px rgba(26, 26, 46, 0.4);
+  }
+}
+
+@keyframes arena-soul-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.8;
+    border-color: rgba(94, 53, 117, 0.6);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+    border-color: rgba(26, 26, 46, 0);
+  }
+}
+
 .arena__half {
   flex: 1;
   position: relative;

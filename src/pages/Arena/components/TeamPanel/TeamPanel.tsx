@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
@@ -21,6 +22,12 @@ interface Props {
   resolveShown?: boolean;
   /** True while transient damage/skeleton playback is active — used to suppress chained visuals */
   transientEffectsActive?: boolean;
+  /** True 2.5s after RESOLVING with Soul Devourer drain so heal shows after master damage card */
+  soulDevourerHealReady?: boolean;
+  /** Ref to attach to caster's frame so soul float can target its center (Soul Devourer) */
+  casterFrameRef?: RefObject<HTMLDivElement | null>;
+  /** Ref to attach to defender's frame so soul float starts from target center (Soul Devourer) */
+  defenderFrameRef?: RefObject<HTMLDivElement | null>;
   /** Optional map of transient minion pulse ids keyed by defenderId (from Arena) */
   minionPulseMap?: Record<string, number>;
   onSelectTarget?: (defenderId: string) => void;
@@ -46,7 +53,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -318,11 +325,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const logHasFloral = floralLogIndex !== -1;
 
-        // Soul Devourer lifesteal: show +{n} HP on caster once after resolve caster hit, before skeleton hits.
-        // Only when this turn is actually a Soul Devourer drain (never use old log from R1 when in R2 e.g. Shadow Camouflaging).
+        // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         const soulDevourerHealFromLog = (() => {
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
-          if (!turnDrain) return null;
+          if (!turnDrain || !soulDevourerHealReady) return null;
           const dmgBuff = getStatModifier(activeEffects, m.characterId, MOD_STAT.DAMAGE);
           const mainDmg = Math.max(0, (m.damage ?? 0) + dmgBuff);
           const amount = Math.ceil(mainDmg * 0.5);
@@ -401,6 +407,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             }
             soulDevourerHealAmount={soulDevourerHealFromLog?.amount}
             soulDevourerHealKey={soulDevourerHealFromLog?.key}
+            casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
+            defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
           />
         );
       })}
