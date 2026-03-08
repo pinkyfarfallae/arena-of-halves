@@ -34,6 +34,8 @@ interface Props {
   /** Optional client-side visual override for NPC target selection */
   clientVisualDefenderId?: string | null;
   clientVisualPowerName?: string | null;
+  /** True briefly when user clicks Back from target modal — prevents opposite mchip__frame shake */
+  suppressHitAfterBack?: boolean;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -53,7 +55,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -199,9 +201,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // is played from the transient `lastSkeletonHits` buffer.
         const transientLastMinionId = (battle as any)?.lastHitMinionId as string | undefined;
         const transientLastTargetId = (battle as any)?.lastHitTargetId as string | undefined;
-        // Block hit visuals entirely while the local player is selecting a target
-        // (prevents accidental frame shakes when opening/closing the select-target modal).
-        const allowHitVisuals = (turn?.phase !== PHASE.SELECT_TARGET && turn?.phase !== PHASE.SELECT_SEASON && turn?.phase !== PHASE.SELECT_ACTION) && !suppressHitAfterSelect;
+        // Block hit visuals while selecting target and briefly when user clicks Back (no opposite frame shake).
+        const allowHitVisuals = (turn?.phase !== PHASE.SELECT_TARGET && turn?.phase !== PHASE.SELECT_SEASON && turn?.phase !== PHASE.SELECT_ACTION) && !suppressHitAfterSelect && !suppressHitAfterBack;
         // Accept transient minion markers only while resolving/resolveShown or
         // while transient effects are actively playing. Also explicitly block
         // these markers during target selection and for a short suppression
@@ -390,9 +391,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            // Only allow transient-driven pulses when hit visuals are allowed
-            // (prevents Back/cancel selection from causing false shakes)
-            allowTransientHits={allowHitVisuals}
+            // Allow pulses when hit visuals allowed, or during RESOLVING with skeleton playback (n hits → n shakes)
+            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive)}
             visualDefenderId={visualDefenderId}
             minionHitPulseId={
               (minionPulseMap && minionPulseMap[m.characterId] != null)

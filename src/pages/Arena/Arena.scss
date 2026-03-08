@@ -389,7 +389,7 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     0 0 10px color-mix(in srgb, var(--soul-color-start, #5e3575) 40%, transparent),
     0 0 20px color-mix(in srgb, var(--soul-color-start, #5e3575) 20%, transparent),
     inset 0 0 8px color-mix(in srgb, var(--soul-color-start, #5e3575) 25%, transparent);
-  filter: blur(2px);
+  filter: blur(5px);
 }
 
 /* Blend layer: caster primary fades in over the float so orb goes defender → caster */

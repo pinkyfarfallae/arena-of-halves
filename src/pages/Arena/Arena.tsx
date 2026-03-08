@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
+import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
@@ -83,6 +84,9 @@ function Arena() {
   const watchOnly = searchParams.get('watch') === 'true';
   const { user } = useAuth();
   const navigate = useNavigate();
+  /** Suppress hit visuals briefly when user clicks Back from target modal (no opposite frame shake) */
+  const [suppressHitAfterBack, setSuppressHitAfterBack] = useState(false);
+  const suppressHitAfterBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [room, setRoom] = useState<BattleRoom | null>(null);
   const [role, setRole] = useState<ArenaRole | null>(null);
@@ -114,6 +118,13 @@ function Arena() {
     }
     prevPhaseRef.current = phase;
   }, [room?.battle?.turn?.phase]);
+
+  // Clear pulse map when skeleton chain ends (transientEffectsActive true → false) so next turn is fresh
+  const prevTransientRef = useRef(false);
+  useEffect(() => {
+    if (prevTransientRef.current && !transientEffectsActive) setMinionPulseMap({});
+    prevTransientRef.current = transientEffectsActive;
+  }, [transientEffectsActive]);
 
   // Reset Soul Devourer heal-ready and soul float when turn or phase changes
   useEffect(() => {
@@ -639,11 +650,14 @@ function Arena() {
   };
 
   const handleCancelTarget = async () => {
+    setSuppressHitAfterBack(true);
+    if (suppressHitAfterBackTimerRef.current) clearTimeout(suppressHitAfterBackTimerRef.current);
+    suppressHitAfterBackTimerRef.current = setTimeout(() => {
+      setSuppressHitAfterBack(false);
+      suppressHitAfterBackTimerRef.current = null;
+    }, 500);
     if (!arenaId) return;
-    // Clear local transient pulses immediately so UI won't flash when the
-    // player cancels selection (avoids Back causing opponent frames to shake).
     try { setMinionPulseMap({}); } catch (e) {}
-    // Also clear transient markers on server to avoid cross-client races.
     try {
       await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null, [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null });
     } catch (e) {}
@@ -762,6 +776,7 @@ function Arena() {
             onSelectTarget={onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
+            suppressHitAfterBack={suppressHitAfterBack}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
@@ -795,6 +810,7 @@ function Arena() {
               onSelectTarget={onSelectTargetDeferred}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
+              suppressHitAfterBack={suppressHitAfterBack}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -865,13 +881,8 @@ function Arena() {
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
               minionPulseCounterRef.current += 1;
               const pulseId = minionPulseCounterRef.current;
-              setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId }));
-              // clear after display duration so the same defender can get a fresh pulse next time
-              setTimeout(() => setMinionPulseMap((m) => {
-                const copy = { ...m };
-                if (copy[defenderId] === pulseId) delete copy[defenderId];
-                return copy;
-              }), 1800);
+              flushSync(() => setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId })));
+              // Don't clear per-pulse: that removed pulse 1 before skeleton 2 (2.5s), so only 1 shake. Map cleared when chain ends (transientEffectsActive→false) and when leaving RESOLVING.
             }}
           />
         )}
