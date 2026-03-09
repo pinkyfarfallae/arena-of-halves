@@ -89,8 +89,8 @@ function normalizeFighterImpl(fighter: any): FighterState {
     fighter.skeletonCount = 0;
   }
 
-  // Ensure other numeric fields are valid
-  ['currentHp', 'maxHp', 'damage', 'attackDiceUp', 'defendDiceUp', 'speed', 'rerollsLeft', 'technique', 'criticalRate'].forEach(field => {
+  // Ensure other numeric fields are valid (use literal keys; MOD_STAT omits currentHp, rerollsLeft, technique)
+  (['currentHp', 'maxHp', 'damage', 'attackDiceUp', 'defendDiceUp', 'speed', 'rerollsLeft', 'technique', 'criticalRate'] as const).forEach(field => {
     if (typeof fighter[field] !== 'number' || isNaN(fighter[field])) {
       fighter[field] = 0;
     }
@@ -1857,7 +1857,7 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
   // Quota gain: roll + defendDiceUp + buff modifiers >= 11
   const defender = battle.turn.defenderId ? findFighter(room, battle.turn.defenderId) : undefined;
   if (defender) {
-    const buffMod = getStatModifier(battle.activeEffects || [], defender.characterId, 'defendDiceUp');
+    const buffMod = getStatModifier(battle.activeEffects || [], defender.characterId, MOD_STAT.DEFEND_DICE_UP);
     const total = roll + defender.defendDiceUp + buffMod;
     if (total >= 11 && defender.quota < defender.maxQuota) {
       const defPath = findFighterPath(room, defender.characterId);
@@ -1983,6 +1983,49 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const minions = attackerTeam ? (room[attackerTeam]?.minions || []) : [];
     const skeletonsForAttackSk = minions.filter((m: any) => m.masterId === attackerId);
     const skIndex = resolvingHitIndex - 1;
+
+    // Past last skeleton: client already saw last hit card and called resolve again → advance to next attacker
+    if (skIndex >= skeletonsForAttackSk.length) {
+      const updatesAdvance: Record<string, unknown> = {};
+      const effectUpdatesAdv = tickEffects(room, battle, updatesAdvance);
+      Object.assign(updatesAdvance, effectUpdatesAdv);
+      const battleAdv = updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] ? { ...battle, activeEffects: updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] } : battle;
+      const getHpAdv = (m: FighterState) => {
+        const path = findFighterPath(room, m.characterId);
+        if (path && `${path}/currentHp` in updatesAdvance) return updatesAdvance[`${path}/currentHp`] as number;
+        return m.currentHp;
+      };
+      const teamAMembersAdv = (room.teamA?.members || []).map((m: FighterState) => ({ ...m, currentHp: getHpAdv(m) }));
+      const teamBMembersAdv = (room.teamB?.members || []).map((m: FighterState) => ({ ...m, currentHp: getHpAdv(m) }));
+      const latestEffectsAdv = (updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battleAdv.activeEffects || [];
+      const updatedRoomAdv = { ...room, teamA: { ...room.teamA, members: teamAMembersAdv }, teamB: { ...room.teamB, members: teamBMembersAdv } } as BattleRoom;
+      const updatedQueueAdv = buildTurnQueue(updatedRoomAdv, latestEffectsAdv);
+      updatesAdvance[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueueAdv;
+      const currentAttackerIdxAdv = updatedQueueAdv.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
+      const fromIdxAdv = currentAttackerIdxAdv !== -1 ? currentAttackerIdxAdv : battle.currentTurnIndex;
+      const { index: nextIdxAdv, wrapped: wrappedAdv } = nextAliveIndex(updatedQueueAdv, fromIdxAdv, updatedRoomAdv, latestEffectsAdv);
+      const nextEntryAdv = updatedQueueAdv[nextIdxAdv];
+      const selfResAdv = applySelfResurrect(nextEntryAdv.characterId, updatedRoomAdv, latestEffectsAdv, updatesAdvance, battle);
+      const nextFighterAdv = findFighter(updatedRoomAdv, nextEntryAdv.characterId);
+      const activeEffAdv = (updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffectsAdv;
+      if (nextFighterAdv && !selfResAdv && isStunned(activeEffAdv, nextEntryAdv.characterId)) {
+        const { index: skipIdxAdv } = nextAliveIndex(updatedQueueAdv, nextIdxAdv, { ...updatedRoomAdv }, latestEffectsAdv);
+        const skipEntryAdv = updatedQueueAdv[skipIdxAdv];
+        updatesAdvance[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdxAdv;
+        updatesAdvance[ARENA_PATH.BATTLE_ROUND_NUMBER] = battle.roundNumber + (wrappedAdv ? 1 : 0);
+        updatesAdvance[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntryAdv.characterId, attackerTeam: skipEntryAdv.team, phase: PHASE.SELECT_ACTION };
+      } else {
+        updatesAdvance[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdxAdv;
+        updatesAdvance[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrappedAdv ? battle.roundNumber + 1 : battle.roundNumber;
+        updatesAdvance[ARENA_PATH.BATTLE_TURN] = { attackerId: nextEntryAdv.characterId, attackerTeam: nextEntryAdv.team, phase: PHASE.SELECT_ACTION, ...(selfResAdv ? { resurrectTargetId: nextEntryAdv.characterId } : {}) };
+      }
+      updatesAdvance[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+      updatesAdvance[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+      updatesAdvance[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+      await update(roomRef(arenaId), updatesAdvance);
+      return;
+    }
+
     if (skIndex < skeletonsForAttackSk.length) {
       const sk = skeletonsForAttackSk[skIndex];
       const defPath = findFighterPath(room, defenderId);
@@ -2153,36 +2196,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           }
         }
 
+        // Last skeleton: write only this hit so client can show the card; advance on next resolve call
         if (resolvingHitIndex === skeletonsForAttackSk.length) {
-          const updatedRoomSk = {
-            ...room,
-            teamA: { ...room.teamA, members: teamAMembersSk },
-            teamB: { ...room.teamB, members: teamBMembersSk },
-          } as BattleRoom;
-          const updatedQueueSk = buildTurnQueue(updatedRoomSk, latestEffectsSk);
-          updatesSk[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueueSk;
-          const currentAttackerIdxSk = updatedQueueSk.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
-          const fromIdxSk = currentAttackerIdxSk !== -1 ? currentAttackerIdxSk : battle.currentTurnIndex;
-          const { index: nextIdxSk, wrapped: wrappedSk } = nextAliveIndex(updatedQueueSk, fromIdxSk, updatedRoomSk, latestEffectsSk);
-          const nextEntrySk = updatedQueueSk[nextIdxSk];
-          const selfResSk = applySelfResurrect(nextEntrySk.characterId, updatedRoomSk, latestEffectsSk, updatesSk, battle);
-          const nextFighterSk = findFighter(updatedRoomSk, nextEntrySk.characterId);
-          const activeEffSk = (updatesSk[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffectsSk;
-          if (nextFighterSk && !selfResSk && isStunned(activeEffSk, nextEntrySk.characterId)) {
-            const { index: skipIdxSk, wrapped: skipWrappedSk } = nextAliveIndex(updatedQueueSk, nextIdxSk, { ...updatedRoomSk }, latestEffectsSk);
-            const skipEntrySk = updatedQueueSk[skipIdxSk];
-            updatesSk[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdxSk;
-            updatesSk[ARENA_PATH.BATTLE_ROUND_NUMBER] = (wrappedSk ? battle.roundNumber + 1 : battle.roundNumber) + (skipWrappedSk ? 1 : 0);
-            updatesSk[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntrySk.characterId, attackerTeam: skipEntrySk.team, phase: PHASE.SELECT_ACTION };
-          } else {
-            updatesSk[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdxSk;
-            updatesSk[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrappedSk ? battle.roundNumber + 1 : battle.roundNumber;
-            updatesSk[ARENA_PATH.BATTLE_TURN] = { attackerId: nextEntrySk.characterId, attackerTeam: nextEntrySk.team, phase: PHASE.SELECT_ACTION, ...(selfResSk ? { resurrectTargetId: nextEntrySk.characterId } : {}) };
-          }
-          updatesSk[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-          updatesSk[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-          updatesSk[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
-          (updatesSk[ARENA_PATH.BATTLE_TURN] as any).resolvingHitIndex = null;
+          updatesSk[ARENA_PATH.BATTLE_TURN] = { ...turn, resolvingHitIndex: skeletonsForAttackSk.length + 1 };
           await update(roomRef(arenaId), updatesSk);
           return;
         }
@@ -2229,8 +2245,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   if (action === TURN_ACTION.POWER && usedPower && !usedPower.skipDice && !isSelfBuffPower) {
     // Power with dice (damage/enemy-target) — compare rolls, apply effect on hit
-    const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
+    const atkBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
     atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
     defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
@@ -2285,7 +2301,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (soulDevourerDrain) {
       hit = true;
       isCrit = false;
-      const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
+      const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
       dmg = Math.max(0, attacker.damage + dmgBuff);
       defenderHpAfter = Math.max(0, defender.currentHp - dmg);
       const defPath = findFighterPath(room, defenderId);
@@ -2330,8 +2346,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       }
     } else {
     // Normal attack: compare dice with active effect modifiers
-    const atkBuff = getStatModifier(activeEffects, attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(activeEffects, defenderId, 'defendDiceUp');
+    const atkBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
     atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
     defTotal = defendRoll + defender.defendDiceUp + defBuff;
     hit = atkTotal > defTotal;
@@ -2351,7 +2367,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     
 
     if (hit) {
-      const dmgBuff = getStatModifier(activeEffects, attackerId, 'damage');
+      const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
       const baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let rawDmg = baseDmg;
 
@@ -2566,11 +2582,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       const casterId = turn.coAttackerId || spiritEffect.sourceId;
       const caster = findFighter(room, casterId);
       if (caster && caster.currentHp > 0) {
-        const coBuff = getStatModifier(activeEffects, casterId, 'attackDiceUp');
+        const coBuff = getStatModifier(activeEffects, casterId, MOD_STAT.ATTACK_DICE_UP);
         const coTotal = turn.coAttackRoll + caster.attackDiceUp + coBuff;
         const coHit = coTotal > defTotal;
         if (coHit) {
-          const coDmgBuff = getStatModifier(activeEffects, casterId, 'damage');
+          const coDmgBuff = getStatModifier(activeEffects, casterId, MOD_STAT.DAMAGE);
           const coDmg = Math.max(0, caster.damage + coDmgBuff);
           const defPath = findFighterPath(room, defenderId);
           if (defPath) {
@@ -2717,8 +2733,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const skeletonHitsArr = updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[] | undefined;
   const hasSkeletonHits = Array.isArray(skeletonHitsArr) && skeletonHitsArr.length > 0;
   const skeletonCount = hasSkeletonHits ? skeletonHitsArr.length : 0;
-  const SKELETON_MS_PER_HIT = 2600; // slightly more than client 2500+50 so all cards finish
-  const SOUL_DEVOURER_CHAIN_START_MS = 4500; // match BattleHUD SOUL_DEVOURER_MASTER_AND_HEAL_MS
+  const SKELETON_MS_PER_HIT = 150; // 150ms per skeleton so damage card stays visible
+  const SOUL_DEVOURER_CHAIN_START_MS = 800; // match BattleHUD SOUL_DEVOURER_MASTER_AND_HEAL_MS
   const isSoulDevourerDrain = !!(battle.turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
   const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
   let advancePayload: Record<string, unknown> | null = null;

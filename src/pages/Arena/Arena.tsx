@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
-import { EFFECT_TAGS } from '../../constants/effectTags';
+import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
 import { TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, type ArenaRole, type PanelSide } from '../../constants/battle';
@@ -35,7 +35,7 @@ import {
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
-import type { SeasonKey } from '../../data/seasons';
+import { SEASON_ORDER, type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import SeasonalEffects from './components/SeasonalEffects/SeasonalEffects';
@@ -331,10 +331,10 @@ function Arena() {
     // After season is confirmed: check activeEffects for any season buff
     // to show effects on both sides for all clients
     const seasonEffect = (battle.activeEffects || []).find(e =>
-      e.tag?.startsWith('season-'),
+      isSeasonTag(e.tag ?? ''),
     );
     if (seasonEffect) {
-      const seasonName = seasonEffect.tag!.replace('season-', '') as SeasonKey;
+      const seasonName = seasonEffect.tag!.replace(SEASON_TAG_PREFIX, '') as SeasonKey;
       setActiveSeason(seasonName);
       ;
     } else {
@@ -543,7 +543,7 @@ function Arena() {
 
     // NPC needs to select season (Ephemeral Season)
     if (turn.phase === PHASE.SELECT_SEASON && teamBIds.has(turn.attackerId)) {
-      const seasons: SeasonKey[] = ['summer', 'autumn', 'winter', 'spring'];
+      const seasons: SeasonKey[] = SEASON_ORDER;
       const pick = seasons[Math.floor(Math.random() * seasons.length)];
       schedule(() => handleSelectSeason(pick), 1500);
       return;

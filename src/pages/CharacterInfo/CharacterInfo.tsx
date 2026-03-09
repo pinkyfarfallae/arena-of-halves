@@ -35,6 +35,7 @@ import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides'
 import { isSkillUnlocked } from '../../constants/character';
 import './CharacterInfo.scss';
 import { SEX } from '../../constants/sex';
+import { POWER_TYPES } from '../../constants/powers';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -174,8 +175,8 @@ function CharacterInfo() {
   }));
   while (itemSlots.length < SLOT_MIN) itemSlots.push({ name: '', quantity: 0 });
 
-  const orderedPowers = ['Passive', '1st Skill', '2nd Skill', 'Ultimate']
-    .map(s => powers.find(p => p.type === s))
+  const orderedPowers = [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
+    .map(type => powers.find(p => p.type === type))
     .filter(Boolean) as Power[];
 
   return (
@@ -247,9 +248,9 @@ function CharacterInfo() {
           <StatOrb value={char.attackDiceUp} label="ATTACK DICE" />
           <StatOrb value={char.reroll} label="REROLL" />
           {([
-            ['PASSIVE', char.passiveSkillPoint],
-            ['SKILL', char.skillPoint],
-            ['ULTIMATE', char.ultimateSkillPoint],
+            [POWER_TYPES.PASSIVE, char.passiveSkillPoint],
+            [POWER_TYPES.FIRST_SKILL, char.skillPoint],
+            [POWER_TYPES.ULTIMATE, char.ultimateSkillPoint],
           ] as [string, string][]).map(([label, val]) => {
             const unlocked = isSkillUnlocked(val);
             return (

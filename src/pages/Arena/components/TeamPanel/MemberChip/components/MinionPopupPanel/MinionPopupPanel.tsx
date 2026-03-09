@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import type { Minion } from '../../../../../../../types/minions';
 import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta';
 import './MinionPopupPanel.scss';
+import { POWER_TYPES } from '../../../../../../../constants';
 
 const BP_COMPACT = 600;
 
@@ -103,7 +104,7 @@ export default function MinionPopupPanel({ minion, index, masterName, chipRef, o
       {/* Minimal powers display for non-skeleton minions */}
       {minion.powers?.length > 0 && (
         <div className="mchip__powers">
-          {(['Passive', '1st Skill', '2nd Skill', 'Ultimate'] as const).map((type) => {
+          {([POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE] as const).map((type) => {
             const p = (minion.powers || []).find((pw) => pw.type === type);
             const meta = POWER_META[type] || { icon: '◇', tag: type.toUpperCase(), cls: '' };
             return (

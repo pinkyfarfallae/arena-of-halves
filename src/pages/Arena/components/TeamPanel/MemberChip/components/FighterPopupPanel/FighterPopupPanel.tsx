@@ -6,6 +6,7 @@ import LockClosed from '../../../../../../CharacterInfo/icons/LockClosed';
 import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta';
 import { isSkillUnlocked } from '../../../../../../../constants/character';
 import './FighterPopupPanel.scss';
+import { POWER_TYPES } from '../../../../../../../constants';
 
 const BP_COMPACT = 600;
 
@@ -100,9 +101,9 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
 
       <div className="mchip__skills">
         {([
-          ['PASSIVE', fighter.passiveSkillPoint],
-          ['SKILL', fighter.skillPoint],
-          ['ULTIMATE', fighter.ultimateSkillPoint],
+          [POWER_TYPES.PASSIVE, fighter.passiveSkillPoint],
+          [POWER_TYPES.FIRST_SKILL, fighter.skillPoint],
+          [POWER_TYPES.ULTIMATE, fighter.ultimateSkillPoint],
         ] as [string, string][]).map(([label, val]) => {
           const unlocked = isSkillUnlocked(val);
           return (
@@ -118,7 +119,7 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
       </div>
 
       <div className="mchip__powers">
-        {(['Passive', '1st Skill', '2nd Skill', 'Ultimate'] as const).map((type) => {
+        {([POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE] as const).map((type) => {
           const p = (fighter.powers || []).find((pw) => pw.type === type);
           const meta = POWER_META[type] || { icon: '◇', tag: type.toUpperCase(), cls: '' };
           return (

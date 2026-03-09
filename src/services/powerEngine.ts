@@ -2,7 +2,7 @@ import type { BattleRoom, BattleState, FighterState } from '../types/battle';
 import { createSkeletonMinion } from '../data/minions';
 import type { ActiveEffect, PowerDefinition, ModStat } from '../types/power';
 import { getQuotaCost } from '../types/power';
-import { EFFECT_TAGS } from '../constants/effectTags';
+import { EFFECT_TAGS, isSeasonTag } from '../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { SKILL_UNLOCK } from '../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
@@ -608,7 +608,7 @@ export function applySeasonEffects(
     }
   }
   // Strip all season effects
-  effects = effects.filter(e => !e.tag?.startsWith('season-'));
+  effects = effects.filter(e => !isSeasonTag(e.tag ?? ''));
 
   // Duration: 2 full rounds (every fighter gets 2 action cycles)
   const queueLen = battle.turnQueue?.length || 1;
@@ -622,15 +622,15 @@ export function applySeasonEffects(
     switch (season) {
       case 'summer': {
         effects.push({
-          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
-          modStat: 'attackDiceUp',
+          modStat: MOD_STAT.ATTACK_DICE_UP,
           turnsRemaining: duration,
-          tag: 'season-summer',
+          tag: EFFECT_TAGS.SEASON_SUMMER,
         });
         break;
       }
@@ -646,44 +646,44 @@ export function applySeasonEffects(
         }
         // Tracking effect for reversal on expiry
         effects.push({
-          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
-          modStat: 'maxHp',
+          modStat: MOD_STAT.MAX_HP,
           turnsRemaining: duration,
-          tag: 'season-autumn',
+          tag: EFFECT_TAGS.SEASON_AUTUMN,
         });
         break;
       }
 
       case 'winter': {
         effects.push({
-          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 2,
-          modStat: 'defendDiceUp',
+          modStat: MOD_STAT.DEFEND_DICE_UP,
           turnsRemaining: duration,
-          tag: 'season-winter',
+          tag: EFFECT_TAGS.SEASON_WINTER,
         });
         break;
       }
 
       case 'spring': {
         effects.push({
-          id: makeEffectId(attackerId, 'Ephemeral Season'),
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
           value: 1,
           turnsRemaining: duration,
-          tag: 'season-spring',
+          tag: EFFECT_TAGS.SEASON_SPRING,
         });
         break;
       }
@@ -711,7 +711,7 @@ export function applyPomegranateOath(
   let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
   // Remove any existing pomegranate-spirit effects (only one oath active at a time)
-  effects = effects.filter(e => e.tag !== 'pomegranate-spirit');
+  effects = effects.filter(e => e.tag !== EFFECT_TAGS.POMEGRANATE_SPIRIT);
 
   // Duration: 3 full rounds (each fighter acts once per round)
   // tickEffects decrements once per turn, so 3 rounds = 3 * queueLen ticks
@@ -726,7 +726,7 @@ export function applyPomegranateOath(
     targetId: allyTargetId,
     value: 0,
     turnsRemaining: duration,
-    tag: 'pomegranate-spirit',
+    tag: EFFECT_TAGS.POMEGRANATE_SPIRIT,
   });
 
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
