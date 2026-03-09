@@ -699,9 +699,14 @@ export default function BattleHUD({
     ? (attackerTeamMinionsForPlayback as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
     : (attacker?.skeletonCount ?? 0);
   const masterHasSkeletonPlayback = attackerSkeletonCountForPlayback > 0;
+  const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500;
   const CHAINED_MASTER_RESOLVE_DISPLAY_MS = 2400;
   const MINION_RESOLVE_DISPLAY_MS = 2200;
-  const masterResolveDisplayMs = ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)) ? CHAINED_MASTER_RESOLVE_DISPLAY_MS : 5000;
+  const masterResolveDisplayMs = (turn as any)?.soulDevourerDrain
+    ? SOUL_DEVOURER_MASTER_AND_HEAL_MS
+    : (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)
+      ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
+      : 5000;
   const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
