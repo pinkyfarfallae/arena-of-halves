@@ -1,7 +1,7 @@
 import type { PowerDefinition } from '../types/power';
 import { EFFECT_TAGS } from '../constants/effectTags';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { POWER_NAMES, POWER_TYPES } from '../constants';
+import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { DEITY } from '../constants/deities';
 
 /**

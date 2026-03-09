@@ -6,7 +6,7 @@ import LockClosed from '../../../../../../CharacterInfo/icons/LockClosed';
 import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta';
 import { isSkillUnlocked } from '../../../../../../../constants/character';
 import './FighterPopupPanel.scss';
-import { POWER_TYPES } from '../../../../../../../constants';
+import { POWER_TYPES } from '../../../../../../../constants/powers';
 
 const BP_COMPACT = 600;
 
