@@ -184,6 +184,10 @@ export interface BattleLogEntry {
   round: number;
   attackerId: string;
   defenderId: string;
+  attackerName?: string;
+  attackerTheme?: string;
+  defenderName?: string;
+  defenderTheme?: string;
   attackRoll: number;
   defendRoll: number;
   damage: number;

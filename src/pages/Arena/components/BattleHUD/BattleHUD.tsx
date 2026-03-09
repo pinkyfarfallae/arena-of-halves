@@ -1836,10 +1836,10 @@ export default function BattleHUD({
               powers: m.powers || [],
             } as FighterState);
           }
-          const atkName = atkFighter?.nicknameEng ?? '???';
-          const defName = defFighter?.nicknameEng ?? '???';
-          const atkColor = atkFighter?.theme[0];
-          const defColor = defFighter?.theme[0];
+          const atkName = atkFighter?.nicknameEng ?? (entry as any).attackerName ?? '???';
+          const defName = defFighter?.nicknameEng ?? (entry as any).defenderName ?? '???';
+          const atkColor = atkFighter?.theme[0] ?? (entry as any).attackerTheme;
+          const defColor = defFighter?.theme[0] ?? (entry as any).defenderTheme;
 
           if ((entry as any).skippedNoValidTarget) {
             return (

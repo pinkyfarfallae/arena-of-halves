@@ -99,10 +99,10 @@ export default function BattleLogModal({ room, onClose }: Props) {
           ) : log.map((entry: BattleLogEntry, i: number) => {
             const atk = findFighter(room, entry.attackerId);
             const def = findFighter(room, entry.defenderId);
-            const atkName = atk?.nicknameEng ?? '???';
-            const defName = def?.nicknameEng ?? '???';
-            const atkColor = atk?.theme[0];
-            const defColor = def?.theme[0];
+            const atkName = atk?.nicknameEng ?? entry.attackerName ?? '???';
+            const defName = def?.nicknameEng ?? entry.defenderName ?? '???';
+            const atkColor = atk?.theme[0] ?? entry.attackerTheme;
+            const defColor = def?.theme[0] ?? entry.defenderTheme;
 
             // Compact rendering for minion hits (skeletons): no dice breakdown — single-line text
             if ((entry as any).isMinionHit) {
