@@ -126,7 +126,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
             {/* Fountain */}
             <div className="iris__center">
               {/* Coin (above fountain) */}
-              {phase !== 'reveal' && (
+              {phase !== IRIS_PHASE.REVEAL && (
                 <div className={`iris__coin ${phase === IRIS_PHASE.TOSSING ? 'iris__coin--drop' : ''}`}>
                   <div className="iris__coin-inner">
                     <Drachma />
@@ -148,7 +148,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
             </div>
 
             {/* Idle + Tossing — prompt fades out via CSS, keeps layout stable */}
-            {phase !== 'reveal' && (
+            {phase !== IRIS_PHASE.REVEAL && (
               <div className="iris__prompt">
                 <span className="iris__label">Fountain of Iris</span>
                 <h1 className="iris__title">Make a Wish</h1>

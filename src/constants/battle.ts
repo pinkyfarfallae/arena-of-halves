@@ -46,8 +46,8 @@ export type ArenaRole = (typeof ARENA_ROLE)[keyof typeof ARENA_ROLE];
  * Battle team key (teamA / teamB). Use for turn.attackerTeam, queue.team, etc.
  */
 export const BATTLE_TEAM = {
-  A: 'teamA',
-  B: 'teamB',
+  A: ARENA_ROLE.TEAM_A,
+  B: ARENA_ROLE.TEAM_B,
 } as const;
 
 export type BattleTeamKey = (typeof BATTLE_TEAM)[keyof typeof BATTLE_TEAM];

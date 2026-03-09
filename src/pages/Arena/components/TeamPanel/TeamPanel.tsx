@@ -6,10 +6,11 @@ import { getStatModifier } from '../../../../services/powerEngine';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
+import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
 import './TeamPanel.scss';
+import { SKILL_UNLOCK } from '../../../../constants/character';
 
 interface Props {
   members: FighterState[];
@@ -129,8 +130,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     const atk = turn.attackerId ? fighterMap.get(turn.attackerId) : undefined;
     const def = turn.defenderId ? fighterMap.get(turn.defenderId) : undefined;
     if (!atk || !def) return false;
-    const atkBuff = getStatModifier(activeEffects, turn.attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(activeEffects, turn.defenderId!, 'defendDiceUp');
+    const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
     const atkTotal = (turn.attackRoll ?? 0) + atk.attackDiceUp + atkBuff;
     const defTotal = (turn.defendRoll ?? 0) + def.defendDiceUp + defBuff;
     return atkTotal > defTotal;
@@ -226,8 +227,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
         const hasLightningReflex = !!(
-          attacker?.passiveSkillPoint === 'unlock' &&
-          attacker.powers?.some(p => p.type === 'Passive' && p.name === 'Lightning Reflex')
+          attacker?.passiveSkillPoint === SKILL_UNLOCK &&
+          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX)
         );
         const isShockHit = !!(isHit && hasLightningReflex && turn?.defenderId === m.characterId);
 
@@ -352,12 +353,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
-          damage: getStatModifier(activeEffects, m.characterId, 'damage'),
-          attackDiceUp: getStatModifier(activeEffects, m.characterId, 'attackDiceUp'),
-          defendDiceUp: getStatModifier(activeEffects, m.characterId, 'defendDiceUp'),
-          speed: getStatModifier(activeEffects, m.characterId, 'speed'),
-          criticalRate: getStatModifier(activeEffects, m.characterId, 'criticalRate'),
-          maxHp: getStatModifier(activeEffects, m.characterId, 'maxHp'),
+          damage: getStatModifier(activeEffects, m.characterId, MOD_STAT.DAMAGE),
+          attackDiceUp: getStatModifier(activeEffects, m.characterId, MOD_STAT.ATTACK_DICE_UP),
+          defendDiceUp: getStatModifier(activeEffects, m.characterId, MOD_STAT.DEFEND_DICE_UP),
+          speed: getStatModifier(activeEffects, m.characterId, MOD_STAT.SPEED),
+          criticalRate: getStatModifier(activeEffects, m.characterId, MOD_STAT.CRITICAL_RATE),
+          maxHp: getStatModifier(activeEffects, m.characterId, MOD_STAT.MAX_HP),
         };
 
         const minions = minionsMap.get(m.characterId) || [];

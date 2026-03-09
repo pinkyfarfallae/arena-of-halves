@@ -16,7 +16,7 @@ import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 import { DEFAULT_THEME } from '../../../../constants/theme';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
+import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
@@ -330,8 +330,8 @@ export default function BattleHUD({
     if (!hasSpirit) { setDodgeReady(true); return; }
 
     // Check if attack actually hit (need hit to dodge)
-    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const atkBuff = getStatModifier(ae, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
     const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
     const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
     if (at <= dt) { setDodgeReady(true); return; }
@@ -425,8 +425,8 @@ export default function BattleHUD({
     }
 
     const ae = battle.activeEffects || [];
-    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const atkBuff = getStatModifier(ae, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
     const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
     const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
 
@@ -612,8 +612,8 @@ export default function BattleHUD({
     if (spiritEffect.sourceId === turn.attackerId) { setCoAttackReady(true); return; }
 
     // Check if main attack hit
-    const atkBuff = getStatModifier(ae, turn.attackerId, 'attackDiceUp');
-    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const atkBuff = getStatModifier(ae, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
     const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
     const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
     if (at <= dt) { setCoAttackReady(true); return; }
@@ -638,10 +638,10 @@ export default function BattleHUD({
     } else {
       // NPC: compute co-attack now
       const roll = Math.ceil(Math.random() * 12);
-      const coBuff = getStatModifier(ae, casterId, 'attackDiceUp');
+      const coBuff = getStatModifier(ae, casterId, MOD_STAT.ATTACK_DICE_UP);
       const coTotal = roll + caster.attackDiceUp + coBuff;
       const coHit = coTotal > dt;
-      const coDmgBuff = getStatModifier(ae, casterId, 'damage');
+      const coDmgBuff = getStatModifier(ae, casterId, MOD_STAT.DAMAGE);
       const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
       coAttackRef.current = { casterId, hit: coHit, damage: coDmg, roll };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
@@ -659,12 +659,12 @@ export default function BattleHUD({
     const ae = battle.activeEffects || [];
     const caster = find(teamA, teamB, cr.casterId);
     if (!caster || !turn?.defenderId || !defender) return;
-    const coBuff = getStatModifier(ae, cr.casterId, 'attackDiceUp');
-    const defBuff = getStatModifier(ae, turn.defenderId, 'defendDiceUp');
+    const coBuff = getStatModifier(ae, cr.casterId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
     const coTotal = roll + caster.attackDiceUp + coBuff;
     const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
     const coHit = coTotal > dt;
-    const coDmgBuff = getStatModifier(ae, cr.casterId, 'damage');
+    const coDmgBuff = getStatModifier(ae, cr.casterId, MOD_STAT.DAMAGE);
     const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
     coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
     if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
@@ -840,9 +840,9 @@ export default function BattleHUD({
     lastSkeletonHitsKeyRef.current = skKey;
     // Set hadSkeletonHits only when first skeleton card shows (so master damage + heal can show first on Soul Devourer drain)
     const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
-    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 2500; // master + soul float + explode + heal, then skeleton cards
+    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 800; // master + soul float + explode + heal, then skeleton cards
 
-    const HIT_DISPLAY_MS = 2500; // ~2.5s per skeleton so damage card stays visible
+    const HIT_DISPLAY_MS = 150; // 150ms per skeleton so damage card stays visible
     setPendingSkeletonCount((c) => c + skHits.length);
 
     const timeoutsRef = skeletonChainTimeoutsRef;
@@ -995,7 +995,7 @@ export default function BattleHUD({
   // Self-resurrect: timer to dismiss overlay (separate effect so cleanup works with Strict Mode)
   useEffect(() => {
     if (!showResurrecting) return;
-    const timer = setTimeout(() => { setShowResurrecting(false); setActionReady(true); }, 2500);
+    const timer = setTimeout(() => { setShowResurrecting(false); setActionReady(true); }, 1000);
     return () => clearTimeout(timer);
   }, [showResurrecting]);
 
@@ -1070,11 +1070,11 @@ export default function BattleHUD({
       };
     } else {
       const activeEffects = battle.activeEffects || [];
-      const atkBuff = getStatModifier(activeEffects, turn.attackerId, 'attackDiceUp');
-      const defBuff = getStatModifier(activeEffects, turn.defenderId!, 'defendDiceUp');
+      const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
+      const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
       const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
       const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
-      const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
+      const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
       const baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let damage = baseDmg;
 
@@ -1453,7 +1453,7 @@ export default function BattleHUD({
             themeColor={attacker?.theme[0]}
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
-            currentSeason={(battle.activeEffects || []).find(e => e.tag?.startsWith('season-'))?.tag?.replace('season-', '') as SeasonKey | undefined}
+            currentSeason={(battle.activeEffects || []).find(e => isSeasonTag(e.tag ?? ''))?.tag?.replace(SEASON_TAG_PREFIX, '') as SeasonKey | undefined}
             onSelectSeason={(s) => setTimeout(() => onSelectSeason(s), 0)}
             onPreviewSeason={onPreviewSeason}
             onBack={() => setTimeout(() => onCancelSeason?.(), 0)}
@@ -1520,8 +1520,8 @@ export default function BattleHUD({
           coAttackRollResult={coAttackRollResult}
           onCoAttackRollResult={handleCoAttackRollResult}
           coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
-          atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, 'attackDiceUp')}
-          defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, 'defendDiceUp') : 0}
+          atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
+          defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
         />
       )}
 
