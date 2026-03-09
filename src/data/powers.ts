@@ -36,7 +36,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.ZEUS,
       type: POWER_TYPES.FIRST_SKILL,
-      name: DEITY_POWER_NAMES.BEYOND_THE_CLOUD,
+      name: DEITY_POWER_NAMES.BEYOND_THE_NIMBUS,
       description:
         'ทายาทแห่งซุสจะเข้าสู่สถานะ "เหนือเมฆครึ้ม" เป็นเวลา 2 รอบ นั่นคือ ทายาทแห่งซุสจะมีความเร็วเพิ่มขึ้น 2 หน่วยและอัตราติดคริติคอลเพิ่มขึ้น 25% จากนั้นทำการโจมตีต่อทันที  ทั้งนี้ ขณะที่ทายาทแห่งซุสอยู่ในสถานะเหนือเมฆครึ้ม  หากทายาทแห่งซุสทำการโจมตีศัตรูเป้าหมายได้สำเร็จ ศัตรูทั้งสนามจะเข้าสู่สถานะติดช็อตโดยพร้อมเพรียง',
       available: true,
@@ -67,7 +67,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.ZEUS,
       type: POWER_TYPES.ULTIMATE,
-      name: DEITY_POWER_NAMES.THUNDERBOLT,
+      name: DEITY_POWER_NAMES.KERAUNOS_VOLTAGE,
       description:
         'ทายาทแห่งซุสเสียสละโอกาสในการโจมตีเพื่อเรียกอัสนีบาตผ่าศัตรู 1 ตัว ทำดาเมจ 3 หน่วยทันทีรวทถึงทำดาเมจโดนศัตรูคนอื่นรอบข้าง 2 คน ทำดาเมจ 2 หน่วยโดยไม่ต้องทอยเต่าอีกทั้งศัตรูจะไม่มีโอกาสในการป้องกัน ทั้งนี้ ศักตรูทั้งหมดที่ได้รับดาเมจจากการใช้พลังนี้จะติดสถานะช็อตเช่นกัน',
       available: true,

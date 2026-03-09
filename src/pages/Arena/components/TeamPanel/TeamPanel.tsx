@@ -235,7 +235,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Thunderbolt hit: massive lightning strike effect
         const isThunderboltHit = !!(
-          (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.THUNDERBOLT
+          (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         );
 
         // Shock visual: has any active shock DOT
