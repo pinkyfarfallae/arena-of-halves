@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import type { Minion } from '../../../../../../../types/minions';
 import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta';
 import './MinionPopupPanel.scss';
-import { POWER_TYPES } from '../../../../../../../constants';
+import { POWER_TYPES } from '../../../../../../../constants/powers';
 
 const BP_COMPACT = 600;
 
