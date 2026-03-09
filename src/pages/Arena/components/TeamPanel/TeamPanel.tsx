@@ -201,6 +201,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const playbackStep = (turn as any)?.playbackStep as BattlePlaybackStep | undefined;
         const playbackStepActive = !!playbackStep && turn?.phase === PHASE.RESOLVING;
         const playbackDrivenResolve = turn?.phase === PHASE.RESOLVING;
+        const hasBufferedMinionPlayback = Array.isArray((battle as any)?.lastSkeletonHits) && (battle as any).lastSkeletonHits.length > 0;
         // Block hit visuals while selecting target and briefly when user clicks Back (no opposite frame shake).
         const allowHitVisuals = (
           turn?.phase !== PHASE.SELECT_TARGET &&
@@ -210,10 +211,19 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase !== PHASE.ROLLING_DEFEND
         ) && !suppressHitAfterSelect && !suppressHitAfterBack;
         const playbackHit = !!playbackStepActive && playbackStep?.defenderId === m.characterId;
-        const playbackHitEventKey = playbackHit
+        const playbackHitEventKey = (playbackHit && !playbackStep?.isMinionHit && playbackStep?.isHit !== false)
           ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep)
           : undefined;
         const playbackMainHit = !!playbackStepActive && !playbackStep?.isMinionHit && playbackStep?.defenderId === m.characterId && playbackStep?.isHit !== false;
+        const shouldAllowLegacyMinionPulse = !!(
+          minionPulseMap &&
+          minionPulseMap[m.characterId] != null &&
+          turn?.defenderId === m.characterId &&
+          (
+            (playbackStepActive && !!playbackStep?.isMinionHit) ||
+            hasBufferedMinionPlayback
+          )
+        );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
@@ -400,7 +410,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             playbackHitTargetId={playbackStepActive ? playbackStep?.defenderId : undefined}
             playbackHitEventKey={playbackStepActive ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep) : undefined}
             minionHitPulseId={
-              (minionPulseMap && minionPulseMap[m.characterId] != null)
+              shouldAllowLegacyMinionPulse
                 ? Number(minionPulseMap[m.characterId])
                 : undefined
             }
