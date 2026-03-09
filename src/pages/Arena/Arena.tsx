@@ -563,10 +563,6 @@ function Arena() {
       return;
     }
 
-    // Fallback: auto-resolve for NPC attacker only (BattleHUD handles player turns including crit)
-    if (turn.phase === PHASE.RESOLVING && teamBIds.has(turn.attackerId)) {
-      schedule(() => resolveTurn(arenaId), 15000);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- battle/handleSelectSeason from room; omit to avoid extra NPC auto-actions
   }, [room, arenaId]);
 
@@ -625,6 +621,8 @@ function Arena() {
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = room.battle;
   const isBattling = room.status === ROOM_STATUS.BATTLING || room.status === ROOM_STATUS.FINISHED;
+  const isNpcPlaybackDriver = !!(room.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
+  const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
 
   /** Which power is selected this turn: from server (battle.turn.usedPowerName) or from last confirm (lastConfirmedPowerName). */
   const selectedPowerName = battle?.turn?.usedPowerName ?? lastConfirmedPowerName;
@@ -875,6 +873,7 @@ function Arena() {
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
+            isPlaybackDriver={isPlaybackDriver}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}

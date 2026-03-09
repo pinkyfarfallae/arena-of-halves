@@ -130,6 +130,11 @@ interface Props {
   visualDefenderId?: string;
   /** Pulse id for transient minion hits — when this changes, play a hit flash */
   minionHitPulseId?: number | undefined;
+  /** Unique key for a master-hit playback step — when this changes, play one hit flash */
+  hitEventKey?: string;
+  /** Current playback-step target id/event for minion-frame hits */
+  playbackHitTargetId?: string;
+  playbackHitEventKey?: string;
   /** Map of characterId -> pulse id so minion frames can show hit when they are the target */
   minionPulseMap?: Record<string, number>;
   /** Whether transient-driven hits (minion pulses) are permitted right now */
@@ -148,7 +153,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -167,16 +172,48 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   /* ── Hit flash: vibrate + red overlay (driven by isHit prop) ── */
   const [isHitActive, setIsHitActive] = useState(false);
   const prevIsHitRef = useRef(false);
+  const isHitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isHit && !prevIsHitRef.current) {
       setIsHitActive(true);
-      const timer = setTimeout(() => setIsHitActive(false), 1500);
+      if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
+      isHitTimerRef.current = setTimeout(() => {
+        isHitTimerRef.current = null;
+        setIsHitActive(false);
+      }, 1500);
       prevIsHitRef.current = true;
-      return () => clearTimeout(timer);
+      return () => {
+        if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
+        isHitTimerRef.current = null;
+      };
     }
-    if (!isHit) prevIsHitRef.current = false;
+    if (!isHit) {
+      prevIsHitRef.current = false;
+      if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
+      isHitTimerRef.current = null;
+      setIsHitActive(false);
+    }
   }, [isHit]);
+
+  const prevHitEventKeyRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!allowTransientHits) return;
+    if (!hitEventKey) return;
+    if (hitEventKey === prevHitEventKeyRef.current) return;
+    prevHitEventKeyRef.current = hitEventKey;
+    if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
+    isHitTimerRef.current = null;
+    setIsHitActive(false);
+    const restart = setTimeout(() => {
+      setIsHitActive(true);
+      isHitTimerRef.current = setTimeout(() => {
+        isHitTimerRef.current = null;
+        setIsHitActive(false);
+      }, 1500);
+    }, 50);
+    return () => clearTimeout(restart);
+  }, [hitEventKey, allowTransientHits]);
 
   // Trigger hit flash when a transient minion hit pulse occurs (even if
   // `isHit` hasn't toggled). This ensures the defender frame shakes when a
@@ -186,6 +223,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const hitPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hitPulseRestartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (!allowTransientHits) {
+      if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
+      hitPulseRestartRef.current = null;
+      if (hitPulseTimerRef.current) clearTimeout(hitPulseTimerRef.current);
+      hitPulseTimerRef.current = null;
+      setIsHitActive(false);
+      return;
+    }
     if (minionHitPulseId == null) return;
     if (minionHitPulseId !== prevPulseRef.current) {
       prevPulseRef.current = minionHitPulseId;
@@ -210,7 +255,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         hitPulseTimerRef.current = null;
       };
     }
-  }, [minionHitPulseId]);
+  }, [minionHitPulseId, allowTransientHits]);
 
   // When a minion is the hit target (minionPulseMap[minion.characterId] set), show hit effect on that minion frame.
   // Reset to false, then after 50ms set true so the animation restarts (n pulses → n shakes).
@@ -247,6 +292,38 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       minionHitRestartRef.current = {};
     };
   }, [minionPulseMap, allowTransientHits]);
+
+  const [playbackMinionHitActiveById, setPlaybackMinionHitActiveById] = useState<Record<string, boolean>>({});
+  const lastPlaybackMinionHitEventRef = useRef<string | undefined>(undefined);
+  const playbackMinionHitTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const playbackMinionHitRestartRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  useEffect(() => {
+    if (!allowTransientHits) return;
+    if (!playbackHitEventKey || !playbackHitTargetId) return;
+    if (lastPlaybackMinionHitEventRef.current === playbackHitEventKey) return;
+    const isOwnedMinion = !!(minions || []).some((minion) => minion.characterId === playbackHitTargetId);
+    if (!isOwnedMinion) return;
+    lastPlaybackMinionHitEventRef.current = playbackHitEventKey;
+    if (playbackMinionHitTimerRef.current[playbackHitTargetId]) clearTimeout(playbackMinionHitTimerRef.current[playbackHitTargetId]);
+    if (playbackMinionHitRestartRef.current[playbackHitTargetId]) clearTimeout(playbackMinionHitRestartRef.current[playbackHitTargetId]);
+    delete playbackMinionHitTimerRef.current[playbackHitTargetId];
+    delete playbackMinionHitRestartRef.current[playbackHitTargetId];
+    setPlaybackMinionHitActiveById((prev) => ({ ...prev, [playbackHitTargetId]: false }));
+    playbackMinionHitRestartRef.current[playbackHitTargetId] = setTimeout(() => {
+      delete playbackMinionHitRestartRef.current[playbackHitTargetId];
+      setPlaybackMinionHitActiveById((prev) => ({ ...prev, [playbackHitTargetId]: true }));
+      playbackMinionHitTimerRef.current[playbackHitTargetId] = setTimeout(() => {
+        delete playbackMinionHitTimerRef.current[playbackHitTargetId];
+        setPlaybackMinionHitActiveById((prev) => ({ ...prev, [playbackHitTargetId]: false }));
+      }, 800);
+    }, 50);
+    return () => {
+      if (playbackMinionHitRestartRef.current[playbackHitTargetId]) clearTimeout(playbackMinionHitRestartRef.current[playbackHitTargetId]);
+      if (playbackMinionHitTimerRef.current[playbackHitTargetId]) clearTimeout(playbackMinionHitTimerRef.current[playbackHitTargetId]);
+      delete playbackMinionHitRestartRef.current[playbackHitTargetId];
+      delete playbackMinionHitTimerRef.current[playbackHitTargetId];
+    };
+  }, [allowTransientHits, minions, playbackHitEventKey, playbackHitTargetId]);
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
@@ -319,6 +396,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // If the fighter's HP increases (heal applied), clear the scent wave visual
   // immediately to avoid leaving the +HP text/styling stuck after the heal.
   const prevHpRef = useRef<number>(fighter.currentHp);
+  const [displayHp, setDisplayHp] = useState(fighter.currentHp);
   useEffect(() => {
     const prev = prevHpRef.current;
     if (fighter.currentHp > prev) {
@@ -337,6 +415,21 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   }, [fighter.currentHp]);
 
   useEffect(() => {
+    if (fighter.currentHp >= displayHp) {
+      setDisplayHp(fighter.currentHp);
+      return;
+    }
+    const shouldDelayHpDrop = !!hitPulseRestartRef.current || !!hitPulseTimerRef.current;
+    if (!shouldDelayHpDrop) {
+      setDisplayHp(fighter.currentHp);
+      return;
+    }
+    const HP_DROP_DELAY_MS = 800;
+    const t = setTimeout(() => setDisplayHp(fighter.currentHp), HP_DROP_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [fighter.currentHp, displayHp]);
+
+  useEffect(() => {
     return () => {
       if (scentSuppressTimer.current) clearTimeout(scentSuppressTimer.current);
     };
@@ -346,18 +439,33 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const [showSoulDevourerHeal, setShowSoulDevourerHeal] = useState(false);
   const [soulDevourerHealDisplayAmount, setSoulDevourerHealDisplayAmount] = useState(0);
   const prevSoulDevourerHealKeyRef = useRef<string | null>(null);
+  const soulDevourerHealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!soulDevourerHealKey || soulDevourerHealAmount <= 0) return;
+    if (!soulDevourerHealKey || soulDevourerHealAmount <= 0) {
+      if (soulDevourerHealTimerRef.current) {
+        clearTimeout(soulDevourerHealTimerRef.current);
+        soulDevourerHealTimerRef.current = null;
+      }
+      setShowSoulDevourerHeal(false);
+      setSoulDevourerHealDisplayAmount(0);
+      return;
+    }
     if (prevSoulDevourerHealKeyRef.current === soulDevourerHealKey) return;
     prevSoulDevourerHealKeyRef.current = soulDevourerHealKey;
+    if (soulDevourerHealTimerRef.current) clearTimeout(soulDevourerHealTimerRef.current);
     setSoulDevourerHealDisplayAmount(soulDevourerHealAmount);
     setShowSoulDevourerHeal(true);
-    const t = setTimeout(() => {
+    soulDevourerHealTimerRef.current = setTimeout(() => {
+      soulDevourerHealTimerRef.current = null;
       setShowSoulDevourerHeal(false);
       setSoulDevourerHealDisplayAmount(0);
     }, 3000);
-    return () => clearTimeout(t);
   }, [soulDevourerHealKey, soulDevourerHealAmount]);
+  useEffect(() => {
+    return () => {
+      if (soulDevourerHealTimerRef.current) clearTimeout(soulDevourerHealTimerRef.current);
+    };
+  }, []);
 
   /* ── Resurrecting: mist + falling lights for 2.5s, then purple glow flash on frame ── */
   const [showResurrecting, setShowResurrecting] = useState(false);
@@ -463,7 +571,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     };
   }, [minions]);
 
-  const hpPct = Math.min((fighter.currentHp / fighter.maxHp) * 100, 100);
+  const hpPct = Math.min((displayHp / fighter.maxHp) * 100, 100);
   const deityLabel = DEITY_DISPLAY_OVERRIDES[fighter.characterId] || fighter.deityBlood;
   const deityKey = toDeityKey(deityLabel);
   const deityIcon = deityKey ? DEITY_SVG[deityKey] : undefined;
@@ -670,7 +778,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               <div className="mchip__hp-fill" style={{ width: `${hpPct}%` }} />
             </div>
             <span className="mchip__hp-label">
-              {fighter.currentHp}/{fighter.maxHp}
+              {displayHp}/{fighter.maxHp}
             </span>
           </div>
         </div>
@@ -795,7 +903,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                 const displayName = minion.nicknameEng.split("'s")[0] + "'s " + minion.type.slice(0, 2).toUpperCase() + String(index + 1);
                 const isSpawning = !!(minion.createdAt && (now - minion.createdAt) < MINION_SPAWN_MS);
                 const isExiting = !!exitingMinions.find((e) => e.characterId === minion.characterId);
-                const transientHit = exitingHitMap[minion.characterId] || Boolean((minion as any).__isHit) || !!minionHitActiveById[minion.characterId];
+                const transientHit = exitingHitMap[minion.characterId] || Boolean((minion as any).__isHit) || !!minionHitActiveById[minion.characterId] || !!playbackMinionHitActiveById[minion.characterId];
                 // Visual exiting state: either recently removed (isExiting) or transiently marked hit by engine (__isHit) or pulse target
                 const visualExiting = isExiting || transientHit;
                 const spawnClass = isSpawning && minion.type === 'skeleton' ? 'mchip--spawning-skeleton' : '';

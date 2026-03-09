@@ -68,6 +68,31 @@ export interface TurnQueueEntry {
   speed: number;
 }
 
+export interface BattlePlaybackStep {
+  kind: 'master' | 'minion';
+  hitIndex: number;
+  attackerId: string;
+  defenderId: string;
+  isHit: boolean;
+  isPower: boolean;
+  powerName: string;
+  isCrit: boolean;
+  baseDmg: number;
+  damage: number;
+  shockBonus: number;
+  atkRoll: number;
+  defRoll: number;
+  isDodged: boolean;
+  coAttackHit: boolean;
+  coAttackDamage: number;
+  attackerName: string;
+  attackerTheme: string;
+  defenderName: string;
+  defenderTheme: string;
+  soulDevourerDrain?: boolean;
+  isMinionHit?: boolean;
+}
+
 /** Phase within a single turn (derived from PHASE so type and runtime stay in sync). */
 export type TurnPhase = (typeof PHASE)[keyof typeof PHASE];
 
@@ -126,6 +151,8 @@ export interface TurnState {
 
   /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
   resolvingHitIndex?: number;
+  /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
+  playbackStep?: BattlePlaybackStep | null;
 }
 
 /** A log entry for the battle feed */
