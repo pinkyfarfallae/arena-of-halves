@@ -55,6 +55,7 @@ interface Props {
   teamMinionsA?: any[];
   teamMinionsB?: any[];
   myId: string | undefined;
+  isPlaybackDriver?: boolean;
   transientEffectsActive?: boolean;
   onSelectTarget: (defenderId: string) => void;
   onSelectAction: (action: TurnAction, powerName?: string, allyTargetId?: string) => void;
@@ -118,7 +119,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, transientEffectsActive,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
@@ -273,12 +274,12 @@ export default function BattleHUD({
   // Soul Devourer end turn only (Use Power that cannot attack): advance immediately
   const soulDevourerEndTurnOnlyTurn = (turn as any)?.soulDevourerEndTurnOnly;
   useEffect(() => {
-    if (turnPhase === PHASE.RESOLVING && soulDevourerEndTurnOnlyTurn) {
+    if (turnPhase === PHASE.RESOLVING && soulDevourerEndTurnOnlyTurn && isPlaybackDriver) {
       const t = setTimeout(() => onResolve(), 600);
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerEndTurnOnlyTurn derived from turn; keep deps array length constant
-  }, [turnPhase, soulDevourerEndTurnOnlyTurn, onResolve]);
+  }, [turnPhase, soulDevourerEndTurnOnlyTurn, isPlaybackDriver, onResolve]);
 
   // If I defended, no replay to wait for → short delay (skip for skipDice powers)
   useEffect(() => {
@@ -689,40 +690,26 @@ export default function BattleHUD({
   const [transientDamage, setTransientDamage] = useState<ResolveCacheType | null>(null);
   /** Unique key per skeleton hit so each damage card shows distinctly (no flicker between hits) */
   const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
-  // State-based count so auto-resolve re-runs when all skeleton playbacks finish
+  // State-based count so the UI knows skeleton/minion playback is still running.
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
-  useEffect(() => {
+  const attackerTeamMinionsForPlayback = turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB;
+  const attackerSkeletonCountForPlayback = Array.isArray(attackerTeamMinionsForPlayback)
+    ? (attackerTeamMinionsForPlayback as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
+    : (attacker?.skeletonCount ?? 0);
+  const masterHasSkeletonPlayback = attackerSkeletonCountForPlayback > 0;
+  const CHAINED_MASTER_RESOLVE_DISPLAY_MS = 2400;
+  const MINION_RESOLVE_DISPLAY_MS = 2200;
+  const masterResolveDisplayMs = ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)) ? CHAINED_MASTER_RESOLVE_DISPLAY_MS : 5000;
+  const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
+  const masterDamageCardTurnKeyRef = useRef<string | null>(null);
+  const handleMasterDamageCardComplete = useCallback(() => {
+    setShowMasterDamageCard(false);
+    if (!isPlaybackDriver) return;
     if (turn?.phase !== PHASE.RESOLVING) return;
-    const resolvingHitIndex = (turn as any).resolvingHitIndex as number | undefined;
-    const isPerHitSkeletonPhase = resolvingHitIndex != null && resolvingHitIndex >= 1;
-    if (!isPerHitSkeletonPhase && !resolveReady) return;
-    // Shadow Camouflaging D4: never auto-resolve — wait for player to roll D4
     const shadowCamouflageD4Wait = !!(turn as any)?.shadowCamouflageRefillWinFaces?.length && (turn as any).shadowCamouflageRefillRoll == null;
     if (shadowCamouflageD4Wait) return;
-
-    const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
-    const allChecksDone = isPerHitSkeletonPhase || soulDevourerDrainTurn || (dodgeReady && critReady && chainReady && coAttackReady);
-    if (!allChecksDone) return;
-
-    // Do not auto-resolve until every skeleton/minion DamageCard has finished.
-    const hasPendingPlayback = transientDamageActive || pendingSkeletonCount > 0 || !!transientEffectsActive;
-    if (hasPendingPlayback) {
-      return;
-    }
-
-    // 1800ms when master hit is followed by skeleton/minion hits (Soul Devourer drain or normal attack with skeleton)
-    const attackerTeamMinions = turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB;
-    const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
-      ? (attackerTeamMinions as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
-      : (attacker?.skeletonCount ?? 0);
-    const masterHasSkeleton = attackerSkeletonCount > 0;
-    const normalAttackWithSkeleton = turn?.action === TURN_ACTION.ATTACK && masterHasSkeleton;
-    let autoResolveMs = (soulDevourerDrainTurn || normalAttackWithSkeleton) ? 1800 : 5000;
-    if (isPerHitSkeletonPhase) autoResolveMs = 400;
-    const timer = setTimeout(() => onResolve(), autoResolveMs);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- turn?.phase is the trigger; including full turn changes array size between renders
-  }, [turn?.phase, (turn as any)?.resolvingHitIndex, resolveReady, dodgeReady, critReady, chainReady, coAttackReady, onResolve, transientDamageActive, pendingSkeletonCount, transientEffectsActive]);
+    onResolve();
+  }, [isPlaybackDriver, turn, onResolve]);
 
   /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
@@ -739,13 +726,100 @@ export default function BattleHUD({
   const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
   // Shadow Camouflaging D4: show roll-for-refill UI (no defender needed; phase + winFaces only)
   const shadowCamouflageD4 = turn?.phase === PHASE.RESOLVING && !!(turn as any)?.shadowCamouflageRefillWinFaces?.length;
+  const playbackStep = (turn as any)?.playbackStep as any;
+  const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
+  const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
     (!!attacker && !!defender && (
-      (resolveReady && dodgeReady && critReady && chainReady && coAttackReady) ||
-      (soulDevourerDrain && resolveReady)
+      allResolveChecksDone
     )) ||
     (shadowCamouflageD4 && !!attacker)
   );
+  const playbackRequestKeyRef = useRef<string | null>(null);
+  const [activePlaybackStep, setActivePlaybackStep] = useState<any | null>(null);
+  const activePlaybackStepKeyRef = useRef<string | null>(null);
+  const completedPlaybackStepKeyRef = useRef<string | null>(null);
+  const [playbackPendingAck, setPlaybackPendingAck] = useState(false);
+  const playbackAckTimerRef = useRef<number | null>(null);
+  const playbackFlowReady = !!(
+    turn?.phase === PHASE.RESOLVING &&
+    !shadowCamouflageD4 &&
+    !!attacker &&
+    !!defender &&
+    (allResolveChecksDone || playbackStep || activePlaybackStep || playbackPendingAck)
+  );
+  useEffect(() => {
+    if (!playbackStep) {
+      completedPlaybackStepKeyRef.current = null;
+      setPlaybackPendingAck(false);
+      if (turn?.phase !== PHASE.RESOLVING) {
+        activePlaybackStepKeyRef.current = null;
+        setActivePlaybackStep(null);
+      }
+      return;
+    }
+    const stepKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${playbackStep.kind ?? 'step'}|${playbackStep.hitIndex ?? 0}|${playbackStep.attackerId}|${playbackStep.defenderId}|${playbackStep.damage ?? 0}`;
+    if (completedPlaybackStepKeyRef.current === stepKey) return;
+    if (activePlaybackStepKeyRef.current === stepKey) return;
+    activePlaybackStepKeyRef.current = stepKey;
+    setPlaybackPendingAck(false);
+    const playbackSide = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
+    const playbackMs = playbackStep.isMinionHit ? MINION_RESOLVE_DISPLAY_MS : masterResolveDisplayMs;
+    setActivePlaybackStep({
+      ...playbackStep,
+      __cardKey: stepKey,
+      __side: playbackSide,
+      __displayMs: playbackMs,
+    });
+  }, [playbackStep, turn?.phase, battle.roundNumber, battle.currentTurnIndex]);
+  useEffect(() => {
+    if (!isPlaybackDriver || turn?.phase !== PHASE.RESOLVING || shadowCamouflageD4) return;
+    if (activePlaybackStep || playbackPendingAck) return;
+    if (playbackStep) return;
+    if (!allResolveChecksDone) return;
+    const requestKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn.attackerId}|${turn.defenderId ?? ''}|${resolvingHitIndex ?? 0}`;
+    if (playbackRequestKeyRef.current === requestKey) return;
+    playbackRequestKeyRef.current = requestKey;
+    onResolve();
+  }, [isPlaybackDriver, turn, activePlaybackStep, playbackPendingAck, playbackStep, shadowCamouflageD4, allResolveChecksDone, battle.roundNumber, battle.currentTurnIndex, onResolve, resolvingHitIndex]);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING) playbackRequestKeyRef.current = null;
+  }, [turn?.phase]);
+  useEffect(() => {
+    return () => {
+      if (playbackAckTimerRef.current != null) {
+        clearTimeout(playbackAckTimerRef.current);
+        playbackAckTimerRef.current = null;
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
+      masterDamageCardTurnKeyRef.current = null;
+      setShowMasterDamageCard(false);
+      return;
+    }
+    const inSkeletonFollowup = resolvingHitIndex != null && resolvingHitIndex >= 1;
+    const shouldShowMasterCard = !!(
+      turn?.phase === PHASE.RESOLVING &&
+      resolveVisible &&
+      !shadowCamouflageD4 &&
+      !transientDamageActive &&
+      !hadSkeletonHitsThisTurnRef.current &&
+      !inSkeletonFollowup
+    );
+    const turnKey = shouldShowMasterCard
+      ? `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`
+      : null;
+    if (turnKey && masterDamageCardTurnKeyRef.current !== turnKey) {
+      masterDamageCardTurnKeyRef.current = turnKey;
+      setShowMasterDamageCard(true);
+    }
+    if (turn?.phase !== PHASE.RESOLVING) {
+      masterDamageCardTurnKeyRef.current = null;
+      setShowMasterDamageCard(false);
+    }
+  }, [battle.roundNumber, battle.currentTurnIndex, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
   // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
   const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
   // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
@@ -821,6 +895,7 @@ export default function BattleHUD({
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
   useEffect(() => {
+    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) return;
     const skHits = lastSkeletonHits;
     if (!Array.isArray(skHits) || skHits.length === 0) {
       lastSkeletonHitsKeyRef.current = null;
@@ -838,11 +913,7 @@ export default function BattleHUD({
     skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
     skeletonChainTimeoutsRef.current = [];
     lastSkeletonHitsKeyRef.current = skKey;
-    // Set hadSkeletonHits only when first skeleton card shows (so master damage + heal can show first on Soul Devourer drain)
-    const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
-    const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 800; // master + soul float + explode + heal, then skeleton cards
-
-    const HIT_DISPLAY_MS = 150; // 150ms per skeleton so damage card stays visible
+    const HIT_DISPLAY_MS = MINION_RESOLVE_DISPLAY_MS; // keep skeleton/minion card visible long enough for readable VFX
     setPendingSkeletonCount((c) => c + skHits.length);
 
     const timeoutsRef = skeletonChainTimeoutsRef;
@@ -909,7 +980,13 @@ export default function BattleHUD({
         setTransientSkeletonCardKey('');
         setPendingSkeletonCount((c) => Math.max(0, c - 1));
         index++;
+        const finishedBuffer = index >= skHits.length;
         showNext();
+        if (finishedBuffer && isPlaybackDriver) {
+          onResolveVisible?.(false);
+          try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
+          onResolve();
+        }
       }, HIT_DISPLAY_MS + 50);
       timeoutsRef.current.push(t);
     };
@@ -917,7 +994,7 @@ export default function BattleHUD({
     const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
     lastSkeletonPlaybackTurnKeyRef.current = turnKey;
 
-    const chainStartDelayMs = soulDevourerDrain ? SOUL_DEVOURER_MASTER_AND_HEAL_MS : 0;
+    const chainStartDelayMs = 0;
     const totalDisplayMs = chainStartDelayMs + skHits.length * (HIT_DISPLAY_MS + 50);
     const tEnd = window.setTimeout(() => {
       onResolveVisible?.(false);
@@ -933,7 +1010,7 @@ export default function BattleHUD({
     }
     // No cleanup here: effect re-runs (e.g. battle ref change) must not cancel the chain. Timeouts are cleared only when starting a new chain or on unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
-  }, [lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
+  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn, isPlaybackDriver, onResolve]);
 
   // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active.
   // Use primitive deps and only call when value changes to avoid update loops from parent re-renders.
@@ -1035,6 +1112,18 @@ export default function BattleHUD({
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
     side: PANEL_SIDE.RIGHT,
   });
+  const masterDamageCardKey = [
+    battle.roundNumber,
+    battle.currentTurnIndex,
+    turn?.attackerId ?? '',
+    turn?.defenderId ?? '',
+    turn?.attackRoll ?? 0,
+    turn?.defendRoll ?? 0,
+    resolveCache.current.damage ?? 0,
+    resolveCache.current.powerName ?? '',
+    resolveCache.current.isDodged ? 'dodged' : 'live',
+    resolveCache.current.isCrit ? 'crit' : 'plain',
+  ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
@@ -1116,6 +1205,10 @@ export default function BattleHUD({
   // shows a DamageCard and triggers hit visuals. We track which log entries we've
   // already rendered using `shownLogIndex` to only play new entries.
   useEffect(() => {
+    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
+      resolveCache.current.shownLogIndex = battle.log?.length || 0;
+      return;
+    }
     if (!arenaId) return;
     const logArr = battle.log || [];
     if (!Array.isArray(logArr)) return;
@@ -1157,7 +1250,7 @@ export default function BattleHUD({
       (Array.isArray(skBuffer) && skBuffer.length > 0) || lastSkeletonPlaybackTurnKeyRef.current === currentTurnKey;
 
     const STAGGER_MS = 400;
-    const HIT_DISPLAY_MS = 1500;
+    const HIT_DISPLAY_MS = MINION_RESOLVE_DISPLAY_MS;
     let delayAcc = 0;
 
     for (let i = prevIndex; i < total; i++) {
@@ -1272,7 +1365,7 @@ export default function BattleHUD({
       } catch (e) { }
     }, delayAcc + HIT_DISPLAY_MS + 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
-  }, [battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
+  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
 
   /* ── Winner: show only after all minion/skeleton hit effects have played ── */
   if (winner) {
@@ -1526,7 +1619,7 @@ export default function BattleHUD({
       )}
 
       {/* Resolve bar (hidden for Shadow Camouflage D4 — we show D4 roll only) */}
-      {showResolve && !shadowCamouflageD4 && (() => {
+      {showResolve && !shadowCamouflageD4 && !activePlaybackStep && !playbackPendingAck && (() => {
         const rc = resolveCache.current;
         if (rc.isPower && rc.atkRoll === 0) {
           return (
@@ -1595,13 +1688,46 @@ export default function BattleHUD({
         );
       })()}
 
+      {activePlaybackStep && (() => {
+        return (
+          <DamageCard
+            key={activePlaybackStep.__cardKey}
+            data={{ ...activePlaybackStep, side: activePlaybackStep.__side } as any}
+            exiting={false}
+            side={activePlaybackStep.__side}
+            displayMs={activePlaybackStep.__displayMs}
+            onDisplayComplete={() => {
+              if (!isPlaybackDriver) return;
+              if (turn?.phase !== PHASE.RESOLVING) return;
+              completedPlaybackStepKeyRef.current = activePlaybackStep.__cardKey;
+              setPlaybackPendingAck(true);
+              setActivePlaybackStep(null);
+              activePlaybackStepKeyRef.current = null;
+              if (playbackAckTimerRef.current != null) clearTimeout(playbackAckTimerRef.current);
+              playbackAckTimerRef.current = window.setTimeout(() => {
+                playbackAckTimerRef.current = null;
+                if (turn?.phase !== PHASE.RESOLVING) return;
+                onResolve();
+              }, 60);
+            }}
+          />
+        );
+      })()}
+
       {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
-      {showResolve && !shadowCamouflageD4 && !transientDamageActive && resolveVisible && !hadSkeletonHitsThisTurnRef.current && (
-        <DamageCard data={resolveCache.current} exiting={resolveExiting} side={resolveCache.current.side} />
+      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && (
+        <DamageCard
+          key={masterDamageCardKey}
+          data={resolveCache.current}
+          exiting={resolveExiting}
+          side={resolveCache.current.side}
+          displayMs={masterResolveDisplayMs}
+          onDisplayComplete={handleMasterDamageCardComplete}
+        />
       )}
 
       {/* Transient DamageCard for minion/skeleton hits — always defender side; unique key per hit so card always shows during each skeleton's hit effect */}
-      {transientDamage && (
+      {!activePlaybackStep && !playbackStep && !playbackPendingAck && transientDamage && (
         <DamageCard key={transientSkeletonCardKey || 'transient-minion-card'} data={transientDamage} exiting={false} side={transientDamage.side} />
       )}
 

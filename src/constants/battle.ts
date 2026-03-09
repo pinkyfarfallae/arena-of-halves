@@ -73,6 +73,7 @@ export const ARENA_PATH = {
   BATTLE_TURN_ATTACK_ROLL: 'battle/turn/attackRoll',
   BATTLE_TURN_DEFEND_ROLL: 'battle/turn/defendRoll',
   BATTLE_TURN_PHASE: 'battle/turn/phase',
+  BATTLE_TURN_PLAYBACK_STEP: 'battle/turn/playbackStep',
   BATTLE_TURN_SELECTED_SEASON: 'battle/turn/selectedSeason',
 } as const;
 
