@@ -198,7 +198,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   const prevHitEventKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!allowTransientHits) return;
+    if (!allowTransientHits) {
+      if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
+      isHitTimerRef.current = null;
+      setIsHitActive(false);
+      return;
+    }
     if (!hitEventKey) return;
     if (hitEventKey === prevHitEventKeyRef.current) return;
     prevHitEventKeyRef.current = hitEventKey;
@@ -298,7 +303,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const playbackMinionHitTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const playbackMinionHitRestartRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   useEffect(() => {
-    if (!allowTransientHits) return;
+    if (!allowTransientHits) {
+      Object.values(playbackMinionHitTimerRef.current).forEach((t) => clearTimeout(t));
+      Object.values(playbackMinionHitRestartRef.current).forEach((t) => clearTimeout(t));
+      playbackMinionHitTimerRef.current = {};
+      playbackMinionHitRestartRef.current = {};
+      setPlaybackMinionHitActiveById({});
+      return;
+    }
     if (!playbackHitEventKey || !playbackHitTargetId) return;
     if (lastPlaybackMinionHitEventRef.current === playbackHitEventKey) return;
     const isOwnedMinion = !!(minions || []).some((minion) => minion.characterId === playbackHitTargetId);

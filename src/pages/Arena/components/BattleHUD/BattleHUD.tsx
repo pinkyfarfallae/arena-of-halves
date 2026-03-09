@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
+import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4 } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
@@ -21,6 +22,7 @@ import { getPowers } from '../../../../data/powers';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
+import { SKILL_UNLOCK } from '../../../../constants/character';
 
 /** Keep element rendered during a fade-out exit animation. */
 function useFadeTransition(visible: boolean, ms = 250) {
@@ -758,7 +760,7 @@ export default function BattleHUD({
       }
       return;
     }
-    const stepKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${playbackStep.kind ?? 'step'}|${playbackStep.hitIndex ?? 0}|${playbackStep.attackerId}|${playbackStep.defenderId}|${playbackStep.damage ?? 0}`;
+    const stepKey = buildBattlePlaybackEventKey(battle.roundNumber, battle.currentTurnIndex, playbackStep);
     if (completedPlaybackStepKeyRef.current === stepKey) return;
     if (activePlaybackStepKeyRef.current === stepKey) return;
     activePlaybackStepKeyRef.current = stepKey;
@@ -845,7 +847,7 @@ export default function BattleHUD({
 
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
-  const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || transientDamageActive || pendingSkeletonCount > 0;
+  const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0;
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -1140,7 +1142,7 @@ export default function BattleHUD({
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
       };
     } else if (soulDevourerDrainTurn) {
       const activeEffects = battle.activeEffects || [];
@@ -1154,7 +1156,7 @@ export default function BattleHUD({
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         soulDevourerDrain: true,
       };
     } else {
@@ -1175,7 +1177,7 @@ export default function BattleHUD({
       // Lightning Reflex passive: if attacker has it + defender has shock DOTs → bonus = baseDmg
       let shockBonus = 0;
       if (at > dt && turn.action !== TURN_ACTION.POWER) {
-        const hasLR = attacker.passiveSkillPoint === 'unlock' &&
+        const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCK &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
         const defShocks = hasLR && activeEffects.some(
           e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
@@ -1196,7 +1198,7 @@ export default function BattleHUD({
         isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === 'teamA' ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
       };
     }
   }
@@ -1619,8 +1621,20 @@ export default function BattleHUD({
       )}
 
       {/* Resolve bar (hidden for Shadow Camouflage D4 — we show D4 roll only) */}
-      {showResolve && !shadowCamouflageD4 && !activePlaybackStep && !playbackPendingAck && (() => {
-        const rc = resolveCache.current;
+      {showResolve && !shadowCamouflageD4 && (() => {
+        const rc = activePlaybackStep
+          ? { ...resolveCache.current, ...activePlaybackStep }
+          : resolveCache.current;
+        if (activePlaybackStep?.isMinionHit) {
+          return (
+            <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+              <div className="bhud__resolve-info">
+                <span className="bhud__resolve-power-name">{activePlaybackStep.attackerName}</span>
+                <span className="bhud__resolve-dmg">-{activePlaybackStep.damage} DMG</span>
+              </div>
+            </div>
+          );
+        }
         if (rc.isPower && rc.atkRoll === 0) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
@@ -1672,7 +1686,9 @@ export default function BattleHUD({
                 <>
                   {rc.critEligible && (
                     <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
-                      {rc.critRoll > 0 && <>D4: {rc.critRoll} &mdash; </>}{rc.isCrit ? 'CRIT!' : 'NO CRIT'}
+                      <span className="bhud__resolve-crit-roll">{rc.critRoll > 0 ? `D4: ${rc.critRoll}` : 'D4: -'}</span>
+                      <span className="bhud__resolve-crit-sep">-</span>
+                      <span className="bhud__resolve-crit-text">{rc.isCrit ? 'CRIT!' : 'NO CRIT'}</span>
                     </span>
                   )}
                   <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>

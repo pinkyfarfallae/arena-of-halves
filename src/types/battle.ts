@@ -68,8 +68,15 @@ export interface TurnQueueEntry {
   speed: number;
 }
 
+export const BATTLE_PLAYBACK_KIND = {
+  MASTER: 'master',
+  MINION: 'minion',
+} as const;
+
+export type BattlePlaybackKind = (typeof BATTLE_PLAYBACK_KIND)[keyof typeof BATTLE_PLAYBACK_KIND];
+
 export interface BattlePlaybackStep {
-  kind: 'master' | 'minion';
+  kind: BattlePlaybackKind;
   hitIndex: number;
   attackerId: string;
   defenderId: string;
@@ -91,6 +98,23 @@ export interface BattlePlaybackStep {
   defenderTheme: string;
   soulDevourerDrain?: boolean;
   isMinionHit?: boolean;
+}
+
+export function buildBattlePlaybackEventKey(
+  roundNumber: number,
+  currentTurnIndex: number,
+  step?: Partial<Pick<BattlePlaybackStep, 'kind' | 'hitIndex' | 'attackerId' | 'defenderId' | 'damage' | 'isMinionHit'>> | null,
+): string {
+  return [
+    roundNumber,
+    currentTurnIndex,
+    step?.kind ?? 'step',
+    step?.hitIndex ?? 0,
+    step?.attackerId ?? '',
+    step?.defenderId ?? '',
+    step?.damage ?? 0,
+    step?.isMinionHit ? BATTLE_PLAYBACK_KIND.MINION : BATTLE_PLAYBACK_KIND.MASTER,
+  ].join('|');
 }
 
 /** Phase within a single turn (derived from PHASE so type and runtime stay in sync). */
