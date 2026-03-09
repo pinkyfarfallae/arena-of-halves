@@ -125,6 +125,10 @@ $crimson: #a0001b;
   flex-direction: column;
   gap: 0.35rem;
   width: 100%;
+
+  @media (max-width: 600px) {
+    gap: 0.2rem;
+  }
 }
 
 .bhud__power-actions {
@@ -160,6 +164,7 @@ $crimson: #a0001b;
 
 .bhud__power-btn {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.5rem;

@@ -157,7 +157,7 @@ export default function TrapezohedronDie({
       ? FACE_VALUES.indexOf(fixedResult)
       : Math.floor(Math.random() * 10);
     targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
-  }, [rollTrigger]);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {

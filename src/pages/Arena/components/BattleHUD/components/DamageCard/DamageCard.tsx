@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import type { PanelSide } from '../../../../../../constants/battle';
 import './DamageCard.scss';
 
 interface ResolveData {
@@ -21,15 +23,28 @@ interface ResolveData {
 interface Props {
   data: ResolveData;
   exiting: boolean;
-  side: 'left' | 'right';
+  side: PanelSide;
+  displayMs?: number;
+  onDisplayComplete?: () => void;
 }
 
 export type { ResolveData };
 
-export default function DamageCard({ data, exiting, side }: Props) {
+export default function DamageCard({ data, exiting, side, displayMs, onDisplayComplete }: Props) {
   const rc = data;
   const cardStyle = { '--card-atk': rc.attackerTheme, '--card-def': rc.defenderTheme } as React.CSSProperties;
   const hasBreakdown = rc.isHit && !rc.isPower && (rc.isCrit || rc.shockBonus > 0);
+  const onDisplayCompleteRef = useRef<typeof onDisplayComplete>(onDisplayComplete);
+
+  useEffect(() => {
+    onDisplayCompleteRef.current = onDisplayComplete;
+  }, [onDisplayComplete]);
+
+  useEffect(() => {
+    if (exiting || displayMs == null || !onDisplayCompleteRef.current) return;
+    const t = window.setTimeout(() => onDisplayCompleteRef.current?.(), displayMs);
+    return () => clearTimeout(t);
+  }, [displayMs, exiting]);
 
   // skipDice powers (Jolt Arc, Thunderbolt)
   if (rc.isPower && rc.atkRoll === 0) {

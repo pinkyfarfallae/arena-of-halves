@@ -3,8 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
-import { createRoom, getRoom, onRoomsList, deleteRoom, toFighterState } from '../../services/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
+import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';
 import Swords from '../../icons/Swords';
 import ChevronLeft from '../../icons/ChevronLeft';
@@ -44,6 +45,21 @@ function Lobby() {
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  const handleDeleteAllRooms = async () => {
+    if (!window.confirm('Delete ALL arena rooms on the server? This cannot be undone.')) return;
+    setDeletingAll(true);
+    setError('');
+    try {
+      await deleteAllArenaRooms();
+      setActiveRooms([]);
+    } catch {
+      setError('Failed to delete all rooms.');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = onRoomsList(setActiveRooms);
@@ -91,10 +107,10 @@ function Lobby() {
 
   const statusLabel = (s: string) => {
     switch (s) {
-      case 'waiting': return 'Waiting';
-      case 'ready': return 'Ready';
-      case 'battling': return 'Live';
-      case 'finished': return 'Ended';
+      case ROOM_STATUS.WAITING: return 'Waiting';
+      case ROOM_STATUS.READY: return 'Ready';
+      case ROOM_STATUS.BATTLING: return 'Live';
+      case ROOM_STATUS.FINISHED: return 'Ended';
       default: return s;
     }
   };
@@ -221,46 +237,62 @@ function Lobby() {
                   <span className="lobby__rooms-line" />
                   <div className="lobby__banner lobby__banner--r2" />
                   <div className="lobby__banner lobby__banner--r1" />
+                  {/* {role === ROLE.DEVELOPER && (
+                    <button
+                      type="button"
+                      className="lobby__delete-all"
+                      onClick={handleDeleteAllRooms}
+                      disabled={deletingAll}
+                      title="Delete all arena rooms on server"
+                    >
+                      {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                    </button>
+                  )} */}
                 </div>
                 <div className="lobby__rooms-list">
-                  {activeRooms.map((room) => (
-                    <button
-                      key={room.arenaId}
-                      className="lobby__room"
-                      onClick={() => navigate(`${room.arenaId}?watch=true`)}
-                    >
-                      <span className="lobby__room-name">{room.roomName}</span>
-                      {room.teamSize > 1 && (
-                        <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
-                      )}
-                      <span className={`lobby__room-status lobby__room-status--${room.status}`}>
-                        {statusLabel(room.status)}
-                      </span>
-                      {room.status === 'finished' ? (
-                        <span
-                          className="lobby__room-log"
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setLogRoom(room); }}
+                  {activeRooms.map((room, index) => {
+                    if (!room.roomName || room.roomName.trim().length === 0) return null;
+                    return (
+                      (
+                        <button
+                          key={room.arenaId ?? `room-${index}`}
+                          className="lobby__room"
+                          onClick={() => navigate(`${room.arenaId}?watch=true`)}
                         >
-                          <Eye width={12} height={12} />
-                          Log
-                        </span>
-                      ) : (
-                        <span className="lobby__room-code">{room.arenaId}</span>
-                      )}
-                      {role === ROLE.DEVELOPER && (
-                        <span
-                          className="lobby__room-delete"
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); deleteRoom(room.arenaId); }}
-                        >
-                          <Trash width={14} height={14} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                          <span className="lobby__room-name">{room.roomName?.trim() || 'Arena'}</span>
+                          {room.teamSize > 1 && (
+                            <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
+                          )}
+                          <span className={`lobby__room-status lobby__room-status--${room.status}`}>
+                            {statusLabel(room.status)}
+                          </span>
+                          {room.status === ROOM_STATUS.FINISHED ? (
+                            <span
+                              className="lobby__room-log"
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); setLogRoom(room); }}
+                            >
+                              <Eye width={12} height={12} />
+                              Log
+                            </span>
+                          ) : (
+                            <span className="lobby__room-code">{room.arenaId}</span>
+                          )}
+                          {role === ROLE.DEVELOPER && (
+                            <span
+                              className="lobby__room-delete"
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); deleteRoom(room.arenaId); }}
+                            >
+                              <Trash width={14} height={14} />
+                            </span>
+                          )}
+                        </button>
+                      )
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -269,6 +301,17 @@ function Lobby() {
               <div className="lobby__empty">
                 <Colosseum className="lobby__empty-icon" width={64} height={64} />
                 <p>No active battles. Create one to begin.</p>
+                {/* {role === ROLE.DEVELOPER && (
+                  <button
+                    type="button"
+                    className="lobby__delete-all"
+                    onClick={handleDeleteAllRooms}
+                    disabled={deletingAll}
+                    title="Delete all arena rooms on server"
+                  >
+                    {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                  </button>
+                )} */}
               </div>
             )}
           </div>

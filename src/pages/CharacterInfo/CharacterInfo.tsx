@@ -5,7 +5,7 @@ import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlaye
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
-import { DEITY_SVG } from '../../data/deities';
+import { DEITY_SVG, toDeityKey } from '../../data/deities';
 import Drachma from '../../icons/Drachma';
 import VitalBar from './components/VitalBar/VitalBar';
 import StatOrb from './components/StatOrb/StatOrb';
@@ -32,8 +32,10 @@ import EditPencil from './icons/EditPencil';
 import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
+import { isSkillUnlocked } from '../../constants/character';
 import './CharacterInfo.scss';
 import { SEX } from '../../constants/sex';
+import { POWER_TYPES } from '../../constants/powers';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -68,8 +70,9 @@ function CharacterInfo() {
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
   const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [weaponModal, setWeaponModal] = useState(false);
-  const [itemModal, setItemModal] = useState(false);
+  // Modal open state (setters used by UI; values reserved for future use)
+  const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [itemModal, setItemModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -172,8 +175,8 @@ function CharacterInfo() {
   }));
   while (itemSlots.length < SLOT_MIN) itemSlots.push({ name: '', quantity: 0 });
 
-  const orderedPowers = ['Passive', '1st Skill', '2nd Skill', 'Ultimate']
-    .map(s => powers.find(p => p.type === s))
+  const orderedPowers = [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
+    .map(type => powers.find(p => p.type === type))
     .filter(Boolean) as Power[];
 
   return (
@@ -245,11 +248,11 @@ function CharacterInfo() {
           <StatOrb value={char.attackDiceUp} label="ATTACK DICE" />
           <StatOrb value={char.reroll} label="REROLL" />
           {([
-            ['PASSIVE', char.passiveSkillPoint],
-            ['SKILL', char.skillPoint],
-            ['ULTIMATE', char.ultimateSkillPoint],
+            [POWER_TYPES.PASSIVE, char.passiveSkillPoint],
+            [POWER_TYPES.FIRST_SKILL, char.skillPoint],
+            [POWER_TYPES.ULTIMATE, char.ultimateSkillPoint],
           ] as [string, string][]).map(([label, val]) => {
-            const unlocked = val.toLowerCase() === 'unlock';
+            const unlocked = isSkillUnlocked(val);
             return (
               <div key={label} className={`so so--accent ${unlocked ? 'so--unlocked' : 'so--locked'}`}>
                 <div className="so__orb">
@@ -343,13 +346,16 @@ function CharacterInfo() {
             <div className="cs__wishes">
               <h3 className="cs__wishes-title"><span className="cs__wishes-diamond">◆</span>Divine Wishes</h3>
               <div className="cs__wishes-grid">
-                {wishes.map(({ deity, count }) => (
+                {wishes.map(({ deity, count }) => {
+                  const iconKey = toDeityKey(deity);
+                  return (
                   <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
-                    <span className="cs__wish-icon">{DEITY_SVG[deity.toLowerCase()] || <span>⚡</span>}</span>
+                    <span className="cs__wish-icon">{iconKey ? DEITY_SVG[iconKey] : <span>⚡</span>}</span>
                     <span className="cs__wish-deity">{deity}</span>
                     <span className="cs__wish-count">{count}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -495,11 +501,18 @@ function CharacterInfo() {
           </div>
 
           {/* Traits */}
-          <div className="cs__trait-row">
-            <TraitBox label="Strengths" raw={char.strengths} variant="primary" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
-            <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
-          </div>
-          <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" icon={displayDeity ? DEITY_SVG[displayDeity.toLowerCase()] : undefined} />
+          {(() => {
+            const displayDeityIconKey = displayDeity ? toDeityKey(displayDeity) : undefined;
+            return (
+              <>
+                <div className="cs__trait-row">
+                  <TraitBox label="Strengths" raw={char.strengths} variant="primary" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+                  <TraitBox label="Weaknesses" raw={char.weaknesses} variant="accent" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+                </div>
+                <TraitBox label="Supernatural Abilities" raw={char.abilities} variant="mixed" icon={displayDeityIconKey ? DEITY_SVG[displayDeityIconKey] : undefined} />
+              </>
+            );
+          })()}
         </div>
       </main>
 

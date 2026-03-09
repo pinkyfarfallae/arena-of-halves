@@ -70,8 +70,9 @@ export default function Dropdown({ label, value, onChange, options, placeholder,
     document.body.style.paddingRight = `${scrollbarWidth}px`;
 
     // Focus search input when opening
+    let focusTimer: number | undefined;
     if (searchable) {
-      requestAnimationFrame(() => searchRef.current?.focus());
+      focusTimer = requestAnimationFrame(() => searchRef.current?.focus());
     }
 
     const handleClick = (e: MouseEvent) => {
@@ -80,10 +81,12 @@ export default function Dropdown({ label, value, onChange, options, placeholder,
       if (menuRef.current?.contains(target)) return;
       setOpen(false);
     };
+
     document.addEventListener('mousedown', handleClick);
     window.addEventListener('resize', updatePosition);
 
     return () => {
+      if (focusTimer !== undefined) cancelAnimationFrame(focusTimer);
       document.body.style.overflow = '';
       document.body.style.paddingRight = '';
       document.removeEventListener('mousedown', handleClick);

@@ -1,25 +1,13 @@
-export type EffectType =
-  | 'damage'
-  | 'heal'
-  | 'buff'
-  | 'debuff'
-  | 'shield'
-  | 'dot'
-  | 'stun'
-  | 'lifesteal'
-  | 'reflect'
-  | 'cleanse'
-  | 'reroll_grant';
+import { POWER_TYPES } from '../constants/powers';
 
-export type TargetType = 'enemy' | 'self' | 'ally';
+/** Effect type for powers; aligned with constants/effectTypes EFFECT_TYPES. */
+export type EffectType = import('../constants/effectTypes').EffectTypeValue;
 
-export type ModStat =
-  | 'attackDiceUp'
-  | 'defendDiceUp'
-  | 'damage'
-  | 'speed'
-  | 'criticalRate'
-  | 'maxHp';
+/** Target type for effects; aligned with constants/effectTypes TARGET_TYPES. */
+export type TargetType = import('../constants/effectTypes').TargetTypeValue;
+
+/** ModStat for effect modifiers; aligned with constants/effectTypes MOD_STAT. */
+export type ModStat = import('../constants/effectTypes').ModStatValue;
 
 /** A single mechanical effect entry (used inside the effects[] array). */
 export interface PowerEffect {
@@ -52,7 +40,7 @@ export interface PowerDefinition {
   /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
   skipDice?: boolean;
 
-  /** If true, power requires season selection before targeting (e.g. Persephone's Borrowed Season) */
+  /** If true, power requires season selection before targeting (e.g. Persephone's Ephemeral Season) */
   requiresSeasonSelection?: boolean;
 
   /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
@@ -75,7 +63,7 @@ export interface ActiveEffect {
 
 /** Quota cost by power type */
 export function getQuotaCost(powerType: string): number {
-  if (powerType === 'Ultimate') return 3;
-  if (powerType === 'Passive') return 0;
+  if (powerType === POWER_TYPES.ULTIMATE) return 3;
+  if (powerType === POWER_TYPES.PASSIVE) return 0;
   return 1; // '1st Skill' | '2nd Skill'
 }

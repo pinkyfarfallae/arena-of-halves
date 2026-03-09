@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import type { SeasonKey } from '../../../../data/seasons';
+import { SEASON_KEYS, type SeasonKey } from '../../../../data/seasons';
+import type { PanelSide } from '../../../../constants/battle';
 import './SeasonalEffects.scss';
 
 const MAPLE_PATH =
@@ -16,13 +17,13 @@ const PETAL_COLORS = [
 
 interface Props {
   season?: SeasonKey;
-  side: 'left' | 'right';
+  side: PanelSide;
   isActive: boolean;
 }
 
 /**
  * SeasonalEffects — Displays visual theme effects based on selected season
- * Appears on both sides of the arena field during Borrowed Season power duration
+ * Appears on both sides of the arena field during Ephemeral Season power duration
  */
 export default function SeasonalEffects({ season, side, isActive }: Props) {
   const effectClass = useMemo(() => {
@@ -50,7 +51,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
       </div>
 
       {/* Autumn-specific layers */}
-      {season === 'autumn' && (
+      {season === SEASON_KEYS.AUTUMN && (
         <>
           {/* Falling maple leaf SVGs */}
           <div className="seasonal-effects__leaves">
@@ -97,7 +98,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
       )}
 
       {/* Summer-specific layers */}
-      {season === 'summer' && (
+      {season === SEASON_KEYS.SUMMER && (
         <>
           {/* Sun corona — pulsing glow at the top center */}
           <div className="seasonal-effects__corona" />
@@ -149,7 +150,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
       )}
 
       {/* Winter-specific layers */}
-      {season === 'winter' && (
+      {season === SEASON_KEYS.WINTER && (
         <>
           {/* Aurora — color-shifting curtain */}
           <div className="seasonal-effects__aurora">
@@ -179,7 +180,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
       )}
 
       {/* Spring-specific layers */}
-      {season === 'spring' && (
+      {season === SEASON_KEYS.SPRING && (
         <>
           {/* Falling cherry blossom petals */}
           <div className="seasonal-effects__petals">

@@ -1,4 +1,7 @@
+import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
 import { Theme25 } from './character';
+import { Deity } from './deity';
+import { Minion } from './minions';
 import type { PowerDefinition, ActiveEffect } from './power';
 
 /** Fighter's combat snapshot at battle start */
@@ -7,7 +10,7 @@ export interface FighterState {
   nicknameEng: string;
   nicknameThai: string;
   sex: string;
-  deityBlood: string;
+  deityBlood: Deity;
   image?: string;
   theme: Theme25;
 
@@ -35,10 +38,13 @@ export interface FighterState {
 
   /* Powers from deity */
   powers: PowerDefinition[];
+
+  /* Skeleton count (Hades' Undead Army) - max 2 */
+  skeletonCount?: number;
 }
 
-/** Battle room statuses */
-export type RoomStatus = 'configuring' | 'waiting' | 'ready' | 'battling' | 'finished';
+/** Battle room statuses (derived from ROOM_STATUS so type and runtime stay in sync). */
+export type RoomStatus = (typeof ROOM_STATUS)[keyof typeof ROOM_STATUS];
 
 /** Who is viewing */
 export interface Viewer {
@@ -50,6 +56,7 @@ export interface Viewer {
 export interface Team {
   members: FighterState[];
   maxSize: number;
+  minions?: Minion[]; // Summoned minions (e.g., skeletons from Undead Army)
 }
 
 /* ── Battle / Turn system ── */
@@ -57,31 +64,73 @@ export interface Team {
 /** A single entry in the SPD-sorted turn queue */
 export interface TurnQueueEntry {
   characterId: string;
-  team: 'teamA' | 'teamB';
+  team: BattleTeamKey;
   speed: number;
 }
 
-/** Phase within a single turn */
-export type TurnPhase =
-  | 'select-target'
-  | 'select-action'    // choose normal attack or use a power
-  | 'select-season'    // Persephone's Borrowed Season season selection
-  | 'rolling-attack'
-  | 'rolling-defend'
-  | 'resolving'
-  | 'done';
+export const BATTLE_PLAYBACK_KIND = {
+  MASTER: 'master',
+  MINION: 'minion',
+} as const;
+
+export type BattlePlaybackKind = (typeof BATTLE_PLAYBACK_KIND)[keyof typeof BATTLE_PLAYBACK_KIND];
+
+export interface BattlePlaybackStep {
+  kind: BattlePlaybackKind;
+  hitIndex: number;
+  attackerId: string;
+  defenderId: string;
+  isHit: boolean;
+  isPower: boolean;
+  powerName: string;
+  isCrit: boolean;
+  baseDmg: number;
+  damage: number;
+  shockBonus: number;
+  atkRoll: number;
+  defRoll: number;
+  isDodged: boolean;
+  coAttackHit: boolean;
+  coAttackDamage: number;
+  attackerName: string;
+  attackerTheme: string;
+  defenderName: string;
+  defenderTheme: string;
+  soulDevourerDrain?: boolean;
+  isMinionHit?: boolean;
+}
+
+export function buildBattlePlaybackEventKey(
+  roundNumber: number,
+  currentTurnIndex: number,
+  step?: Partial<Pick<BattlePlaybackStep, 'kind' | 'hitIndex' | 'attackerId' | 'defenderId' | 'damage' | 'isMinionHit'>> | null,
+): string {
+  return [
+    roundNumber,
+    currentTurnIndex,
+    step?.kind ?? 'step',
+    step?.hitIndex ?? 0,
+    step?.attackerId ?? '',
+    step?.defenderId ?? '',
+    step?.damage ?? 0,
+    step?.isMinionHit ? BATTLE_PLAYBACK_KIND.MINION : BATTLE_PLAYBACK_KIND.MASTER,
+  ].join('|');
+}
+
+/** Phase within a single turn (derived from PHASE so type and runtime stay in sync). */
+export type TurnPhase = (typeof PHASE)[keyof typeof PHASE];
 
 /** State of the current turn */
 export interface TurnState {
   attackerId: string;
-  attackerTeam: 'teamA' | 'teamB';
+  attackerTeam: BattleTeamKey;
   defenderId?: string;
   phase: TurnPhase;
   attackRoll?: number;
   defendRoll?: number;
 
   /* Power usage */
-  action?: 'attack' | 'power';
+  action?: (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
   usedPowerIndex?: number;
   usedPowerName?: string;
 
@@ -109,8 +158,25 @@ export interface TurnState {
   /* Ally-targeting power (e.g. Floral Scented) */
   allyTargetId?: string;
 
-  /* Persephone's Borrowed Season selection */
+  /* Persephone's Ephemeral Season selection */
   selectedSeason?: string; // 'summer' | 'autumn' | 'winter' | 'spring'
+
+  /* Death Keeper resurrection */
+  resurrectTargetId?: string;
+
+  /* Soul Devourer (Hades): skip dice and resolve as HP drain */
+  soulDevourerDrain?: boolean;
+  /* Soul Devourer: chose Use Power that cannot attack — end turn without resolving */
+  soulDevourerEndTurnOnly?: boolean;
+
+  /* Shadow Camouflaging: D4 roll for 25% refill SP (quota) — server sets winFaces, client writes roll then calls advanceAfterShadowCamouflageD4 */
+  shadowCamouflageRefillWinFaces?: number[];
+  shadowCamouflageRefillRoll?: number;
+
+  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
+  resolvingHitIndex?: number;
+  /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
+  playbackStep?: BattlePlaybackStep | null;
 }
 
 /** A log entry for the battle feed */
@@ -133,6 +199,13 @@ export interface BattleLogEntry {
   dodgeRoll?: number;
   coAttackDamage?: number;
   coAttackerId?: string;
+  resurrectTargetId?: string;
+  resurrectHpRestored?: number;
+  /** Turn was skipped because attacker had no valid target (e.g. all enemies under Shadow Camouflage) */
+  skippedNoValidTarget?: boolean;
+  skipReason?: string;
+  /** Logged when confirming power before target/season; show power name only, no arrow/target until resolved */
+  pendingTarget?: boolean;
 }
 
 /** Full battle state stored alongside the room */
@@ -143,7 +216,9 @@ export interface BattleState {
   turn?: TurnState;
   log: BattleLogEntry[];
   activeEffects: ActiveEffect[];
-  winner?: 'teamA' | 'teamB';
+  winner?: BattleTeamKey;
+  /** Timestamp when winner will be set after delay (so hit effects can play before end arena) */
+  winnerDelayedAt?: number;
 }
 
 /** The battle room stored in Firebase */

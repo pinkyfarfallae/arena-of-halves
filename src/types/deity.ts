@@ -1,1 +1,1 @@
-export type { DeityName } from '../constants/deities';
+export type { Deity } from '../constants/deities';
