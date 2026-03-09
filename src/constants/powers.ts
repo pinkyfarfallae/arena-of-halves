@@ -16,7 +16,7 @@ export type PowerType = (typeof POWER_TYPES)[keyof typeof POWER_TYPES];
  */
 export const POWER_NAMES = {
   // Zeus
-  LIGHTNING_REFLEX: 'Lightning Reflex',
+  LIGHTNING_SPARK: 'Lightning Spark',
   BEYOND_THE_CLOUD: 'Beyond the Cloud',
   JOLT_ARC: 'Jolt Arc',
   THUNDERBOLT: 'Thunderbolt',
