@@ -419,7 +419,7 @@ export default function BattleHUD({
       setCritReady(true);
       return;
     }
-    // Self-buff powers (e.g. Beyond the Cloud) still do normal attacks → allow crit
+    // Self-buff powers (e.g. Beyond the Nimbus) still do normal attacks → allow crit
     const usedPowerDef = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null
       ? attacker?.powers?.[turn.usedPowerIndex] : undefined;
     if (turn.action === TURN_ACTION.POWER && usedPowerDef?.target !== TARGET_TYPES.SELF) {
@@ -523,7 +523,7 @@ export default function BattleHUD({
     if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady) return;
     // Dodged → skip chain
     if (dodgeRef.current.isDodged) { setChainReady(true); return; }
-    if (turn.usedPowerName !== POWER_NAMES.THUNDERBOLT) {
+    if (turn.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE) {
       setChainReady(true);
       return;
     }

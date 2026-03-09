@@ -828,7 +828,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         };
 
       // ── Thunderbolt: -3 primary, then D4 chain check ──
-      } else if (power.name === POWER_NAMES.THUNDERBOLT) {
+      } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
         const defender = findFighter(room, defenderId);
         const defPath = findFighterPath(room, defenderId);
         const defHpAfter = defender ? Math.max(0, defender.currentHp - power.value) : 0;
@@ -2469,7 +2469,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     ? attacker.powers?.[usedPowerIndex]
     : undefined;
 
-  // Self-buff power (e.g. Beyond the Cloud): buffs already applied in selectAction().
+  // Self-buff power (e.g. Beyond the Nimbus): buffs already applied in selectAction().
   // Treat as normal attack for damage calculation.
   const isSelfBuffPower = action === TURN_ACTION.POWER && usedPower && !usedPower.skipDice && usedPower.target === TARGET_TYPES.SELF;
 
@@ -2785,7 +2785,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   // skipDice powers: effect + log already written in selectAction()
 
   // Thunderbolt chain: if D4 succeeded, apply -1 AoE to other enemies
-  if (turn.usedPowerName === POWER_NAMES.THUNDERBOLT && turn.chainSuccess && defenderId) {
+  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.chainSuccess && defenderId) {
     const { updates: chainUpdates, aoeDamageMap } = applyThunderboltChain(room, attackerId, defenderId, battle);
     Object.assign(updates, chainUpdates);
     // Append chain AoE info to the last log entry (use already-updated log if we merged in place)
