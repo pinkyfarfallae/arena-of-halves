@@ -1178,7 +1178,7 @@ export default function BattleHUD({
       let shockBonus = 0;
       if (at > dt && turn.action !== TURN_ACTION.POWER) {
         const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCK &&
-          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
+          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
         const defShocks = hasLR && activeEffects.some(
           e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
         );

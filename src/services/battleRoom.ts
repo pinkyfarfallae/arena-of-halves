@@ -456,7 +456,7 @@ function buildMasterPlaybackStep(
   let shockBonus = 0;
   if (at > dt && turn.action !== TURN_ACTION.POWER) {
     const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCK &&
-      attacker.powers?.some(p => p.name === POWER_NAMES.LIGHTNING_REFLEX);
+      attacker.powers?.some(p => p.name === POWER_NAMES.LIGHTNING_SPARK);
     const defShocks = hasLR && activeEffects.some(
       e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
     );
@@ -1243,6 +1243,83 @@ export async function selectAction(
     return;
   }
 
+  // ── Self-buff power (non-skipDice): apply buff now, then select target for dice ──
+  if (!power.skipDice && power.target === TARGET_TYPES.SELF && (power.effect === EFFECT_TYPES.BUFF || power.effects)) {
+    const adjusted = power.effects
+      ? { ...power, effects: power.effects.map(e => ({ ...e, duration: e.duration + 1 })) }
+      : { ...power, duration: power.duration + 1 };
+    const effectUpdates = applyPowerEffect(room, attackerId, attackerId, adjusted as PowerDefinition, battle);
+    Object.assign(updates, effectUpdates);
+
+    // Log only after target is chosen (in selectTarget)
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      phase: PHASE.SELECT_TARGET,
+      action: TURN_ACTION.POWER,
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // ── Soul Devourer (Hades Ultimate): no stack; new select = reset to full 3 rounds (no add, no stack) ──
+  const SOUL_DEVOURER_DURATION_ROUNDS = 3;
+  if (power.name === POWER_NAMES.SOUL_DEVOURER) {
+    const queueLen = battle.turnQueue?.length || 1;
+    const soulDevourerTurns = queueLen * SOUL_DEVOURER_DURATION_ROUNDS;
+    const existing = battle.activeEffects || [];
+    const existingSoulDevourer = existing.find(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.SOUL_DEVOURER);
+    const newEffects: ActiveEffect[] = existingSoulDevourer
+      ? existing.map(e => e === existingSoulDevourer ? { ...e, turnsRemaining: soulDevourerTurns } : e)
+      : [...existing, {
+          id: makeEffectId(attackerId, power.name),
+          powerName: power.name,
+          effectType: EFFECT_TYPES.BUFF,
+          sourceId: attackerId,
+          targetId: attackerId,
+          value: 0,
+          turnsRemaining: soulDevourerTurns,
+          tag: EFFECT_TAGS.SOUL_DEVOURER,
+        }];
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = newEffects;
+
+    // Cast Undead Army immediately (summon skeleton; max 2)
+    const undeadArmyPower = attacker.powers?.find(p => p.name === POWER_NAMES.UNDEAD_ARMY);
+    if (undeadArmyPower) {
+      const battleWithSoul = { ...battle, activeEffects: newEffects };
+      const uaUpdates = applyPowerEffect(room, attackerId, attackerId, undeadArmyPower, battleWithSoul);
+      Object.assign(updates, uaUpdates);
+    }
+
+    // Log using Soul Devourer after confirm, before going to select target
+    const soulDevourerConfirmLog = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId: attackerId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: 0,
+      defenderHpAfter: attacker.currentHp ?? 0,
+      eliminated: false,
+      missed: false,
+      powerUsed: power.name,
+      pendingTarget: true,
+    };
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), soulDevourerConfirmLog]);
+
+    // Then go to select target
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      phase: PHASE.SELECT_TARGET,
+      action: TURN_ACTION.ATTACK, // immediate attack (skeleton can assist)
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
   // ── Self-buff power (skipDice): apply buff, end turn immediately (no follow-up attack) ──
   // (e.g., Shadow Camouflaging, or any self-buff that ends turn without attacking)
   // Check both stored and canonical definitions to support battles created before power updates
@@ -1385,83 +1462,6 @@ export async function selectAction(
       updates[ARENA_PATH.BATTLE_TURN] = turnData;
     }
 
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  // ── Self-buff power (non-skipDice): apply buff now, then select target for dice ──
-  if (!power.skipDice && power.target === TARGET_TYPES.SELF && (power.effect === EFFECT_TYPES.BUFF || power.effects)) {
-    const adjusted = power.effects
-      ? { ...power, effects: power.effects.map(e => ({ ...e, duration: e.duration + 1 })) }
-      : { ...power, duration: power.duration + 1 };
-    const effectUpdates = applyPowerEffect(room, attackerId, attackerId, adjusted as PowerDefinition, battle);
-    Object.assign(updates, effectUpdates);
-
-    // Log only after target is chosen (in selectTarget)
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      attackerId,
-      attackerTeam: battle.turn.attackerTeam,
-      phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.POWER,
-      usedPowerIndex: powerIndex,
-      usedPowerName: power.name,
-    };
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  // ── Soul Devourer (Hades Ultimate): no stack; new select = reset to full 3 rounds (no add, no stack) ──
-  const SOUL_DEVOURER_DURATION_ROUNDS = 3;
-  if (power.name === POWER_NAMES.SOUL_DEVOURER) {
-    const queueLen = battle.turnQueue?.length || 1;
-    const soulDevourerTurns = queueLen * SOUL_DEVOURER_DURATION_ROUNDS;
-    const existing = battle.activeEffects || [];
-    const existingSoulDevourer = existing.find(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.SOUL_DEVOURER);
-    const newEffects: ActiveEffect[] = existingSoulDevourer
-      ? existing.map(e => e === existingSoulDevourer ? { ...e, turnsRemaining: soulDevourerTurns } : e)
-      : [...existing, {
-          id: makeEffectId(attackerId, power.name),
-          powerName: power.name,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: attackerId,
-          value: 0,
-          turnsRemaining: soulDevourerTurns,
-          tag: EFFECT_TAGS.SOUL_DEVOURER,
-        }];
-    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = newEffects;
-
-    // Cast Undead Army immediately (summon skeleton; max 2)
-    const undeadArmyPower = attacker.powers?.find(p => p.name === POWER_NAMES.UNDEAD_ARMY);
-    if (undeadArmyPower) {
-      const battleWithSoul = { ...battle, activeEffects: newEffects };
-      const uaUpdates = applyPowerEffect(room, attackerId, attackerId, undeadArmyPower, battleWithSoul);
-      Object.assign(updates, uaUpdates);
-    }
-
-    // Log using Soul Devourer after confirm, before going to select target
-    const soulDevourerConfirmLog = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId: attackerId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: 0,
-      defenderHpAfter: attacker.currentHp ?? 0,
-      eliminated: false,
-      missed: false,
-      powerUsed: power.name,
-      pendingTarget: true,
-    };
-    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), soulDevourerConfirmLog]);
-
-    // Then go to select target
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      attackerId,
-      attackerTeam: battle.turn.attackerTeam,
-      phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.ATTACK, // immediate attack (skeleton can assist)
-    };
     await update(roomRef(arenaId), updates);
     return;
   }
