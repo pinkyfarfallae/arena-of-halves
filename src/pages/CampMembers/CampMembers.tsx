@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Character, fetchAllCharacters } from '../../data/characters';
-import { DEITY_SVG, parseDeityNames } from '../../data/deities';
+import { DEITY_SVG, parseDeityNames, toDeityKey } from '../../data/deities';
 import { useAuth } from '../../hooks/useAuth';
 import { hash } from '../../utils/hash';
 import Lightning from '../../icons/Lightning';
@@ -44,7 +44,7 @@ function CampMembers() {
         pool = ['heart' as DoodleType, 'rose' as DoodleType, ...persephonePick, ...hadesPick];
       } else {
         // Combine doodle sets from all deity parents
-        const sets = deityKeys.map((k) => DEITY_DOODLES[k] || GENERIC_DOODLES);
+        const sets = deityKeys.map((k) => DEITY_DOODLES[k.toLowerCase()] || GENERIC_DOODLES);
         pool = sets.flat();
         // Pad with generic if pool is too small
         while (pool.length < 10) pool = [...pool, ...GENERIC_DOODLES];
@@ -152,7 +152,7 @@ function CampMembers() {
                     </div>
                     <div className="camp__badge">
                       <span className="camp__deity-icon">
-                        {DEITY_SVG[deityKey] || <Lightning width={14} height={14} />}
+                        {(() => { const k = toDeityKey(deityKey); return k ? DEITY_SVG[k] : <Lightning width={14} height={14} />; })()}
                       </span>
                     </div>
                   </div>

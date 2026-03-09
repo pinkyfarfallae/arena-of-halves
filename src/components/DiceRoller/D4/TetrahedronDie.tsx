@@ -145,7 +145,7 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
     targetResult.current = fixedResult ?? (Math.floor(Math.random() * 4) + 1);
     const faceIndex = FACE_RESULTS.indexOf(targetResult.current);
     targetQuat.current.copy(TARGET_QUATS[faceIndex]);
-  }, [rollTrigger]);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces: front-facing = true color, others darken + flash & scale punch
   const tintFaces = () => {
@@ -186,6 +186,14 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
     if (!spinning.current) return;
 
     if (spinStart.current === 0) {
+      // Set initial orientation to a random quat so we never show a single wrong face on the first frame (avoids jitter)
+      groupRef.current.quaternion.setFromEuler(
+        new THREE.Euler(
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+        ),
+      );
       spinStart.current = performance.now() / 1000;
       settleStart.current = 0;
     }

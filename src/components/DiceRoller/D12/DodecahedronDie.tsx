@@ -239,9 +239,11 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
-    targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
-  }, [rollTrigger]);
+    const raw = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
+    targetResult.current = (typeof raw === 'number' && raw >= 1 && raw <= 12) ? raw : 1;
+    const quat = TARGET_QUATS[targetResult.current];
+    if (quat) targetQuat.current.copy(quat);
+  }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {
@@ -279,6 +281,14 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
     if (!spinning.current) return;
 
     if (spinStart.current === 0) {
+      // Set initial orientation to a random quat so we never show a single wrong face on the first frame (avoids jitter)
+      groupRef.current.quaternion.setFromEuler(
+        new THREE.Euler(
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+          (Math.random() - 0.5) * Math.PI * 2,
+        ),
+      );
       spinStart.current = performance.now() / 1000;
       settleStart.current = 0;
     }

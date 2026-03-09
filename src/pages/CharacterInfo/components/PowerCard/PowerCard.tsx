@@ -4,13 +4,32 @@ import './PowerCard.scss';
 
 function FormatLine({ text, bullet }: { text: string; bullet?: boolean }) {
   const colonIdx = text.indexOf(':');
+  // Helper to bold all text inside double quotes
+  const boldQuoted = (str: string) => {
+    const parts = [];
+    let lastIdx = 0;
+    const regex = /"([^"]+)"/g;
+    let match;
+    let key = 0;
+    while ((match = regex.exec(str)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(str.slice(lastIdx, match.index));
+      }
+      parts.push(<b key={key++}>{match[1]}</b>);
+      lastIdx = match.index + match[0].length;
+    }
+    if (lastIdx < str.length) {
+      parts.push(str.slice(lastIdx));
+    }
+    return parts;
+  };
   const content = colonIdx > 0 ? (
     <>
       <strong className="pcard__desc-label">{text.substring(0, colonIdx).trim()}</strong>
-      <span>{text.substring(colonIdx + 1).trim()}</span>
+      <span>{boldQuoted(text.substring(colonIdx + 1).trim())}</span>
     </>
   ) : (
-    <span>{text.trim()}</span>
+    <span>{boldQuoted(text.trim())}</span>
   );
   return <span className={bullet ? 'pcard__line pcard__bullet' : 'pcard__line'}>{content}</span>;
 }

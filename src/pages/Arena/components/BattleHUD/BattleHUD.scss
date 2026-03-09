@@ -95,13 +95,25 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes bhud-scale-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .bhud__dice-label {
@@ -218,6 +230,7 @@ $crimson-bright: #c41e3a;
 }
 
 .bhud__resolve-crit {
+  width: fit-content;
   font-size: 0.55rem;
   font-weight: 800;
   color: $gold-dark;
@@ -228,8 +241,9 @@ $crimson-bright: #c41e3a;
 }
 
 .bhud__resolve-crit-miss {
-  font-size: 0.5rem;
-  font-weight: 700;
+  width: fit-content;
+  font-size: 0.55rem;
+  font-weight: 800;
   color: $ink-faint;
   padding: 0.1rem 0.4rem;
   background: rgba($ink-faint, 0.06);
@@ -242,6 +256,13 @@ $crimson-bright: #c41e3a;
   font-weight: 800;
   color: $gold-dark;
   text-align: center;
+}
+
+.bhud__resolve-crit-sep {
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: currentColor;
+  margin: 0 0.2rem;
 }
 
 /* ── Waiting ── */
@@ -268,8 +289,15 @@ $crimson-bright: #c41e3a;
 }
 
 @keyframes bhud-slide-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-8px); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 /* ── Result badges (winner / loser) ── */
@@ -286,13 +314,23 @@ $crimson-bright: #c41e3a;
   animation: bhud-scale-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
 
   &--winner {
-    .bhud__result-icon { color: $gold; }
-    .bhud__result-label { color: $gold-dark; }
+    .bhud__result-icon {
+      color: $gold;
+    }
+
+    .bhud__result-label {
+      color: $gold-dark;
+    }
   }
 
   &--loser {
-    .bhud__result-icon { color: $ink-faint; }
-    .bhud__result-label { color: $ink-faint; }
+    .bhud__result-icon {
+      color: $ink-faint;
+    }
+
+    .bhud__result-label {
+      color: $ink-faint;
+    }
   }
 }
 
@@ -438,6 +476,17 @@ $crimson-bright: #c41e3a;
   font-style: italic;
 }
 
+.bhud__log-entry--skip .bhud__log-skip {
+  font-weight: 700;
+  color: $ink-mid;
+}
+
+.bhud__log-skip-reason {
+  font-size: 0.55rem;
+  color: $ink-faint;
+  font-style: italic;
+}
+
 /* ── Responsive ── */
 @media (max-width: $bp-medium) {
   .bhud {
@@ -446,6 +495,12 @@ $crimson-bright: #c41e3a;
 
   .bhud__bar {
     padding: 0.3rem 0.5rem;
+  }
+
+  .bhud__dice-modal,
+  .bhud__targets-modal,
+  .bhud__action-modal {
+    margin-top: $topbar-height;
   }
 
   /* Sidebar hidden — remove offset */
@@ -533,15 +588,15 @@ $crimson-bright: #c41e3a;
     width: calc(100vw - 115px);
     padding-right: 10px;
 
-    .bhud__dice-modal,
-    .bhud__targets-modal,
-    .bhud__action-modal {
-      margin-top: 0;
-    }
-
     .bhud__dice-zone--finished {
       height: #{$compact-half-finished};
     }
+  }
+
+  .bhud__dice-modal,
+  .bhud__targets-modal,
+  .bhud__action-modal {
+    margin-top: 0;
   }
 
 }

@@ -23,7 +23,7 @@ function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: bo
 
   const edge = [
     location.y < 15 ? 'life__pin--below' : '',
-    location.x > 75 ? 'life__pin--left' : '',
+    location.x > 65 ? 'life__pin--left' : '',
     location.x < 15 ? 'life__pin--right' : '',
     location.y > 70 ? 'life__pin--above' : '',
   ].filter(Boolean).join(' ');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAllCharacters, Character } from '../../../../../data/characters';
+import { fetchAllCharacters } from '../../../../../data/characters';
 import { getPowers } from '../../../../../data/powers';
 import { toFighterState } from '../../../../../services/battleRoom';
 import { POWER_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
@@ -11,7 +11,6 @@ interface Props {
 }
 
 export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
-  const [characters, setCharacters] = useState<Character[]>([]);
   const [fighters, setFighters] = useState<FighterState[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -20,8 +19,6 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
     const loadCharacters = async () => {
       try {
         const chars = await fetchAllCharacters();
-        setCharacters(chars);
-
         const fighterList = chars.map((c) => {
           const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
           const powers = getPowers(powerDeity);
@@ -29,7 +26,6 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
         });
         setFighters(fighterList);
       } catch (e) {
-        console.error('Failed to load characters:', e);
       } finally {
         setLoading(false);
       }

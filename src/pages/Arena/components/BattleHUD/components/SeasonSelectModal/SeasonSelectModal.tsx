@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../../types/battle';
 import { getAllSeasons, getSeasonConfig } from '../../../../../../data/seasons';
 import type { SeasonKey } from '../../../../../../data/seasons';
+import { PANEL_SIDE, type PanelSide } from '../../../../../../constants/battle';
 import './SeasonSelectModal.scss';
 
 const SEASON_DETAILS: Record<SeasonKey, { effect: string; effectTh: string }> = {
@@ -80,7 +81,7 @@ interface Props {
   phase: string;
   themeColor?: string;
   themeColorDark?: string;
-  side?: 'left' | 'right';
+  side?: PanelSide;
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
   onBack?: () => void;
@@ -93,7 +94,7 @@ export default function SeasonSelectModal({
   phase,
   themeColor,
   themeColorDark,
-  side = 'left',
+  side = PANEL_SIDE.LEFT,
   onSelectSeason,
   onPreviewSeason,
   onBack,
@@ -139,7 +140,7 @@ export default function SeasonSelectModal({
   return (
     <div className="bhud__action-modal bhud__action-modal--season" style={themeStyle}>
       <span className="bhud__dice-label">Choose Season</span>
-      <span className="bhud__dice-sub">Borrowed Season</span>
+      <span className="bhud__dice-sub">Ephemeral Season</span>
 
       {currentSeason && (
         <span className="bhud__season-note">

@@ -2,6 +2,7 @@
 
 $gold: #c9a84c;
 $gold-dark: #a8872a;
+$ink: #2c2218;
 $ink-faint: #9a8b76;
 
 /* ── Target selection modal ── */
@@ -15,9 +16,8 @@ $ink-faint: #9a8b76;
   border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 20%, transparent);
   border-radius: 10px;
   padding: 0.7rem 0.7rem 0.6rem;
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.12),
-    0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12),
+  0 0 0 1px color-mix(in srgb, var(--modal-primary, #{$gold}) 8%, transparent);
   animation: bhud-scale-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
   width: 280px;
   max-height: calc(100vh - 6rem);
@@ -29,6 +29,13 @@ $ink-faint: #9a8b76;
   flex-direction: column;
   gap: 0.4rem;
   width: 100%;
+  max-height: 170px;
+  overflow-y: auto;
+
+  @media (max-width: 600px) {
+    gap: 0.25rem;
+    max-height: 110px;
+  }
 }
 
 .bhud__target-btn {
@@ -49,6 +56,10 @@ $ink-faint: #9a8b76;
     border-color: color-mix(in srgb, var(--tc) 35%, transparent);
     box-shadow: 0 0 12px color-mix(in srgb, var(--tc) 20%, transparent);
   }
+
+  @media (max-width: $bp-compact) {
+    padding: 0.15rem 0.2rem;
+  }
 }
 
 .bhud__target-img {
@@ -58,6 +69,11 @@ $ink-faint: #9a8b76;
   object-fit: cover;
   flex-shrink: 0;
   border: 2px solid color-mix(in srgb, var(--tc) 30%, transparent);
+
+  @media (max-width: $bp-compact) {
+    width: 27px;
+    height: 27px;
+  }
 }
 
 .bhud__target-initial {
@@ -79,12 +95,20 @@ $ink-faint: #9a8b76;
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
+
+  @media (max-width: $bp-compact) {
+    gap: 0.05rem;
+  }
 }
 
 .bhud__target-name {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--tc);
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.65rem;
+  }
 }
 
 .bhud__target-hp {
@@ -92,6 +116,101 @@ $ink-faint: #9a8b76;
   font-size: 0.55rem;
   color: $ink-faint;
   font-family: 'DM Mono', monospace;
+
+  @media (max-width: $bp-compact) {
+    font-size: 0.5rem;
+  }
+}
+
+.bhud__target-btn--selected {
+  background: color-mix(in srgb, var(--tc) 22%, transparent) !important;
+  border-color: color-mix(in srgb, var(--tc) 50%, transparent) !important;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--tc) 25%, transparent);
+}
+
+.bhud__target-actions {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.bhud__target-back {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: $ink-faint;
+  background: none;
+  border: 1px solid color-mix(in srgb, $ink-faint 15%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.35rem;
+  text-align: center;
+  text-transform: uppercase;
+  flex: 1;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: $ink;
+    border-color: color-mix(in srgb, $ink-faint 30%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: $bp-compact) {
+    padding: 0.3rem 0.4rem;
+  }
+}
+
+.bhud__target-confirm {
+  flex: 1;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$gold}) 30%, transparent);
+  background: color-mix(in srgb, var(--modal-primary, #{$gold}) 12%, #fff);
+  color: var(--modal-dark, #{$gold-dark});
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--modal-primary, #{$gold}) 22%, #fff);
+    border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 45%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--modal-primary, #{$gold}) 15%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: $bp-compact) {
+    padding: 0.3rem 0.4rem;
+  }
+}
+
+/* ── No valid target (e.g. Shadow Camouflage) ── */
+.bhud__targets-modal--no-target {
+  .bhud__no-target-reason {
+    margin: 0 0 0.5rem;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: $ink-faint;
+    text-align: center;
+  }
+
+  .bhud__no-target-waiting {
+    margin: 0;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: $ink-faint;
+    text-align: center;
+  }
 }
 
 /* ── Responsive ── */

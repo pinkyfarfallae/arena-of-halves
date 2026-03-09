@@ -3,6 +3,7 @@ import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character } from '.
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl } from '../constants/sheets';
+import { Deity } from '../constants/deities';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export type { PowerDefinition };
@@ -91,7 +92,7 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     nameThai: get('name (thai)'),
     nameEng: get('name (eng)'),
     sex: get('sex'),
-    deityBlood: get('deity blood'),
+    deityBlood: get('deity blood') as Deity,
     cabin: num('cabin'),
     hp: num('hp'),
     damage: num('damage'),
@@ -305,11 +306,8 @@ export async function patchCharacter(
       method: 'POST',
       body: JSON.stringify({ action: 'patch', characterId, fields }),
     });
-    const data = await res.text();
-    console.log('[patch]', res.status, data);
     return res.ok;
   } catch (e) {
-    console.error('[patch]', e);
     return false;
   }
 }
@@ -320,11 +318,8 @@ export async function updateTheme(characterId: string, theme: string[]): Promise
       method: 'POST',
       body: JSON.stringify({ action: 'updateTheme', characterId, theme: theme.join(',') }),
     });
-    const data = await res.text();
-    console.log('[updateTheme]', res.status, data);
     return res.ok;
   } catch (e) {
-    console.error('[updateTheme]', e);
     return false;
   }
 }
@@ -379,11 +374,8 @@ export async function createUser(payload: CreateUserPayload): Promise<boolean> {
       method: 'POST',
       body: JSON.stringify({ action: 'createUser', ...payload }),
     });
-    const data = await res.text();
-    console.log('[createUser]', res.status, data);
     return res.ok;
   } catch (e) {
-    console.error('[createUser]', e);
     return false;
   }
 }
@@ -397,11 +389,8 @@ export async function editUser(
       method: 'POST',
       body: JSON.stringify({ action: 'editUser', characterId, fields }),
     });
-    const data = await res.text();
-    console.log('[editUser]', res.status, data);
     return res.ok;
   } catch (e) {
-    console.error('[editUser]', e);
     return false;
   }
 }
@@ -412,11 +401,8 @@ export async function deleteUser(characterId: string): Promise<boolean> {
       method: 'POST',
       body: JSON.stringify({ action: 'deleteUser', characterId }),
     });
-    const data = await res.text();
-    console.log('[deleteUser]', res.status, data);
     return res.ok;
   } catch (e) {
-    console.error('[deleteUser]', e);
     return false;
   }
 }

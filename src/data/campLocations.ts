@@ -1,9 +1,10 @@
 import type { CampLocation } from '../types/campLocation';
+import { CAMP_LOCATION } from '../constants/campLocations';
 export type { CampLocation };
 
 export const CAMP_LOCATIONS: CampLocation[] = [
   {
-    id: 'half-blood-hill',
+    id: CAMP_LOCATION.HALF_BLOOD_HILL,
     name: 'Half-Blood Hill',
     description: "The camp boundary protected by Thalia's pine and the Golden Fleece. Peleus the dragon guards the entrance.",
     icon: 'hill',
@@ -13,7 +14,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['boundary', 'entrance'],
   },
   {
-    id: 'big-house',
+    id: CAMP_LOCATION.BIG_HOUSE,
     name: 'The Big House',
     description: 'Camp headquarters where Mr. D and Chiron hold council. War meetings, orientation, and the oracle reside here.',
     icon: 'big-house',
@@ -23,7 +24,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['headquarters', 'council'],
   },
   {
-    id: 'woods',
+    id: CAMP_LOCATION.WOODS,
     name: 'The Woods',
     description: 'Dense forest where Capture the Flag is played. Monsters roam freely — enter at your own risk after dark.',
     icon: 'woods',
@@ -33,7 +34,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['wilderness', 'monsters'],
   },
   {
-    id: 'canoe-lake',
+    id: CAMP_LOCATION.CANOE_LAKE,
     name: 'Canoe Lake',
     description: 'A serene lake with naiads. Canoe races, swimming lessons, and the occasional underwater quest begin here.',
     icon: 'lake',
@@ -43,7 +44,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['water', 'recreation'],
   },
   {
-    id: 'dining-pavilion',
+    id: CAMP_LOCATION.DINING_PAVILION,
     name: 'Dining Pavilion',
     description: 'Open-air pavilion with marble columns. Each cabin has its own table. Offerings are burned at the bronze brazier.',
     icon: 'dining',
@@ -53,7 +54,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['dining', 'social'],
   },
   {
-    id: 'cabins',
+    id: CAMP_LOCATION.CABINS,
     name: 'The Cabins',
     description: '20 cabins arranged in an Omega shape, each dedicated to an Olympian god. Your divine parent determines your home.',
     icon: 'cabins',
@@ -63,7 +64,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['housing', 'deity'],
   },
   {
-    id: 'arena',
+    id: CAMP_LOCATION.ARENA,
     name: 'The Arena',
     description: 'Where demigods train in combat. Sword fighting, sparring, and Capture the Flag preparation happen here.',
     icon: 'arena',
@@ -76,7 +77,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionPaths: ['/arena'],
   },
   {
-    id: 'forge',
+    id: CAMP_LOCATION.FORGE,
     name: 'The Forge',
     description: "Hephaestus cabin's domain. Celestial bronze weapons and magical items are crafted in the eternal flames.",
     icon: 'forge',
@@ -99,7 +100,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['training', 'ranged'],
   },
   {
-    id: 'amphitheater',
+    id: CAMP_LOCATION.AMPHITHEATER,
     name: 'Amphitheater',
     description: "Greek-style open theater for campfire sing-alongs, announcements, and Apollo cabin's legendary performances.",
     icon: 'amphitheater',
@@ -119,7 +120,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['creatures', 'riding'],
   },
   {
-    id: 'strawberry-fields',
+    id: CAMP_LOCATION.STRAWBERRY_FIELDS,
     name: 'Strawberry Fields',
     description: 'Demeter cabin grows magical strawberries sold to fund camp operations. The fields are enchanted for year-round growth.',
     icon: 'strawberry',
@@ -141,7 +142,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['training', 'extreme'],
   },
   {
-    id: 'campfire',
+    id: CAMP_LOCATION.CAMPFIRE,
     name: 'Campfire Pit',
     description: "The eternal flame burns higher with camp morale. Nightly sing-alongs, s'mores, and stories of quests past.",
     icon: 'campfire',
@@ -151,7 +152,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['social', 'evening'],
   },
   {
-    id: 'armory',
+    id: CAMP_LOCATION.ARMORY,
     name: 'The Armory',
     description: 'Celestial bronze swords, shields, and armor for every occasion. Check out your gear before heading to the arena.',
     icon: 'armory',
@@ -174,7 +175,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionPaths: ['/iris-message'],
   },
   {
-    id: 'camp-store',
+    id: CAMP_LOCATION.CAMP_STORE,
     name: 'Camp Store',
     description: 'Stocked with Camp Half-Blood tees, nectar gummies, drachma pouches, and quest essentials. Run by the Hermes cabin — check your pockets after.',
     icon: 'store',

@@ -11,6 +11,8 @@ import ChevronDown from '../../../../icons/ChevronDown';
 import AresHelmet from '../../icons/AresHelmet';
 import NPCTeamSelection from './NPCTeamSelection/NPCTeamSelection';
 import './ConfigArenaModal.scss';
+import { GAME_MODE, COPY_TYPE, type GameMode, type CopyType } from '../../../../constants/lobby';
+import { ARENA_PATH, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../constants/battle';
 import { CHARACTER } from '../../../../constants/characters';
 import { DEITY } from '../../../../constants/deities';
 
@@ -21,8 +23,6 @@ interface Props {
   onClose: () => void;
   onEnter: (arenaId: string) => void;
 }
-
-type GameMode = 'invite' | 'npc';
 
 function NpcOption({ npc }: { npc: FighterState }) {
   const [imgErr, setImgErr] = useState(false);
@@ -61,7 +61,7 @@ function NpcOption({ npc }: { npc: FighterState }) {
 export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEnter }: Props) {
   const [teamSize, setTeamSize] = useState(1);
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState<CopyType | null>(null);
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<FighterState | null>(null);
   const [npcDropdownOpen, setNpcDropdownOpen] = useState(false);
@@ -98,8 +98,8 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
-  const handleCopy = async (type: 'code' | 'link') => {
-    const text = type === 'code' ? arenaId : viewerLink;
+  const handleCopy = async (type: CopyType) => {
+    const text = type === COPY_TYPE.CODE ? arenaId : viewerLink;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -125,18 +125,18 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
 
   const handleEnter = async () => {
     // For team modes, trigger team submission
-    if (gameMode === 'npc' && teamSize > 1) {
+    if (gameMode === GAME_MODE.NPC && teamSize > 1) {
       setSubmitTeams(true);
       return;
     }
 
-    const updates: Record<string, unknown> = { status: 'waiting' };
+    const updates: Record<string, unknown> = { [ARENA_PATH.STATUS]: ROOM_STATUS.WAITING };
 
-    if (gameMode === 'npc') {
+    if (gameMode === GAME_MODE.NPC) {
       // For NPC mode with team selection
       if (playerTeam.length > 0 && npcTeam.length > 0 && player) {
         // Update teamA with player + selected teammates
-        updates['teamA/members'] = [player, ...playerTeam];
+        updates[teamPath(BATTLE_TEAM.A, 'members')] = [player, ...playerTeam];
         // Store NPC team for Arena to assign to teamB
         updates.npcTeam = npcTeam;
         updates.npcMode = 'team';
@@ -156,8 +156,8 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
 
     const performEnter = async () => {
       const updates: Record<string, unknown> = {
-        status: 'waiting',
-        'teamA/members': [player, ...playerTeam],
+        [ARENA_PATH.STATUS]: ROOM_STATUS.WAITING,
+        [teamPath(BATTLE_TEAM.A, 'members')]: [player, ...playerTeam],
         npcTeam,
         npcMode: 'team',
       };
@@ -171,7 +171,7 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
 
   const handleGameMode = async (mode: GameMode) => {
     setGameMode(mode);
-    if (mode === 'npc') {
+    if (mode === GAME_MODE.NPC) {
       // For 1v1, auto-select first NPC
       if (teamSize === 1 && !selectedNpc && npcs.length > 0) {
         setSelectedNpc(npcs[0]);
@@ -181,7 +181,7 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
       setNpcTeam([]);
     }
     await update(ref(db, `arenas/${arenaId}`), {
-      testMode: mode === 'npc' ? true : null,
+      testMode: mode === GAME_MODE.NPC ? true : null,
     });
   };
 
@@ -205,8 +205,8 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
     setGameMode(null);
     await update(ref(db, `arenas/${arenaId}`), {
       teamSize: size,
-      'teamA/maxSize': size,
-      'teamB/maxSize': size,
+      [teamPath(BATTLE_TEAM.A, 'maxSize')]: size,
+      [teamPath(BATTLE_TEAM.B, 'maxSize')]: size,
     });
   };
 
@@ -244,16 +244,16 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           <label className="cam__label">Choose Your Opponent</label>
           <div className="cam__modes">
             <button
-              className={`cam__mode ${gameMode === 'invite' ? 'cam__mode--active' : ''}`}
-              onClick={() => handleGameMode('invite')}
+              className={`cam__mode ${gameMode === GAME_MODE.INVITE ? 'cam__mode--active' : ''}`}
+              onClick={() => handleGameMode(GAME_MODE.INVITE)}
             >
               <Swords width={22} height={22} />
               <span className="cam__mode-title">Invite Player</span>
               <span className="cam__mode-desc">Share code with a friend</span>
             </button>
             <button
-              className={`cam__mode ${gameMode === 'npc' ? 'cam__mode--active' : ''}`}
-              onClick={() => handleGameMode('npc')}
+              className={`cam__mode ${gameMode === GAME_MODE.NPC ? 'cam__mode--active' : ''}`}
+              onClick={() => handleGameMode(GAME_MODE.NPC)}
             >
               <AresHelmet width={22} height={22} />
               <span className="cam__mode-title">Play vs NPC</span>
@@ -262,7 +262,7 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           </div>
 
           {/* NPC Mode - 1v1 selection */}
-          {gameMode === 'npc' && teamSize === 1 && (
+          {gameMode === GAME_MODE.NPC && teamSize === 1 && (
             <>
               <label className="cam__label">Select Opponent</label>
               <div className="cam__npc-select">
@@ -302,7 +302,7 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           )}
 
           {/* NPC Mode - Team selection (2v2, 3v3) - Both visible */}
-          {gameMode === 'npc' && teamSize > 1 && (
+          {gameMode === GAME_MODE.NPC && teamSize > 1 && (
             <div className="cam__team-split">
               <div className="cam__team-col">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -338,16 +338,16 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           )}
 
           {/* Invite mode */}
-          {gameMode === 'invite' && (
+          {gameMode === GAME_MODE.INVITE && (
             <>
               <label className="cam__label">Room Code</label>
               <div className="cam__copy-row">
                 <span className="cam__code">{arenaId}</span>
                 <button
-                  className={`cam__copy ${copied === 'code' ? 'cam__copy--done' : ''}`}
-                  onClick={() => handleCopy('code')}
+                  className={`cam__copy ${copied === COPY_TYPE.CODE ? 'cam__copy--done' : ''}`}
+                  onClick={() => handleCopy(COPY_TYPE.CODE)}
                 >
-                  {copied === 'code' ? 'Copied!' : 'Copy'}
+                  {copied === COPY_TYPE.CODE ? 'Copied!' : 'Copy'}
                 </button>
               </div>
 
@@ -355,10 +355,10 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
               <div className="cam__copy-row">
                 <span className="cam__link">{viewerLink}</span>
                 <button
-                  className={`cam__copy ${copied === 'link' ? 'cam__copy--done' : ''}`}
-                  onClick={() => handleCopy('link')}
+                  className={`cam__copy ${copied === COPY_TYPE.LINK ? 'cam__copy--done' : ''}`}
+                  onClick={() => handleCopy(COPY_TYPE.LINK)}
                 >
-                  {copied === 'link' ? 'Copied!' : 'Copy'}
+                  {copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy'}
                 </button>
               </div>
             </>
@@ -369,7 +369,7 @@ export default function ConfigArenaModal({ arenaId, isDev, player, onClose, onEn
           <button
             className="cam__btn cam__btn--enter"
             onClick={handleEnter}
-            disabled={!gameMode || (gameMode === 'npc' && teamSize === 1 && !selectedNpc) || (gameMode === 'npc' && teamSize > 1 && (playerTeam.length !== teamSize - 1 || npcTeam.length !== teamSize))}
+            disabled={!gameMode || (gameMode === GAME_MODE.NPC && teamSize === 1 && !selectedNpc) || (gameMode === GAME_MODE.NPC && teamSize > 1 && (playerTeam.length !== teamSize - 1 || npcTeam.length !== teamSize))}
           >
             Enter the Field
           </button>

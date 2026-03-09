@@ -41,10 +41,8 @@ function Shop() {
     const loadItems = async () => {
       try {
         const data = await fetchShopItems();
-        console.log('Shop items loaded:', data);
         setItems(data);
       } catch (error) {
-        console.error('Failed to fetch shop items:', error);
       }
     };
 
@@ -179,7 +177,6 @@ function Shop() {
                             src={item.imageUrl}
                             alt={item.name}
                             onError={(e) => {
-                              console.error(`Image failed to load: ${item.imageUrl}`);
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
@@ -271,7 +268,6 @@ function Shop() {
                             src={item.imageUrl}
                             alt={item.name}
                             onError={(e) => {
-                              console.error(`Image failed to load: ${item.imageUrl}`);
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />

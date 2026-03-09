@@ -1,0 +1,90 @@
+@use '../../../../../../styles/variables' as *;
+
+$gold: #c9a84c;
+$gold-dark: #a8872a;
+$ink-faint: #9a8b76;
+$crimson-bright: #c41e3a;
+
+/* Refill SP result card — styles copied from DamageCard for same look, own class names */
+
+.refill-card {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--refill-atk, #{$gold}) 15%, transparent);
+  border-radius: 12px;
+  padding: 0.7rem 1.4rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2),
+  0 0 0 1px color-mix(in srgb, var(--refill-atk, #{$gold}) 8%, transparent);
+  animation: refill-card-in 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+  font-family: 'Noto Sans', sans-serif;
+  margin-top: 2rem;
+  width: 220px;
+
+  &--result {
+    border-color: color-mix(in srgb, var(--refill-atk, #{$gold}) 30%, transparent);
+  }
+}
+
+.refill-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.refill-card__atkname {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.refill-card__total {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: $crimson-bright;
+  letter-spacing: -0.02em;
+}
+
+.refill-card__invoked {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: $gold;
+  letter-spacing: 0.06em;
+}
+
+@keyframes refill-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .refill-card {
+    padding: 0.5rem 0.8rem;
+    gap: 0.25rem;
+    border-radius: 8px;
+    width: 180px;
+  }
+
+  .refill-card__atkname,
+  .refill-card__defname {
+    font-size: 0.55rem;
+  }
+
+  .refill-card__total {
+    font-size: 0.85rem;
+  }
+}

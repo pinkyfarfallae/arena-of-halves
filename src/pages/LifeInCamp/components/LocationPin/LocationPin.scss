@@ -173,19 +173,30 @@
     height: 16px;
   }
 
-  /* Near right edge: shift card left */
+  /* Near right edge: card goes to left of pin */
   .life__pin--left & {
+    bottom: auto;
+    top: 50%;
     left: auto;
-    right: 0;
-    transform: translateY(6px);
+    right: calc(100% + 14px);
+    transform: translateY(-50%) translateX(6px);
 
     &--open {
-      transform: translateY(0);
+      transform: translateY(-50%) translateX(0);
     }
   }
 
   .life__pin--left:hover & {
-    transform: translateY(0);
+    transform: translateY(-50%) translateX(0);
+  }
+
+  .life__pin--left &::before {
+    top: 0;
+    bottom: 0;
+    left: auto;
+    right: -16px;
+    width: 16px;
+    height: auto;
   }
 
   /* Near left edge: shift card right */
@@ -202,21 +213,21 @@
     transform: translateY(0);
   }
 
-  /* Below + right edge */
+  /* Below + right edge: card still goes to left of pin (left takes priority) */
   .life__pin--below.life__pin--left & {
     bottom: auto;
-    top: calc(100% + 14px);
+    top: 50%;
     left: auto;
-    right: 0;
-    transform: translateY(-6px);
+    right: calc(100% + 14px);
+    transform: translateY(-50%) translateX(6px);
 
     &--open {
-      transform: translateY(0);
+      transform: translateY(-50%) translateX(0);
     }
   }
 
   .life__pin--below.life__pin--left:hover & {
-    transform: translateY(0);
+    transform: translateY(-50%) translateX(0);
   }
 
   /* Below + left edge */

@@ -1,5 +1,6 @@
 import type { FighterState, TurnState } from '../../../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../../../constants/theme';
+import { PHASE, TURN_ACTION, type PanelSide } from '../../../../../../constants/battle';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
 
@@ -15,8 +16,8 @@ interface Props {
   defender?: FighterState;
   isMyTurn: boolean;
   isMyDefend: boolean;
-  atkSide: 'left' | 'right';
-  defSide: 'left' | 'right';
+  atkSide: PanelSide;
+  defSide: PanelSide;
   onAttackRoll: (roll: number) => void;
   onDefendRoll: (roll: number) => void;
   onAtkRollDone: () => void;
@@ -79,7 +80,7 @@ export default function DiceModal({
     <>
       {/* ── ROLLING ATTACK ── */}
       {/* My attack dice roller */}
-      {phase === 'rolling-attack' && isMyTurn && (
+      {phase === PHASE.ROLLING_ATTACK && isMyTurn && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
@@ -92,7 +93,7 @@ export default function DiceModal({
         </div>
       )}
       {/* Opponent's attack — waiting spinner */}
-      {phase === 'rolling-attack' && !isMyTurn && (
+      {phase === PHASE.ROLLING_ATTACK && !isMyTurn && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
@@ -106,7 +107,7 @@ export default function DiceModal({
 
       {/* ── ROLLING DEFEND ── */}
       {/* Attacker's result dice — only when opponent attacked (I need to see their roll) */}
-      {phase === 'rolling-defend' && turn.attackRoll != null && !isMyTurn && (
+      {phase === PHASE.ROLLING_DEFEND && turn.attackRoll != null && !isMyTurn && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
@@ -123,7 +124,7 @@ export default function DiceModal({
         </div>
       )}
       {/* My defend dice roller — only after attack result finishes */}
-      {phase === 'rolling-defend' && isMyDefend && defendReady && (
+      {phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -136,7 +137,7 @@ export default function DiceModal({
         </div>
       )}
       {/* Opponent's defend — waiting spinner */}
-      {phase === 'rolling-defend' && !isMyDefend && (
+      {phase === PHASE.ROLLING_DEFEND && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -148,8 +149,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — show defend result dice (opponent defended, I need to see their roll) ── */}
-      {phase === 'resolving' && !(turn.action === 'power' && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
+      {/* ── RESOLVING — show defend result dice (opponent defended, I need to see their roll). Skip when Soul Devourer drain (no defend roll). ── */}
+      {phase === PHASE.RESOLVING && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -167,7 +168,7 @@ export default function DiceModal({
       )}
 
       {/* ── D4 DODGE CHECK (Pomegranate's Oath) — after defend replay, before crit ── */}
-      {phase === 'resolving' && resolveReady && !dodgeReady && dodgeEligible && (
+      {phase === PHASE.RESOLVING && resolveReady && !dodgeReady && dodgeEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Spirit Dodge</span>
@@ -201,8 +202,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar ── */}
-      {phase === 'resolving' && resolveReady && dodgeReady && !critReady && critEligible && (
+      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar. Skip when Soul Devourer drain (no crit). ── */}
+      {phase === PHASE.RESOLVING && !(turn as any).soulDevourerDrain && resolveReady && dodgeReady && !critReady && critEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Critical Check</span>
@@ -237,7 +238,7 @@ export default function DiceModal({
       )}
 
       {/* ── D4 THUNDERBOLT CHAIN CHECK — after crit, before resolve bar ── */}
-      {phase === 'resolving' && resolveReady && critReady && !chainReady && chainEligible && (
+      {phase === PHASE.RESOLVING && resolveReady && critReady && !chainReady && chainEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Thunderbolt Chain</span>
@@ -272,7 +273,7 @@ export default function DiceModal({
       )}
 
       {/* ── D12 CO-ATTACK (Pomegranate's Oath) — after chain, before resolve bar ── */}
-      {phase === 'resolving' && resolveReady && critReady && chainReady && !coAttackReady && coAttackEligible && coAttackCaster && (
+      {phase === PHASE.RESOLVING && resolveReady && critReady && chainReady && !coAttackReady && coAttackEligible && coAttackCaster && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={themeStyle(coAttackCaster)}>
             <span className="bhud__dice-label">Co-Attack</span>
