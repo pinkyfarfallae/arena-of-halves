@@ -400,7 +400,7 @@ export function applyLightningReflexPassive(
   const attacker = findFighter(room, attackerId);
   if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return { updates, bonusDamage: 0 };
 
-  const passive = attacker.powers.find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
+  const passive = attacker.powers.find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
   if (!passive) return { updates, bonusDamage: 0 };
 
   const existingShocks = effects.filter(
@@ -418,8 +418,8 @@ export function applyLightningReflexPassive(
 
   // First shock: apply permanent DOT with tag
   effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.LIGHTNING_REFLEX),
-    powerName: POWER_NAMES.LIGHTNING_REFLEX,
+    id: makeEffectId(attackerId, POWER_NAMES.LIGHTNING_SPARK),
+    powerName: POWER_NAMES.LIGHTNING_SPARK,
     effectType: EFFECT_TYPES.DOT,
     sourceId: attackerId,
     targetId: defenderId,

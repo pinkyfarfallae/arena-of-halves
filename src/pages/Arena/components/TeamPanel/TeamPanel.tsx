@@ -229,7 +229,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
         const hasLightningReflex = !!(
           attacker?.passiveSkillPoint === SKILL_UNLOCK &&
-          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX)
+          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
         const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId);
 
