@@ -1713,12 +1713,12 @@ export default function BattleHUD({
             side={activePlaybackStep.__side}
             displayMs={activePlaybackStep.__displayMs}
             onDisplayComplete={() => {
-              if (!isPlaybackDriver) return;
               if (turn?.phase !== PHASE.RESOLVING) return;
               completedPlaybackStepKeyRef.current = activePlaybackStep.__cardKey;
-              setPlaybackPendingAck(true);
               setActivePlaybackStep(null);
               activePlaybackStepKeyRef.current = null;
+              if (!isPlaybackDriver) return;
+              setPlaybackPendingAck(true);
               if (playbackAckTimerRef.current != null) clearTimeout(playbackAckTimerRef.current);
               playbackAckTimerRef.current = window.setTimeout(() => {
                 playbackAckTimerRef.current = null;
