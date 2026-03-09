@@ -1178,7 +1178,7 @@ export default function BattleHUD({
       let shockBonus = 0;
       if (at > dt && turn.action !== TURN_ACTION.POWER) {
         const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCK &&
-          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_REFLEX);
+          attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
         const defShocks = hasLR && activeEffects.some(
           e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
         );
@@ -1713,12 +1713,12 @@ export default function BattleHUD({
             side={activePlaybackStep.__side}
             displayMs={activePlaybackStep.__displayMs}
             onDisplayComplete={() => {
-              if (!isPlaybackDriver) return;
               if (turn?.phase !== PHASE.RESOLVING) return;
               completedPlaybackStepKeyRef.current = activePlaybackStep.__cardKey;
-              setPlaybackPendingAck(true);
               setActivePlaybackStep(null);
               activePlaybackStepKeyRef.current = null;
+              if (!isPlaybackDriver) return;
+              setPlaybackPendingAck(true);
               if (playbackAckTimerRef.current != null) clearTimeout(playbackAckTimerRef.current);
               playbackAckTimerRef.current = window.setTimeout(() => {
                 playbackAckTimerRef.current = null;
