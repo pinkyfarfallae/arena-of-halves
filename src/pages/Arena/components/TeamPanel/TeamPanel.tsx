@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { BattleState, FighterState } from '../../../../types/battle';
+import type { BattlePlaybackStep, BattleState, FighterState } from '../../../../types/battle';
+import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
 import MemberChip from './MemberChip/MemberChip';
@@ -197,15 +198,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           lastEntry.missed !== true &&
           ((lastEntry.damage as number) > 0 || (lastEntry as any).isMinionHit)
         );
-        const playbackStep = (turn as any)?.playbackStep as { defenderId?: string; isMinionHit?: boolean; kind?: string; hitIndex?: number; attackerId?: string; isHit?: boolean } | undefined;
+        const playbackStep = (turn as any)?.playbackStep as BattlePlaybackStep | undefined;
         const playbackStepActive = !!playbackStep && turn?.phase === PHASE.RESOLVING;
         const playbackDrivenResolve = turn?.phase === PHASE.RESOLVING;
-        // Also honor transient server markers for minion hits while resolving so
-        // the defender's frame flashes immediately when a skeleton/minion hit
-        // is played from the transient `lastSkeletonHits` buffer.
-        const transientLastMinionId = (battle as any)?.lastHitMinionId as string | undefined;
-        const transientLastTargetId = (battle as any)?.lastHitTargetId as string | undefined;
-        const winnerDelayedHitWindow = (battle as any)?.winnerDelayedAt != null;
         // Block hit visuals while selecting target and briefly when user clicks Back (no opposite frame shake).
         const allowHitVisuals = (
           turn?.phase !== PHASE.SELECT_TARGET &&
@@ -214,26 +209,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase !== PHASE.ROLLING_ATTACK &&
           turn?.phase !== PHASE.ROLLING_DEFEND
         ) && !suppressHitAfterSelect && !suppressHitAfterBack;
-        // Accept transient minion markers only while resolving/resolveShown or
-        // while transient effects are actively playing. Also explicitly block
-        // these markers during target selection and for a short suppression
-        // window after leaving selection (prevents false flashes on Back).
-        const transientMinionMarkerHit = !playbackDrivenResolve && !!transientLastMinionId && transientLastTargetId === m.characterId &&
-          (turn?.phase === PHASE.RESOLVING || resolveShown || !!transientEffectsActive || winnerDelayedHitWindow) &&
-          allowHitVisuals;
         const playbackHit = !!playbackStepActive && playbackStep?.defenderId === m.characterId;
         const playbackHitEventKey = playbackHit
-          ? `${battle?.roundNumber ?? 0}|${battle?.currentTurnIndex ?? 0}|${playbackStep?.kind ?? 'step'}|${playbackStep?.hitIndex ?? 0}|${playbackStep?.attackerId ?? ''}|${playbackStep?.defenderId ?? ''}|${playbackStep?.isMinionHit ? 'minion' : 'master'}`
+          ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep)
           : undefined;
         const playbackMainHit = !!playbackStepActive && !playbackStep?.isMinionHit && playbackStep?.defenderId === m.characterId && playbackStep?.isHit !== false;
-        const transientTargetHit = transientMinionMarkerHit;
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
         const isOpposing = !!(turn && ((side === PANEL_SIDE.LEFT && turn.attackerTeam === BATTLE_TEAM.B) || (side === PANEL_SIDE.RIGHT && turn.attackerTeam === BATTLE_TEAM.A)));
         const isHit = !!(
           (isOpposing && (
-            (allowHitVisuals && transientTargetHit) ||
             (allowHitVisuals && !playbackDrivenResolve && !playbackStepActive && !hasMasterMinions && isAoeHit)
           )) ||
           (!isOpposing && isAoeHit)
@@ -412,7 +398,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             visualDefenderId={visualDefenderId}
             hitEventKey={playbackHitEventKey}
             playbackHitTargetId={playbackStepActive ? playbackStep?.defenderId : undefined}
-            playbackHitEventKey={playbackStepActive ? `${battle?.roundNumber ?? 0}|${battle?.currentTurnIndex ?? 0}|${playbackStep?.kind ?? 'step'}|${playbackStep?.hitIndex ?? 0}|${playbackStep?.attackerId ?? ''}|${playbackStep?.defenderId ?? ''}|${playbackStep?.isMinionHit ? 'minion' : 'master'}` : undefined}
+            playbackHitEventKey={playbackStepActive ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep) : undefined}
             minionHitPulseId={
               (minionPulseMap && minionPulseMap[m.characterId] != null)
                 ? Number(minionPulseMap[m.characterId])

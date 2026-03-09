@@ -4,6 +4,7 @@ import type {
   BattleRoom, BattleState, FighterState, Team,
   TurnQueueEntry, Viewer, BattlePlaybackStep,
 } from '../types/battle';
+import { BATTLE_PLAYBACK_KIND } from '../types/battle';
 import type { Character } from '../types/character';
 import type { PowerDefinition, ActiveEffect } from '../types/power';
 import { getQuotaCost } from '../types/power';
@@ -20,6 +21,7 @@ import { EFFECT_TAGS } from '../constants/effectTags';
 import { POWER_NAMES } from '../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
+import { SKILL_UNLOCK } from '../constants/character';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -391,7 +393,7 @@ function buildMasterPlaybackStep(
     const lastLog = (battle.log || []).at(-1);
     const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
     return {
-      kind: 'master',
+      kind: BATTLE_PLAYBACK_KIND.MASTER,
       hitIndex: 0,
       attackerId: attacker.characterId,
       defenderId: defender.characterId,
@@ -418,7 +420,7 @@ function buildMasterPlaybackStep(
     const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
     const drainDmg = Math.max(0, attacker.damage + dmgBuff);
     return {
-      kind: 'master',
+      kind: BATTLE_PLAYBACK_KIND.MASTER,
       hitIndex: 0,
       attackerId: attacker.characterId,
       defenderId: defender.characterId,
@@ -453,7 +455,7 @@ function buildMasterPlaybackStep(
   if (isCrit) damage *= 2;
   let shockBonus = 0;
   if (at > dt && turn.action !== TURN_ACTION.POWER) {
-    const hasLR = attacker.passiveSkillPoint === 'unlock' &&
+    const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCK &&
       attacker.powers?.some(p => p.name === POWER_NAMES.LIGHTNING_REFLEX);
     const defShocks = hasLR && activeEffects.some(
       e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,
@@ -463,7 +465,7 @@ function buildMasterPlaybackStep(
   damage += shockBonus;
   const isDodged = !!turn.isDodged;
   return {
-    kind: 'master',
+    kind: BATTLE_PLAYBACK_KIND.MASTER,
     hitIndex: 0,
     attackerId: attacker.characterId,
     defenderId: defender.characterId,
@@ -516,7 +518,7 @@ function buildMinionPlaybackStep(
     shieldRemaining -= absorbed;
   }
   return {
-    kind: 'minion',
+    kind: BATTLE_PLAYBACK_KIND.MINION,
     hitIndex,
     attackerId: sk.characterId,
     defenderId,
@@ -2200,7 +2202,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Per-hit resolve: apply one skeleton and write so client sees defender HP update in real time
-  if (playbackStep.kind === 'minion' && resolvingHitIndex != null && resolvingHitIndex >= 1) {
+  if (playbackStep.kind === BATTLE_PLAYBACK_KIND.MINION && resolvingHitIndex != null && resolvingHitIndex >= 1) {
     const attackerTeam = findFighterTeam(room, attackerId);
     const minions = attackerTeam ? (room[attackerTeam]?.minions || []) : [];
     const skeletonsForAttackSk = minions.filter((m: any) => m.masterId === attackerId);

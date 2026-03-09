@@ -230,6 +230,7 @@ $crimson-bright: #c41e3a;
 }
 
 .bhud__resolve-crit {
+  width: fit-content;
   font-size: 0.55rem;
   font-weight: 800;
   color: $gold-dark;
@@ -240,8 +241,9 @@ $crimson-bright: #c41e3a;
 }
 
 .bhud__resolve-crit-miss {
-  font-size: 0.5rem;
-  font-weight: 700;
+  width: fit-content;
+  font-size: 0.55rem;
+  font-weight: 800;
   color: $ink-faint;
   padding: 0.1rem 0.4rem;
   background: rgba($ink-faint, 0.06);
@@ -254,6 +256,13 @@ $crimson-bright: #c41e3a;
   font-weight: 800;
   color: $gold-dark;
   text-align: center;
+}
+
+.bhud__resolve-crit-sep {
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: currentColor;
+  margin: 0 0.2rem;
 }
 
 /* ── Waiting ── */
