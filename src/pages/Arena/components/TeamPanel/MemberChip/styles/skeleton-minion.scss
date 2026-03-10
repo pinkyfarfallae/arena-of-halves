@@ -14,7 +14,9 @@
   border-radius: 50%;
   background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
   border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 0 8px rgba(34, 197, 94, 0.4);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(34, 197, 94, 0.4);
   z-index: 15;
   pointer-events: none;
   animation: minion-defender-badge-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -74,7 +76,9 @@
   position: relative;
   z-index: 2;
   border: 1px solid color-mix(in srgb, var(--chip-primary, $gold) 72%, transparent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
   background: color-mix(in srgb, var(--chip-primary, $gold) 90%, #faf6f0);
   cursor: pointer;
 }
