@@ -98,6 +98,9 @@ export default function DiceModal({
   const latchedDefendRollRef = useRef<number | null>(null);
   const [showDefenderWaiting, setShowDefenderWaiting] = useState(false);
   const [showNpcDefendDice, setShowNpcDefendDice] = useState(false);
+  /** Player replay: show result text as soon as die lands; parent delays atkRollDone/defRollDone so modal stays visible */
+  const [atkReplayLanded, setAtkReplayLanded] = useState(false);
+  const [defReplayLanded, setDefReplayLanded] = useState(false);
 
   const turnKey = `${turn.attackerId ?? ''}:${turn.defenderId ?? ''}`;
   const prevTurnKeyRef = useRef(turnKey);
@@ -189,6 +192,13 @@ export default function DiceModal({
   // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends
   const showMyDefendReplay = phase === PHASE.RESOLVING && isMyDefend && turn?.defendRoll != null && !defRollDone;
 
+  useEffect(() => {
+    if (!showMyAttackReplay) setAtkReplayLanded(false);
+  }, [showMyAttackReplay]);
+  useEffect(() => {
+    if (!showMyDefendReplay) setDefReplayLanded(false);
+  }, [showMyDefendReplay]);
+
   return (
     <>
       {/* ── ROLLING ATTACK ── */}
@@ -210,12 +220,15 @@ export default function DiceModal({
               themeColors={dieColors(attacker)}
               onRollResult={showMyAttackReplay ? undefined : onAttackRoll}
               onRollStart={showMyAttackReplay ? undefined : onAttackRollStart}
-              onRollEnd={onAtkRollDone}
+              onRollEnd={() => {
+                if (showMyAttackReplay) setAtkReplayLanded(true);
+                onAtkRollDone();
+              }}
               hidePrompt
             />
             <span className="bhud__dice-bonus">
               {showMyAttackReplay
-                ? (!atkRollDone ? 'rolling...' : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0 ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(turn.attackRoll ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}` : String(turn.attackRoll))
+                ? (!(atkRollDone || atkReplayLanded) ? 'rolling...' : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0 ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(turn.attackRoll ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}` : String(turn.attackRoll))
                 : `dice up: ${(attacker?.attackDiceUp ?? 0) + atkBuffMod}`}
             </span>
           </div>
@@ -270,12 +283,15 @@ export default function DiceModal({
               themeColors={dieColors(defender)}
               onRollResult={showMyDefendReplay ? undefined : onDefendRoll}
               onRollStart={showMyDefendReplay ? undefined : onDefendRollStart}
-              onRollEnd={onDefRollDone}
+              onRollEnd={() => {
+                if (showMyDefendReplay) setDefReplayLanded(true);
+                onDefRollDone();
+              }}
               hidePrompt
             />
             <span className="bhud__dice-bonus">
               {showMyDefendReplay
-                ? (!defRollDone ? 'rolling...' : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0 ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${(turn.defendRoll ?? 0) + (defender?.defendDiceUp ?? 0) + defBuffMod}` : String(turn.defendRoll))
+                ? (!(defRollDone || defReplayLanded) ? 'rolling...' : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0 ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${(turn.defendRoll ?? 0) + (defender?.defendDiceUp ?? 0) + defBuffMod}` : String(turn.defendRoll))
                 : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
             </span>
           </div>
