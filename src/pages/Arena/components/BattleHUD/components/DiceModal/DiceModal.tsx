@@ -95,12 +95,14 @@ export default function DiceModal({
 
   const turnKey = `${turn.attackerId ?? ''}:${turn.defenderId ?? ''}`;
   const prevTurnKeyRef = useRef(turnKey);
+  const viewerAttackReplayShownRef = useRef(false);
   if (turnKey !== turnKeyRef.current) {
     prevTurnKeyRef.current = turnKeyRef.current;
     turnKeyRef.current = turnKey;
     latchedPhaseRef.current = phase;
     latchedAttackRollRef.current = turn.attackRoll ?? null;
     latchedDefendRollRef.current = turn.defendRoll ?? null;
+    viewerAttackReplayShownRef.current = false;
   }
   useEffect(() => {
     if (prevTurnKeyRef.current !== turnKeyRef.current) {
@@ -110,7 +112,7 @@ export default function DiceModal({
     }
   });
 
-  // When RESOLVING with defend roll (e.g. NPC) — only start "defender rolling" delay after attack dice animation has ended (atkRollDone), or immediately if player rolled attack (no replay). In viewer mode: show defender dice immediately (no delay).
+  // When RESOLVING with defend roll — show defender dice after attack animation (atkRollDone) or immediately if player rolled attack. In viewer: same flow, show defender dice content without 1s delay.
   const resolvingWithNpcDefend =
     phase === PHASE.RESOLVING && turn.defendRoll != null && !isMyDefend && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn;
@@ -149,12 +151,17 @@ export default function DiceModal({
   const latchedPhase = latchedPhaseRef.current;
   const latchedAttackRoll = latchedAttackRollRef.current;
 
-  // Attack dice animate first when opponent attacked (player didn't roll — so we may need to show attack). When server sends RESOLVING with both rolls, only replay if opponent attacked (!isMyTurn). In viewer mode: no replay.
+  // Attack dice: show when opponent has roll — same flow for player & viewer (including when player is defender).
+  // Never replay attack after defender: use ref so we don't show attack from RESOLVING when we already showed it in ROLLING_DEFEND (atkRollDone resets on phase change).
   const serverSkippedToResolving =
     phase === PHASE.RESOLVING && turn.attackRoll != null && turn.defendRoll != null && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
-  const showAttackReplay = !isViewer &&
-    ((latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn) ||
-    (serverSkippedToResolving && !atkRollDone && !isMyDefend && !isMyTurn && latchedAttackRoll != null));
+  const fromRollingDefend = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
+  const fromResolvingSkip = serverSkippedToResolving && !atkRollDone && !isMyTurn && latchedAttackRoll != null && !viewerAttackReplayShownRef.current && !defRollDone;
+  const showAttackReplay = (fromRollingDefend || fromResolvingSkip) && !defRollDone;
+
+  useEffect(() => {
+    if (showAttackReplay) viewerAttackReplayShownRef.current = true;
+  }, [showAttackReplay]);
 
   const defenderEligible =
     showAttackReplay &&
@@ -227,7 +234,7 @@ export default function DiceModal({
             <span className="bhud__dice-sub">
               Defending against {attacker?.nicknameEng}
             </span>
-            <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={onDefendRoll} themeColors={dieColors(defender)} hidePrompt />
+            <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={onDefendRoll} onRollEnd={onDefRollDone} themeColors={dieColors(defender)} hidePrompt />
             <span className="bhud__dice-bonus">dice up: {(defender?.defendDiceUp ?? 0) + defBuffMod}</span>
           </div>
         </div>
@@ -245,8 +252,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — opponent defend. Show after attack animation ended (atkRollDone) or immediately if player rolled attack (no replay). In viewer mode: show whenever RESOLVING with defend roll. Then spinner 1s → animate NPC dice (or immediately in viewer). ── */}
-      {phase === PHASE.RESOLVING && (isViewer || atkRollDone || isMyTurn) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
+      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll so animation can start early and finish before resolve (keeps pace with player screen). ── */}
+      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
