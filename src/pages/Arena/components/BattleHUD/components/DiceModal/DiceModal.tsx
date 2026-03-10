@@ -27,6 +27,11 @@ interface Props {
   defSide: PanelSide;
   onAttackRoll: (roll: number) => void;
   onDefendRoll: (roll: number) => void;
+  /** Pre-rolled value so we send on click and animate to it (viewer gets result in sync) */
+  preRolledAttack?: number | null;
+  preRolledDefend?: number | null;
+  onAttackRollStart?: () => void;
+  onDefendRollStart?: () => void;
   onAtkRollDone: () => void;
   onDefRollDone: () => void;
   atkRollDone: boolean;
@@ -73,7 +78,8 @@ function themeStyle(f?: FighterState): React.CSSProperties {
 export default function DiceModal({
   turn, attacker, defender,
   isMyTurn, isMyDefend, atkSide, defSide,
-  onAttackRoll, onDefendRoll, onAtkRollDone, onDefRollDone,
+  preRolledAttack, preRolledDefend,
+  onAttackRoll, onDefendRoll, onAttackRollStart, onDefendRollStart, onAtkRollDone, onDefRollDone,
   atkRollDone, defRollDone, defendReady, resolveReady, isViewer = false,
   critEligible, critReady, critWinFaces, critRollResult, onCritRollResult,
   chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult,
@@ -178,20 +184,40 @@ export default function DiceModal({
 
   // What to show for attack side (opponent flow): wait → replay; never go back to wait once we have replay
   const showAttackWait = latchedPhase === PHASE.ROLLING_ATTACK || (latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll == null);
+  // After I (attacker) clicked: phase is already ROLLING_DEFEND but keep showing my attack dice replay until animation ends
+  const showMyAttackReplay = phase === PHASE.ROLLING_DEFEND && isMyTurn && turn?.attackRoll != null && !atkRollDone;
+  // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends
+  const showMyDefendReplay = phase === PHASE.RESOLVING && isMyDefend && turn?.defendRoll != null && !defRollDone;
 
   return (
     <>
       {/* ── ROLLING ATTACK ── */}
-      {/* My attack dice roller */}
-      {phase === PHASE.ROLLING_ATTACK && isMyTurn && (
+      {/* My attack: one block so DiceRoller never remounts; show from ROLLING_ATTACK until atkRollDone after submit */}
+      {((phase === PHASE.ROLLING_ATTACK && isMyTurn) || showMyAttackReplay) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">
-              {attacker?.nicknameEng} → {defender?.nicknameEng}
+              {showMyAttackReplay ? attacker?.nicknameEng : `${attacker?.nicknameEng} → ${defender?.nicknameEng}`}
             </span>
-            <DiceRoller className="bhud__dice-roller" lockedDie={12} onRollResult={onAttackRoll} themeColors={dieColors(attacker)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {(attacker?.attackDiceUp ?? 0) + atkBuffMod}</span>
+            <DiceRoller
+              key="atk-my-roll"
+              className="bhud__dice-roller"
+              lockedDie={12}
+              fixedResult={showMyAttackReplay ? (turn.attackRoll ?? undefined) : (preRolledAttack ?? undefined)}
+              autoRoll={showMyAttackReplay}
+              accentColor={attacker?.theme[9]}
+              themeColors={dieColors(attacker)}
+              onRollResult={showMyAttackReplay ? undefined : onAttackRoll}
+              onRollStart={showMyAttackReplay ? undefined : onAttackRollStart}
+              onRollEnd={onAtkRollDone}
+              hidePrompt
+            />
+            <span className="bhud__dice-bonus">
+              {showMyAttackReplay
+                ? (!atkRollDone ? 'rolling...' : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0 ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(turn.attackRoll ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}` : String(turn.attackRoll))
+                : `dice up: ${(attacker?.attackDiceUp ?? 0) + atkBuffMod}`}
+            </span>
           </div>
         </div>
       )}
@@ -226,16 +252,32 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* My defend dice roller — only after attack result finishes */}
-      {phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady && (
+      {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit */}
+      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
             <span className="bhud__dice-sub">
-              Defending against {attacker?.nicknameEng}
+              {showMyDefendReplay ? defender?.nicknameEng : `Defending against ${attacker?.nicknameEng}`}
             </span>
-            <DiceRoller key="def-my-roll" className="bhud__dice-roller" lockedDie={12} onRollResult={onDefendRoll} onRollEnd={onDefRollDone} themeColors={dieColors(defender)} hidePrompt />
-            <span className="bhud__dice-bonus">dice up: {(defender?.defendDiceUp ?? 0) + defBuffMod}</span>
+            <DiceRoller
+              key="def-my-roll"
+              className="bhud__dice-roller"
+              lockedDie={12}
+              fixedResult={showMyDefendReplay ? (turn.defendRoll ?? undefined) : (preRolledDefend ?? undefined)}
+              autoRoll={showMyDefendReplay}
+              accentColor={defender?.theme[9]}
+              themeColors={dieColors(defender)}
+              onRollResult={showMyDefendReplay ? undefined : onDefendRoll}
+              onRollStart={showMyDefendReplay ? undefined : onDefendRollStart}
+              onRollEnd={onDefRollDone}
+              hidePrompt
+            />
+            <span className="bhud__dice-bonus">
+              {showMyDefendReplay
+                ? (!defRollDone ? 'rolling...' : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0 ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${(turn.defendRoll ?? 0) + (defender?.defendDiceUp ?? 0) + defBuffMod}` : String(turn.defendRoll))
+                : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
+            </span>
           </div>
         </div>
       )}
@@ -252,7 +294,7 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll so animation can start early and finish before resolve (keeps pace with player screen). ── */}
+      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll. ── */}
       {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && turn.defendRoll != null && !resolveReady && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>

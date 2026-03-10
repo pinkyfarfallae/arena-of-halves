@@ -177,6 +177,10 @@ export interface TurnState {
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
+  /** When current player started rolling attack dice (timestamp) — so viewers can show rolling state in sync */
+  attackRollStartedAt?: number;
+  /** When current player started rolling defend dice (timestamp) — so viewers can show rolling state in sync */
+  defendRollStartedAt?: number;
 }
 
 /** A log entry for the battle feed */
