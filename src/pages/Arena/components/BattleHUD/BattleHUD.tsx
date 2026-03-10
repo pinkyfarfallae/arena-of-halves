@@ -225,8 +225,8 @@ export default function BattleHUD({
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
   const [atkRollDone, setAtkRollDone] = useState(false);
   const [defRollDone, setDefRollDone] = useState(false);
-  /** Delay before hiding player dice after animation ends — same feel as NPC/viewer result view */
-  const PLAYER_ROLL_RESULT_VIEW_MS = 1000;
+  /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends) */
+  const PLAYER_ROLL_RESULT_VIEW_MS = 2000;
   const atkRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const defRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
