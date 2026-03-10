@@ -1138,7 +1138,8 @@ export default function BattleHUD({
     resolveCacheMergeTick,
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
-  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4) {
+  // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
+  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn)) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
@@ -1162,7 +1163,7 @@ export default function BattleHUD({
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
         isHit: true, damage: drainDmg, baseDmg: drainDmg, shockBonus: 0,
-        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? (turn.action === TURN_ACTION.POWER ? 'Soul Devourer' : 'Attack'),
+        isPower: turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? (turn.action === TURN_ACTION.POWER ? POWER_NAMES.SOUL_DEVOURER : TURN_ACTION.POWER)),
         critEligible: false, isCrit: false, critRoll: 0,
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
@@ -1219,12 +1220,19 @@ export default function BattleHUD({
       // Self-buff + attack (e.g. Beyond the Nimbus): show damage card as normal attack so breakdown (base + crit + shock) displays
       const isPowerForCard = turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS;
 
+      // Store stable crit roll label so it doesn't flip to "D4: -" when turn changes (e.g. at end of resolving after Beyond the Nimbus)
+      const critBuffForLabel = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.CRITICAL_RATE);
+      const effectiveCritForLabel = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffForLabel);
+      const critRollLabel = !dgd && critEligible
+        ? (effectiveCritForLabel >= 100 ? 'D4: auto' : (cd.critRoll > 0 ? `D4: ${cd.critRoll}` : 'D4: -'))
+        : undefined;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
         atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
         isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
-        critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll,
+        critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll, critRollLabel,
         isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
@@ -1341,6 +1349,15 @@ export default function BattleHUD({
           coAttackHit: !!entry.coAttackDamage,
           coAttackDamage: (entry.coAttackDamage as number) || 0,
           soulDevourerDrain: !!(entry as any).soulDevourerDrain,
+          critRoll: (entry as any).critRoll ?? 0,
+          // Stable crit label so bar doesn't flip to "D4: -" when turn changes at end of resolving
+          critRollLabel: (() => {
+            const aeForCrit = battle.activeEffects || [];
+            const critBuffMerge = getStatModifier(aeForCrit, entry.attackerId, MOD_STAT.CRITICAL_RATE);
+            const effectiveCritMerge = atk ? Math.max(atk.criticalRate ?? 0, (atk.criticalRate ?? 0) + critBuffMerge) : 0;
+            const entryCritRoll = (entry as any).critRoll ?? 0;
+            return effectiveCritMerge >= 100 ? 'D4: auto' : (entryCritRoll > 0 ? `D4: ${entryCritRoll}` : 'D4: -');
+          })(),
           // Use lowercase minion nickname for minion attacker when available
           attackerName: (entry as any).isMinionHit
             ? (minionFromTeams?.nicknameEng?.toLowerCase().slice(0, 11) + "..." || atk?.nicknameEng || entry.attackerId)
@@ -1739,7 +1756,7 @@ export default function BattleHUD({
                   {rc.critEligible && (
                     <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
                       <span className="bhud__resolve-crit-roll">
-                        {(() => {
+                        {rc.critRollLabel ?? (() => {
                           const ae = battle.activeEffects || [];
                           const critBuff = getStatModifier(ae, turn?.attackerId ?? '', MOD_STAT.CRITICAL_RATE);
                           const effectiveCrit = Math.max(attacker?.criticalRate ?? 0, (attacker?.criticalRate ?? 0) + critBuff);

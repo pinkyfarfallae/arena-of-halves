@@ -7,6 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { SKILL_UNLOCK } from '../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
+import { SEASON_KEYS, SEASONS } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -678,7 +679,7 @@ export function applySeasonEffects(
     const fighterId = fighter.characterId;
 
     switch (season) {
-      case 'summer': {
+      case SEASON_KEYS.SUMMER: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
@@ -693,7 +694,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'autumn': {
+      case SEASON_KEYS.AUTUMN: {
         // Increase maxHp and currentHp immediately (read from updates in case old autumn was just reversed)
         const path = findFighterPath(room, fighterId);
         if (path) {
@@ -717,7 +718,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'winter': {
+      case SEASON_KEYS.WINTER: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
@@ -732,7 +733,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'spring': {
+      case SEASON_KEYS.SPRING: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
