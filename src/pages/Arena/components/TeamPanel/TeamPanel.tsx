@@ -299,6 +299,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasSoulDevourer = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
         );
+        const hasBeyondNimbus = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.BEYOND_THE_NIMBUS,
+        );
         const hasDeathKeeper = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER,
         );
@@ -392,6 +395,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
             isShadowCamouflaged={isShadowCamouflaged}
+            hasBeyondNimbus={hasBeyondNimbus}
             hasSoulDevourer={hasSoulDevourer}
             hasDeathKeeper={hasDeathKeeper}
             isResurrected={isResurrected}

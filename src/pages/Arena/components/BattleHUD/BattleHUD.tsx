@@ -134,8 +134,8 @@ export default function BattleHUD({
   const isMyDefend = turn?.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === BATTLE_TEAM.A ? teamB : teamA;
 
-  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target). */
-  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER) ?? false;
+  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back). */
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -1851,6 +1851,17 @@ export default function BattleHUD({
                 {(entry as any).skipReason === POWER_NAMES.SHADOW_CAMOUFLAGING && (
                   <span className="bhud__log-skip-reason">(no valid target)</span>
                 )}
+              </div>
+            );
+          }
+
+          if ((entry as any).beyondTheNimbus) {
+            return (
+              <div className="bhud__log-entry bhud__log-entry--nimbus" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                {' '}
+                <span className="bhud__log-power">Beyond the Nimbus</span>
               </div>
             );
           }

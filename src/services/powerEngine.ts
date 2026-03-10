@@ -170,18 +170,30 @@ export function applyPowerEffect(
 
     case EFFECT_TYPES.BUFF:
     case EFFECT_TYPES.DEBUFF: {
-      // Shadow Camouflaging: no stack; new select = reset to 2 rounds (design duration).
+      // Shadow Camouflaging / Beyond the Nimbus: no stack; new select = reset to 2 rounds.
       // UI shows Math.ceil(turnsRemaining / queueLen) as "rounds", so store 2 * queueLen to display 2.
       const isShadowCamouflaging = power.name === POWER_NAMES.SHADOW_CAMOUFLAGING || power.modStat === MOD_STAT.SHADOW_CAMOUFLAGED;
+      const isBeyondTheNimbus = power.name === POWER_NAMES.BEYOND_THE_NIMBUS;
       const queueLen = battle.turnQueue?.length || 1;
       const shadowCamouflageDuration = 2 * queueLen;
+      const beyondTheNimbusDuration = 2 * queueLen;
       const existingShadow = isShadowCamouflaging
         ? effects.find(e => e.targetId === targetId && (e.powerName === POWER_NAMES.SHADOW_CAMOUFLAGING || e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED))
         : null;
+      const existingNimbus = isBeyondTheNimbus
+        ? effects.find(e => e.targetId === targetId && e.powerName === POWER_NAMES.BEYOND_THE_NIMBUS && e.modStat === power.modStat)
+        : null;
       if (existingShadow) {
         existingShadow.turnsRemaining = shadowCamouflageDuration;
+      } else if (existingNimbus) {
+        existingNimbus.turnsRemaining = beyondTheNimbusDuration;
+        existingNimbus.value = power.value;
       } else {
-        const turnsRemaining = isShadowCamouflaging ? shadowCamouflageDuration : power.duration;
+        const turnsRemaining = isShadowCamouflaging
+          ? shadowCamouflageDuration
+          : isBeyondTheNimbus
+            ? beyondTheNimbusDuration
+            : power.duration;
         const eff: ActiveEffect = {
           id: makeEffectId(attackerId, power.name),
           powerName: power.name,
@@ -192,6 +204,7 @@ export function applyPowerEffect(
           turnsRemaining,
         };
         if (power.modStat) eff.modStat = power.modStat;
+        if (isBeyondTheNimbus) eff.tag = EFFECT_TAGS.BEYOND_THE_NIMBUS;
         effects.push(eff);
       }
 
@@ -429,6 +442,48 @@ export function applyLightningReflexPassive(
   });
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return { updates, bonusDamage: 0 };
+}
+
+export function applyBeyondTheNimbusTeamShock(
+  room: BattleRoom,
+  attackerId: string,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const effects = [...(battle.activeEffects || [])];
+  const attackerTeam = findFighterTeam(room, attackerId);
+  if (!attackerTeam) return updates;
+
+  const enemies = attackerTeam === BATTLE_TEAM.A
+    ? (room.teamB?.members || [])
+    : (room.teamA?.members || []);
+
+  let changed = false;
+  for (const enemy of enemies) {
+    if (enemy.currentHp <= 0) continue;
+    const isPetalShielded = effects.some(
+      (e) => e.targetId === enemy.characterId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
+    );
+    if (isPetalShielded) continue;
+    const alreadyShocked = effects.some(
+      (e) => e.targetId === enemy.characterId && e.tag === EFFECT_TAGS.SHOCK,
+    );
+    if (alreadyShocked) continue;
+    effects.push({
+      id: makeEffectId(attackerId, POWER_NAMES.LIGHTNING_SPARK),
+      powerName: POWER_NAMES.LIGHTNING_SPARK,
+      effectType: EFFECT_TYPES.DOT,
+      sourceId: attackerId,
+      targetId: enemy.characterId,
+      value: 0,
+      turnsRemaining: 999,
+      tag: EFFECT_TAGS.SHOCK,
+    });
+    changed = true;
+  }
+
+  if (changed) updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+  return updates;
 }
 
 /* ── Zeus: Jolt Arc — AoE shock detonation ─────────── */

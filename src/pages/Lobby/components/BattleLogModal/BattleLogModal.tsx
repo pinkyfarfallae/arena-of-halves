@@ -104,6 +104,17 @@ export default function BattleLogModal({ room, onClose }: Props) {
             const atkColor = atk?.theme[0] ?? entry.attackerTheme;
             const defColor = def?.theme[0] ?? entry.defenderTheme;
 
+            if (entry.beyondTheNimbus) {
+              return (
+                <div className="blm__entry blm__entry--nimbus" key={i}>
+                  <span className="blm__round">R{entry.round}</span>
+                  <span className="blm__name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                  {' '}
+                  <span className="blm__power">Beyond the Nimbus</span>
+                </div>
+              );
+            }
+
             // Compact rendering for minion hits (skeletons): no dice breakdown — single-line text
             if ((entry as any).isMinionHit) {
               return (
