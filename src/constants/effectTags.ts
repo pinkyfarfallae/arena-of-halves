@@ -5,6 +5,7 @@
 export const EFFECT_TAGS = {
   // Zeus
   SHOCK: 'shock',
+  BEYOND_THE_NIMBUS: 'beyond-the-nimbus',
 
   // Poseidon
   STUN: 'stun',

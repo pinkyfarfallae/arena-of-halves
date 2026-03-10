@@ -210,6 +210,8 @@ export interface BattleLogEntry {
   skipReason?: string;
   /** Logged when confirming power before target/season; show power name only, no arrow/target until resolved */
   pendingTarget?: boolean;
+  /** Caster has Beyond the Nimbus this turn; show "Caster Beyond the nimbus" before the attack result line */
+  beyondTheNimbus?: boolean;
 }
 
 /** Full battle state stored alongside the room */

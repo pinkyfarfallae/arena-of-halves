@@ -14,7 +14,7 @@ import {
   makeEffectId,
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
   applySecretOfDryadPassive, applyFloralScented, applySeasonEffects,
-  applyPomegranateOath,
+  applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS } from '../constants/effectTags';
@@ -763,8 +763,14 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
     const updates: Record<string, unknown> = {};
 
     // Self-buff already applied in selectAction → log after target chosen (self), then dice
+    // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged in selectAction; only advance phase here
     if (power.target === TARGET_TYPES.SELF) {
-      const selfLogEntry = {
+      if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
+        updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+      const selfLogEntry: Record<string, unknown> = {
         round: battle.roundNumber,
         attackerId,
         defenderId: attackerId,
@@ -1251,7 +1257,27 @@ export async function selectAction(
     const effectUpdates = applyPowerEffect(room, attackerId, attackerId, adjusted as PowerDefinition, battle);
     Object.assign(updates, effectUpdates);
 
-    // Log only after target is chosen (in selectTarget)
+    // Beyond the Nimbus: log "Caster Beyond the Nimbus" at confirm (here); other self-buffs log in selectTarget
+    if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
+      const nimbusEntry: Record<string, unknown> = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId: attackerId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: 0,
+        defenderHpAfter: attacker.currentHp,
+        eliminated: false,
+        missed: false,
+        beyondTheNimbus: true,
+        attackerName: attacker.nicknameEng,
+        attackerTheme: attacker.theme?.[0],
+        defenderName: attacker.nicknameEng,
+        defenderTheme: attacker.theme?.[0],
+      };
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), nimbusEntry]);
+    }
+
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
@@ -1512,6 +1538,7 @@ export async function selectAction(
 
   // ── Enemy-targeting power (skipDice or dice): store choice, go to target selection ──
   // Power effects will be applied in selectTarget(); log only after target is chosen
+  // (Self-buff e.g. Beyond the Nimbus is handled above and returns earlier.)
   updates[ARENA_PATH.BATTLE_TURN] = {
     attackerId,
     attackerTeam: battle.turn.attackerTeam,
@@ -2530,6 +2557,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
 
   } else if (action !== TURN_ACTION.POWER || isSelfBuffPower) {
+    const attackerHasBeyondTheNimbus = activeEffects.some(
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.BEYOND_THE_NIMBUS,
+    );
     // Soul Devourer drain: no dice, no block, no crit; damage = caster main hit only; heal = ceil(main damage * 0.5) — skeleton damage does not heal
     soulDevourerDrain = !!battle.turn.soulDevourerDrain;
     if (soulDevourerDrain) {
@@ -2632,6 +2662,14 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         rawDmg += shockResult.bonusDamage;
         shockBonusDamage = shockResult.bonusDamage;
         Object.assign(updates, shockResult.updates);
+      }
+      if (attackerHasBeyondTheNimbus) {
+        const battleWithNimbusEffects = {
+          ...battle,
+          activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
+        };
+        const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects);
+        Object.assign(updates, nimbusShockUpdates);
       }
 
       // Collect skeletons belonging to the attacker — we will resolve them
@@ -2765,7 +2803,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       logEntry.isDodged = true;
       logEntry.dodgeRoll = battle.turn.dodgeRoll;
     }
-    if (isSelfBuffPower && battle.turn.usedPowerName) {
+    // Do not set powerUsed for self-buff + attack so log shows "Caster vs Defender — hit for X dmg" not "Caster Beyond the Nimbus X dmg"
+    if (isSelfBuffPower && battle.turn.usedPowerName && battle.turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS) {
       logEntry.powerUsed = battle.turn.usedPowerName;
     }
 
@@ -2779,7 +2818,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       lastPrevNorm.defenderId === defenderId &&
       lastPrevNorm.damage === 0 &&
       (lastPrevNorm.powerUsed === battle.turn.usedPowerName || (isSelfBuffPower && lastPrevNorm.powerUsed));
-    if (canUpdateNorm) {
+
+    // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged at confirm (selectTarget); only append attack result with dice
+    if (attackerHasBeyondTheNimbus) {
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
+    } else if (canUpdateNorm) {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), { ...lastPrevNorm, ...logEntry }]);
     } else {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);

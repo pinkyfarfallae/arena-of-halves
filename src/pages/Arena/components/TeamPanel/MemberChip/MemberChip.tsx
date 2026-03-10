@@ -31,10 +31,18 @@ export interface EffectPip {
   count: number;
 }
 
+/** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
+const NO_STACK_POWER_NAMES = new Set([
+  'Beyond the Nimbus',
+  'Shadow Camouflaging',
+  'Soul Devourer',
+]);
+
 /** Hover tooltip for effect pips — positioned via portal above all stacking contexts */
 function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  const showStacks = pip.count > 1 && !NO_STACK_POWER_NAMES.has(pip.powerName);
 
   useEffect(() => {
     const el = tipRef.current;
@@ -65,7 +73,7 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
       <span className="mchip__pip-tooltip-name">{pip.powerName}</span>
       <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
       <div className="mchip__pip-tooltip-meta">
-        {pip.count > 1 && <span className="mchip__pip-tooltip-stacks">{pip.count} stack{pip.count > 1 ? 's' : ''}</span>}
+        {showStacks && <span className="mchip__pip-tooltip-stacks">{pip.count} stacks</span>}
         <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 99 ? 'conditional' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
       </div>
     </div>,
@@ -113,6 +121,7 @@ interface Props {
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
   isShadowCamouflaged?: boolean;
+  hasBeyondNimbus?: boolean;
   hasSoulDevourer?: boolean;
   hasDeathKeeper?: boolean;
   isResurrected?: boolean;
@@ -153,7 +162,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
@@ -339,7 +348,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
+  const [shockBridgeActive, setShockBridgeActive] = useState(false);
   const prevIsShockHitRef = useRef(false);
+  const shockBridgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SHOCK_BRIDGE_MS = 5200;
 
   useEffect(() => {
     if (isShockHit && !prevIsShockHitRef.current) {
@@ -350,6 +362,26 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
     if (!isShockHit) prevIsShockHitRef.current = false;
   }, [isShockHit]);
+
+  useEffect(() => {
+    if (isShocked) {
+      if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+      shockBridgeTimerRef.current = null;
+      setShockBridgeActive(false);
+      return;
+    }
+    if (!isShockHit) return;
+    setShockBridgeActive(true);
+    if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+    shockBridgeTimerRef.current = setTimeout(() => {
+      shockBridgeTimerRef.current = null;
+      setShockBridgeActive(false);
+    }, SHOCK_BRIDGE_MS);
+    return () => {
+      if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+      shockBridgeTimerRef.current = null;
+    };
+  }, [isShockHit, isShocked]);
 
   /* ── Thunderbolt hit: massive lightning strike ── */
   const [isThunderboltActive, setIsThunderboltActive] = useState(false);
@@ -599,11 +631,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isHitActive && 'mchip--hit',
     battleLive && isShockHitActive && 'mchip--shock-hit',
     battleLive && isThunderboltActive && 'mchip--thunderbolt',
-    battleLive && isShocked && 'mchip--shocked',
+    battleLive && (isShocked || shockBridgeActive) && 'mchip--shocked',
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
     battleLive && isSpiritForm && 'mchip--spirit-form',
     battleLive && isShadowCamouflaged && 'mchip--shadow-camouflaged',
+    battleLive && hasBeyondNimbus && 'mchip--beyond-the-nimbus',
     battleLive && hasSoulDevourer && 'mchip--soul-devourer',
     battleLive && hasDeathKeeper && 'mchip--death-keeper',
     battleLive && showResurrecting && 'mchip--resurrecting',
@@ -664,6 +697,39 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
       {isPetalShielded && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
 
+      {/* Beyond the Nimbus — background storm, rain light, and cloud under frame */}
+      {hasBeyondNimbus && battleLive && (
+        <>
+          <div className="mchip__nimbus-storm" aria-hidden="true">
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--1" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--2" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--3" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--4" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--5" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--6" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--7" />
+          </div>
+          <div className="mchip__nimbus-overlay" aria-hidden="true" />
+          <div className="mchip__nimbus-overlay mchip__nimbus-overlay--lower" aria-hidden="true" />
+          <div className="mchip__nimbus-rain" aria-hidden="true">
+            {Array.from({ length: 12 }, (_, i) => (
+              <span key={i} className="mchip__nimbus-drop" />
+            ))}
+          </div>
+          <div className="mchip__nimbus-clouds" aria-hidden="true">
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--1" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--2" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--3" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--4" />
+          </div>
+          <div className="mchip__nimbus-rise" aria-hidden="true">
+            {Array.from({ length: 40 }, (_, i) => (
+              <span key={i} className="mchip__nimbus-rise-particle" />
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Soul Devourer — souls from every edge/corner inhaled to center (black, purple, white) */}
       {hasSoulDevourer && battleLive && (
         <div className="mchip__soul-float" aria-hidden="true">
@@ -705,8 +771,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
       </div>
 
-      {/* Card frame — outside body so it's not masked */}
-      <div ref={casterFrameRef ?? defenderFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      {/* Card frame — outside body so it's not masked; when Nimbus, wings align to frame via wrapper */}
+      <div className={`mchip__frame-wrap${hasBeyondNimbus && battleLive ? ' mchip__frame-wrap--nimbus' : ''}`}>
+        {hasBeyondNimbus && battleLive && (
+          <>
+            <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
+            <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
+          </>
+        )}
+        <div ref={casterFrameRef ?? defenderFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
         {fighter.image ? (
           <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
         ) : (
@@ -724,6 +797,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           <>
             {/* Shocked effect — electric sparks around frame */}
             {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+            {/* Beyond the Nimbus — light storm glow on pic (like shocked sparks) */}
+            {hasBeyondNimbus && <div className="mchip__nimbus-sparks" aria-hidden="true" />}
 
             {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
             {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
@@ -794,6 +870,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             </span>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
