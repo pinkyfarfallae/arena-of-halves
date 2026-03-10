@@ -33,7 +33,13 @@ export type { ResolveData };
 export default function DamageCard({ data, exiting, side, displayMs, onDisplayComplete }: Props) {
   const rc = data;
   const cardStyle = { '--card-atk': rc.attackerTheme, '--card-def': rc.defenderTheme } as React.CSSProperties;
-  const hasBreakdown = rc.isHit && !rc.isPower && (rc.isCrit || rc.shockBonus > 0);
+  // Show breakdown (base + crit + shock) for any hit that has crit or shock bonus — including self-buff+attack (e.g. Beyond the Nimbus).
+  // Fallback: damage > baseDmg indicates crit/bonus even if isCrit/shockBonus weren't written to cache.
+  const hasBreakdown = rc.isHit && (
+    rc.isCrit ||
+    rc.shockBonus > 0 ||
+    (rc.baseDmg > 0 && rc.damage > rc.baseDmg)
+  );
   const onDisplayCompleteRef = useRef<typeof onDisplayComplete>(onDisplayComplete);
 
   useEffect(() => {
@@ -83,10 +89,10 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
             {hasBreakdown && (
               <div className="dmg-card__breakdown">
                 <span className="dmg-card__base">{rc.baseDmg}</span>
-                {rc.isCrit && (
+                {(rc.isCrit || (rc.baseDmg > 0 && rc.damage > rc.baseDmg && rc.shockBonus <= 0)) && (
                   <>
                     <span className="dmg-card__base">+</span>
-                    <span className="dmg-card__crit">{rc.baseDmg}</span>
+                    <span className="dmg-card__crit">{rc.isCrit ? rc.baseDmg : (rc.damage - rc.baseDmg - rc.shockBonus)}</span>
                   </>
                 )}
                 {rc.shockBonus > 0 && (

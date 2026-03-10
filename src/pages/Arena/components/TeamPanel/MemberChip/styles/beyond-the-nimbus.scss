@@ -9,7 +9,7 @@
       0 0 0 1px rgba(#fff, 0.7),
       0 0 12px rgba(#fff, 0.45),
       0 0 24px rgba(#e8f4fc, 0.35);
-    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+    animation: nimbus-frame-blink 0.3s ease-in-out infinite;
   }
 }
 
@@ -19,7 +19,7 @@
       0 0 0 1px rgba(#fff, 0.7),
       0 0 12px rgba(#fff, 0.45),
       0 0 24px rgba(#e8f4fc, 0.35);
-    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+    animation: nimbus-frame-blink 0.3s ease-in-out infinite;
   }
 
   .mchip__bg {
@@ -29,7 +29,7 @@
 
 .mchip--beyond-the-nimbus.mchip--hit {
   .mchip__frame {
-    animation: hit-shake 0.5s ease-out, nimbus-frame-blink 1.2s ease-in-out infinite;
+    animation: hit-shake 0.5s ease-out, nimbus-frame-blink 0.3s ease-in-out infinite;
   }
 
   .mchip__frame::after {
@@ -419,7 +419,7 @@
       0 0 0 1px rgba(#fff, 0.7),
       0 0 12px rgba(#fff, 0.45),
       0 0 24px rgba(#e8f4fc, 0.35);
-    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+    animation: nimbus-frame-blink 0.3s ease-in-out infinite;
   }
 
   .mchip--spotlight.mchip--beyond-the-nimbus .mchip__frame {
@@ -427,7 +427,7 @@
       0 0 0 1px rgba(#fff, 0.7),
       0 0 12px rgba(#fff, 0.45),
       0 0 24px rgba(#e8f4fc, 0.35);
-    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+    animation: nimbus-frame-blink 0.3s ease-in-out infinite;
   }
 
   .mchip__nimbus-storm {

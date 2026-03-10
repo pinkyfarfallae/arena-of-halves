@@ -448,6 +448,8 @@ export function applyBeyondTheNimbusTeamShock(
   room: BattleRoom,
   attackerId: string,
   battle: BattleState,
+  /** If set, do not apply shock to this character (e.g. attack target just cleansed by Lightning Reflex). */
+  excludeTargetId?: string,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
   const effects = [...(battle.activeEffects || [])];
@@ -461,6 +463,7 @@ export function applyBeyondTheNimbusTeamShock(
   let changed = false;
   for (const enemy of enemies) {
     if (enemy.currentHp <= 0) continue;
+    if (excludeTargetId && enemy.characterId === excludeTargetId) continue;
     const isPetalShielded = effects.some(
       (e) => e.targetId === enemy.characterId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
     );

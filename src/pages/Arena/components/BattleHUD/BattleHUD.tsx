@@ -708,6 +708,8 @@ export default function BattleHUD({
       ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
       : 5000;
   const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
+  /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
+  const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
@@ -852,7 +854,10 @@ export default function BattleHUD({
 
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
-  const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0;
+  // When turn has passed to NPC (SELECT_ACTION && !isMyTurn), hide immediately to avoid jitter of resolve/dice modal on player side.
+  const resolveBarVisible =
+    !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
+    ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -1130,6 +1135,7 @@ export default function BattleHUD({
     resolveCache.current.powerName ?? '',
     resolveCache.current.isDodged ? 'dodged' : 'live',
     resolveCache.current.isCrit ? 'crit' : 'plain',
+    resolveCacheMergeTick,
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4) {
@@ -1174,6 +1180,18 @@ export default function BattleHUD({
       const baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let damage = baseDmg;
 
+      // Prefer server authority for breakdown when log already has this turn's attack result
+      // (avoids overwriting isCrit/baseDmg/shockBonus with stale client refs e.g. defender never rolled D4)
+      const logArrForFill = battle.log || [];
+      const lastEntryForTurn = [...logArrForFill].reverse().find(
+        (e: any) => e.attackerId === turn.attackerId && e.defenderId === turn.defenderId && !e.beyondTheNimbus && (e.attackRoll != null || (e.damage != null && e.damage > 0))
+      ) as { baseDmg?: number; isCrit?: boolean; shockDamage?: number; damage?: number } | undefined;
+      const useLogBreakdown = lastEntryForTurn && (
+        lastEntryForTurn.baseDmg != null ||
+        lastEntryForTurn.isCrit === true ||
+        (lastEntryForTurn.shockDamage != null && lastEntryForTurn.shockDamage > 0)
+      );
+
       // Read crit result from critRef (already determined by D4 roll)
       const cd = critRef.current;
       if (cd.isCrit) damage *= 2;
@@ -1194,12 +1212,19 @@ export default function BattleHUD({
       const dgd = dodgeRef.current.isDodged;
       const ca = coAttackRef.current;
 
+      const baseDmgFinal = useLogBreakdown && lastEntryForTurn?.baseDmg != null ? lastEntryForTurn.baseDmg : baseDmg;
+      const isCritFinal = useLogBreakdown && lastEntryForTurn?.isCrit === true ? true : cd.isCrit;
+      const shockBonusFinal = useLogBreakdown && lastEntryForTurn?.shockDamage != null ? lastEntryForTurn.shockDamage : shockBonus;
+      const damageFinal = useLogBreakdown && lastEntryForTurn?.damage != null ? lastEntryForTurn.damage : (dgd ? 0 : damage);
+      // Self-buff + attack (e.g. Beyond the Nimbus): show damage card as normal attack so breakdown (base + crit + shock) displays
+      const isPowerForCard = turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
-        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damage, baseDmg, shockBonus,
-        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? '',
-        critEligible: !dgd && critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
+        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
+        isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
+        critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll,
         isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
@@ -1304,8 +1329,9 @@ export default function BattleHUD({
 
         const rc = {
           isHit: !entry.missed,
-          isPower: !!entry.powerUsed,
-          powerName: entry.powerUsed || '',
+          // Beyond the Nimbus attack (after confirm): show in resolve bar as normal attack (ATK vs DEF, damage)
+          isPower: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? false : !!entry.powerUsed,
+          powerName: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (entry.powerUsed || ''),
           isCrit: !!(entry.isCrit),
           baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
@@ -1327,8 +1353,15 @@ export default function BattleHUD({
         } as any;
 
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
-        if (!(entry as any).isMinionHit) {
+        // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
+        if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus) {
           resolveCache.current = { ...resolveCache.current, ...rc } as any;
+          // Resolve bar must never show power name for Beyond the Nimbus (treat as normal attack); once resolveVisible goes false the fill stops, so force it here
+          if (turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) {
+            resolveCache.current.isPower = false;
+            resolveCache.current.powerName = '';
+          }
+          setResolveCacheMergeTick((t) => t + 1);
         }
         onResolveVisible?.(true);
         if ((entry as any).isMinionHit) {
@@ -1459,7 +1492,7 @@ export default function BattleHUD({
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
               <span className="bhud__phase-label">
-                {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action })}
+                {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action, treatAsNormalAttack: turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS })}
               </span>
             </>
           )}
@@ -1540,6 +1573,17 @@ export default function BattleHUD({
             onSelectAction={onSelectAction}
             initialShowPowers={initialShowPowers}
           />
+        </div>
+      )}
+
+      {/* When turn passed to NPC (SELECT_ACTION): show stable placeholder in dice zone to avoid jitter from DiceModal unmounting */}
+      {turn.phase === PHASE.SELECT_ACTION && !isMyTurn && attacker && !showResolve && !skipCard && !showResurrecting && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={{ '--modal-primary': attacker.theme?.[0], '--modal-dark': attacker.theme?.[18] } as React.CSSProperties}>
+            <span className="bhud__dice-label">Choosing Action</span>
+            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
+            <div className="bhud__dice-roller bhud__dice-roller--waiting" />
+          </div>
         </div>
       )}
 
@@ -1630,6 +1674,9 @@ export default function BattleHUD({
         const rc = activePlaybackStep
           ? { ...resolveCache.current, ...activePlaybackStep }
           : resolveCache.current;
+        // Beyond the Nimbus: never show power name in resolve bar (treat as normal attack)
+        const hidePowerNameForNimbus = turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS;
+        const showPowerName = rc.isPower && rc.powerName && !hidePowerNameForNimbus;
         if (activePlaybackStep?.isMinionHit) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
@@ -1640,7 +1687,7 @@ export default function BattleHUD({
             </div>
           );
         }
-        if (rc.isPower && rc.atkRoll === 0) {
+        if (rc.isPower && rc.atkRoll === 0 && !hidePowerNameForNimbus) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
               <div className="bhud__resolve-info">
@@ -1661,9 +1708,9 @@ export default function BattleHUD({
           );
         }
         return (
-          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${rc.isPower ? 'bhud__resolve--power' : ''} ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${showPowerName ? 'bhud__resolve--power' : ''} ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
             <div className="bhud__resolve-info">
-              {rc.isPower && rc.powerName && (
+              {showPowerName && (
                 <span className="bhud__resolve-power-name">{rc.powerName}</span>
               )}
               <div className="bhud__resolve-rolls">
@@ -1691,18 +1738,26 @@ export default function BattleHUD({
                 <>
                   {rc.critEligible && (
                     <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
-                      <span className="bhud__resolve-crit-roll">{rc.critRoll > 0 ? `D4: ${rc.critRoll}` : 'D4: -'}</span>
+                      <span className="bhud__resolve-crit-roll">
+                        {(() => {
+                          const ae = battle.activeEffects || [];
+                          const critBuff = getStatModifier(ae, turn?.attackerId ?? '', MOD_STAT.CRITICAL_RATE);
+                          const effectiveCrit = Math.max(attacker?.criticalRate ?? 0, (attacker?.criticalRate ?? 0) + critBuff);
+                          if (effectiveCrit >= 100) return 'D4: auto';
+                          return rc.critRoll > 0 ? `D4: ${rc.critRoll}` : 'D4: -';
+                        })()}
+                      </span>
                       <span className="bhud__resolve-crit-sep">-</span>
                       <span className="bhud__resolve-crit-text">{rc.isCrit ? 'CRIT!' : 'NO CRIT'}</span>
                     </span>
                   )}
-                  <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
+                  <span className="bhud__resolve-dmg">{showPowerName ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
                   {rc.coAttackHit && rc.coAttackDamage > 0 && (
                     <span className="bhud__resolve-dmg">Co-Attack: -{rc.coAttackDamage} DMG</span>
                   )}
                 </>
               ) : (
-                <span className="bhud__resolve-miss">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>
+                <span className="bhud__resolve-miss">{showPowerName ? 'RESISTED!' : 'BLOCKED!'}</span>
               )}
             </div>
           </div>
@@ -1860,7 +1915,6 @@ export default function BattleHUD({
               <div className="bhud__log-entry bhud__log-entry--nimbus" key={i}>
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
-                {' '}
                 <span className="bhud__log-power">Beyond the Nimbus</span>
               </div>
             );

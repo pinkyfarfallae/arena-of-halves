@@ -1,8 +1,12 @@
 import type { FighterState, TurnState } from '../../../../../../types/battle';
 import { DEITY_THEMES, DEFAULT_THEME } from '../../../../../../constants/theme';
 import { PHASE, TURN_ACTION, type PanelSide } from '../../../../../../constants/battle';
+import { useEffect, useRef, useState } from 'react';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
+
+/** Short delay after attack animation ends before showing defender waiting (stable transition) */
+const DEFENDER_AFTER_ATK_DONE_MS = 100;
 
 /** Get die theme colors for a fighter */
 function dieColors(f?: FighterState): { primary: string; primaryDark: string } {
@@ -76,6 +80,65 @@ export default function DiceModal({
   const atkTheme = themeStyle(attacker);
   const defTheme = themeStyle(defender);
 
+  // ── Stable display state: only advance forward, never revert (fixes jitter when phase/turn updates arrive out of order) ──
+  const turnKeyRef = useRef<string>('');
+  const latchedPhaseRef = useRef<string>(phase);
+  const latchedAttackRollRef = useRef<number | null>(null);
+  const latchedDefendRollRef = useRef<number | null>(null);
+  const [showDefenderWaiting, setShowDefenderWaiting] = useState(false);
+
+  const turnKey = `${turn.attackerId ?? ''}:${turn.defenderId ?? ''}`;
+  const prevTurnKeyRef = useRef(turnKey);
+  if (turnKey !== turnKeyRef.current) {
+    prevTurnKeyRef.current = turnKeyRef.current;
+    turnKeyRef.current = turnKey;
+    latchedPhaseRef.current = phase;
+    latchedAttackRollRef.current = turn.attackRoll ?? null;
+    latchedDefendRollRef.current = turn.defendRoll ?? null;
+  }
+  useEffect(() => {
+    if (prevTurnKeyRef.current !== turnKeyRef.current) {
+      prevTurnKeyRef.current = turnKeyRef.current;
+      setShowDefenderWaiting(false);
+    }
+  });
+
+  // Latch phase/rolls forward only
+  if (phase === PHASE.ROLLING_DEFEND && turn.attackRoll != null) {
+    latchedPhaseRef.current = PHASE.ROLLING_DEFEND;
+    latchedAttackRollRef.current = turn.attackRoll;
+  }
+  if (phase === PHASE.RESOLVING) {
+    latchedPhaseRef.current = PHASE.RESOLVING;
+    if (turn.defendRoll != null) latchedDefendRollRef.current = turn.defendRoll;
+  }
+  if (phase === PHASE.ROLLING_ATTACK) {
+    latchedAttackRollRef.current = null;
+    latchedDefendRollRef.current = null;
+  }
+
+  const latchedPhase = latchedPhaseRef.current;
+  const latchedAttackRoll = latchedAttackRollRef.current;
+
+  // Show defender-side "waiting" ONLY after attack roll animation has fully ended (atkRollDone). No time-based fallback — wait for animation.
+  const defenderEligible =
+    latchedPhase === PHASE.ROLLING_DEFEND &&
+    !isMyDefend &&
+    latchedAttackRoll != null &&
+    atkRollDone;
+  useEffect(() => {
+    if (!defenderEligible) {
+      setShowDefenderWaiting(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowDefenderWaiting(true), DEFENDER_AFTER_ATK_DONE_MS);
+    return () => clearTimeout(t);
+  }, [defenderEligible]);
+
+  // What to show for attack side (opponent flow): wait → replay; never go back to wait once we have replay
+  const showAttackWait = latchedPhase === PHASE.ROLLING_ATTACK || (latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll == null);
+  const showAttackReplay = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
+
   return (
     <>
       {/* ── ROLLING ATTACK ── */}
@@ -92,8 +155,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* Opponent's attack — waiting spinner */}
-      {phase === PHASE.ROLLING_ATTACK && !isMyTurn && (
+      {/* Opponent's attack — waiting spinner (stable: show until we have attack roll, no revert) */}
+      {showAttackWait && !isMyTurn && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
@@ -106,19 +169,19 @@ export default function DiceModal({
       )}
 
       {/* ── ROLLING DEFEND ── */}
-      {/* Attacker's result dice — only when opponent attacked (I need to see their roll) */}
-      {phase === PHASE.ROLLING_DEFEND && turn.attackRoll != null && !isMyTurn && (
+      {/* Attacker's result dice (stable: once we have roll we keep showing until atkRollDone) */}
+      {showAttackReplay && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng}</span>
-            <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.attackRoll} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt onRollEnd={onAtkRollDone} />
+            <DiceRoller key="atk-defend-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={latchedAttackRoll ?? 0} accentColor={attacker?.theme[9]} themeColors={dieColors(attacker)} autoRoll hidePrompt onRollEnd={onAtkRollDone} />
             <span className="bhud__dice-bonus">
               {!atkRollDone
                 ? 'rolling...'
                 : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0
-                  ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${turn.attackRoll + (attacker?.attackDiceUp ?? 0) + atkBuffMod}`
-                  : turn.attackRoll}
+                  ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(latchedAttackRoll ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}`
+                  : latchedAttackRoll}
             </span>
           </div>
         </div>
@@ -136,8 +199,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* Opponent's defend — waiting spinner */}
-      {phase === PHASE.ROLLING_DEFEND && !isMyDefend && (
+      {/* Opponent's defend — waiting spinner (stable: only after attack replay has been visible for min time) */}
+      {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>

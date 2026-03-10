@@ -2492,6 +2492,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   let isCrit = false;
   let critRoll = 0;
   let shockBonusDamage = 0;
+  let baseDmg = 0;
   let soulDevourerDrain = false;
 
   // Resolve power that went through dice rolling
@@ -2632,7 +2633,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
     if (hit) {
       const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
-      const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+      baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let rawDmg = baseDmg;
 
       // Critical hit: read from turn state (written by BattleHUD) or compute fallback
@@ -2668,7 +2669,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           ...battle,
           activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
         };
-        const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects);
+        const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects, defenderId);
         Object.assign(updates, nimbusShockUpdates);
       }
 
@@ -2791,7 +2792,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       eliminated: hit && defenderHpAfter <= 0,
       missed: !hit,
     };
-    
+    if (hit) {
+      logEntry.baseDmg = baseDmg;
+    }
     if (critRoll > 0) {
       logEntry.isCrit = isCrit;
       logEntry.critRoll = critRoll;
