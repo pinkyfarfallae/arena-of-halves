@@ -239,10 +239,13 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
 
     spinSpeed.current = 14 + Math.random() * 4;
 
+    // If fixedResult will be set later (e.g. viewer waiting for server), don't pick random yet — useFrame will use fixedResult when it arrives
     const raw = fixedResult ?? (Math.floor(Math.random() * NUM_FACES) + 1);
-    targetResult.current = (typeof raw === 'number' && raw >= 1 && raw <= 12) ? raw : 1;
-    const quat = TARGET_QUATS[targetResult.current];
-    if (quat) targetQuat.current.copy(quat);
+    targetResult.current = (typeof raw === 'number' && raw >= 1 && raw <= 12) ? raw : 0;
+    if (targetResult.current > 0) {
+      const quat = TARGET_QUATS[targetResult.current];
+      if (quat) targetQuat.current.copy(quat);
+    }
   }, [rollTrigger, fixedResult]);
 
   // Tint faces based on camera-facing direction + flash
@@ -300,6 +303,16 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
       const decay = Math.pow(1 - progress, 1.5);
       groupRef.current.rotateOnAxis(spinAxis.current, spinSpeed.current * decay * delta);
     } else {
+      // Waiting for fixedResult (e.g. viewer): keep spinning until result arrives
+      if (targetResult.current === 0 && typeof fixedResult === 'number' && fixedResult >= 1 && fixedResult <= 12) {
+        targetResult.current = fixedResult;
+        const quat = TARGET_QUATS[fixedResult];
+        if (quat) targetQuat.current.copy(quat);
+      }
+      if (targetResult.current === 0) {
+        groupRef.current.rotateOnAxis(spinAxis.current, spinSpeed.current * 0.1 * delta);
+        return;
+      }
       if (settleStart.current === 0) {
         settleStart.current = performance.now() / 1000;
         settleStartQuat.current.copy(groupRef.current.quaternion);

@@ -2005,6 +2005,20 @@ export async function confirmSeason(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/* ── signal "roll started" so viewers can show dice rolling in sync ── */
+
+export async function requestAttackRollStart(arenaId: string): Promise<void> {
+  try {
+    await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL_STARTED_AT]: Date.now() });
+  } catch (_) {}
+}
+
+export async function requestDefendRollStart(arenaId: string): Promise<void> {
+  try {
+    await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL_STARTED_AT]: Date.now() });
+  } catch (_) {}
+}
+
 /* ── submit attack dice roll ─────────────────────────── */
 
 export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {

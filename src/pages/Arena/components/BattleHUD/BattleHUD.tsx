@@ -173,9 +173,27 @@ export default function BattleHUD({
     });
   })();
 
-  /* ── Dice submit with brief delay so user sees result ── */
+  /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
   const defSubmitted = useRef(false);
+
+  // Pre-roll so we can send result on click (viewer gets result when player clicks, not when animation ends)
+  const [preRolledAttack, setPreRolledAttack] = useState<number | null>(null);
+  const [preRolledDefend, setPreRolledDefend] = useState<number | null>(null);
+  useEffect(() => {
+    if (turn?.phase === PHASE.ROLLING_ATTACK && turn?.attackerId === myId) {
+      setPreRolledAttack(Math.floor(Math.random() * 12) + 1);
+    } else {
+      setPreRolledAttack(null);
+    }
+  }, [turn?.phase, turn?.attackerId, myId]);
+  useEffect(() => {
+    if (turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId === myId) {
+      setPreRolledDefend(Math.floor(Math.random() * 12) + 1);
+    } else {
+      setPreRolledDefend(null);
+    }
+  }, [turn?.phase, turn?.defenderId, myId]);
 
   // Reset submitted flags when phase changes
   if (turn?.phase === PHASE.ROLLING_ATTACK) defSubmitted.current = false;
@@ -184,26 +202,49 @@ export default function BattleHUD({
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
     atkSubmitted.current = true;
-    setTimeout(() => onSubmitAttackRoll(n), 1500);
+    onSubmitAttackRoll(n);
   }, [onSubmitAttackRoll]);
 
   const handleDefendRollResult = useCallback((n: number) => {
     if (defSubmitted.current) return;
     defSubmitted.current = true;
-    setTimeout(() => onSubmitDefendRoll(n), 1500);
+    onSubmitDefendRoll(n);
   }, [onSubmitDefendRoll]);
+
+  const handleAttackRollStart = useCallback(() => {
+    if (atkSubmitted.current || preRolledAttack == null) return;
+    atkSubmitted.current = true;
+    onSubmitAttackRoll(preRolledAttack);
+  }, [onSubmitAttackRoll, preRolledAttack]);
+  const handleDefendRollStart = useCallback(() => {
+    if (defSubmitted.current || preRolledDefend == null) return;
+    defSubmitted.current = true;
+    onSubmitDefendRoll(preRolledDefend);
+  }, [onSubmitDefendRoll, preRolledDefend]);
 
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
   const [atkRollDone, setAtkRollDone] = useState(false);
   const [defRollDone, setDefRollDone] = useState(false);
+  /** Delay before hiding player dice after animation ends — same feel as NPC/viewer result view */
+  const PLAYER_ROLL_RESULT_VIEW_MS = 1000;
+  const atkRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const defRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (turn?.phase === PHASE.RESOLVING && isViewer) return;
+    if (atkRollDoneTimeoutRef.current) {
+      clearTimeout(atkRollDoneTimeoutRef.current);
+      atkRollDoneTimeoutRef.current = null;
+    }
     setAtkRollDone(false);
   }, [turn?.phase, isViewer]);
   // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
   useEffect(() => {
     if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId) return;
+    if (defRollDoneTimeoutRef.current) {
+      clearTimeout(defRollDoneTimeoutRef.current);
+      defRollDoneTimeoutRef.current = null;
+    }
     setDefRollDone(false);
   }, [turn?.phase, turn?.defenderId, myId]);
 
@@ -303,16 +344,13 @@ export default function BattleHUD({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerEndTurnOnlyTurn derived from turn; keep deps array length constant
   }, [turnPhase, soulDevourerEndTurnOnlyTurn, isPlaybackDriver, onResolve]);
 
-  // Resolve (damage card) only after defender dice animation has ended: wait for defRollDone then 2s. Removed "if I defended 500ms" so player's defend animation triggers resolve same as NPC.
-  // If opponent defended, wait for their roll animation to end + 2s viewing time.
-  // In viewer mode defender dice replay starts when we get RESOLVING (can be later than player), so wait longer before showing resolve bar so dice don't still appear to be rolling.
+  // Resolve (damage card) only after defender dice animation has ended: wait for defRollDone then 2s. Same delay for viewer so they see damage card in sync with player.
   useEffect(() => {
     if (defRollDone && turn?.phase === PHASE.RESOLVING) {
-      const delayMs = isViewer ? 5000 : 2000;
-      const t = setTimeout(() => setResolveReady(true), delayMs);
+      const t = setTimeout(() => setResolveReady(true), 2000);
       return () => clearTimeout(t);
     }
-  }, [defRollDone, turn?.phase, isViewer]);
+  }, [defRollDone, turn?.phase]);
 
   /* ── Pomegranate's Oath: Dodge D4 check ── */
   const [dodgeReady, setDodgeReady] = useState(false);
@@ -753,22 +791,33 @@ export default function BattleHUD({
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
   const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
-  // Inspect mode: show damage card only after critical dice. Wait for defender dice animation to end (defRollDone) then 5s so no overlap with defender modal.
+  // Viewer: same 2s delay as player after defend dice so damage card appears in sync. Guard by turn key so we don't set for wrong turn when round advances.
   const [viewerCriticalDiceDelayDone, setViewerCriticalDiceDelayDone] = useState(false);
+  const viewerDelayTurnKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isViewer || turn?.phase !== PHASE.RESOLVING) {
+      viewerDelayTurnKeyRef.current = null;
       setViewerCriticalDiceDelayDone(false);
       return;
     }
     if ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.POWER && !turn?.attackRoll)) {
+      viewerDelayTurnKeyRef.current = null;
       setViewerCriticalDiceDelayDone(true);
       return;
     }
     if (turn?.defendRoll == null) return;
     if (!defRollDone) return;
-    const t = window.setTimeout(() => setViewerCriticalDiceDelayDone(true), 5000);
-    return () => clearTimeout(t);
-  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, (turn as any)?.soulDevourerDrain, defRollDone]);
+    const turnKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`;
+    viewerDelayTurnKeyRef.current = turnKey;
+    const t = window.setTimeout(() => {
+      if (viewerDelayTurnKeyRef.current === turnKey) setViewerCriticalDiceDelayDone(true);
+      viewerDelayTurnKeyRef.current = null;
+    }, 2000);
+    return () => {
+      clearTimeout(t);
+      viewerDelayTurnKeyRef.current = null;
+    };
+  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, turn?.attackerId, turn?.defenderId, (turn as any)?.soulDevourerDrain, defRollDone, battle.roundNumber, battle.currentTurnIndex]);
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
     (!!attacker && !!defender && (
       allResolveChecksDone && (!isViewer || viewerCriticalDiceDelayDone)
@@ -1686,10 +1735,26 @@ export default function BattleHUD({
           isMyDefend={!!isMyDefend}
           atkSide={atkSide}
           defSide={defSide}
+          preRolledAttack={preRolledAttack}
+          preRolledDefend={preRolledDefend}
           onAttackRoll={handleAttackRollResult}
           onDefendRoll={handleDefendRollResult}
-          onAtkRollDone={() => setAtkRollDone(true)}
-          onDefRollDone={() => setDefRollDone(true)}
+          onAttackRollStart={handleAttackRollStart}
+          onDefendRollStart={handleDefendRollStart}
+          onAtkRollDone={() => {
+            if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
+            atkRollDoneTimeoutRef.current = setTimeout(() => {
+              atkRollDoneTimeoutRef.current = null;
+              setAtkRollDone(true);
+            }, PLAYER_ROLL_RESULT_VIEW_MS);
+          }}
+          onDefRollDone={() => {
+            if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
+            defRollDoneTimeoutRef.current = setTimeout(() => {
+              defRollDoneTimeoutRef.current = null;
+              setDefRollDone(true);
+            }, PLAYER_ROLL_RESULT_VIEW_MS);
+          }}
           atkRollDone={atkRollDone}
           defRollDone={defRollDone}
           defendReady={defendReady}

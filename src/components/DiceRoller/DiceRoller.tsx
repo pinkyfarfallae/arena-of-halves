@@ -28,6 +28,8 @@ interface Props {
   onRollResult?: (n: number) => void;
   /** Called when the roll animation fully ends */
   onRollEnd?: () => void;
+  /** Called when the user clicks/taps to start a roll (before result) */
+  onRollStart?: () => void;
 }
 
 const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
@@ -40,7 +42,7 @@ const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
   100: D100Die,
 };
 
-export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult, onRollEnd: onRollEndProp }: Props) {
+export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult, onRollEnd: onRollEndProp, onRollStart }: Props) {
   const { user } = useAuth();
   const accent = accentColor ?? user?.theme[9] ?? '#b8860b';
   const [die, setDie] = useState<Die>(lockedDie ?? 20);
@@ -59,8 +61,9 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
 
   const roll = useCallback(() => {
     if (rolling) return;
+    onRollStart?.();
     setRolling(true);
-  }, [rolling]);
+  }, [rolling, onRollStart]);
 
   const handleResult = useCallback((n: number) => {
     const val = fixedResult ?? n;
