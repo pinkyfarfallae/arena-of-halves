@@ -12,7 +12,7 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
+  applyLightningReflexPassive, applyJoltArc, applyThunderboltChain, applyKeraunosVoltageShock,
   applySecretOfDryadPassive, applyFloralScented, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
@@ -2656,21 +2656,28 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (isCrit) rawDmg *= 2;
       }
 
-      // Lightning Reflex passive: apply shock or detonate for bonus damage (only on pure normal attacks)
-      // Use pre-crit baseDmg so shock detonation = x2 of base damage, not x2 of crit-doubled damage
-      if (!isSelfBuffPower) {
-        const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
-        rawDmg += shockResult.bonusDamage;
-        shockBonusDamage = shockResult.bonusDamage;
-        Object.assign(updates, shockResult.updates);
-      }
-      if (attackerHasBeyondTheNimbus) {
-        const battleWithNimbusEffects = {
-          ...battle,
-          activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
-        };
-        const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects, defenderId);
-        Object.assign(updates, nimbusShockUpdates);
+      // Attack success → apply shock rule. If target has shock: bonus damage + remove shock. If not: add shock.
+      // Run when: normal attack (Lightning Reflex) OR Nimbus attack (shock all enemies). Nimbus is self-buff so we must check attackerHasBeyondTheNimbus.
+      if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
+        if (attackerHasBeyondTheNimbus) {
+          const battleWithNimbusEffects = {
+            ...battle,
+            activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
+          };
+          const prevEffects = (battleWithNimbusEffects.activeEffects || []) as ActiveEffect[];
+          const defenderHadShock = prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
+          const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects, baseDmg);
+          Object.assign(updates, nimbusShockUpdates);
+          if (defenderHadShock) {
+            rawDmg += baseDmg;
+            shockBonusDamage = baseDmg;
+          }
+        } else {
+          const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+          rawDmg += shockResult.bonusDamage;
+          shockBonusDamage = shockResult.bonusDamage;
+          Object.assign(updates, shockResult.updates);
+        }
       }
 
       // Collect skeletons belonging to the attacker — we will resolve them
@@ -2844,6 +2851,36 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       existingLog[existingLog.length - 1].aoeDamageMap = aoeDamageMap;
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
     }
+  }
+  // Keraunos Voltage: apply shock to primary + chain targets (central shock logic: already shocked → 100% base damage + remove; else apply shock)
+  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && defenderId) {
+    const thunderboltPower = attacker?.powers?.find(p => p.name === POWER_NAMES.KERAUNOS_VOLTAGE);
+    const primaryDmg = thunderboltPower?.value ?? 3;
+    const keraunosBaseDmg = Math.max(0, (attacker?.damage ?? 0) + getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE));
+    const getHpForShock = (characterId: string) => {
+      const path = findFighterPath(room, characterId);
+      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+      const f = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === characterId);
+      return f?.currentHp ?? 0;
+    };
+    const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+    const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
+    const currentHpByTarget: Record<string, number> = {};
+    for (const e of enemies) {
+      if (e.currentHp <= 0) continue;
+      if (e.characterId === defenderId) {
+        currentHpByTarget[e.characterId] = Math.max(0, (defender?.currentHp ?? 0) - primaryDmg);
+      } else {
+        currentHpByTarget[e.characterId] = getHpForShock(e.characterId);
+      }
+    }
+    const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
+      ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
+      : battle;
+    const keraunosShockUpdates = applyKeraunosVoltageShock(
+      room, attackerId, defenderId, battleForKeraunos, keraunosBaseDmg, currentHpByTarget,
+    );
+    Object.assign(updates, keraunosShockUpdates);
   }
 
   // Secret of Dryad passive: grant petal-shield if atkTotal > 10

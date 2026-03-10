@@ -874,6 +874,7 @@ function Arena() {
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
+            isViewer={role === ARENA_ROLE.VIEWER}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}
