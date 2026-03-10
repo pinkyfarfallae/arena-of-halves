@@ -197,16 +197,33 @@ export default function BattleHUD({
   const [atkRollDone, setAtkRollDone] = useState(false);
   const [defRollDone, setDefRollDone] = useState(false);
 
-  // Reset when phase changes
-  useEffect(() => { setAtkRollDone(false); }, [turn?.phase]);
-  useEffect(() => { setDefRollDone(false); }, [turn?.phase]);
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && isViewer) return;
+    setAtkRollDone(false);
+  }, [turn?.phase, isViewer]);
+  // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId) return;
+    setDefRollDone(false);
+  }, [turn?.phase, turn?.defenderId, myId]);
 
   /* ── Sequencing: wait for opponent's dice to finish before next step ── */
   const [defendReady, setDefendReady] = useState(false);
   const [resolveReady, setResolveReady] = useState(false);
 
-  // Reset ready flags when phase changes
-  useEffect(() => { if (turn?.phase === PHASE.ROLLING_DEFEND) setDefendReady(false); }, [turn?.phase]);
+  // Reset defendReady when phase changes. When I am defender (NPC attacked), wait for attack dice to show first — set defendReady only after atkRollDone to avoid jitter.
+  useEffect(() => {
+    if (turn?.phase !== PHASE.ROLLING_DEFEND) return;
+    if (turn.defenderId === myId) {
+      if (turn.attackRoll != null && atkRollDone) {
+        setDefendReady(true);
+      } else {
+        setDefendReady(false);
+      }
+    } else {
+      setDefendReady(false);
+    }
+  }, [turn?.phase, turn?.defenderId, turn?.attackRoll, myId, atkRollDone]);
   useEffect(() => { if (turn?.phase === PHASE.RESOLVING) setResolveReady(false); }, [turn?.phase]);
 
   // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
@@ -248,13 +265,14 @@ export default function BattleHUD({
     }
   }, [turn?.phase, turn?.attackerId, myId]);
 
-  // If opponent attacked, wait for their roll animation to end + 2s viewing time
+  // If I am defender (NPC attacked): show defend roller only after attack dice animation (atkRollDone) — handled in the ROLLING_DEFEND effect above
+  // If opponent attacked and we're not defender: wait for their roll animation to end + 2s viewing time
   useEffect(() => {
-    if (atkRollDone && turn?.phase === PHASE.ROLLING_DEFEND) {
+    if (atkRollDone && turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId !== myId) {
       const t = setTimeout(() => setDefendReady(true), 2000);
       return () => clearTimeout(t);
     }
-  }, [atkRollDone, turn?.phase]);
+  }, [atkRollDone, turn?.phase, turn?.defenderId, myId]);
 
   // If skipDice power was used, resolve immediately (no dice to show)
   useEffect(() => {
@@ -285,14 +303,7 @@ export default function BattleHUD({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerEndTurnOnlyTurn derived from turn; keep deps array length constant
   }, [turnPhase, soulDevourerEndTurnOnlyTurn, isPlaybackDriver, onResolve]);
 
-  // If I defended, no replay to wait for → short delay (skip for skipDice powers)
-  useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && turn.defenderId === myId && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll)) {
-      const t = setTimeout(() => setResolveReady(true), 500);
-      return () => clearTimeout(t);
-    }
-  }, [turn?.phase, turn?.defenderId, turn?.action, turn?.attackRoll, myId]);
-
+  // Resolve (damage card) only after defender dice animation has ended: wait for defRollDone then 2s. Removed "if I defended 500ms" so player's defend animation triggers resolve same as NPC.
   // If opponent defended, wait for their roll animation to end + 2s viewing time
   useEffect(() => {
     if (defRollDone && turn?.phase === PHASE.RESOLVING) {
@@ -740,7 +751,7 @@ export default function BattleHUD({
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
   const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
-  // Inspect mode: show damage card only after critical dice (dodge, crit, chain, co-attack) have been shown
+  // Inspect mode: show damage card only after critical dice. Wait for defender dice animation to end (defRollDone) then 5s so no overlap with defender modal.
   const [viewerCriticalDiceDelayDone, setViewerCriticalDiceDelayDone] = useState(false);
   useEffect(() => {
     if (!isViewer || turn?.phase !== PHASE.RESOLVING) {
@@ -752,9 +763,10 @@ export default function BattleHUD({
       return;
     }
     if (turn?.defendRoll == null) return;
-    const t = window.setTimeout(() => setViewerCriticalDiceDelayDone(true), 3500);
+    if (!defRollDone) return;
+    const t = window.setTimeout(() => setViewerCriticalDiceDelayDone(true), 5000);
     return () => clearTimeout(t);
-  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, (turn as any)?.soulDevourerDrain]);
+  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, (turn as any)?.soulDevourerDrain, defRollDone]);
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
     (!!attacker && !!defender && (
       allResolveChecksDone && (!isViewer || viewerCriticalDiceDelayDone)
@@ -1662,8 +1674,8 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Dice rolling (attack, defend, resolving replay) */}
-      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && (
+      {/* Dice rolling (attack, defend, resolving replay). In viewer mode hide when damage card is showing so blocked/hit card doesn't overlap dice. */}
+      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && !(isViewer && resolveVisible) && (
         <DiceModal
           turn={turn}
           attacker={attacker}
