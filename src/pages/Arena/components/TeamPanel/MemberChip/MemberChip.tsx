@@ -166,17 +166,19 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const frameLayoutLatchedRef = useRef(false);
 
   const measureFrame = useCallback(() => {
     const chip = chipRef.current;
     const frame = frameRef.current;
     if (!chip || !frame) return;
+    if (frameLayoutLatchedRef.current) return;
     const cr = chip.getBoundingClientRect();
     const fr = frame.getBoundingClientRect();
-    setFrameLayout(prev => {
-      const next = { top: fr.top - cr.top, left: fr.left - cr.left, width: fr.width };
-      return prev.top === next.top && prev.left === next.left && prev.width === next.width ? prev : next;
-    });
+    const next = { top: fr.top - cr.top, left: fr.left - cr.left, width: fr.width };
+    if (next.width <= 0) return;
+    frameLayoutLatchedRef.current = true;
+    setFrameLayout(next);
   }, []);
 
   const setFrameRef = useCallback((el: HTMLDivElement | null) => {
@@ -184,7 +186,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     const ext = casterFrameRef ?? defenderFrameRef;
     if (ext) (ext as React.MutableRefObject<HTMLDivElement | null>).current = el;
     if (el) requestAnimationFrame(measureFrame);
-    else setFrameLayout({ top: 0, left: 0, width: 0 });
+    else {
+      frameLayoutLatchedRef.current = false;
+      setFrameLayout({ top: 0, left: 0, width: 0 });
+    }
   }, [casterFrameRef, defenderFrameRef, measureFrame]);
 
   useEffect(() => {

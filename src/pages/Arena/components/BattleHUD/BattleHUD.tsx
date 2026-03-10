@@ -304,13 +304,15 @@ export default function BattleHUD({
   }, [turnPhase, soulDevourerEndTurnOnlyTurn, isPlaybackDriver, onResolve]);
 
   // Resolve (damage card) only after defender dice animation has ended: wait for defRollDone then 2s. Removed "if I defended 500ms" so player's defend animation triggers resolve same as NPC.
-  // If opponent defended, wait for their roll animation to end + 2s viewing time
+  // If opponent defended, wait for their roll animation to end + 2s viewing time.
+  // In viewer mode defender dice replay starts when we get RESOLVING (can be later than player), so wait longer before showing resolve bar so dice don't still appear to be rolling.
   useEffect(() => {
     if (defRollDone && turn?.phase === PHASE.RESOLVING) {
-      const t = setTimeout(() => setResolveReady(true), 2000);
+      const delayMs = isViewer ? 5000 : 2000;
+      const t = setTimeout(() => setResolveReady(true), delayMs);
       return () => clearTimeout(t);
     }
-  }, [defRollDone, turn?.phase]);
+  }, [defRollDone, turn?.phase, isViewer]);
 
   /* ── Pomegranate's Oath: Dodge D4 check ── */
   const [dodgeReady, setDodgeReady] = useState(false);
