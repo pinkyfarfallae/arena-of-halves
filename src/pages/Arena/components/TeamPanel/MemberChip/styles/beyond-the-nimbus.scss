@@ -1,0 +1,512 @@
+@use 'sass:math';
+@use 'vars' as *;
+
+/* ── Beyond the Nimbus — power VFX ─────────────────────────────────────── */
+
+.mchip--beyond-the-nimbus {
+  .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#fff, 0.7),
+      0 0 12px rgba(#fff, 0.45),
+      0 0 24px rgba(#e8f4fc, 0.35);
+    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+  }
+}
+
+.mchip--spotlight.mchip--beyond-the-nimbus {
+  .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#fff, 0.7),
+      0 0 12px rgba(#fff, 0.45),
+      0 0 24px rgba(#e8f4fc, 0.35);
+    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+  }
+
+  .mchip__bg {
+    filter: brightness(1.15) contrast(1.05);
+  }
+}
+
+.mchip--beyond-the-nimbus.mchip--hit {
+  .mchip__frame {
+    animation: hit-shake 0.5s ease-out, nimbus-frame-blink 1.2s ease-in-out infinite;
+  }
+
+  .mchip__frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba($crimson-bright, 0.45);
+    border-radius: inherit;
+    z-index: 10;
+    pointer-events: none;
+    animation: hit-flash 1.5s ease-out forwards;
+  }
+}
+
+/* Nimbus: wider wrap so wings sit left/right of frame */
+.mchip__frame-wrap--nimbus {
+  width: calc(#{$frame-size-large} + 72px);
+  min-width: calc(#{$frame-size-large} + 72px);
+}
+
+.mchip__nimbus-storm {
+  position: absolute;
+  inset: 0.15rem -0.25rem 1.2rem -0.25rem;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 18px;
+  opacity: 0.6;
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(255, 253, 231, 0.16) 0%, rgb(77 87 90 / 31%) 28%, transparent 68%),
+    linear-gradient(180deg, rgba(219, 232, 246, 0.1) 0%, rgba(144, 202, 249, 0.12) 55%, transparent 100%);
+}
+
+.mchip__nimbus-lightning {
+  position: absolute;
+  top: 0.8rem;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      transparent 0%,
+      rgba(#fffde7, 0.99) 18%,
+      rgba(#fffde7, 0.99) 22%,
+      transparent 24%,
+      transparent 38%,
+      rgba(#fff59d, 0.95) 42%,
+      rgba(#fff59d, 0.95) 46%,
+      transparent 49%,
+      transparent 62%,
+      rgba(#ffffff, 0.92) 66%,
+      rgba(#ffffff, 0.92) 70%,
+      transparent 73%);
+  filter: blur(1px) drop-shadow(0 0 10px rgba(#fff59d, 0.9));
+  clip-path: polygon(42% 0%, 63% 0%, 52% 24%, 72% 24%, 38% 60%, 53% 60%, 29% 100%, 38% 72%, 23% 72%);
+  animation: nimbus-lightning-flash 3.4s ease-in-out infinite;
+}
+
+.mchip__nimbus-lightning--1 {
+  left: 50%;
+  animation-delay: 0.2s;
+  transform-origin: left center;
+}
+
+.mchip__nimbus-lightning--2 {
+  right: 150%;
+  animation-delay: 0.2s;
+  transform: scaleX(-1);
+  transform-origin: right center;
+}
+
+.mchip__nimbus-bolt {
+  position: absolute;
+  width: 2px;
+  height: 62%;
+  top: -8%;
+  opacity: 0;
+  background: linear-gradient(180deg,
+      rgba(#ffffff, 0) 0%,
+      rgba(#ffffff, 0.95) 18%,
+      rgba(#ffffff, 1) 48%,
+      rgba(#ffffff, 0.72) 78%,
+      rgba(#ffffff, 0) 100%);
+  box-shadow:
+    0 0 4px rgba(#ffffff, 0.9),
+    0 0 10px rgba(#ffffff, 0.45),
+    0 0 16px color-mix(in srgb, var(--chip-accent, #fff59d) 28%, transparent);
+  border-radius: 999px;
+  animation: nimbus-bolt-drop 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.mchip__nimbus-bolt--1 { left: 10%; height: 54%; animation-delay: 0.16s; }
+.mchip__nimbus-bolt--2 { left: 24%; height: 68%; animation-delay: 0.48s; }
+.mchip__nimbus-bolt--3 { left: 38%; height: 58%; animation-delay: 0.96s; }
+.mchip__nimbus-bolt--4 { left: 50%; height: 74%; animation-delay: 1.44s; }
+.mchip__nimbus-bolt--5 { left: 62%; height: 60%; animation-delay: 1.92s; }
+.mchip__nimbus-bolt--6 { left: 76%; height: 70%; animation-delay: 2.4s; }
+.mchip__nimbus-bolt--7 { left: 88%; height: 52%; animation-delay: 2.88s; }
+
+.mchip__nimbus-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 100% 120% at 50% 85%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 250, 200, 0.7) 28%, rgba(255, 248, 180, 0.4) 50%, transparent 72%),
+    radial-gradient(ellipse 80% 60% at 50% 95%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 180, 0.7) 40%, transparent 70%);
+  mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+  opacity: 0;
+  animation: nimbus-overlay-boom 1.75s ease-in-out infinite;
+}
+
+.mchip__nimbus-overlay--lower {
+  top: 80%;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  opacity: 0.2px;
+  filter: blur(8px);
+  background:
+    radial-gradient(ellipse 90% 80% at 50% 80%, color-mix(in srgb, var(--chip-primary, #b8860b) 50%, transparent) 0%, transparent 65%);
+  mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+  animation: nimbus-overlay-boom-lower 2.4s ease-in-out infinite;
+}
+
+.mchip__nimbus-rain {
+  position: absolute;
+  height: 100%;
+  inset: 0 -0.15rem 0.9rem -0.15rem;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  filter: brightness(1.2) !important;
+}
+
+.mchip__nimbus-drop {
+  position: absolute;
+  top: -18%;
+  width: 2px;
+  height: 40%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(#ffffff, 0) 0%, rgba(#ffee01, 0.75) 26%, rgba(#5bb5ff, 0.85) 100%);
+  box-shadow: 0 0 7px rgba(#ffffff, 0.6);
+  animation: nimbus-rain-fall linear infinite;
+
+  @for $i from 1 through 18 {
+    &:nth-child(#{$i}) {
+      left: 4% + (($i - 1) * 8.2%);
+      animation-delay: #{($i - 1) * 0.18}s;
+      animation-duration: #{1.2 + math.div(($i % 4), 10)}s;
+      opacity: #{0.35 + math.div(($i % 3), 10)};
+    }
+  }
+}
+
+.mchip__nimbus-clouds {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: -0.15rem;
+  height: 1.55rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mchip__nimbus-cloud {
+  position: absolute;
+  bottom: calc(50% + 15px);
+  height: 0.65rem;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 22% 42%, rgba(#90a4ae, 0.84) 0%, rgba(#78909c, 0.76) 20%, transparent 42%),
+    radial-gradient(circle at 48% 36%, rgba(#78909c, 0.88) 0%, rgba(#607d8b, 0.8) 26%, transparent 48%),
+    radial-gradient(circle at 74% 50%, rgba(#607d8b, 0.9) 0%, rgba(#455a64, 0.8) 22%, transparent 44%),
+    linear-gradient(180deg,
+      rgba(#90a4ae, 0.56) 0%,
+      rgba(#546e7a, 0.88) 46%,
+      rgba(#263238, 0.98) 100%);
+  opacity: 1;
+  filter: blur(11px) drop-shadow(0 3px 7px rgba(#263238, 0.34));
+}
+
+.mchip__nimbus-cloud--1 {
+  left: calc(50% - 54px);
+  width: 96px;
+  margin-bottom: 22px;
+  animation: nimbus-cloud-drift-left 6s ease-in-out infinite alternate;
+}
+
+.mchip__nimbus-cloud--2 {
+  left: calc(50% - 34px);
+  width: 82px;
+  margin-bottom: 17px;
+  animation: nimbus-cloud-drift-right 7.2s ease-in-out infinite alternate;
+}
+
+.mchip__nimbus-cloud--3 {
+  left: calc(50% - 104px);
+  width: 96px;
+  height: 1rem;
+  opacity: 0.5;
+  margin-bottom: 10px;
+  animation: nimbus-cloud-drift-left 6s ease-in-out infinite alternate;
+}
+
+.mchip__nimbus-cloud--4 {
+  left: calc(50% + 30px);
+  width: 82px;
+  height: 1rem;
+  opacity: 0.5;
+  margin-bottom: 10px;
+  animation: nimbus-cloud-drift-right 7.2s ease-in-out infinite alternate;
+}
+
+.mchip__nimbus-rise {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mchip__nimbus-rise-particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  animation: nimbus-rise linear infinite;
+
+  @for $i from 1 through 40 {
+    &:nth-child(#{$i}) {
+      $size: 3px + ($i % 4) * 1px;
+      width: $size;
+      height: $size;
+      left: percentage(math.div(($i - 1) * 2.4 + 1, 100));
+      bottom: 0;
+      animation-duration: #{3.5 + ($i % 5) * 0.4}s;
+      animation-delay: #{($i - 1) * 0.18}s;
+
+      @if $i % 4 == 1 {
+        background: rgba(#f7df00, 0.95);
+        box-shadow: 0 0 5px rgba(#ffeb3b, 0.95);
+      } @else if $i % 4 == 2 {
+        background: rgba(#0d1117, 0.35);
+        box-shadow: 0 0 4px rgba(#0d1117, 0.4);
+      } @else if $i % 4 == 3 {
+        background: rgba(#4baeff, 0.95);
+        box-shadow: 0 0 5px rgba(#64b5f6, 0.95);
+      } @else {
+        background: rgba(#ffffff, 0.95);
+        box-shadow: 0 0 5px rgba(#e3f2fd, 0.95);
+      }
+
+      filter: blur(#{0.5 + ($i % 2) * 0.5}px);
+    }
+  }
+}
+
+.mchip__nimbus-sparks {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 20% 10%, rgb(255 255 255 / 70%) 0%, transparent 8%),
+    radial-gradient(circle at 80% 90%, rgba(255, 208, 0, 0.6) 0%, transparent 6%),
+    radial-gradient(circle at 90% 30%, rgb(255 255 255 / 70%) 0%, transparent 7%),
+    radial-gradient(circle at 10% 70%, rgba(255, 231, 47, 0.5) 0%, transparent 5%);
+  z-index: 11;
+  pointer-events: none;
+  animation: nimbus-spark-flicker 0.3s ease-in-out infinite;
+}
+
+.mchip--spotlight.mchip--beyond-the-nimbus .mchip__nimbus-sparks {
+  z-index: 12;
+  animation: nimbus-spark-flicker-spotlight 2s ease-in-out infinite;
+}
+
+/* Keyframes */
+@keyframes nimbus-frame-blink {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(#fff, 0.7),
+      0 0 12px rgba(#fff, 0.45),
+      0 0 24px rgba(#e8f4fc, 0.35);
+    opacity: 1;
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(#fff, 0.9),
+      0 0 18px rgba(#fff, 0.6),
+      0 0 36px rgba(#e8f4fc, 0.5);
+    opacity: 0.82;
+  }
+}
+
+@keyframes nimbus-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1.5px rgba(#455a64, 0.7),
+      0 0 12px rgba(#90caf9, 0.5),
+      0 0 24px rgba(#fff59d, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(#37474f, 0.85),
+      0 0 18px rgba(#90caf9, 0.7),
+      0 0 36px rgba(#fff59d, 0.35);
+  }
+}
+
+@keyframes nimbus-lightning-flash {
+  0%, 100% { opacity: 0; }
+  8% { opacity: 0; }
+  10% { opacity: 0.98; }
+  14% { opacity: 0.22; }
+  20%, 56% { opacity: 0.84; }
+  60% { opacity: 0.98; }
+  64% { opacity: 0.26; }
+  84% { opacity: 0.08; }
+}
+
+@keyframes nimbus-rain-fall {
+  0% { transform: translateY(-12%) scaleY(0.7); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(138%) scaleY(1.05); opacity: 0; }
+}
+
+@keyframes nimbus-bolt-drop {
+  0%, 100% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
+  10% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
+  14% { opacity: 1; transform: translateY(-4%) scaleY(1); }
+  34% { opacity: 0.92; transform: translateY(38%) scaleY(1.03); }
+  62% { opacity: 0; transform: translateY(112%) scaleY(1.06); }
+}
+
+@keyframes nimbus-overlay-boom {
+  0% { opacity: 0; }
+  4% { opacity: 1; }
+  14% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes nimbus-overlay-boom-lower {
+  0%, 100% { opacity: 0; }
+  18% { opacity: 0.2; }
+  32% { opacity: 0; }
+}
+
+@keyframes nimbus-cloud-drift-left {
+  from { transform: translateX(-3px); }
+  to { transform: translateX(3px); }
+}
+
+@keyframes nimbus-cloud-drift-right {
+  from { transform: translateX(3px); }
+  to { transform: translateX(-3px); }
+}
+
+@keyframes nimbus-rise {
+  0% { opacity: 0; transform: translateY(0) translateX(0); }
+  12% { opacity: 0.65; }
+  85% { opacity: 0.25; }
+  100% { opacity: 0; transform: translateY(-130px) translateX(0); }
+}
+
+@keyframes nimbus-spark-flicker {
+  0% { opacity: 1; }
+  25% { opacity: 0; }
+  50% { opacity: 0.8; }
+  75% { opacity: 0.2; }
+}
+
+@keyframes nimbus-spark-flicker-spotlight {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: $bp-compact) {
+  .mchip--beyond-the-nimbus .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#fff, 0.7),
+      0 0 12px rgba(#fff, 0.45),
+      0 0 24px rgba(#e8f4fc, 0.35);
+    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+  }
+
+  .mchip--spotlight.mchip--beyond-the-nimbus .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#fff, 0.7),
+      0 0 12px rgba(#fff, 0.45),
+      0 0 24px rgba(#e8f4fc, 0.35);
+    animation: nimbus-frame-blink 1.2s ease-in-out infinite;
+  }
+
+  .mchip__nimbus-storm {
+    opacity: 0.25 !important;
+  }
+
+  .mchip__nimbus-rain {
+    opacity: 0.7;
+  }
+
+  .mchip__nimbus-clouds {
+    bottom: calc(50% - $frame-size-small);
+    opacity: 0.9 !important;
+    width: 10%;
+    height: 3.1rem;
+  }
+
+  /* Compact layout: nimbus frame wrap, lightning, clouds, rise particles */
+  .mchip__frame-wrap--nimbus {
+    width: calc(#{$frame-size-small} + 48px);
+    min-width: calc(#{$frame-size-small} + 48px);
+  }
+
+  .mchip__nimbus-lightning {
+    width: 200px;
+    filter: saturate(2) !important;
+  }
+
+  .mchip__nimbus-lightning--1 {
+    left: 25%;
+  }
+
+  .mchip__nimbus-lightning--2 {
+    right: 190%;
+  }
+
+  .mchip__nimbus-clouds {
+    z-index: 1;
+
+    * {
+      opacity: 0.0 !important;
+    }
+  }
+
+  .mchip__nimbus-rise-particle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    animation: nimbus-rise linear infinite;
+
+    @for $i from 1 through 40 {
+      &:nth-child(#{$i}) {
+        $size: 1px + ($i % 4) * 1px;
+        width: $size;
+        height: $size;
+        left: percentage(math.div(($i - 1) * 2.4 + 1, 100));
+        bottom: 0;
+        animation-duration: #{3.5 + ($i % 5) * 0.4}s;
+        animation-delay: #{($i - 1) * 0.18}s;
+
+        @if $i % 4==1 {
+          background: rgba(#f7df00, 0.95);
+          box-shadow: 0 0 5px rgba(#ffeb3b, 0.95);
+        }
+        @else if $i % 4==2 {
+          background: rgba(#0d1117, 0.35);
+          box-shadow: 0 0 4px rgba(#0d1117, 0.4);
+        }
+        @else if $i % 4==3 {
+          background: rgba(#4baeff, 0.95);
+          box-shadow: 0 0 5px rgba(#64b5f6, 0.95);
+        }
+        @else {
+          background: rgba(#ffffff, 0.95);
+          box-shadow: 0 0 5px rgba(#e3f2fd, 0.95);
+        }
+
+        filter: blur(#{0.5 + ($i % 2) * 0.5}px);
+      }
+    }
+  }
+}

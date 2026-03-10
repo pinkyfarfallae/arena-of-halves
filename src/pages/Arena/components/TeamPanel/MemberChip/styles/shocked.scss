@@ -1,0 +1,93 @@
+@use 'vars' as *;
+@use '../../../../../../styles/variables' as *;
+
+/* ── Shocked (Lightning Reflex) — power VFX ─────────────────────────────── */
+
+.mchip--shocked {
+  .mchip__frame {
+    box-shadow:
+      0 0 0 1px rgba(#4fc3f7, 0.6),
+      0 0 12px rgba(#4fc3f7, 0.4),
+      0 0 24px rgba(#64b5f6, 0.2);
+    animation: shock-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+.mchip--shocked.mchip--hit {
+  .mchip__frame {
+    animation: hit-shake 0.5s ease-out, shock-pulse 1.2s ease-in-out infinite;
+  }
+
+  .mchip__frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba($crimson-bright, 0.45);
+    border-radius: inherit;
+    z-index: 10;
+    pointer-events: none;
+    animation: hit-flash 1.5s ease-out forwards;
+  }
+}
+
+.mchip--shocked.mchip--shock-hit {
+  .mchip__frame {
+    animation: hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, shock-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+/* Shock sparks — electric dots around frame */
+.mchip__shock-sparks {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(#4fc3f7, 0.8) 0%, transparent 8%),
+    radial-gradient(circle at 80% 90%, rgba(#4fc3f7, 0.6) 0%, transparent 6%),
+    radial-gradient(circle at 90% 30%, rgba(#4fc3f7, 0.7) 0%, transparent 7%),
+    radial-gradient(circle at 10% 70%, rgba(#4fc3f7, 0.5) 0%, transparent 5%);
+  z-index: 11;
+  pointer-events: none;
+  animation: spark-flicker 0.3s step-end infinite;
+}
+
+@keyframes shock-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(#4fc3f7, 0.6),
+      0 0 12px rgba(#4fc3f7, 0.4),
+      0 0 24px rgba(#64b5f6, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(#4fc3f7, 0.8),
+      0 0 18px rgba(#4fc3f7, 0.6),
+      0 0 36px rgba(#64b5f6, 0.3);
+    opacity: 0.82;
+  }
+}
+
+@keyframes spark-flicker {
+  0% { opacity: 1; }
+  25% { opacity: 0; }
+  50% { opacity: 0.8; }
+  75% { opacity: 0.2; }
+}
+
+/* Shocked-style pulse + opacity blink (for compact / alternate use if needed) */
+@keyframes shock-pulse-blink {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(#4fc3f7, 0.6),
+      0 0 12px rgba(#4fc3f7, 0.4),
+      0 0 24px rgba(#64b5f6, 0.2);
+    opacity: 1;
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(#4fc3f7, 0.8),
+      0 0 18px rgba(#4fc3f7, 0.6),
+      0 0 36px rgba(#64b5f6, 0.3);
+    opacity: 0.82;
+  }
+}
