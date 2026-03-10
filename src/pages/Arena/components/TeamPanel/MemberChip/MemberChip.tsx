@@ -164,6 +164,37 @@ interface Props {
 
 export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+
+  const measureFrame = useCallback(() => {
+    const chip = chipRef.current;
+    const frame = frameRef.current;
+    if (!chip || !frame) return;
+    const cr = chip.getBoundingClientRect();
+    const fr = frame.getBoundingClientRect();
+    setFrameLayout(prev => {
+      const next = { top: fr.top - cr.top, left: fr.left - cr.left, width: fr.width };
+      return prev.top === next.top && prev.left === next.left && prev.width === next.width ? prev : next;
+    });
+  }, []);
+
+  const setFrameRef = useCallback((el: HTMLDivElement | null) => {
+    frameRef.current = el;
+    const ext = casterFrameRef ?? defenderFrameRef;
+    if (ext) (ext as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (el) requestAnimationFrame(measureFrame);
+    else setFrameLayout({ top: 0, left: 0, width: 0 });
+  }, [casterFrameRef, defenderFrameRef, measureFrame]);
+
+  useEffect(() => {
+    const chip = chipRef.current;
+    if (!chip) return;
+    const ro = new ResizeObserver(measureFrame);
+    ro.observe(chip);
+    return () => ro.disconnect();
+  }, [measureFrame]);
+
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
   const minionHoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -690,7 +721,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     <div
       ref={chipRef}
       className={chipClass}
-      style={{ '--chip-primary': fighter.theme[0], '--chip-accent': fighter.theme[1] } as React.CSSProperties}
+      style={{
+        '--chip-primary': fighter.theme[0],
+        '--chip-accent': fighter.theme[1],
+        ...(frameLayout.width > 0 && {
+          '--mchip-frame-top': `${frameLayout.top}px`,
+          '--mchip-frame-left': `${frameLayout.left}px`,
+          '--mchip-frame-width': `${frameLayout.width}px`,
+        }),
+      } as React.CSSProperties}
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
@@ -772,105 +811,105 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Card frame — outside body so it's not masked; when Nimbus, wings align to frame via wrapper */}
-      <div className={`mchip__frame-wrap${hasBeyondNimbus && battleLive ? ' mchip__frame-wrap--nimbus' : ''}`}>
+      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
         {hasBeyondNimbus && battleLive && (
           <>
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
           </>
         )}
-        <div ref={casterFrameRef ?? defenderFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-        {fighter.image ? (
-          <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
-        ) : (
-          <div className="mchip__bg mchip__bg--placeholder" style={{ background: fighter.theme[0], color: fighter.theme[9] }}>
-            {fighter.nicknameEng.charAt(0)}
-          </div>
-        )}
-
-        <div className="mchip__inner-border" />
-
-        {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
-
-        {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
-        {battleLive && (
-          <>
-            {/* Shocked effect — electric sparks around frame */}
-            {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
-
-            {/* Beyond the Nimbus — light storm glow on pic (like shocked sparks) */}
-            {hasBeyondNimbus && <div className="mchip__nimbus-sparks" aria-hidden="true" />}
-
-            {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
-            {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
-
-            {/* Petal leaf accents — green spots around frame edge */}
-            {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
-
-            {/* Scent Wave border + accents (separate divs) + heal boost floating text */}
-            {showScentWave && (
-              <>
-                <div className="mchip__scent-border" aria-hidden="true" />
-                <div className="mchip__scent-accents" aria-hidden="true" />
-                <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
-              </>
-            )}
-
-            {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
-            {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
-              <>
-                <div className="mchip__soul-devourer-border" aria-hidden="true" />
-                <div className="mchip__soul-devourer-accents" aria-hidden="true" />
-                <div className="mchip__soul-devourer-heal" aria-hidden="true">
-                  +{soulDevourerHealDisplayAmount} HP
-                </div>
-              </>
-            )}
-
-            {/* Petal shield badge — Secret of Dryad status immunity */}
-            {isPetalShielded && (
-              <div className="mchip__petal-badge" aria-hidden="true">
-                <PetalShield
-                  gradientId={`petal-grad-${fighter.characterId}`}
-                  color1={lightenColor(fighter.theme[0], 0.5)}
-                  color2="#d1ffd4"
-                />
-              </div>
-            )}
-
-            {/* Death Keeper scythe badge */}
-            {hasDeathKeeper && (
-              <div className="mchip__reaper-badge" aria-hidden="true">
-                <ReaperScythe
-                  gradientId={`reaper-grad-${fighter.characterId}`}
-                  color1="#88789fff"
-                  color2="#cda4e0ff"
-                />
-              </div>
-            )}
-
-            {/* Target crosshair badge — shown when selected as defend target */}
-            {isDefender && (
-              <div className="mchip__target-badge">
-                <TargetCrosshair />
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="mchip__overlay">
-          <span className="mchip__name">{fighter.nicknameEng}</span>
-          <span className="mchip__deity-tag">{deityLabel}</span>
-          <div className="mchip__hp">
-            <div className="mchip__hp-track">
-              <div className="mchip__hp-fill" style={{ width: `${hpPct}%` }} />
+        <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+          {fighter.image ? (
+            <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="mchip__bg mchip__bg--placeholder" style={{ background: fighter.theme[0], color: fighter.theme[9] }}>
+              {fighter.nicknameEng.charAt(0)}
             </div>
-            <span className="mchip__hp-label">
-              {displayHp}/{fighter.maxHp}
-            </span>
+          )}
+
+          <div className="mchip__inner-border" />
+
+          {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
+
+          {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
+          {battleLive && (
+            <>
+              {/* Shocked effect — electric sparks around frame */}
+              {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+              {/* Beyond the Nimbus — light storm glow on pic (like shocked sparks) */}
+              {hasBeyondNimbus && <div className="mchip__nimbus-sparks" aria-hidden="true" />}
+
+              {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
+              {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
+
+              {/* Petal leaf accents — green spots around frame edge */}
+              {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
+
+              {/* Scent Wave border + accents (separate divs) + heal boost floating text */}
+              {showScentWave && (
+                <>
+                  <div className="mchip__scent-border" aria-hidden="true" />
+                  <div className="mchip__scent-accents" aria-hidden="true" />
+                  <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+                </>
+              )}
+
+              {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
+              {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
+                <>
+                  <div className="mchip__soul-devourer-border" aria-hidden="true" />
+                  <div className="mchip__soul-devourer-accents" aria-hidden="true" />
+                  <div className="mchip__soul-devourer-heal" aria-hidden="true">
+                    +{soulDevourerHealDisplayAmount} HP
+                  </div>
+                </>
+              )}
+
+              {/* Petal shield badge — Secret of Dryad status immunity */}
+              {isPetalShielded && (
+                <div className="mchip__petal-badge" aria-hidden="true">
+                  <PetalShield
+                    gradientId={`petal-grad-${fighter.characterId}`}
+                    color1={lightenColor(fighter.theme[0], 0.5)}
+                    color2="#d1ffd4"
+                  />
+                </div>
+              )}
+
+              {/* Death Keeper scythe badge */}
+              {hasDeathKeeper && (
+                <div className="mchip__reaper-badge" aria-hidden="true">
+                  <ReaperScythe
+                    gradientId={`reaper-grad-${fighter.characterId}`}
+                    color1="#88789fff"
+                    color2="#cda4e0ff"
+                  />
+                </div>
+              )}
+
+              {/* Target crosshair badge — shown when selected as defend target */}
+              {isDefender && (
+                <div className="mchip__target-badge">
+                  <TargetCrosshair />
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="mchip__overlay">
+            <span className="mchip__name">{fighter.nicknameEng}</span>
+            <span className="mchip__deity-tag">{deityLabel}</span>
+            <div className="mchip__hp">
+              <div className="mchip__hp-track">
+                <div className="mchip__hp-fill" style={{ width: `${hpPct}%` }} />
+              </div>
+              <span className="mchip__hp-label">
+                {displayHp}/{fighter.maxHp}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}

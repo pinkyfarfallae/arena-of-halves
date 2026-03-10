@@ -70,6 +70,8 @@ interface Props {
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
+  /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
+  isViewer?: boolean;
   onTransientEffectsActive?: (active: boolean) => void;
   /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
   onSoulDevourerHealReady?: (ready: boolean) => void;
@@ -121,7 +123,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, transientEffectsActive,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
@@ -738,9 +740,24 @@ export default function BattleHUD({
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
   const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
+  // Inspect mode: show damage card only after critical dice (dodge, crit, chain, co-attack) have been shown
+  const [viewerCriticalDiceDelayDone, setViewerCriticalDiceDelayDone] = useState(false);
+  useEffect(() => {
+    if (!isViewer || turn?.phase !== PHASE.RESOLVING) {
+      setViewerCriticalDiceDelayDone(false);
+      return;
+    }
+    if ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.POWER && !turn?.attackRoll)) {
+      setViewerCriticalDiceDelayDone(true);
+      return;
+    }
+    if (turn?.defendRoll == null) return;
+    const t = window.setTimeout(() => setViewerCriticalDiceDelayDone(true), 3500);
+    return () => clearTimeout(t);
+  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, (turn as any)?.soulDevourerDrain]);
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
     (!!attacker && !!defender && (
-      allResolveChecksDone
+      allResolveChecksDone && (!isViewer || viewerCriticalDiceDelayDone)
     )) ||
     (shadowCamouflageD4 && !!attacker)
   );
@@ -1599,7 +1616,9 @@ export default function BattleHUD({
           <div className="bhud__dice-modal" style={{ '--modal-primary': attacker.theme?.[0], '--modal-dark': attacker.theme?.[18] } as React.CSSProperties}>
             <span className="bhud__dice-label">Choosing Action</span>
             <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting" />
+            <div className="bhud__dice-roller bhud__dice-roller--waiting">
+              <div className="bhud__roll-waiting-spinner" />
+            </div>
           </div>
         </div>
       )}
@@ -1661,6 +1680,7 @@ export default function BattleHUD({
           defRollDone={defRollDone}
           defendReady={defendReady}
           resolveReady={resolveReady}
+          isViewer={isViewer}
           critEligible={critEligible}
           critReady={critReady}
           critWinFaces={critRef.current.winFaces}

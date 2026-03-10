@@ -668,6 +668,10 @@
     height: $frame-size-small;
     min-height: $frame-size-small;
     margin: auto 0 0 0;
+
+    &--ended {
+      margin: auto 0;
+    }
   }
 
   .mchip__frame {
@@ -723,14 +727,16 @@
 
   .mchip__critical {
     height: 75px;
-    left: calc(50% + 41px);
-    top: calc(50% - 44px);
+    left: calc(var(--mchip-frame-left, 22.5px) + var(--mchip-frame-width, 70px) + 8px);
+    top: var(--mchip-frame-top, calc(100% - #{$frame-size-small}));
+    /* align with top of mchip__frame (from ref when set) */
   }
 
   .mchip__powerside {
     height: 75px;
-    right: calc(50% + 41px);
-    top: calc(50% - 44px);
+    left: calc(var(--mchip-frame-left, 22.5px) - 10.5px);
+    top: var(--mchip-frame-top, calc(100% - #{$frame-size-small}));
+    /* align with top of mchip__frame (from ref when set) */
   }
 
   .mchip__order {
@@ -750,7 +756,7 @@
   }
 
   .mchip__quota {
-    margin-bottom: auto;
+    margin-bottom: 0.5rem;
   }
 
   .mchip__quota-pip {
