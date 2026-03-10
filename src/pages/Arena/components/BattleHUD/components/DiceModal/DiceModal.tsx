@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
 
-/** Short delay after attack animation ends before showing defender waiting (stable transition) */
-const DEFENDER_AFTER_ATK_DONE_MS = 100;
+/** Brief delay after attack animation ends before showing defender (smooth transition to next phase) */
+const AFTER_ANIM_MS = 150;
 
 /** Get die theme colors for a fighter */
 function dieColors(f?: FighterState): { primary: string; primaryDark: string } {
@@ -120,24 +120,23 @@ export default function DiceModal({
   const latchedPhase = latchedPhaseRef.current;
   const latchedAttackRoll = latchedAttackRollRef.current;
 
-  // Show defender-side "waiting" ONLY after attack roll animation has fully ended (atkRollDone). No time-based fallback — wait for animation.
+  // Simple flow: attack animation ends (atkRollDone) → then show defender phase. No extra timers.
+  const showAttackReplay = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
   const defenderEligible =
-    latchedPhase === PHASE.ROLLING_DEFEND &&
+    showAttackReplay &&
     !isMyDefend &&
-    latchedAttackRoll != null &&
     atkRollDone;
   useEffect(() => {
     if (!defenderEligible) {
       setShowDefenderWaiting(false);
       return;
     }
-    const t = window.setTimeout(() => setShowDefenderWaiting(true), DEFENDER_AFTER_ATK_DONE_MS);
+    const t = window.setTimeout(() => setShowDefenderWaiting(true), AFTER_ANIM_MS);
     return () => clearTimeout(t);
   }, [defenderEligible]);
 
   // What to show for attack side (opponent flow): wait → replay; never go back to wait once we have replay
   const showAttackWait = latchedPhase === PHASE.ROLLING_ATTACK || (latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll == null);
-  const showAttackReplay = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
 
   return (
     <>
@@ -199,7 +198,7 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* Opponent's defend — waiting spinner (stable: only after attack replay has been visible for min time) */}
+      {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone) */}
       {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
