@@ -52,7 +52,7 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
     return () => clearTimeout(t);
   }, [displayMs, exiting]);
 
-  // skipDice powers (Jolt Arc, Thunderbolt)
+  // skipDice powers (Jolt Arc, Keraunos Voltage)
   if (rc.isPower && rc.atkRoll === 0) {
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>

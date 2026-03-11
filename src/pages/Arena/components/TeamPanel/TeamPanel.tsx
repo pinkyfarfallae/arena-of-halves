@@ -243,8 +243,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         );
         const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId);
 
-        // Thunderbolt hit: massive lightning strike effect
-        const isThunderboltHit = !!(
+        // Keraunos Voltage hit: massive lightning strike effect
+        const isKeraunosVoltageHit = !!(
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         );
 
@@ -403,7 +403,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isCrit={isCrit}
             isHit={isHit}
             isShockHit={isShockHit}
-            isThunderboltHit={isThunderboltHit}
+            isKeraunosVoltageHit={isKeraunosVoltageHit}
             isJoltArcAttackHit={isJoltArcAttackHit}
             isShocked={isShocked}
             hasJoltArcDeceleration={hasJoltArcDeceleration}

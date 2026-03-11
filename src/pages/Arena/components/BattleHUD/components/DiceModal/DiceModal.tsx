@@ -46,7 +46,7 @@ interface Props {
   critWinFaces?: number[];
   critRollResult?: number;
   onCritRollResult?: (roll: number) => void;
-  /* Thunderbolt chain D4 check */
+  /* Keraunos Voltage chain D4 check */
   chainEligible?: boolean;
   chainReady?: boolean;
   chainWinFaces?: number[];
@@ -406,11 +406,11 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── D4 THUNDERBOLT CHAIN CHECK — after crit, before resolve bar ── */}
+      {/* ── D4 KERAUNOS VOLTAGE CHAIN CHECK — after crit, before resolve bar ── */}
       {phase === PHASE.RESOLVING && resolveReady && critReady && !chainReady && chainEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
-            <span className="bhud__dice-label">Thunderbolt Chain</span>
+            <span className="bhud__dice-label">Keraunos Voltage</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (50%)</span>
             {isMyTurn ? (
               <DiceRoller

@@ -1,9 +1,9 @@
-@use 'vars' as *;
-@use '../../../../../../styles/variables' as *;
+@use '../vars' as *;
+@use '../../../../../../../styles/variables' as *;
 
-/* ── Thunderbolt — power VFX ───────────────────────────────────────────── */
+/* ── Keraunos Voltage — power VFX ───────────────────────────────────────────── */
 
-.mchip--thunderbolt {
+.mchip--keraunos-voltage {
   z-index: 20;
 
   .mchip__frame {
