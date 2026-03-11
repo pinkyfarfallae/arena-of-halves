@@ -422,20 +422,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     };
   }, [isShockHit, isShocked]);
 
-  /* ── Keraunos Voltage hit: massive lightning strike ── */
-  const [isKeraunosVoltageActive, setIsKeraunosVoltageActive] = useState(false);
-  const prevIsKeraunosVoltageRef = useRef(false);
-
-  useEffect(() => {
-    if (isKeraunosVoltageHit && !prevIsKeraunosVoltageRef.current) {
-      setIsKeraunosVoltageActive(true);
-      const timer = setTimeout(() => setIsKeraunosVoltageActive(false), 2000);
-      prevIsKeraunosVoltageRef.current = true;
-      return () => clearTimeout(timer);
-    }
-    if (!isKeraunosVoltageHit) prevIsKeraunosVoltageRef.current = false;
-  }, [isKeraunosVoltageHit]);
-
   /* ── Jolt Arc attack hit: blue/white arc on targets when Jolt Arc confirms ── */
   const [isJoltArcAttackActive, setIsJoltArcAttackActive] = useState(false);
   const prevIsJoltArcAttackRef = useRef(false);
@@ -588,12 +574,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (battleLive && (isHitActive || isShockHitActive || isKeraunosVoltageActive)) {
+    if (battleLive && (isHitActive || isShockHitActive || isKeraunosVoltageHit)) {
       setShowEliminated(false); // hide eliminated while damage effects play
     } else {
       setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isKeraunosVoltageActive, battleLive]);
+  }, [isEliminated, isHitActive, isShockHitActive, isKeraunosVoltageHit, battleLive]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -683,7 +669,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     isSpotlight && 'mchip--spotlight',
     battleLive && isHitActive && 'mchip--hit',
     battleLive && isShockHitActive && 'mchip--shock-hit',
-    battleLive && isKeraunosVoltageActive && 'mchip--keraunos-voltage',
+    battleLive && isKeraunosVoltageHit && 'mchip--keraunos-voltage',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
     battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',

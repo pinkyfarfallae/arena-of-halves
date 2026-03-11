@@ -248,7 +248,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         );
 
-        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
+        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration) blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
         const isJoltArcAttackHit = !!(
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
           (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC)
