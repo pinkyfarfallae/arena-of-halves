@@ -3,7 +3,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
-import { NO_STACK_POWER_NAMES } from '../../../../../data/powers';
+import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
 import ReaperScythe from './icons/ReaperScythe';
@@ -15,6 +15,8 @@ import './MemberChip.scss';
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
 import { POWER_NAMES } from '../../../../../constants/powers';
+import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
+import { EFFECT_TAGS } from '../../../../../constants/effectTags';
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -29,6 +31,8 @@ export interface EffectPip {
   /** Optional display name in tooltip (e.g. "Jolt Arc Deceleration" for Jolt Arc speed debuff) */
   displayName?: string;
   sourceName: string;
+  /** Deity of the source (e.g. "Zeus") — used for DEITY_POWERS lookup; if missing, shocked check falls back to sourceName */
+  sourceDeity?: string;
   sourceTheme: [string, string];
   turnsLeft: number;
   /** Number of stacked instances of this same power from the same source */
@@ -681,7 +685,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isShockHitActive && 'mchip--shock-hit',
     battleLive && isThunderboltActive && 'mchip--thunderbolt',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
-    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.powerName === POWER_NAMES.LIGHTNING_SPARK) && 'mchip--shocked',
+    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
@@ -886,10 +890,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {/* Shocked effect — electric sparks around frame (hidden when Jolt Arc attack is showing) */}
               {isShocked && !isJoltArcAttackActive && !hasJoltArcDeceleration && <div className="mchip__shock-sparks" aria-hidden="true" />}
 
-                  {/* Jolt Arc Deceleration — frame accents only (sparks are chip-level) */}
-                  {hasJoltArcDeceleration && (
-                    <div className="mchip__jolt-decel-accents" aria-hidden="true" />
-                  )}
+              {/* Jolt Arc Deceleration — frame accents only (sparks are chip-level) */}
+              {hasJoltArcDeceleration && (
+                <div className="mchip__jolt-decel-accents" aria-hidden="true" />
+              )}
 
               {/* Beyond the Nimbus — light storm glow on pic (like shocked sparks) */}
               {hasBeyondNimbus && <div className="mchip__nimbus-sparks" aria-hidden="true" />}
