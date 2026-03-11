@@ -32,6 +32,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       target: TARGET_TYPES.ENEMY,
       value: 0,
       duration: 999,
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
     {
       deity: DEITY.ZEUS,
@@ -49,6 +50,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
         { effect: EFFECT_TYPES.BUFF, target: TARGET_TYPES.SELF, value: 2, duration: 2, modStat: MOD_STAT.SPEED },
         { effect: EFFECT_TYPES.BUFF, target: TARGET_TYPES.SELF, value: 25, duration: 2, modStat: MOD_STAT.CRITICAL_RATE },
       ],
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
     {
       deity: DEITY.ZEUS,
@@ -63,6 +65,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       duration: 0,
       skipDice: true,
       requiresTargetHasEffect: EFFECT_TAGS.SHOCK,
+      afflictions: [EFFECT_TAGS.JOLT_ARC_DECELERATION],
     },
     {
       deity: DEITY.ZEUS,
@@ -76,6 +79,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       value: 3,
       duration: 0,
       skipDice: true,
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
   ],
 
@@ -828,6 +832,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     },
   ],
 };
+
+/** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
+export const NO_STACK_POWER_NAMES: Set<string> = new Set([
+  POWER_NAMES.BEYOND_THE_NIMBUS,
+  POWER_NAMES.SHADOW_CAMOUFLAGING,
+  POWER_NAMES.SOUL_DEVOURER,
+]);
 
 /** Synchronous power lookup by deity name (case-insensitive). */
 export function getPowers(deity: string): PowerDefinition[] {

@@ -1,4 +1,4 @@
-import { EFFECT_TAGS } from "./effectTags";
+import { EFFECT_TAGS } from "../constants/effectTags";
 
 /**
  * Afflictions.

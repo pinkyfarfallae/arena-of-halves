@@ -1,0 +1,122 @@
+@use 'vars' as *;
+@use '../../../../../../styles/variables' as *;
+
+/* ── Thunderbolt — power VFX ───────────────────────────────────────────── */
+
+.mchip--thunderbolt {
+  z-index: 20;
+
+  .mchip__frame {
+    animation: tbolt-shake 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+    box-shadow:
+      0 0 0 3px rgba(#ffd54f, 0.9),
+      0 0 40px rgba(#ffc107, 0.8),
+      0 0 80px rgba(#ff8f00, 0.4) !important;
+  }
+
+  .mchip__frame::after {
+    content: '' !important;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 20;
+    pointer-events: none;
+    background: #fff;
+    animation: tbolt-flash 2s ease-out forwards !important;
+  }
+
+  .mchip__frame::before {
+    content: '' !important;
+    position: absolute;
+    z-index: 21;
+    pointer-events: none;
+    width: 80px;
+    height: 300%;
+    top: -150%;
+    left: calc(50% - 40px);
+    background:
+      linear-gradient(183deg,
+        transparent 40%, #fff 43%, #fff 45%,
+        transparent 47%, transparent 51%, rgba(#fff, 0.9) 53%, rgba(#fff, 0.9) 55%,
+        transparent 57%),
+      linear-gradient(178deg,
+        transparent 32%, rgba(#ffd54f, 0.8) 37%, transparent 42%),
+      linear-gradient(188deg,
+        transparent 56%, rgba(#ffc107, 0.8) 61%, transparent 66%),
+      linear-gradient(160deg,
+        transparent 44%, rgba(#ffeb3b, 0.6) 47%, transparent 50%),
+      linear-gradient(205deg,
+        transparent 48%, rgba(#ffeb3b, 0.6) 51%, transparent 54%);
+    filter: blur(0.5px);
+    animation: tbolt-strike 2s ease-out forwards !important;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    z-index: 19;
+    pointer-events: none;
+    border: 2px solid rgba(#ffd54f, 0.7);
+    background: radial-gradient(ellipse at center,
+        rgba(#fff, 0.5) 0%,
+        rgba(#ffd54f, 0.3) 25%,
+        rgba(#ffc107, 0.15) 50%,
+        transparent 75%);
+    animation: tbolt-ring 2s ease-out forwards;
+  }
+}
+
+@keyframes tbolt-shake {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  4% { transform: translate(-8px, -4px) scale(1.02); }
+  8% { transform: translate(7px, 5px) scale(0.98); }
+  12% { transform: translate(-9px, 3px) scale(1.03); }
+  16% { transform: translate(6px, -7px) scale(0.97); }
+  20% { transform: translate(-4px, 8px) scale(1.02); }
+  24% { transform: translate(9px, -3px) scale(0.98); }
+  28% { transform: translate(-7px, -5px) scale(1.01); }
+  32% { transform: translate(5px, 6px) scale(0.99); }
+  40% { transform: translate(-5px, 4px) scale(1.01); }
+  50% { transform: translate(4px, -3px); }
+  60% { transform: translate(-3px, 2px); }
+  70% { transform: translate(2px, -1px); }
+  80% { transform: translate(-1px, 1px); }
+}
+
+@keyframes tbolt-flash {
+  0% { opacity: 1; background: #fff; }
+  5% { opacity: 0.2; background: #fff; }
+  8% { opacity: 1; background: #fff; }
+  14% { opacity: 0.9; background: rgba(#ffd54f, 0.9); }
+  22% { opacity: 0.1; }
+  28% { opacity: 0.8; background: rgba(#ffc107, 0.6); }
+  36% { opacity: 0.05; }
+  44% { opacity: 0.4; background: rgba(#ff8f00, 0.4); }
+  55% { opacity: 0.1; }
+  100% { opacity: 0; }
+}
+
+@keyframes tbolt-strike {
+  0% { opacity: 1; transform: scaleY(1) scaleX(1); filter: blur(0px) brightness(3); }
+  6% { opacity: 0.3; filter: blur(0px) brightness(2); }
+  10% { opacity: 1; filter: blur(0px) brightness(4); }
+  16% { opacity: 0.5; }
+  22% { opacity: 1; filter: blur(0.5px) brightness(3); }
+  30% { opacity: 0.2; transform: scaleY(1) scaleX(1.1); }
+  42% { opacity: 0.6; transform: scaleY(1) scaleX(1.4); filter: blur(1px) brightness(2); }
+  55% { opacity: 0.15; transform: scaleY(1) scaleX(0.9); filter: blur(2px) brightness(1.5); }
+  70% { opacity: 0.3; filter: blur(3px) brightness(1); }
+  100% { opacity: 0; transform: scaleY(1) scaleX(0.4); filter: blur(6px) brightness(0.5); }
+}
+
+@keyframes tbolt-ring {
+  0% { opacity: 0; transform: scale(0.3); border-width: 3px; }
+  8% { opacity: 1; transform: scale(0.8); }
+  15% { opacity: 0.9; transform: scale(1); border-width: 2px; }
+  25% { opacity: 0.2; transform: scale(1.15); }
+  35% { opacity: 0.6; transform: scale(1.1); }
+  50% { opacity: 0.2; transform: scale(1.3); border-width: 1px; }
+  100% { opacity: 0; transform: scale(1.8); border-width: 0px; }
+}

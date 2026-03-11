@@ -1,0 +1,297 @@
+@use 'vars' as v;
+
+/* ── Floral Fragrance — power VFX (fragrance border, accents, wave) ───────────── */
+
+/* Fragrance border ring — green↔pink gradient (Floral Fragrance) */
+.mchip__fragrance-border {
+  position: absolute;
+  inset: -2.5px;
+  border-radius: inherit;
+  z-index: 12;
+  pointer-events: none;
+  padding: 2px;
+  background: linear-gradient(90deg,
+      rgba(#81c784, 0.8) 0%,
+      rgba(#f48fb1, 0.7) 25%,
+      rgba(#a5d6a7, 0.8) 50%,
+      rgba(#f8bbd0, 0.7) 75%,
+      rgba(#81c784, 0.8) 100%);
+  background-size: 200% 100%;
+  animation: fragrance-border-flow 3s ease-in-out infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+/* Fragrance accents — flower/leaf spots around frame */
+.mchip__fragrance-accents {
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  z-index: 12;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 10px 7px at 10% 12%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+    radial-gradient(ellipse 7px 10px at 90% 18%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
+    radial-gradient(ellipse 9px 6px at 85% 80%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+    radial-gradient(ellipse 6px 9px at 15% 75%, rgba(#81c784, 0.7) 0%, transparent 100%),
+    radial-gradient(ellipse 8px 5px at 50% 6%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+    radial-gradient(ellipse 7px 6px at 48% 94%, rgba(#a5d6a7, 0.65) 0%, transparent 100%);
+  animation: fragrance-accents-drift 4s ease-in-out infinite alternate;
+}
+
+/* Fragrance Wave particles (Floral Fragrance buff) */
+.mchip__fragrance-wave {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 200%;
+    pointer-events: none;
+  }
+
+  // Layer 1: pink flowers + green leaves — splash upward
+  &::before {
+    bottom: -100%;
+    background:
+      // ── Pink flower layer 1 ──
+      radial-gradient(ellipse 10px 6px at 20% 5%, rgba(#f48fb1, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 11px at 75% 10%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 11px 7px at 45% 16%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 10px at 88% 22%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 12% 28%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 8px at 62% 35%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 35% 42%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      // ── Additional pink splashes ──
+      radial-gradient(ellipse 9px 6px at 5% 12%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 8px at 95% 35%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 7px at 55% 8%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+      // ── Green leaf layer 1 ──
+      radial-gradient(ellipse 7px 9px at 52% 8%, rgba(#81c784, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 30% 18%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 82% 30%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 18% 40%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 70% 46%, rgba(#81c784, 0.6) 0%, transparent 100%),
+      // ── Additional green splashes ──
+      radial-gradient(ellipse 6px 8px at 8% 32%, rgba(#a5d6a7, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 92% 50%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px at 42% 25%, rgba(#a5d6a7, 0.55) 0%, transparent 100%),
+      // ── Second half (50-100% = mirror for seamless loop) ──
+      radial-gradient(ellipse 10px 6px at 20% 55%, rgba(#f48fb1, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 11px at 75% 60%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 11px 7px at 45% 66%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 10px at 88% 72%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 12% 78%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 8px at 62% 85%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 35% 92%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 6px at 5% 62%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 8px at 95% 85%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 7px at 55% 58%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 52% 58%, rgba(#81c784, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 30% 68%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 82% 80%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 18% 90%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 70% 96%, rgba(#81c784, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 8% 82%, rgba(#a5d6a7, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 92% 100%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px at 42% 75%, rgba(#a5d6a7, 0.55) 0%, transparent 100%);
+    animation: fragrance-splash-up 6s ease-out infinite;
+  }
+
+  // Layer 2: offset pattern with more density (+50%) — splash upward with delay
+  &::after {
+    bottom: -50%;
+    background:
+      radial-gradient(ellipse 8px 5px at 30% 6%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 68% 14%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 50% 22%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 15% 30%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 85% 38%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 40% 46%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      // ── Additional splashes for layer 2 ──
+      radial-gradient(ellipse 7px 6px at 12% 16%, rgba(#81c784, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 72% 36%, rgba(#f8bbd0, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 4px at 58% 48%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 6px at 28% 52%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+      // ── Second half ──
+      radial-gradient(ellipse 8px 5px at 30% 56%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 68% 64%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 50% 72%, rgba(#81c784, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 15% 80%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 85% 88%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 40% 96%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 12% 66%, rgba(#81c784, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 72% 86%, rgba(#f8bbd0, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 4px at 58% 98%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 6px at 28% 102%, rgba(#f48fb1, 0.6) 0%, transparent 100%);
+    animation: fragrance-splash-up 7s ease-out infinite 0.3s;
+  }
+}
+
+@keyframes fragrance-border-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fragrance-accents-drift {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0.85; }
+  100% { transform: translateY(-3px) rotate(2deg); opacity: 0.6; }
+}
+
+@keyframes fragrance-splash-up {
+  0% {
+    transform: translateY(0) scaleY(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-80%) scaleY(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-160%) scaleY(0.9);
+    opacity: 0;
+  }
+}
+
+/* Compact: fragrance border, accents, wave */
+@media (max-width: v.$bp-compact) {
+  .mchip__fragrance-border {
+    inset: -2px;
+    padding: 1.5px;
+  }
+
+  .mchip__fragrance-accents {
+    inset: -4px;
+  }
+
+  .mchip__fragrance-wave {
+    &::before {
+      background:
+        radial-gradient(ellipse 6px 4px at 20% 5%, rgba(#f48fb1, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 7px at 75% 10%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 4px at 45% 16%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 6px at 88% 22%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 12% 28%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 5px at 62% 35%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 35% 42%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 5% 12%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 95% 35%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 55% 8%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 52% 8%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 30% 18%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 82% 30%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 18% 40%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 70% 46%, rgba(#81c784, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 8% 32%, rgba(#a5d6a7, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 92% 50%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 42% 25%, rgba(#a5d6a7, 0.55) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 4px at 20% 55%, rgba(#f48fb1, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 7px at 75% 60%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 4px at 45% 66%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 6px at 88% 72%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 12% 78%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 5px at 62% 85%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 35% 92%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 5% 62%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 95% 85%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 55% 58%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 52% 58%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 30% 68%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 82% 80%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 18% 90%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 70% 96%, rgba(#81c784, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 8% 82%, rgba(#a5d6a7, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 92% 100%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 42% 75%, rgba(#a5d6a7, 0.55) 0%, transparent 100%);
+    }
+
+    &::after {
+      background:
+        radial-gradient(ellipse 5px 3px at 30% 6%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 68% 14%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 50% 22%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 15% 30%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 85% 38%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 40% 46%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 12% 16%, rgba(#81c784, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 72% 36%, rgba(#f8bbd0, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 58% 48%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 28% 52%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 30% 56%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 68% 64%, rgba(#f48fb1, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 50% 72%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 5px at 15% 80%, rgba(#f8bbd0, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 4px at 85% 88%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 40% 96%, rgba(#f48fb1, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 12% 66%, rgba(#81c784, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 4px at 72% 86%, rgba(#f8bbd0, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 58% 98%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 28% 102%, rgba(#f48fb1, 0.6) 0%, transparent 100%);
+    }
+  }
+}
+
+/* ── Heal boost floating text (e.g. Floral Fragrance +n HP) ───────────────── */
+
+.mchip__heal-boost {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #4caf50;
+  text-shadow:
+    0 0 8px rgba(#81c784, 0.6),
+    0 0 16px rgba(#81c784, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: heal-boost-float 3s ease-out forwards;
+}
+
+@keyframes heal-boost-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
+}

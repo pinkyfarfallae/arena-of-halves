@@ -7,7 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { SKILL_UNLOCK } from '../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { SEASON_KEYS, SEASONS } from '../data/seasons';
+import { SEASON_KEYS } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -264,6 +264,7 @@ export function applyPowerEffect(
         targetId,
         value: 0,
         turnsRemaining: power.duration || 1,
+        tag: EFFECT_TAGS.STUN,
       });
       break;
     }
@@ -544,8 +545,8 @@ export function applyBeyondTheNimbusTeamShock(
 /* ── Zeus: Jolt Arc — AoE shock detonation ─────────── */
 
 /**
- * Detonate all shock DOTs on all enemies. Each shock stack deals
- * attacker.damage to the target. All shocks are removed.
+ * All shocked enemies explode, dealing instant damage (attacker.damage per shock stack).
+ * All shocks on hit targets are removed. All enemies hit receive -7 speed for 2 rounds.
  */
 export function applyJoltArc(
   room: BattleRoom,
@@ -579,7 +580,25 @@ export function applyJoltArc(
   }
 
   // Remove ALL shock DOTs
-  const cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
+  let cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
+
+  // Apply -7 speed for 2 rounds to all enemies hit
+  const queueLen = battle.turnQueue?.length || 1;
+  const speedDebuffDuration = queueLen * 2;
+  for (const targetId of Object.keys(aoeDamageMap)) {
+    cleaned.push({
+      id: makeEffectId(attackerId, POWER_NAMES.JOLT_ARC),
+      powerName: POWER_NAMES.JOLT_ARC,
+      effectType: EFFECT_TYPES.DEBUFF,
+      sourceId: attackerId,
+      targetId,
+      value: 7,
+      modStat: MOD_STAT.SPEED,
+      turnsRemaining: speedDebuffDuration,
+      tag: EFFECT_TAGS.JOLT_ARC_DECELERATION,
+    });
+  }
+
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
   return { updates, aoeDamageMap };
 }
@@ -694,12 +713,12 @@ export function applySecretOfDryadPassive(
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
 }
 
-/* ── Persephone: Floral Scented (1st Skill) ──────────── */
+/* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
 
 /**
- * Anoint an ally with flower scent: heal +value HP (capped at maxHp), then normal attack follows.
+ * Anoint an ally with flower fragrance: heal +value HP (capped at maxHp), then normal attack follows.
  */
-export function applyFloralScented(
+export function applyFloralFragranced(
   room: BattleRoom,
   _attackerId: string,
   allyTargetId: string,
