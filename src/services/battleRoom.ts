@@ -833,43 +833,73 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           usedPowerName: power.name,
         };
 
-      // ── Thunderbolt: -3 primary, then D4 chain check ──
+      // ── Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = crit + 25%) ──
       } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-        const defender = findFighter(room, defenderId);
-        const defPath = findFighterPath(room, defenderId);
-        const defHpAfter = defender ? Math.max(0, defender.currentHp - power.value) : 0;
-        if (defPath && defender) updates[`${defPath}/currentHp`] = defHpAfter;
-
-        // Only chain if there are other alive enemies (skip in 1v1)
         const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-        const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
-        const chainTargets = enemies.filter(e => e.characterId !== defenderId && e.currentHp > 0);
-        const hasChainTargets = chainTargets.length > 0;
+        const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
+        const n = enemies.length;
+        const step = turn.keraunosTargetStep ?? 0;
+        const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
+        const secondaries = turn.keraunosSecondaryTargetIds ?? [];
 
-        const logEntry = {
-          round: battle.roundNumber,
-          attackerId,
-          defenderId,
-          attackRoll: 0,
-          defendRoll: 0,
-          damage: power.value,
-          defenderHpAfter: defHpAfter,
-          eliminated: defHpAfter <= 0,
-          missed: false,
-          powerUsed: power.name,
-        };
-        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
-        updates[ARENA_PATH.BATTLE_TURN] = {
-          attackerId,
-          attackerTeam: turn.attackerTeam,
-          defenderId,
-          phase: PHASE.RESOLVING,
-          action: TURN_ACTION.POWER,
-          usedPowerIndex: turn.usedPowerIndex,
-          usedPowerName: power.name,
-          ...(hasChainTargets && { chainWinFaces: getWinningFaces(50) }),
-        };
+        if (step === 0) {
+          // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
+          const nextSecondaries: string[] = [];
+          const needMore = n >= 2;
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          const turnUpdate: Record<string, unknown> = {
+            ...turn,
+            defenderId,
+            keraunosMainTargetId: defenderId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: needMore ? 2 : null, // null = remove key (Firebase rejects undefined)
+          };
+          if (!needMore) {
+            turnUpdate.phase = PHASE.RESOLVING;
+            turnUpdate.critWinFaces = getWinningFaces(critRate);
+            turnUpdate.attackRoll = 0;
+            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+          } else {
+            turnUpdate.phase = PHASE.SELECT_TARGET;
+          }
+          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        } else if (step === 2) {
+          // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
+          const nextSecondaries = [...secondaries, defenderId];
+          const needMore = n >= 3;
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          const turnUpdate: Record<string, unknown> = {
+            ...turn,
+            defenderId: mainId,
+            keraunosMainTargetId: mainId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: needMore ? 3 : null,
+          };
+          if (!needMore) {
+            turnUpdate.phase = PHASE.RESOLVING;
+            turnUpdate.critWinFaces = getWinningFaces(critRate);
+            turnUpdate.attackRoll = 0;
+            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+          } else {
+            turnUpdate.phase = PHASE.SELECT_TARGET;
+          }
+          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        } else if (step === 3) {
+          // Third click: second 2-dmg target → done (3+ enemies)
+          const nextSecondaries = [...secondaries, defenderId];
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          updates[ARENA_PATH.BATTLE_TURN] = {
+            ...turn,
+            defenderId: mainId,
+            keraunosMainTargetId: mainId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: null, // remove key when done
+            phase: PHASE.RESOLVING,
+            critWinFaces: getWinningFaces(critRate),
+            attackRoll: 0,
+            defendRoll: 0, // Keraunos: defender cannot defend
+          };
+        }
 
       // ── Generic skipDice power ──
       } else {
@@ -2571,6 +2601,51 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLog, logEntry]);
     }
 
+  } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
+    // Keraunos Voltage: base main 3 / secondary 2 each; on crit ×2 (main 6 / secondary 4)
+    const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
+    const secondaryIds: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
+    const isCritK = !!(turn as any).isCrit;
+    const mult = isCritK ? 2 : 1;
+    const dmgMain = 3 * mult;
+    const dmgSecondary = 2 * mult;
+    const aoeDamageMapK: Record<string, number> = {};
+    if (mainId) {
+      const mainFighter = findFighter(room, mainId);
+      if (mainFighter && mainFighter.currentHp > 0) {
+        const newHp = Math.max(0, mainFighter.currentHp - dmgMain);
+        const path = findFighterPath(room, mainId);
+        if (path) updates[`${path}/currentHp`] = newHp;
+        aoeDamageMapK[mainId] = dmgMain;
+      }
+    }
+    for (const sid of secondaryIds) {
+      const sec = findFighter(room, sid);
+      if (sec && sec.currentHp > 0) {
+        const newHp = Math.max(0, sec.currentHp - dmgSecondary);
+        const path = findFighterPath(room, sid);
+        if (path) updates[`${path}/currentHp`] = newHp;
+        aoeDamageMapK[sid] = dmgSecondary;
+      }
+    }
+    const mainPath = mainId ? findFighterPath(room, mainId) : null;
+    const mainHpAfter = mainPath && `${mainPath}/currentHp` in updates ? (updates[`${mainPath}/currentHp`] as number) : (mainId ? findFighter(room, mainId)?.currentHp ?? 0 : 0);
+    const logEntryK = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId: mainId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: dmgMain,
+      defenderHpAfter: mainHpAfter,
+      eliminated: mainHpAfter <= 0,
+      missed: false,
+      powerUsed: POWER_NAMES.KERAUNOS_VOLTAGE,
+      aoeDamageMap: aoeDamageMapK,
+      ...(isCritK && (turn as any).critRoll != null && { isCrit: true, critRoll: (turn as any).critRoll }),
+    };
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntryK]);
+
   } else if (action !== TURN_ACTION.POWER || isSelfBuffPower) {
     const attackerHasBeyondTheNimbus = activeEffects.some(
       e => e.targetId === attackerId && e.tag === EFFECT_TAGS.BEYOND_THE_NIMBUS,
@@ -2855,44 +2930,32 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
   // skipDice powers: effect + log already written in selectAction()
 
-  // Thunderbolt chain: if D4 succeeded, apply -1 AoE to other enemies
-  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.chainSuccess && defenderId) {
-    const { updates: chainUpdates, aoeDamageMap } = applyThunderboltChain(room, attackerId, defenderId, battle);
-    Object.assign(updates, chainUpdates);
-    // Append chain AoE info to the last log entry (use already-updated log if we merged in place)
-    const existingLog = (updates[ARENA_PATH.BATTLE_LOG] as typeof battle.log) || [...(battle.log || [])];
-    if (existingLog.length > 0) {
-      existingLog[existingLog.length - 1].aoeDamageMap = aoeDamageMap;
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
-    }
-  }
-  // Keraunos Voltage: apply shock to primary + chain targets (central shock logic: already shocked → 100% base damage + remove; else apply shock)
+  // Keraunos Voltage: apply shock to everyone alive on the opponent team (D4 was already rolled before resolve)
   if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && defenderId) {
-    const thunderboltPower = attacker?.powers?.find(p => p.name === POWER_NAMES.KERAUNOS_VOLTAGE);
-    const primaryDmg = thunderboltPower?.value ?? 3;
-    const keraunosBaseDmg = Math.max(0, (attacker?.damage ?? 0) + getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE));
+    const mainIdK = (turn as any).keraunosMainTargetId ?? defenderId;
+    const secondaryIdsK: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
+    const isTeamAK = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+    const enemyTeam = isTeamAK ? (room.teamB?.members || []) : (room.teamA?.members || []);
     const getHpForShock = (characterId: string) => {
       const path = findFighterPath(room, characterId);
       if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
       const f = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === characterId);
       return f?.currentHp ?? 0;
     };
-    const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-    const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
-    const currentHpByTarget: Record<string, number> = {};
-    for (const e of enemies) {
-      if (e.currentHp <= 0) continue;
-      if (e.characterId === defenderId) {
-        currentHpByTarget[e.characterId] = Math.max(0, (defender?.currentHp ?? 0) - primaryDmg);
-      } else {
-        currentHpByTarget[e.characterId] = getHpForShock(e.characterId);
-      }
+    const allAliveEnemyIds = enemyTeam.filter(e => getHpForShock(e.characterId) > 0).map(e => e.characterId);
+    const baseDamageByTarget: Record<string, number> = {};
+    if (mainIdK) baseDamageByTarget[mainIdK] = 3;
+    for (const sid of secondaryIdsK) baseDamageByTarget[sid] = 2;
+    for (const id of allAliveEnemyIds) {
+      if (baseDamageByTarget[id] === undefined) baseDamageByTarget[id] = 0; // shock only, no bolt damage
     }
+    const currentHpByTarget: Record<string, number> = {};
+    for (const id of allAliveEnemyIds) currentHpByTarget[id] = getHpForShock(id);
     const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
       ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
       : battle;
     const keraunosShockUpdates = applyKeraunosVoltageShock(
-      room, attackerId, defenderId, battleForKeraunos, keraunosBaseDmg, currentHpByTarget,
+      room, attackerId, mainIdK, battleForKeraunos, 0, currentHpByTarget, baseDamageByTarget,
     );
     Object.assign(updates, keraunosShockUpdates);
   }

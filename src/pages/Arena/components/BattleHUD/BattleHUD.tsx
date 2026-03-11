@@ -468,8 +468,39 @@ export default function BattleHUD({
     if (dodgeRef.current.isDodged) { setCritReady(true); return; }
 
     const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
-    if (isSkipDice) {
+    const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+    if (isSkipDice && !isKeraunos) {
       setCritReady(true);
+      return;
+    }
+    // Keraunos Voltage: D4 crit (rate = crit + 25%); server already set critWinFaces
+    if (isKeraunos) {
+      const effectiveCritK = Math.min(100, Math.max(0, (attacker?.criticalRate ?? 0) + 25));
+      const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+      if (effectiveCritK >= 100) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
+        setCritEligible(true);
+        setCritReady(true);
+        return;
+      }
+      if (isMyTurn) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: false, critRoll: 0 };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { critWinFaces: winFaces });
+        setCritEligible(true);
+      } else if (turn.critRoll != null && turn.critRoll > 0) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+        setCritRollResult(turn.critRoll);
+        setCritEligible(true);
+        setTimeout(() => setCritReady(true), 3500);
+      } else {
+        const crit = checkCritical(effectiveCritK, winFaces);
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
+        setCritRollResult(crit.critRoll);
+        setCritEligible(true);
+        setTimeout(() => setCritReady(true), 3500);
+      }
       return;
     }
     // Self-buff powers (e.g. Beyond the Nimbus) still do normal attacks → allow crit

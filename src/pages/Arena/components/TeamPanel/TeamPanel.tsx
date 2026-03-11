@@ -286,6 +286,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               powerName: g.powerName,
               ...(displayName && { displayName }),
               sourceName: source?.nicknameEng || '?',
+              ...(source?.deityBlood != null && { sourceDeity: source.deityBlood }),
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
               turnsLeft: Math.ceil(g.maxTurns / queueLen),
               count: g.count,

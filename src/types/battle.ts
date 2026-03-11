@@ -139,10 +139,18 @@ export interface TurnState {
   critRoll?: number;
   critWinFaces?: number[];
 
-  /* Thunderbolt chain D4 (written by BattleHUD before resolve) */
+  /* Thunderbolt chain D4 (legacy; Keraunos now uses crit D4 + chosen targets) */
   chainRoll?: number;
   chainSuccess?: boolean;
   chainWinFaces?: number[];
+
+  /* Keraunos Voltage: multi-step target selection then D4 crit (rate = crit + 25%) */
+  /** Main target (3 damage). Same as defenderId when power is Keraunos. */
+  keraunosMainTargetId?: string;
+  /** Up to 2 targets for 2 damage each (1 if 2 enemies, 2 if 3+). */
+  keraunosSecondaryTargetIds?: string[];
+  /** 1 = need main, 2 = need first secondary, 3 = need second secondary. */
+  keraunosTargetStep?: number;
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
   isDodged?: boolean;

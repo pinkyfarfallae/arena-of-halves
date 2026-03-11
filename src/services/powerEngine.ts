@@ -634,9 +634,10 @@ export function applyThunderboltChain(
 }
 
 /**
- * Apply shock to all targets hit by Keraunos Voltage (primary + chain targets).
+ * Apply shock to everyone alive on the opponent team for Keraunos Voltage.
  * Uses central applyShockedEffectToTarget: already shocked → 100% base damage + remove all shocks; else apply shock.
- * currentHpByTarget: optional map of targetId -> current HP after Thunderbolt damage (so bonus damage uses correct HP).
+ * baseDamageByTarget: main = 3, secondaries = 2, everyone else = 0 (so only bolt targets get bonus damage when already shocked).
+ * currentHpByTarget: optional map of targetId -> current HP after damage (for bonus damage HP).
  */
 export function applyKeraunosVoltageShock(
   room: BattleRoom,
@@ -645,22 +646,26 @@ export function applyKeraunosVoltageShock(
   battle: BattleState,
   baseDamage: number,
   currentHpByTarget?: Record<string, number>,
+  baseDamageByTarget?: Record<string, number>,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
   const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
   const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
-  const targets = enemies.filter(e => e.currentHp > 0).map(e => e.characterId);
+  const targets = baseDamageByTarget && Object.keys(baseDamageByTarget).length > 0
+    ? Object.keys(baseDamageByTarget)
+    : enemies.filter(e => e.currentHp > 0).map(e => e.characterId);
   if (targets.length === 0) return updates;
 
   let effects = [...(battle.activeEffects || [])];
   for (const targetId of targets) {
     const currentHp = currentHpByTarget?.[targetId];
+    const baseDmg = baseDamageByTarget?.[targetId] ?? baseDamage;
     const result = applyShockedEffectToTarget(
       room,
       attackerId,
       targetId,
       effects,
-      baseDamage,
+      baseDmg,
       POWER_NAMES.KERAUNOS_VOLTAGE,
       { skipIfPetalShield: true, ...(currentHp !== undefined && { currentHp }) },
     );
