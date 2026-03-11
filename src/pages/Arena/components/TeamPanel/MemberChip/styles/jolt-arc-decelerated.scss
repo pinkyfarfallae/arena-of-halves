@@ -1,8 +1,9 @@
 @use 'sass:math';
 @use 'vars' as *;
+@use '../../../../../../styles/variables' as *;
 
-/* ── Jolt Arc Deceleration — rich VFX (like Beyond the Nimbus / Secret of Dryad) ──
-   Dim blue / indigo: storm background, charge drops, rising particles, frame accents + sparks. */
+/* ── Jolt Arc Deceleration — Zeus power VFX ──
+   Storm + charge drops + rise + smoke + divine gold/white accents. */
 
 $blue-deep: #303f9f;
 $blue-dark: #3f51b5;
@@ -12,6 +13,10 @@ $blue-pale: #9fa8da;
 $blue-dim: #e8eaf6;
 $yellow-dim: #e8e4b8;
 $yellow-pale: #f5f2d0;
+/* Zeus power accents */
+$zeus-gold: #ffd54f;
+$zeus-amber: #ffc107;
+$zeus-white: #fffef8;
 
 .mchip--jolt-arc-deceleration {
   position: relative;
@@ -19,18 +24,26 @@ $yellow-pale: #f5f2d0;
 
   .mchip__frame {
     box-shadow:
-      0 0 0 1.5px rgba($blue-mid, 0.65),
-      0 0 14px rgba($blue-mid, 0.4),
-      0 0 28px rgba($blue-soft, 0.2);
+      0 0 0 2px rgba($blue-soft, 0.5),
+      0 0 0 2.5px rgba($blue-soft, 0.4),
+      0 0 20px rgba($blue-soft, 0.5),
+      0 0 40px rgba($blue-soft, 0.25),
+      0 0 60px rgba($blue-soft, 0.15);
     animation: jolt-decel-pulse 2s ease-in-out infinite;
 
     img {
       animation: jolt-decel-image-pulse 3s ease-in-out infinite;
     }
   }
+
+  &.mchip--hit {
+    .mchip__frame {
+      animation: hit-shake 0.5s ease-out, jolt-decel-pulse 2s ease-in-out infinite;
+    }
+  }
 }
 
-/* ── Chip-level: storm background ── */
+/* ── Chip-level: storm background (Zeus: hint of divine gold at center) ── */
 .mchip__jolt-decel-storm {
   position: absolute;
   inset: 0;
@@ -38,62 +51,196 @@ $yellow-pale: #f5f2d0;
   pointer-events: none;
   overflow: hidden;
   border-radius: 18px;
-  opacity: 0.55;
+  opacity: 0.6;
   background:
-    radial-gradient(ellipse at 50% 30%, rgba($blue-pale, 0.12) 0%, rgba($blue-deep, 0.25) 35%, transparent 70%),
-    linear-gradient(180deg, rgba($blue-soft, 0.08) 0%, rgba($blue-mid, 0.1) 50%, transparent 100%);
+    radial-gradient(ellipse at 50% 25%, rgba($zeus-white, 0.08) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 30%, rgba($zeus-gold, 0.06) 0%, rgba($blue-deep, 0.22) 40%, transparent 70%),
+    linear-gradient(180deg, rgba($blue-soft, 0.1) 0%, rgba($blue-mid, 0.12) 50%, transparent 100%);
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
 }
 
-/* ── Chip-level: vertical drops (position & movement like nimbus rain, slower) ── */
+/* ── Chip-level: smoke (rising wisps, no input — ref CodePen EayMGZG) ── */
+.mchip__jolt-decel-smoke {
+  position: absolute;
+  inset: 0;
+  z-index: 0.5;
+  pointer-events: none;
+  overflow: hidden;
+  /* Clip with background gradient (same idea as .mchip__body: top visible, fade to bottom) */
+  mask-image:
+    linear-gradient(180deg, black 0%, black 50%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, black 0%, black 50%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+}
+
+.mchip__jolt-decel-smoke-wisp {
+  position: absolute;
+  border-radius: 50%;
+  width: 60%;
+  height: 50%;
+  left: 20%;
+  bottom: -30%;
+  opacity: 0;
+  /* Smoke: stronger gray-white so it stands out over the storm */
+  background: radial-gradient(ellipse 80% 80% at 50% 50%,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(240, 245, 255, 0.4) 35%,
+      rgba(210, 222, 240, 0.15) 65%,
+      transparent 100%);
+  filter: blur(16px);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+  animation: jolt-decel-smoke-rise linear infinite;
+
+  @for $i from 1 through 10 {
+    &.mchip__jolt-decel-smoke-wisp--#{$i} {
+      $left: 5% + ($i - 1) * 9%;
+      $drift: (
+        $i % 3 - 1) * 8%;
+      $w: 50 + ($i % 4) * 8;
+      $h: 40 + ($i % 3) * 10;
+      left: $left;
+      --jolt-smoke-drift: #{$drift};
+      animation-duration: #{20 + ($i % 5) * 2}s;
+      animation-delay: #{($i - 1) * 2.2}s;
+      width: #{$w}#{'%'};
+      height: #{$h}#{'%'};
+    }
+  }
+}
+
+@keyframes jolt-decel-smoke-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scale(0.5
+    );
+}
+
+15% {
+  opacity: 0.6;
+  transform: translateY(-25%) translateX(var(--jolt-smoke-drift, 0)) scale(0.7);
+}
+
+45% {
+  opacity: 0.5;
+  transform: translateY(-65%) translateX(calc(var(--jolt-smoke-drift, 0) * 1.5)) scale(1.1);
+}
+
+75% {
+  opacity: 0.25;
+  transform: translateY(-110%) translateX(var(--jolt-smoke-drift, 0)) scale(1.4);
+}
+
+100% {
+  opacity: 0;
+  transform: translateY(-160%) translateX(calc(var(--jolt-smoke-drift, 0) * 0.5)) scale(1.6);
+}
+}
+
+/* ── Chip-level: vertical drops (bolt-style like nimbus, slower & blue) ── */
 .mchip__jolt-decel-drops {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
 }
 
 .mchip__jolt-decel-drop {
   position: absolute;
-  top: -18%;
-  width: 20%;
-  height: 50%;
-  border-radius: 999px;
+  width: 2px;
+  height: 55%;
+  top: -10%;
   opacity: 0;
+  /* Zeus: electric charge — white/gold core, blue glow */
   background: linear-gradient(180deg,
       rgba($blue-dim, 0) 0%,
-      rgba(#ffffff, 0.7) 20%,
-      rgba($blue-pale, 0.5) 50%,
-      rgba($blue-soft, 0.3) 82%,
-      rgba(#ffffff, 0) 100%);
-  filter: blur(50px);
+      rgba($zeus-white, 0.25) 15%,
+      rgba($blue-pale, 0.5) 35%,
+      rgba($zeus-gold, 0.15) 50%,
+      rgba($blue-soft, 0.4) 70%,
+      rgba($blue-dim, 0) 100%);
   box-shadow:
-    0 0 4px rgba($blue-pale, 0.5),
-    0 0 10px rgba($blue-mid, 0.25);
-  animation: jolt-decel-drop-fall linear infinite;
+    0 0 6px rgba($zeus-white, 0.5),
+    0 0 12px rgba($blue-pale, 0.6),
+    0 0 18px rgba($blue-mid, 0.3);
+  border-radius: 999px;
+  animation: jolt-decel-drop-fall 4.5s cubic-bezier(0.25, 0.7, 0.3, 1) infinite;
 
   @for $i from 1 through 14 {
     &.mchip__jolt-decel-drop--#{$i} {
-      left: 4% + ($i - 1) * 6.15%;
-      animation-delay: #{($i - 1) * 0.45}s;
-      animation-duration: #{3.8 + math.div($i % 4, 8)}s;
+      $left: 8% + ($i - 1) * 6.4%;
+      $h: 50 + ($i % 5) * 4;
+      left: $left;
+      height: #{$h}#{'%'};
+      animation-delay: #{($i - 1) * 0.38}s;
+      animation-duration: #{4 + ($i % 3) * 0.4}s;
     }
   }
 }
 
 @keyframes jolt-decel-drop-fall {
-  0% {
-    transform: translateY(-12%) scaleY(0.7);
-    opacity: 0;
-  }
 
-  12% {
-    opacity: 1;
-  }
-
+  0%,
   100% {
-    transform: translateY(138%) scaleY(1.05);
     opacity: 0;
+    transform: translateY(-20%) scaleY(0.85);
+  }
+
+  8% {
+    opacity: 0;
+    transform: translateY(-20%) scaleY(0.85);
+  }
+
+  14% {
+    opacity: 0.8;
+    transform: translateY(-2%) scaleY(1);
+  }
+
+  40% {
+    opacity: 0.75;
+    transform: translateY(45%) scaleY(1.02);
+  }
+
+  75% {
+    opacity: 0.2;
+    transform: translateY(105%) scaleY(1.03);
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(125%) scaleY(1.05);
   }
 }
 
@@ -102,7 +249,19 @@ $yellow-pale: #f5f2d0;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 8%, black 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
 }
 
 .mchip__jolt-decel-rise-particle {
@@ -145,7 +304,7 @@ $yellow-pale: #f5f2d0;
 }
 }
 
-/* ── Frame-level: accents around frame (like petal-accents) ── */
+/* ── Frame-level: accents (Zeus: blue + gold/white divine spots) ── */
 .mchip__jolt-decel-accents {
   position: absolute;
   inset: -6px;
@@ -153,24 +312,108 @@ $yellow-pale: #f5f2d0;
   z-index: 12;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 10px 6px at 8% 15%, rgba($blue-soft, 0.7) 0%, transparent 100%),
-    radial-gradient(ellipse 7px 11px at 92% 20%, rgba($blue-pale, 0.65) 0%, transparent 100%),
+    radial-gradient(ellipse 12px 7px at 8% 15%, rgba($zeus-white, 0.6) 0%, transparent 100%),
+    radial-gradient(ellipse 10px 8px at 92% 20%, rgba($zeus-gold, 0.35) 0%, transparent 100%),
     radial-gradient(ellipse 9px 5px at 88% 82%, rgba($blue-mid, 0.6) 0%, transparent 100%),
-    radial-gradient(ellipse 6px 10px at 12% 78%, rgba($blue-pale, 0.65) 0%, transparent 100%),
-    radial-gradient(ellipse 8px 5px at 50% 5%, rgba($blue-soft, 0.55) 0%, transparent 100%),
-    radial-gradient(ellipse 7px 5px at 48% 95%, rgba($blue-mid, 0.5) 0%, transparent 100%);
+    radial-gradient(ellipse 8px 10px at 12% 78%, rgba($zeus-gold, 0.3) 0%, transparent 100%),
+    radial-gradient(ellipse 10px 6px at 50% 5%, rgba($zeus-white, 0.5) 0%, transparent 100%),
+    radial-gradient(ellipse 8px 5px at 48% 95%, rgba($blue-mid, 0.5) 0%, transparent 100%);
   animation: jolt-decel-accents-drift 4s ease-in-out infinite alternate;
 }
 
-/* ── Chip-level: one big white flash (z-index 0, behind storm/drops/rise) ── */
+/* ── Chip-level: divine flash (Zeus — white/gold pulse) ── */
 .mchip__jolt-decel-sparks {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(to bottom, #00000064 0%, #6fbcff67 10%, #ffdd0052 20%, #fff 80%);
-  filter: blur(20px);
+  background: radial-gradient(ellipse 80% 80% at 50% 50%, rgba($zeus-white, 0.9) 0%, rgba($zeus-gold, 0.25) 50%, transparent 100%);
   animation: jolt-decel-flash 3.5s ease-in-out infinite;
+  filter: blur(24px);
+  border-radius: inherit;
+}
+
+/* ── Chip-level: spark points scattered over mchip (not in frame) ── */
+.mchip__jolt-decel-spark-points {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.mchip__jolt-decel-spark-point {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  opacity: 0.8;
+  background: radial-gradient(circle at 50% 50%,
+      rgba($zeus-white, 1) 0%,
+      rgba($zeus-gold, 0.7) 35%,
+      rgba($zeus-amber, 0.6) 60%,
+      transparent 100%);
+  filter: blur(10px);
+  box-shadow:
+    0 0 6px rgba($zeus-white, 0.8),
+    0 0 12px rgba($zeus-gold, 0.5);
+  animation: jolt-decel-spark-flicker 1.8s ease-in-out infinite;
+
+  $lefts: 6% 91% 33% 67% 14% 78% 48% 22% 85% 41% 9% 56% 72% 28% 95% 17% 61% 38% 82% 5% 44% 69% 12% 53%;
+  $tops: 8% 76% 34% 58% 92% 18% 45% 68% 4% 52% 82% 26% 61% 38% 88% 12% 71% 49% 22% 95% 33% 56% 79% 14%;
+
+  @for $i from 1 through 24 {
+    &.mchip__jolt-decel-spark-point--#{$i} {
+      left: nth($lefts, $i);
+      top: nth($tops, $i);
+      animation-delay: #{($i - 1) * 0.08}s;
+      animation-duration: #{0.2 + ($i % 5) * 0.2}s;
+    }
+  }
+}
+
+@keyframes jolt-decel-spark-flicker {
+
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(0.85);
+  }
+
+  12% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  25% {
+    opacity: 0.75;
+    transform: scale(0.9);
+  }
+
+  38% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+
+  62% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+
+  75% {
+    opacity: 0.6;
+    transform: scale(0.88);
+  }
+
+  88% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
 }
 
 /* ── Keyframes ── */
@@ -179,16 +422,20 @@ $yellow-pale: #f5f2d0;
   0%,
   100% {
     box-shadow:
-      0 0 0 1.5px rgba($blue-mid, 0.65),
-      0 0 14px rgba($blue-mid, 0.4),
-      0 0 28px rgba($blue-soft, 0.2);
+      0 0 0 2px rgba($blue-dark, 0.45),
+      0 0 0 2.5px rgba($zeus-gold, 0.35),
+      0 0 20px rgba($blue-mid, 0.5),
+      0 0 40px rgba($blue-soft, 0.22),
+      0 0 60px rgba($blue-soft, 0.12);
   }
 
   50% {
     box-shadow:
-      0 0 0 2px rgba($blue-mid, 0.85),
-      0 0 20px rgba($blue-mid, 0.55),
-      0 0 40px rgba($blue-soft, 0.28);
+      0 0 0 2.5px rgba($blue-dark, 0.65),
+      0 0 0 3px rgba($zeus-gold, 0.5),
+      0 0 28px rgba($blue-mid, 0.6),
+      0 0 50px rgba($zeus-amber, 0.35),
+      0 0 80px rgba($blue-soft, 0.2);
   }
 }
 

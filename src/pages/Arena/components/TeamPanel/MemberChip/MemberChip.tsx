@@ -14,6 +14,7 @@ import { DEITY_SVG, toDeityKey } from '../../../../../data/deities';
 import './MemberChip.scss';
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
+import { POWER_NAMES } from '../../../../../constants/powers';
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -680,7 +681,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isShockHitActive && 'mchip--shock-hit',
     battleLive && isThunderboltActive && 'mchip--thunderbolt',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
-    battleLive && (isShocked || shockBridgeActive) && 'mchip--shocked',
+    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.powerName === POWER_NAMES.LIGHTNING_SPARK) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
@@ -759,6 +760,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {hasJoltArcDeceleration && battleLive && (
         <>
           <div className="mchip__jolt-decel-storm" aria-hidden="true" />
+          <div className="mchip__jolt-decel-smoke" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className={`mchip__jolt-decel-smoke-wisp mchip__jolt-decel-smoke-wisp--${i + 1}`} />
+            ))}
+          </div>
           <div className="mchip__jolt-decel-drops" aria-hidden="true">
             {Array.from({ length: 14 }, (_, i) => (
               <span key={i} className={`mchip__jolt-decel-drop mchip__jolt-decel-drop--${i + 1}`} />
@@ -770,6 +776,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             ))}
           </div>
           <div className="mchip__jolt-decel-sparks" aria-hidden="true" />
+          {/* Spark points scattered over chip (not in frame) */}
+          <div className="mchip__jolt-decel-spark-points" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className={`mchip__jolt-decel-spark-point mchip__jolt-decel-spark-point--${i + 1}`} />
+            ))}
+          </div>
         </>
       )}
 
@@ -871,8 +883,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
           {battleLive && (
             <>
-              {/* Shocked effect — electric sparks around frame */}
-              {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
+              {/* Shocked effect — electric sparks around frame (hidden when Jolt Arc attack is showing) */}
+              {isShocked && !isJoltArcAttackActive && !hasJoltArcDeceleration && <div className="mchip__shock-sparks" aria-hidden="true" />}
 
                   {/* Jolt Arc Deceleration — frame accents only (sparks are chip-level) */}
                   {hasJoltArcDeceleration && (

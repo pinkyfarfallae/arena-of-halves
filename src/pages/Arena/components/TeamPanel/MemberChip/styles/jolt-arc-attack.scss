@@ -1,10 +1,13 @@
 @use 'vars' as *;
-@use '../../../../../../styles/variables' as *;
 
-/* ── Jolt Arc Attack — power VFX (blue/white; applied on targets when Jolt Arc hits) ── */
+/* ── Jolt Arc Attack — power VFX (blue/white; line lightning from top hitting mchip__frame like real thunder) ── */
 
 .mchip--jolt-arc-attack {
   z-index: 20;
+
+  .mchip__frame-wrap {
+    overflow: visible;
+  }
 
   .mchip__frame {
     animation: jolt-arc-shake 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
@@ -12,6 +15,7 @@
       0 0 0 3px rgba(#e2f6ff, 0.9),
       0 0 40px rgba(#d6edff, 0.8),
       0 0 80px rgba(#cfeaff, 0.4) !important;
+    overflow: visible;
   }
 
   .mchip__frame::after {
@@ -25,30 +29,33 @@
     animation: jolt-arc-flash 2s ease-out forwards !important;
   }
 
+  /* Line lightning bolt from top down to frame (like real thunder strike) */
   .mchip__frame::before {
     content: '' !important;
     position: absolute;
     z-index: 21;
     pointer-events: none;
-    width: 80px;
-    height: 300%;
-    top: -150%;
-    left: calc(50% - 40px);
-    background:
-      linear-gradient(183deg,
-        transparent 40%, #fff 43%, #fff 45%,
-        transparent 47%, transparent 51%, rgba(#fff, 0.9) 53%, rgba(#fff, 0.9) 55%,
-        transparent 57%),
-      linear-gradient(178deg,
-        transparent 32%, rgba(#4fc3f7, 0.8) 37%, transparent 42%),
-      linear-gradient(188deg,
-        transparent 56%, rgba(#64b5f6, 0.8) 61%, transparent 66%),
-      linear-gradient(160deg,
-        transparent 44%, rgba(#90caf9, 0.6) 47%, transparent 50%),
-      linear-gradient(205deg,
-        transparent 48%, rgba(#bbdefb, 0.6) 51%, transparent 54%);
-    filter: blur(0.5px);
-    animation: jolt-arc-strike 2s ease-out forwards !important;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 220%;
+    top: -220%;
+    z-index: 21;
+    transform-origin: 50% 0%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(#e3f2fd, 0.3) 25%,
+      rgba(#90caf9, 0.6) 45%,
+      rgba(#64b5f6, 0.9) 65%,
+      #fff 82%,
+      rgba(#e2f6ff, 0.95) 92%,
+      rgba(#bbdefb, 0.8) 100%);
+    box-shadow:
+      0 0 12px 2px rgba(#fff, 0.9),
+      0 0 24px 4px rgba(#90caf9, 0.6),
+      0 0 40px 6px rgba(#64b5f6, 0.3);
+    filter: brightness(1.2);
+    animation: jolt-arc-lightning-hit 2s ease-out forwards !important;
   }
 
   &::after {
@@ -64,6 +71,7 @@
         rgba(#b8dfff, 0.3) 25%,
         rgba(#a5d7ff, 0.15) 50%,
         transparent 75%);
+    filter: blur(8px);
     animation: jolt-arc-ring 2s ease-out forwards;
   }
 }
@@ -98,17 +106,52 @@
   100% { opacity: 0; }
 }
 
-@keyframes jolt-arc-strike {
-  0% { opacity: 1; transform: scaleY(1) scaleX(1); filter: blur(0px) brightness(3); }
-  6% { opacity: 0.3; filter: blur(0px) brightness(2); }
-  10% { opacity: 1; filter: blur(0px) brightness(4); }
-  16% { opacity: 0.5; }
-  22% { opacity: 1; filter: blur(0.5px) brightness(3); }
-  30% { opacity: 0.2; transform: scaleY(1) scaleX(1.1); }
-  42% { opacity: 0.6; transform: scaleY(1) scaleX(1.4); filter: blur(1px) brightness(2); }
-  55% { opacity: 0.15; transform: scaleY(1) scaleX(0.9); filter: blur(2px) brightness(1.5); }
-  70% { opacity: 0.3; filter: blur(3px) brightness(1); }
-  100% { opacity: 0; transform: scaleY(1) scaleX(0.4); filter: blur(6px) brightness(0.5); }
+@keyframes jolt-arc-lightning-hit {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(0);
+    filter: brightness(2.5);
+  }
+  4% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+    filter: brightness(3);
+  }
+  6% {
+    opacity: 0.9;
+    filter: brightness(2.5);
+  }
+  10% {
+    opacity: 1;
+    filter: brightness(3);
+  }
+  14% {
+    opacity: 0.6;
+    filter: brightness(2);
+  }
+  18% {
+    opacity: 1;
+    filter: brightness(2.5);
+  }
+  25% {
+    opacity: 0.4;
+    transform: translateX(-50%) scaleY(1) scaleX(1.1);
+    filter: brightness(1.5) blur(0.5px);
+  }
+  40% {
+    opacity: 0.25;
+    transform: translateX(-50%) scaleY(1) scaleX(1.2);
+    filter: brightness(1.2) blur(1px);
+  }
+  60% {
+    opacity: 0.1;
+    filter: blur(2px) brightness(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1) scaleX(0.5);
+    filter: blur(4px) brightness(0.5);
+  }
 }
 
 @keyframes jolt-arc-ring {
