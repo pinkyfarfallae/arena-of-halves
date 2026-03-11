@@ -457,12 +457,12 @@ function Arena() {
 
       if (teamAAlive.length > 0) {
         const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        // Extra delay after Floral Fragrance so scent wave visual plays
+        // Extra delay after Floral Fragrance so fragrance wave visual plays
         const delay = turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2000;
         // Show client-side visual selection immediately so NPC appears to aim (e.g., at skeletons)
         setNpcVisualTarget(target.characterId);
         // Preserve any known used power name (server may set turn.usedPowerName when arriving at select-target).
-        // This ensures Floral powers have their visual name set so TeamPanel can show the scent VFX.
+        // This ensures Floral powers have their visual name set so TeamPanel can show the fragrance VFX.
         setNpcVisualPowerName(turn?.usedPowerName ?? null);
         schedule(() => selectTarget(arenaId, target.characterId), delay);
         // Clear the client-side visual after the scheduled action completes (+ small buffer)
@@ -522,7 +522,7 @@ function Arena() {
               setNpcVisualTarget(ally.characterId);
               setNpcVisualPowerName(pick.power.name);
               const actionDelay = 1000;
-              // If Floral Fragrance, keep visual longer to allow scent VFX to play
+              // If Floral Fragrance, keep visual longer to allow fragrance VFX to play
               const keepMs = pick.power.name === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2500;
               schedule(() => selectAction(arenaId, TURN_ACTION.POWER, pick.index, ally.characterId), actionDelay);
               setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, actionDelay + keepMs);

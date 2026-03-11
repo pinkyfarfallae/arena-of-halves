@@ -773,7 +773,7 @@ export default function BattleHUD({
     onResolve();
   }, [isPlaybackDriver, turn, onResolve]);
 
-  /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
+  /* ── Floral Fragrance: delay target selection so fragrance wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && turn.allyTargetId) {
@@ -1551,7 +1551,7 @@ export default function BattleHUD({
   const atkSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
   const defSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
-  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy shocks)
+  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock)
   const ae = battle.activeEffects || [];
   const disabledPowerNames = (() => {
     const disabled = new Set<string>();

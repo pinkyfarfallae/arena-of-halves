@@ -3,15 +3,24 @@
 @use 'sass:list';
 @use 'sass:color';
 @use 'styles/hit';
+
+// Zeus
+@use 'styles/thunderbolt';
+@use 'styles/jolt-arc-attack';
+@use 'styles/jolt-arc-decelerated';
 @use 'styles/beyond-the-nimbus';
 @use 'styles/shocked';
-@use 'styles/petal-shielded';
-@use 'styles/pomegranate';
+
+// Hades
 @use 'styles/death-keeper';
-@use 'styles/heal';
 @use 'styles/shadow-camouflage';
 @use 'styles/soul-devourer';
 @use 'styles/skeleton-minion';
+
+// Persephone
+@use 'styles/petal-shielded';
+@use 'styles/floral-fragrance';
+@use 'styles/pomegranate';
 
 /* ══════════════════════════════════════
    MEMBER CHIP — image card with hover popup
@@ -341,12 +350,12 @@
   height: 136px;
   width: 6px;
   left: calc(50% + 73px);
-  top: 0.75rem;
   display: flex;
   gap: 0.3rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
+  top: 0.5px;
 }
 
 .mchip__crit-label {
@@ -449,11 +458,11 @@
   z-index: 2;
   height: 136px;
   right: calc(50% + 73px);
-  top: 0.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  top: 0.5px;
 }
 
 .mchip__order {
@@ -728,13 +737,11 @@
   .mchip__critical {
     height: 75px;
     left: calc(50% + ($frame-size-small / 2) + 8px);
-    top: calc(50% - 65px);
   }
 
   .mchip__powerside {
     height: 75px;
     right: calc(50% + ($frame-size-small / 2) + 4px);
-    top: calc(50% - 65px);
   }
 
   .mchip__order {

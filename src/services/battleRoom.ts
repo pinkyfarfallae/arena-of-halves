@@ -13,7 +13,7 @@ import {
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
   applyLightningReflexPassive, applyJoltArc, applyThunderboltChain, applyKeraunosVoltageShock,
-  applySecretOfDryadPassive, applyFloralScented, applySeasonEffects,
+  applySecretOfDryadPassive, applyFloralFragranced, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
@@ -1216,8 +1216,8 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Scented (and other ally powers): apply buff, then follow-up normal attack ──
-    const floralUpdates = applyFloralScented(room, attackerId, allyTargetId, battle, power);
+    // ── Floral Fragrance (and other ally powers): apply buff, then follow-up normal attack ──
+    const floralUpdates = applyFloralFragranced(room, attackerId, allyTargetId, battle, power);
     Object.assign(updates, floralUpdates);
 
     const ally = findFighter(room, allyTargetId);

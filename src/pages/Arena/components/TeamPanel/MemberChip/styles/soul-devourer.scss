@@ -198,7 +198,7 @@
       radial-gradient(ellipse 6px 8px at 8% 82%, rgba(#4a148c, 0.55) 0%, transparent 100%),
       radial-gradient(ellipse 7px 6px at 92% 100%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
       radial-gradient(ellipse 5px 7px at 42% 75%, rgba(#ce93d8, 0.5) 0%, transparent 100%);
-    animation: scent-splash-up 6s ease-out infinite;
+    animation: fragrance-splash-up 6s ease-out infinite;
   }
 
   &::after {
@@ -224,7 +224,7 @@
       radial-gradient(ellipse 6px 7px at 72% 86%, rgba(#e1bee7, 0.55) 0%, transparent 100%),
       radial-gradient(ellipse 8px 4px at 58% 98%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
       radial-gradient(ellipse 5px 6px at 28% 102%, rgba(#1a1a2e, 0.55) 0%, transparent 100%);
-    animation: scent-splash-up 7s ease-out infinite 0.3s;
+    animation: fragrance-splash-up 7s ease-out infinite 0.3s;
   }
 }
 
@@ -242,7 +242,7 @@
       rgba(#4a148c, 0.8) 75%,
       rgba(#1a1a2e, 0.9) 100%);
   background-size: 200% 100%;
-  animation: scent-border-flow 3s ease-in-out infinite;
+  animation: fragrance-border-flow 3s ease-in-out infinite;
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -266,7 +266,7 @@
     radial-gradient(ellipse 6px 9px at 15% 75%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
     radial-gradient(ellipse 8px 5px at 50% 6%, rgba(#4a148c, 0.6) 0%, transparent 100%),
     radial-gradient(ellipse 7px 6px at 48% 94%, rgba(#7b1fa2, 0.65) 0%, transparent 100%);
-  animation: scent-accents-drift 4s ease-in-out infinite alternate;
+  animation: fragrance-accents-drift 4s ease-in-out infinite alternate;
 }
 
 .mchip__soul-devourer-heal {

@@ -248,30 +248,43 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         );
 
+        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
+        const isJoltArcAttackHit = !!(
+          (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
+          (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC)
+        );
+
         // Shock visual: has any active shock DOT
         const isShocked = activeEffects.some(
           e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SHOCK,
         );
 
-        // Active effect pips (deduplicate same power from same source)
+        // Jolt Arc Deceleration: -7 speed debuff from being hit by Jolt Arc
+        const hasJoltArcDeceleration = activeEffects.some(
+          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION,
+        );
+
+        // Active effect pips (deduplicate same power from same source; group by tag so Jolt Arc vs Jolt Arc Deceleration are separate)
         const effectPips: EffectPip[] = (() => {
           const raw = activeEffects.filter(e => e.targetId === m.characterId && e.turnsRemaining > 0);
-          const grouped = new Map<string, { count: number; maxTurns: number; sourceId: string; powerName: string }>();
+          const grouped = new Map<string, { count: number; maxTurns: number; sourceId: string; powerName: string; tag?: string }>();
           for (const e of raw) {
-            const key = `${e.sourceId}:${e.powerName}`;
+            const key = `${e.sourceId}:${e.powerName}:${e.tag ?? ''}`;
             const existing = grouped.get(key);
             if (existing) {
               existing.count++;
               existing.maxTurns = Math.max(existing.maxTurns, e.turnsRemaining);
             } else {
-              grouped.set(key, { count: 1, maxTurns: e.turnsRemaining, sourceId: e.sourceId, powerName: e.powerName });
+              grouped.set(key, { count: 1, maxTurns: e.turnsRemaining, sourceId: e.sourceId, powerName: e.powerName, tag: e.tag });
             }
           }
           const queueLen = battle?.turnQueue?.length || 1;
           return Array.from(grouped.values()).map(g => {
             const source = fighterMap.get(g.sourceId);
+            const displayName = g.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION ? 'Jolt Arc Deceleration' : undefined;
             return {
               powerName: g.powerName,
+              ...(displayName && { displayName }),
               sourceName: source?.nicknameEng || '?',
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
               turnsLeft: Math.ceil(g.maxTurns / queueLen),
@@ -316,20 +329,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         );
 
         // Floral Fragrance: brief trigger when just applied
-        // Also watch recent persistent log entries so we show the scent VFX even
+        // Also watch recent persistent log entries so we show the fragrance VFX even
         // when the server wrote a log entry but the turn fields aren't present
-        // on the client yet. Only show the scent for the exact 'Floral Fragrance' power.
+        // on the client yet. Only show the fragrance for the exact 'Floral Fragrance' power.
         // Only consider recent persistent log entries from the current round
         const recentLog = Array.isArray(battle?.log)
           ? (battle!.log as any[]).slice(-8).filter((le) => le.round === battle?.roundNumber)
           : [];
-        // Only consider a recent Floral Fragrance log as a scent trigger if the
+        // Only consider a recent Floral Fragrance log as a fragrance trigger if the
         // log appears to be written but the heal hasn't been applied yet.
         // For skipDice heal powers the log may contain a `defenderHpAfter` that
         // reflects the defender's HP before the heal (server writes effect + log
         // in one update). If the local fighter's currentHp is already greater
         // than the log's `defenderHpAfter`, the heal has been applied — do not
-        // show the transient scent in that case.
+        // show the transient fragrance in that case.
         const floralLogIndex = (() => {
           for (let idx = recentLog.length - 1; idx >= 0; idx--) {
             const le = recentLog[idx];
@@ -355,15 +368,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
 
         const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
-        const clientScent = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
-        // Server-driven scent: show only on the explicit ally target.
-        // Floral Fragrance is always an ally-target power, so scent should only
+        const clientFragrance = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
+        // Server-driven fragrance: show only on the explicit ally target.
+        // Floral Fragrance is always an ally-target power, so fragrance should only
         // appear on the target, never on the caster side.
         const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
-        const serverScentOnTarget = turn?.allyTargetId === m.characterId && isFloralPowerInUse;
-        // Suppress scent wave visual while transient effects (minion hits, DamageCards)
+        const serverFragranceOnTarget = turn?.allyTargetId === m.characterId && isFloralPowerInUse;
+        // Suppress fragrance wave visual while transient effects (minion hits, DamageCards)
         // are actively playing so effects chain sequentially instead of overlapping.
-        const isScentWaved = !!(serverScentOnTarget || clientScent || logHasFloral) && phaseOk && !transientEffectsActive;
+        const isFragranceWaved = !!(serverFragranceOnTarget || clientFragrance || logHasFloral) && phaseOk && !transientEffectsActive;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -390,7 +403,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isHit={isHit}
             isShockHit={isShockHit}
             isThunderboltHit={isThunderboltHit}
+            isJoltArcAttackHit={isJoltArcAttackHit}
             isShocked={isShocked}
+            hasJoltArcDeceleration={hasJoltArcDeceleration}
             isPetalShielded={isPetalShielded}
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
@@ -400,7 +415,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             hasDeathKeeper={hasDeathKeeper}
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}
-            isScentWaved={isScentWaved}
+            isFragranceWaved={isFragranceWaved}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}

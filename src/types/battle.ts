@@ -155,7 +155,7 @@ export interface TurnState {
   coAttackHit?: boolean;
   coAttackDamage?: number;
 
-  /* Ally-targeting power (e.g. Floral Scented) */
+  /* Ally-targeting power (e.g. Floral Fragrance) */
   allyTargetId?: string;
 
   /* Persephone's Ephemeral Season selection */

@@ -1,3 +1,4 @@
+import { EffectTag } from '../constants/effectTags';
 import { POWER_TYPES } from '../constants/powers';
 
 /** Effect type for powers; aligned with constants/effectTypes EFFECT_TYPES. */
@@ -45,6 +46,9 @@ export interface PowerDefinition {
 
   /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
   requiresTargetHasEffect?: string;
+
+  /** If set, the power will afflict the target with the given afflictions. */
+  afflictions?: EffectTag[];
 }
 
 /** An active effect applied to a fighter during battle */
