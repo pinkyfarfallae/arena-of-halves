@@ -786,11 +786,14 @@ export default function BattleHUD({
   const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500;
   const CHAINED_MASTER_RESOLVE_DISPLAY_MS = 2400;
   const MINION_RESOLVE_DISPLAY_MS = 2200;
+  const KERAUNOS_VOLTAGE_RESOLVE_MS = 10000;
   const masterResolveDisplayMs = (turn as any)?.soulDevourerDrain
     ? SOUL_DEVOURER_MASTER_AND_HEAL_MS
-    : (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)
-      ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
-      : 5000;
+    : turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
+      ? KERAUNOS_VOLTAGE_RESOLVE_MS
+      : (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)
+        ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
+        : 5000;
   const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
   /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
   const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
