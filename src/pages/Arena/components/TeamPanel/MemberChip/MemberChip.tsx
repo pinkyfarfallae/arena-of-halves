@@ -116,7 +116,7 @@ interface Props {
   isCrit?: boolean;
   isHit?: boolean;
   isShockHit?: boolean;
-  isThunderboltHit?: boolean;
+  isKeraunosVoltageHit?: boolean;
   isJoltArcAttackHit?: boolean;
   isShocked?: boolean;
   hasJoltArcDeceleration?: boolean;
@@ -165,7 +165,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -422,19 +422,19 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     };
   }, [isShockHit, isShocked]);
 
-  /* ── Thunderbolt hit: massive lightning strike ── */
-  const [isThunderboltActive, setIsThunderboltActive] = useState(false);
-  const prevIsThunderboltRef = useRef(false);
+  /* ── Keraunos Voltage hit: massive lightning strike ── */
+  const [isKeraunosVoltageActive, setIsKeraunosVoltageActive] = useState(false);
+  const prevIsKeraunosVoltageRef = useRef(false);
 
   useEffect(() => {
-    if (isThunderboltHit && !prevIsThunderboltRef.current) {
-      setIsThunderboltActive(true);
-      const timer = setTimeout(() => setIsThunderboltActive(false), 2000);
-      prevIsThunderboltRef.current = true;
+    if (isKeraunosVoltageHit && !prevIsKeraunosVoltageRef.current) {
+      setIsKeraunosVoltageActive(true);
+      const timer = setTimeout(() => setIsKeraunosVoltageActive(false), 2000);
+      prevIsKeraunosVoltageRef.current = true;
       return () => clearTimeout(timer);
     }
-    if (!isThunderboltHit) prevIsThunderboltRef.current = false;
-  }, [isThunderboltHit]);
+    if (!isKeraunosVoltageHit) prevIsKeraunosVoltageRef.current = false;
+  }, [isKeraunosVoltageHit]);
 
   /* ── Jolt Arc attack hit: blue/white arc on targets when Jolt Arc confirms ── */
   const [isJoltArcAttackActive, setIsJoltArcAttackActive] = useState(false);
@@ -588,12 +588,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (battleLive && (isHitActive || isShockHitActive || isThunderboltActive)) {
+    if (battleLive && (isHitActive || isShockHitActive || isKeraunosVoltageActive)) {
       setShowEliminated(false); // hide eliminated while damage effects play
     } else {
       setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleLive]);
+  }, [isEliminated, isHitActive, isShockHitActive, isKeraunosVoltageActive, battleLive]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -683,7 +683,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     isSpotlight && 'mchip--spotlight',
     battleLive && isHitActive && 'mchip--hit',
     battleLive && isShockHitActive && 'mchip--shock-hit',
-    battleLive && isThunderboltActive && 'mchip--thunderbolt',
+    battleLive && isKeraunosVoltageActive && 'mchip--keraunos-voltage',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
     battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',

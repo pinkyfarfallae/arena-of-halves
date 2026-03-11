@@ -586,7 +586,7 @@ export default function BattleHUD({
     return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, critEligible, isMyTurn, critRollResult, turn?.critRoll, turn?.isCrit]);
 
-  /* ── Thunderbolt chain D4 check ── */
+  /* ── Keraunos Voltage chain D4 check (legacy) ── */
   const [chainReady, setChainReady] = useState(false);
   const [chainEligible, setChainEligible] = useState(false);
   const [chainRollResult, setChainRollResult] = useState(0);

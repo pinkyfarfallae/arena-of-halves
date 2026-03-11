@@ -139,7 +139,7 @@ export interface TurnState {
   critRoll?: number;
   critWinFaces?: number[];
 
-  /* Thunderbolt chain D4 (legacy; Keraunos now uses crit D4 + chosen targets) */
+  /* Keraunos Voltage chain D4 (legacy; Keraunos now uses crit D4 + chosen targets) */
   chainRoll?: number;
   chainSuccess?: boolean;
   chainWinFaces?: number[];

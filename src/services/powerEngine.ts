@@ -603,12 +603,13 @@ export function applyJoltArc(
   return { updates, aoeDamageMap };
 }
 
-/* ── Zeus: Thunderbolt — chain AoE ─────────────────── */
+/* ── Zeus: Keraunos Voltage — chain AoE (legacy) ─────────────────── */
 
 /**
- * Apply Thunderbolt chain: -1 damage to all enemies EXCEPT primary target.
+ * Apply Keraunos Voltage chain: -1 damage to all enemies EXCEPT primary target.
+ * (Legacy: Keraunos now uses chosen targets + crit D4; kept for reference.)
  */
-export function applyThunderboltChain(
+export function applyKeraunosVoltageChain(
   room: BattleRoom,
   attackerId: string,
   defenderId: string,

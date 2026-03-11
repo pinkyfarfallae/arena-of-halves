@@ -2,25 +2,7 @@
 @use 'sass:math';
 @use 'sass:list';
 @use 'sass:color';
-@use 'styles/hit';
-
-// Zeus
-@use 'styles/thunderbolt';
-@use 'styles/jolt-arc-attack';
-@use 'styles/jolt-arc-decelerated';
-@use 'styles/beyond-the-nimbus';
-@use 'styles/shocked';
-
-// Hades
-@use 'styles/death-keeper';
-@use 'styles/shadow-camouflage';
-@use 'styles/soul-devourer';
-@use 'styles/skeleton-minion';
-
-// Persephone
-@use 'styles/petal-shielded';
-@use 'styles/floral-fragrance';
-@use 'styles/pomegranate';
+@use 'styles/index';
 
 /* ══════════════════════════════════════
    MEMBER CHIP — image card with hover popup

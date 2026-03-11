@@ -1,6 +1,6 @@
 @use 'sass:math';
-@use 'vars' as *;
-@use '../../../../../../styles/variables' as *;
+@use '../vars' as *;
+@use '../../../../../../../styles/variables' as *;
 
 /* ── Jolt Arc Deceleration — Zeus power VFX ──
    Storm + charge drops + rise + smoke + divine gold/white accents. */
@@ -13,6 +13,7 @@ $blue-pale: #9fa8da;
 $blue-dim: #e8eaf6;
 $yellow-dim: #e8e4b8;
 $yellow-pale: #f5f2d0;
+
 /* Zeus power accents */
 $zeus-gold: #ffd54f;
 $zeus-amber: #ffc107;

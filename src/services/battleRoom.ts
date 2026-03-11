@@ -12,7 +12,7 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyThunderboltChain, applyKeraunosVoltageShock,
+  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageChain, applyKeraunosVoltageShock,
   applySecretOfDryadPassive, applyFloralFragranced, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
@@ -3014,7 +3014,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         return;
       }
     }
-  // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain, applySecretOfDryadPassive
+  // (applyPowerEffect, applyLightningReflexPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
   //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
