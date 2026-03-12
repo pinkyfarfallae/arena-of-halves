@@ -7,6 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { SKILL_UNLOCK } from '../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
+import { SEASON_KEYS } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -170,18 +171,30 @@ export function applyPowerEffect(
 
     case EFFECT_TYPES.BUFF:
     case EFFECT_TYPES.DEBUFF: {
-      // Shadow Camouflaging: no stack; new select = reset to 2 rounds (design duration).
+      // Shadow Camouflaging / Beyond the Nimbus: no stack; new select = reset to 2 rounds.
       // UI shows Math.ceil(turnsRemaining / queueLen) as "rounds", so store 2 * queueLen to display 2.
       const isShadowCamouflaging = power.name === POWER_NAMES.SHADOW_CAMOUFLAGING || power.modStat === MOD_STAT.SHADOW_CAMOUFLAGED;
+      const isBeyondTheNimbus = power.name === POWER_NAMES.BEYOND_THE_NIMBUS;
       const queueLen = battle.turnQueue?.length || 1;
       const shadowCamouflageDuration = 2 * queueLen;
+      const beyondTheNimbusDuration = 2 * queueLen;
       const existingShadow = isShadowCamouflaging
         ? effects.find(e => e.targetId === targetId && (e.powerName === POWER_NAMES.SHADOW_CAMOUFLAGING || e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED))
         : null;
+      const existingNimbus = isBeyondTheNimbus
+        ? effects.find(e => e.targetId === targetId && e.powerName === POWER_NAMES.BEYOND_THE_NIMBUS && e.modStat === power.modStat)
+        : null;
       if (existingShadow) {
         existingShadow.turnsRemaining = shadowCamouflageDuration;
+      } else if (existingNimbus) {
+        existingNimbus.turnsRemaining = beyondTheNimbusDuration;
+        existingNimbus.value = power.value;
       } else {
-        const turnsRemaining = isShadowCamouflaging ? shadowCamouflageDuration : power.duration;
+        const turnsRemaining = isShadowCamouflaging
+          ? shadowCamouflageDuration
+          : isBeyondTheNimbus
+            ? beyondTheNimbusDuration
+            : power.duration;
         const eff: ActiveEffect = {
           id: makeEffectId(attackerId, power.name),
           powerName: power.name,
@@ -192,6 +205,7 @@ export function applyPowerEffect(
           turnsRemaining,
         };
         if (power.modStat) eff.modStat = power.modStat;
+        if (isBeyondTheNimbus) eff.tag = EFFECT_TAGS.BEYOND_THE_NIMBUS;
         effects.push(eff);
       }
 
@@ -250,6 +264,7 @@ export function applyPowerEffect(
         targetId,
         value: 0,
         turnsRemaining: power.duration || 1,
+        tag: EFFECT_TAGS.STUN,
       });
       break;
     }
@@ -380,12 +395,82 @@ export function tickEffects(
   return updates;
 }
 
+/* ── Zeus: central shock application (shared by Lightning Spark, Nimbus, Keraunos) ── */
+
+export type ApplyShockedEffectOptions = {
+  /** If true, do not apply shock to targets with petal-shield (default true). */
+  skipIfPetalShield?: boolean;
+  /** If set, use this as target's current HP for bonus-damage calculation (e.g. after other damage this turn). */
+  currentHp?: number;
+};
+
+/**
+ * Central logic for applying shock to a single target. Used by Lightning Spark, Beyond the Nimbus, and Keraunos Voltage.
+ * - If target already has shock: deal bonus damage = baseDamage (100% of attacker's normal attack), then remove all shocks on that target.
+ * - If target does not have shock: apply shock effect.
+ * Returns updated effects array, bonus damage for this target, and optional HP update path/value.
+ */
+export function applyShockedEffectToTarget(
+  room: BattleRoom,
+  attackerId: string,
+  targetId: string,
+  effects: ActiveEffect[],
+  baseDamage: number,
+  powerName: string,
+  options: ApplyShockedEffectOptions = {},
+): {
+  effects: ActiveEffect[];
+  bonusDamage: number;
+  hpUpdate: { path: string; value: number } | null;
+} {
+  const { skipIfPetalShield = true, currentHp: currentHpOverride } = options;
+  const nextEffects = [...effects];
+
+  if (skipIfPetalShield) {
+    const isPetalShielded = nextEffects.some(
+      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
+    );
+    if (isPetalShielded) return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
+  }
+
+  const hasShock = nextEffects.some(
+    (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.SHOCK,
+  );
+
+  if (hasShock) {
+    // Already shocked: deal 100% bonus damage, then remove all shocks on this target.
+    const cleaned = nextEffects.filter(
+      (e) => !(e.targetId === targetId && e.tag === EFFECT_TAGS.SHOCK),
+    );
+    const currentHp = currentHpOverride ?? findFighter(room, targetId)?.currentHp ?? 0;
+    const newHp = Math.max(0, currentHp - baseDamage);
+    const memberPath = findFighterPath(room, targetId);
+    const hpPath = memberPath ? `${memberPath}/currentHp` : null;
+    return {
+      effects: cleaned,
+      bonusDamage: baseDamage,
+      hpUpdate: hpPath ? { path: hpPath, value: newHp } : null,
+    };
+  }
+
+  nextEffects.push({
+    id: makeEffectId(attackerId, powerName),
+    powerName,
+    effectType: EFFECT_TYPES.DOT,
+    sourceId: attackerId,
+    targetId,
+    value: 0,
+    turnsRemaining: 999,
+    tag: EFFECT_TAGS.SHOCK,
+  });
+  return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
+}
+
 /* ── Zeus: Lightning Reflex passive ─────────────────── */
 
 /**
  * Apply Lightning Reflex shock on successful attack.
- * If target already has shock → bonus damage (100% of baseDamage) + remove all shocks.
- * Otherwise → apply new shock DOT (value 0, permanent).
+ * Uses central applyShockedEffectToTarget: already shocked → 100% bonus damage + remove all shocks; else apply shock.
  */
 export function applyLightningReflexPassive(
   room: BattleRoom,
@@ -395,47 +480,73 @@ export function applyLightningReflexPassive(
   baseDamage: number,
 ): { updates: Record<string, unknown>; bonusDamage: number } {
   const updates: Record<string, unknown> = {};
-  const effects = [...(battle.activeEffects || [])];
-
   const attacker = findFighter(room, attackerId);
   if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return { updates, bonusDamage: 0 };
 
   const passive = attacker.powers.find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
   if (!passive) return { updates, bonusDamage: 0 };
 
-  const existingShocks = effects.filter(
-    e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK,
+  const effects = [...(battle.activeEffects || [])];
+  const result = applyShockedEffectToTarget(
+    room,
+    attackerId,
+    defenderId,
+    effects,
+    baseDamage,
+    POWER_NAMES.LIGHTNING_SPARK,
+    { skipIfPetalShield: true },
   );
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = result.effects;
+  if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
+  return { updates, bonusDamage: result.bonusDamage };
+}
 
-  if (existingShocks.length > 0) {
-    // Double-shock: bonus damage = baseDamage, remove all shocks on defender
-    const cleaned = effects.filter(
-      e => !(e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK),
+/**
+ * Apply shock to all enemy team members (Beyond the Nimbus). Uses central applyShockedEffectToTarget:
+ * already shocked → 100% base damage + remove all shocks; else apply shock.
+ */
+export function applyBeyondTheNimbusTeamShock(
+  room: BattleRoom,
+  attackerId: string,
+  battle: BattleState,
+  baseDamage: number,
+  /** If set, do not apply shock to this character (e.g. attack target just cleansed by Lightning Reflex). */
+  excludeTargetId?: string,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const attackerTeam = findFighterTeam(room, attackerId);
+  if (!attackerTeam) return updates;
+
+  const enemies = attackerTeam === BATTLE_TEAM.A
+    ? (room.teamB?.members || [])
+    : (room.teamA?.members || []);
+
+  let effects = [...(battle.activeEffects || [])];
+  for (const enemy of enemies) {
+    if (enemy.currentHp <= 0) continue;
+    if (excludeTargetId && enemy.characterId === excludeTargetId) continue;
+
+    const result = applyShockedEffectToTarget(
+      room,
+      attackerId,
+      enemy.characterId,
+      effects,
+      baseDamage,
+      POWER_NAMES.BEYOND_THE_NIMBUS,
+      { skipIfPetalShield: true },
     );
-    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
-    return { updates, bonusDamage: baseDamage };
+    effects = result.effects;
+    if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
   }
-
-  // First shock: apply permanent DOT with tag
-  effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.LIGHTNING_SPARK),
-    powerName: POWER_NAMES.LIGHTNING_SPARK,
-    effectType: EFFECT_TYPES.DOT,
-    sourceId: attackerId,
-    targetId: defenderId,
-    value: 0,
-    turnsRemaining: 999,
-    tag: EFFECT_TAGS.SHOCK,
-  });
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
-  return { updates, bonusDamage: 0 };
+  return updates;
 }
 
 /* ── Zeus: Jolt Arc — AoE shock detonation ─────────── */
 
 /**
- * Detonate all shock DOTs on all enemies. Each shock stack deals
- * attacker.damage to the target. All shocks are removed.
+ * All shocked enemies explode, dealing instant damage (attacker.damage per shock stack).
+ * All shocks on hit targets are removed. All enemies hit receive -7 speed for 2 rounds.
  */
 export function applyJoltArc(
   room: BattleRoom,
@@ -469,17 +580,36 @@ export function applyJoltArc(
   }
 
   // Remove ALL shock DOTs
-  const cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
+  let cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
+
+  // Apply -7 speed for 2 rounds to all enemies hit
+  const queueLen = battle.turnQueue?.length || 1;
+  const speedDebuffDuration = queueLen * 2;
+  for (const targetId of Object.keys(aoeDamageMap)) {
+    cleaned.push({
+      id: makeEffectId(attackerId, POWER_NAMES.JOLT_ARC),
+      powerName: POWER_NAMES.JOLT_ARC,
+      effectType: EFFECT_TYPES.DEBUFF,
+      sourceId: attackerId,
+      targetId,
+      value: 7,
+      modStat: MOD_STAT.SPEED,
+      turnsRemaining: speedDebuffDuration,
+      tag: EFFECT_TAGS.JOLT_ARC_DECELERATION,
+    });
+  }
+
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
   return { updates, aoeDamageMap };
 }
 
-/* ── Zeus: Thunderbolt — chain AoE ─────────────────── */
+/* ── Zeus: Keraunos Voltage — chain AoE (legacy) ─────────────────── */
 
 /**
- * Apply Thunderbolt chain: -1 damage to all enemies EXCEPT primary target.
+ * Apply Keraunos Voltage chain: -1 damage to all enemies EXCEPT primary target.
+ * (Legacy: Keraunos now uses chosen targets + crit D4; kept for reference.)
  */
-export function applyThunderboltChain(
+export function applyKeraunosVoltageChain(
   room: BattleRoom,
   attackerId: string,
   defenderId: string,
@@ -502,6 +632,49 @@ export function applyThunderboltChain(
   }
 
   return { updates, aoeDamageMap };
+}
+
+/**
+ * Apply shock to everyone alive on the opponent team for Keraunos Voltage.
+ * Uses central applyShockedEffectToTarget: already shocked → 100% base damage + remove all shocks; else apply shock.
+ * baseDamageByTarget: main = 3, secondaries = 2, everyone else = 0 (so only bolt targets get bonus damage when already shocked).
+ * currentHpByTarget: optional map of targetId -> current HP after damage (for bonus damage HP).
+ */
+export function applyKeraunosVoltageShock(
+  room: BattleRoom,
+  attackerId: string,
+  defenderId: string,
+  battle: BattleState,
+  baseDamage: number,
+  currentHpByTarget?: Record<string, number>,
+  baseDamageByTarget?: Record<string, number>,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+  const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
+  const targets = baseDamageByTarget && Object.keys(baseDamageByTarget).length > 0
+    ? Object.keys(baseDamageByTarget)
+    : enemies.filter(e => e.currentHp > 0).map(e => e.characterId);
+  if (targets.length === 0) return updates;
+
+  let effects = [...(battle.activeEffects || [])];
+  for (const targetId of targets) {
+    const currentHp = currentHpByTarget?.[targetId];
+    const baseDmg = baseDamageByTarget?.[targetId] ?? baseDamage;
+    const result = applyShockedEffectToTarget(
+      room,
+      attackerId,
+      targetId,
+      effects,
+      baseDmg,
+      POWER_NAMES.KERAUNOS_VOLTAGE,
+      { skipIfPetalShield: true, ...(currentHp !== undefined && { currentHp }) },
+    );
+    effects = result.effects;
+    if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
+  }
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+  return updates;
 }
 
 /* ── Persephone: Secret of Dryad passive ─────────────── */
@@ -546,12 +719,12 @@ export function applySecretOfDryadPassive(
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
 }
 
-/* ── Persephone: Floral Scented (1st Skill) ──────────── */
+/* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
 
 /**
- * Anoint an ally with flower scent: heal +value HP (capped at maxHp), then normal attack follows.
+ * Anoint an ally with flower fragrance: heal +value HP (capped at maxHp), then normal attack follows.
  */
-export function applyFloralScented(
+export function applyFloralFragranced(
   room: BattleRoom,
   _attackerId: string,
   allyTargetId: string,
@@ -620,7 +793,7 @@ export function applySeasonEffects(
     const fighterId = fighter.characterId;
 
     switch (season) {
-      case 'summer': {
+      case SEASON_KEYS.SUMMER: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
@@ -635,7 +808,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'autumn': {
+      case SEASON_KEYS.AUTUMN: {
         // Increase maxHp and currentHp immediately (read from updates in case old autumn was just reversed)
         const path = findFighterPath(room, fighterId);
         if (path) {
@@ -659,7 +832,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'winter': {
+      case SEASON_KEYS.WINTER: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
@@ -674,7 +847,7 @@ export function applySeasonEffects(
         break;
       }
 
-      case 'spring': {
+      case SEASON_KEYS.SPRING: {
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,

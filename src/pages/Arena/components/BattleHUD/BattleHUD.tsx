@@ -70,6 +70,8 @@ interface Props {
   onSubmitDefendRoll: (roll: number) => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
+  /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
+  isViewer?: boolean;
   onTransientEffectsActive?: (active: boolean) => void;
   /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
   onSoulDevourerHealReady?: (ready: boolean) => void;
@@ -121,7 +123,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, transientEffectsActive,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
@@ -134,8 +136,8 @@ export default function BattleHUD({
   const isMyDefend = turn?.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === BATTLE_TEAM.A ? teamB : teamA;
 
-  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target). */
-  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER) ?? false;
+  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back). */
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -171,9 +173,27 @@ export default function BattleHUD({
     });
   })();
 
-  /* ── Dice submit with brief delay so user sees result ── */
+  /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
   const defSubmitted = useRef(false);
+
+  // Pre-roll so we can send result on click (viewer gets result when player clicks, not when animation ends)
+  const [preRolledAttack, setPreRolledAttack] = useState<number | null>(null);
+  const [preRolledDefend, setPreRolledDefend] = useState<number | null>(null);
+  useEffect(() => {
+    if (turn?.phase === PHASE.ROLLING_ATTACK && turn?.attackerId === myId) {
+      setPreRolledAttack(Math.floor(Math.random() * 12) + 1);
+    } else {
+      setPreRolledAttack(null);
+    }
+  }, [turn?.phase, turn?.attackerId, myId]);
+  useEffect(() => {
+    if (turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId === myId) {
+      setPreRolledDefend(Math.floor(Math.random() * 12) + 1);
+    } else {
+      setPreRolledDefend(null);
+    }
+  }, [turn?.phase, turn?.defenderId, myId]);
 
   // Reset submitted flags when phase changes
   if (turn?.phase === PHASE.ROLLING_ATTACK) defSubmitted.current = false;
@@ -182,29 +202,69 @@ export default function BattleHUD({
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
     atkSubmitted.current = true;
-    setTimeout(() => onSubmitAttackRoll(n), 1500);
+    onSubmitAttackRoll(n);
   }, [onSubmitAttackRoll]);
 
   const handleDefendRollResult = useCallback((n: number) => {
     if (defSubmitted.current) return;
     defSubmitted.current = true;
-    setTimeout(() => onSubmitDefendRoll(n), 1500);
+    onSubmitDefendRoll(n);
   }, [onSubmitDefendRoll]);
+
+  const handleAttackRollStart = useCallback(() => {
+    if (atkSubmitted.current || preRolledAttack == null) return;
+    atkSubmitted.current = true;
+    onSubmitAttackRoll(preRolledAttack);
+  }, [onSubmitAttackRoll, preRolledAttack]);
+  const handleDefendRollStart = useCallback(() => {
+    if (defSubmitted.current || preRolledDefend == null) return;
+    defSubmitted.current = true;
+    onSubmitDefendRoll(preRolledDefend);
+  }, [onSubmitDefendRoll, preRolledDefend]);
 
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
   const [atkRollDone, setAtkRollDone] = useState(false);
   const [defRollDone, setDefRollDone] = useState(false);
+  /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends) */
+  const PLAYER_ROLL_RESULT_VIEW_MS = 2000;
+  const atkRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const defRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset when phase changes
-  useEffect(() => { setAtkRollDone(false); }, [turn?.phase]);
-  useEffect(() => { setDefRollDone(false); }, [turn?.phase]);
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && isViewer) return;
+    if (atkRollDoneTimeoutRef.current) {
+      clearTimeout(atkRollDoneTimeoutRef.current);
+      atkRollDoneTimeoutRef.current = null;
+    }
+    setAtkRollDone(false);
+  }, [turn?.phase, isViewer]);
+  // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
+  useEffect(() => {
+    if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId) return;
+    if (defRollDoneTimeoutRef.current) {
+      clearTimeout(defRollDoneTimeoutRef.current);
+      defRollDoneTimeoutRef.current = null;
+    }
+    setDefRollDone(false);
+  }, [turn?.phase, turn?.defenderId, myId]);
 
   /* ── Sequencing: wait for opponent's dice to finish before next step ── */
   const [defendReady, setDefendReady] = useState(false);
   const [resolveReady, setResolveReady] = useState(false);
 
-  // Reset ready flags when phase changes
-  useEffect(() => { if (turn?.phase === PHASE.ROLLING_DEFEND) setDefendReady(false); }, [turn?.phase]);
+  // Reset defendReady when phase changes. When I am defender (NPC attacked), wait for attack dice to show first — set defendReady only after atkRollDone to avoid jitter.
+  useEffect(() => {
+    if (turn?.phase !== PHASE.ROLLING_DEFEND) return;
+    if (turn.defenderId === myId) {
+      if (turn.attackRoll != null && atkRollDone) {
+        setDefendReady(true);
+      } else {
+        setDefendReady(false);
+      }
+    } else {
+      setDefendReady(false);
+    }
+  }, [turn?.phase, turn?.defenderId, turn?.attackRoll, myId, atkRollDone]);
   useEffect(() => { if (turn?.phase === PHASE.RESOLVING) setResolveReady(false); }, [turn?.phase]);
 
   // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
@@ -246,13 +306,14 @@ export default function BattleHUD({
     }
   }, [turn?.phase, turn?.attackerId, myId]);
 
-  // If opponent attacked, wait for their roll animation to end + 2s viewing time
+  // If I am defender (NPC attacked): show defend roller only after attack dice animation (atkRollDone) — handled in the ROLLING_DEFEND effect above
+  // If opponent attacked and we're not defender: wait for their roll animation to end + 2s viewing time
   useEffect(() => {
-    if (atkRollDone && turn?.phase === PHASE.ROLLING_DEFEND) {
+    if (atkRollDone && turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId !== myId) {
       const t = setTimeout(() => setDefendReady(true), 2000);
       return () => clearTimeout(t);
     }
-  }, [atkRollDone, turn?.phase]);
+  }, [atkRollDone, turn?.phase, turn?.defenderId, myId]);
 
   // If skipDice power was used, resolve immediately (no dice to show)
   useEffect(() => {
@@ -283,15 +344,7 @@ export default function BattleHUD({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- turnPhase/soulDevourerEndTurnOnlyTurn derived from turn; keep deps array length constant
   }, [turnPhase, soulDevourerEndTurnOnlyTurn, isPlaybackDriver, onResolve]);
 
-  // If I defended, no replay to wait for → short delay (skip for skipDice powers)
-  useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && turn.defenderId === myId && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll)) {
-      const t = setTimeout(() => setResolveReady(true), 500);
-      return () => clearTimeout(t);
-    }
-  }, [turn?.phase, turn?.defenderId, turn?.action, turn?.attackRoll, myId]);
-
-  // If opponent defended, wait for their roll animation to end + 2s viewing time
+  // Resolve (damage card) only after defender dice animation has ended: wait for defRollDone then 2s. Same delay for viewer so they see damage card in sync with player.
   useEffect(() => {
     if (defRollDone && turn?.phase === PHASE.RESOLVING) {
       const t = setTimeout(() => setResolveReady(true), 2000);
@@ -415,11 +468,42 @@ export default function BattleHUD({
     if (dodgeRef.current.isDodged) { setCritReady(true); return; }
 
     const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
-    if (isSkipDice) {
+    const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+    if (isSkipDice && !isKeraunos) {
       setCritReady(true);
       return;
     }
-    // Self-buff powers (e.g. Beyond the Cloud) still do normal attacks → allow crit
+    // Keraunos Voltage: D4 crit (rate = crit + 25%); server already set critWinFaces
+    if (isKeraunos) {
+      const effectiveCritK = Math.min(100, Math.max(0, (attacker?.criticalRate ?? 0) + 25));
+      const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+      if (effectiveCritK >= 100) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
+        setCritEligible(true);
+        setCritReady(true);
+        return;
+      }
+      if (isMyTurn) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: false, critRoll: 0 };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { critWinFaces: winFaces });
+        setCritEligible(true);
+      } else if (turn.critRoll != null && turn.critRoll > 0) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+        setCritRollResult(turn.critRoll);
+        setCritEligible(true);
+        setTimeout(() => setCritReady(true), 3500);
+      } else {
+        const crit = checkCritical(effectiveCritK, winFaces);
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
+        if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
+        setCritRollResult(crit.critRoll);
+        setCritEligible(true);
+        setTimeout(() => setCritReady(true), 3500);
+      }
+      return;
+    }
+    // Self-buff powers (e.g. Beyond the Nimbus) still do normal attacks → allow crit
     const usedPowerDef = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null
       ? attacker?.powers?.[turn.usedPowerIndex] : undefined;
     if (turn.action === TURN_ACTION.POWER && usedPowerDef?.target !== TARGET_TYPES.SELF) {
@@ -502,7 +586,7 @@ export default function BattleHUD({
     return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, critEligible, isMyTurn, critRollResult, turn?.critRoll, turn?.isCrit]);
 
-  /* ── Thunderbolt chain D4 check ── */
+  /* ── Keraunos Voltage chain D4 check (legacy) ── */
   const [chainReady, setChainReady] = useState(false);
   const [chainEligible, setChainEligible] = useState(false);
   const [chainRollResult, setChainRollResult] = useState(0);
@@ -523,7 +607,7 @@ export default function BattleHUD({
     if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady) return;
     // Dodged → skip chain
     if (dodgeRef.current.isDodged) { setChainReady(true); return; }
-    if (turn.usedPowerName !== POWER_NAMES.THUNDERBOLT) {
+    if (turn.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE) {
       setChainReady(true);
       return;
     }
@@ -699,10 +783,20 @@ export default function BattleHUD({
     ? (attackerTeamMinionsForPlayback as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
     : (attacker?.skeletonCount ?? 0);
   const masterHasSkeletonPlayback = attackerSkeletonCountForPlayback > 0;
+  const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500;
   const CHAINED_MASTER_RESOLVE_DISPLAY_MS = 2400;
   const MINION_RESOLVE_DISPLAY_MS = 2200;
-  const masterResolveDisplayMs = ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)) ? CHAINED_MASTER_RESOLVE_DISPLAY_MS : 5000;
+  const KERAUNOS_VOLTAGE_RESOLVE_MS = 10000;
+  const masterResolveDisplayMs = (turn as any)?.soulDevourerDrain
+    ? SOUL_DEVOURER_MASTER_AND_HEAL_MS
+    : turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
+      ? KERAUNOS_VOLTAGE_RESOLVE_MS
+      : (turn?.action === TURN_ACTION.ATTACK && masterHasSkeletonPlayback)
+        ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
+        : 5000;
   const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
+  /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
+  const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
@@ -713,7 +807,7 @@ export default function BattleHUD({
     onResolve();
   }, [isPlaybackDriver, turn, onResolve]);
 
-  /* ── Floral Fragrance: delay target selection so scent wave visual plays ── */
+  /* ── Floral Fragrance: delay target selection so fragrance wave visual plays ── */
   const [floralDelay, setFloralDelay] = useState(false);
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && turn.allyTargetId) {
@@ -731,9 +825,36 @@ export default function BattleHUD({
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
   const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
+  // Viewer: same 2s delay as player after defend dice so damage card appears in sync. Guard by turn key so we don't set for wrong turn when round advances.
+  const [viewerCriticalDiceDelayDone, setViewerCriticalDiceDelayDone] = useState(false);
+  const viewerDelayTurnKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isViewer || turn?.phase !== PHASE.RESOLVING) {
+      viewerDelayTurnKeyRef.current = null;
+      setViewerCriticalDiceDelayDone(false);
+      return;
+    }
+    if ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.POWER && !turn?.attackRoll)) {
+      viewerDelayTurnKeyRef.current = null;
+      setViewerCriticalDiceDelayDone(true);
+      return;
+    }
+    if (turn?.defendRoll == null) return;
+    if (!defRollDone) return;
+    const turnKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`;
+    viewerDelayTurnKeyRef.current = turnKey;
+    const t = window.setTimeout(() => {
+      if (viewerDelayTurnKeyRef.current === turnKey) setViewerCriticalDiceDelayDone(true);
+      viewerDelayTurnKeyRef.current = null;
+    }, 2000);
+    return () => {
+      clearTimeout(t);
+      viewerDelayTurnKeyRef.current = null;
+    };
+  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, turn?.attackerId, turn?.defenderId, (turn as any)?.soulDevourerDrain, defRollDone, battle.roundNumber, battle.currentTurnIndex]);
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
     (!!attacker && !!defender && (
-      allResolveChecksDone
+      allResolveChecksDone && (!isViewer || viewerCriticalDiceDelayDone)
     )) ||
     (shadowCamouflageD4 && !!attacker)
   );
@@ -847,7 +968,10 @@ export default function BattleHUD({
 
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
-  const resolveBarVisible = (resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0;
+  // When turn has passed to NPC (SELECT_ACTION && !isMyTurn), hide immediately to avoid jitter of resolve/dice modal on player side.
+  const resolveBarVisible =
+    !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
+    ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -1125,9 +1249,11 @@ export default function BattleHUD({
     resolveCache.current.powerName ?? '',
     resolveCache.current.isDodged ? 'dodged' : 'live',
     resolveCache.current.isCrit ? 'crit' : 'plain',
+    resolveCacheMergeTick,
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
-  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4) {
+  // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
+  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn)) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
@@ -1151,7 +1277,7 @@ export default function BattleHUD({
       resolveCache.current = {
         atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
         isHit: true, damage: drainDmg, baseDmg: drainDmg, shockBonus: 0,
-        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? (turn.action === TURN_ACTION.POWER ? 'Soul Devourer' : 'Attack'),
+        isPower: turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? (turn.action === TURN_ACTION.POWER ? POWER_NAMES.SOUL_DEVOURER : TURN_ACTION.POWER)),
         critEligible: false, isCrit: false, critRoll: 0,
         isDodged: false, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
@@ -1168,6 +1294,18 @@ export default function BattleHUD({
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
       const baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let damage = baseDmg;
+
+      // Prefer server authority for breakdown when log already has this turn's attack result
+      // (avoids overwriting isCrit/baseDmg/shockBonus with stale client refs e.g. defender never rolled D4)
+      const logArrForFill = battle.log || [];
+      const lastEntryForTurn = [...logArrForFill].reverse().find(
+        (e: any) => e.attackerId === turn.attackerId && e.defenderId === turn.defenderId && !e.beyondTheNimbus && (e.attackRoll != null || (e.damage != null && e.damage > 0))
+      ) as { baseDmg?: number; isCrit?: boolean; shockDamage?: number; damage?: number } | undefined;
+      const useLogBreakdown = lastEntryForTurn && (
+        lastEntryForTurn.baseDmg != null ||
+        lastEntryForTurn.isCrit === true ||
+        (lastEntryForTurn.shockDamage != null && lastEntryForTurn.shockDamage > 0)
+      );
 
       // Read crit result from critRef (already determined by D4 roll)
       const cd = critRef.current;
@@ -1189,12 +1327,26 @@ export default function BattleHUD({
       const dgd = dodgeRef.current.isDodged;
       const ca = coAttackRef.current;
 
+      const baseDmgFinal = useLogBreakdown && lastEntryForTurn?.baseDmg != null ? lastEntryForTurn.baseDmg : baseDmg;
+      const isCritFinal = useLogBreakdown && lastEntryForTurn?.isCrit === true ? true : cd.isCrit;
+      const shockBonusFinal = useLogBreakdown && lastEntryForTurn?.shockDamage != null ? lastEntryForTurn.shockDamage : shockBonus;
+      const damageFinal = useLogBreakdown && lastEntryForTurn?.damage != null ? lastEntryForTurn.damage : (dgd ? 0 : damage);
+      // Self-buff + attack (e.g. Beyond the Nimbus): show damage card as normal attack so breakdown (base + crit + shock) displays
+      const isPowerForCard = turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS;
+
+      // Store stable crit roll label so it doesn't flip to "D4: -" when turn changes (e.g. at end of resolving after Beyond the Nimbus)
+      const critBuffForLabel = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.CRITICAL_RATE);
+      const effectiveCritForLabel = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffForLabel);
+      const critRollLabel = !dgd && critEligible
+        ? (effectiveCritForLabel >= 100 ? 'D4: auto' : (cd.critRoll > 0 ? `D4: ${cd.critRoll}` : 'D4: -'))
+        : undefined;
+
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
-        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damage, baseDmg, shockBonus,
-        isPower: turn.action === TURN_ACTION.POWER, powerName: turn.usedPowerName ?? '',
-        critEligible: !dgd && critEligible, isCrit: cd.isCrit, critRoll: cd.critRoll,
+        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
+        isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
+        critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll, critRollLabel,
         isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
@@ -1299,8 +1451,9 @@ export default function BattleHUD({
 
         const rc = {
           isHit: !entry.missed,
-          isPower: !!entry.powerUsed,
-          powerName: entry.powerUsed || '',
+          // Beyond the Nimbus attack (after confirm): show in resolve bar as normal attack (ATK vs DEF, damage)
+          isPower: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? false : !!entry.powerUsed,
+          powerName: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (entry.powerUsed || ''),
           isCrit: !!(entry.isCrit),
           baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
@@ -1310,6 +1463,15 @@ export default function BattleHUD({
           coAttackHit: !!entry.coAttackDamage,
           coAttackDamage: (entry.coAttackDamage as number) || 0,
           soulDevourerDrain: !!(entry as any).soulDevourerDrain,
+          critRoll: (entry as any).critRoll ?? 0,
+          // Stable crit label so bar doesn't flip to "D4: -" when turn changes at end of resolving
+          critRollLabel: (() => {
+            const aeForCrit = battle.activeEffects || [];
+            const critBuffMerge = getStatModifier(aeForCrit, entry.attackerId, MOD_STAT.CRITICAL_RATE);
+            const effectiveCritMerge = atk ? Math.max(atk.criticalRate ?? 0, (atk.criticalRate ?? 0) + critBuffMerge) : 0;
+            const entryCritRoll = (entry as any).critRoll ?? 0;
+            return effectiveCritMerge >= 100 ? 'D4: auto' : (entryCritRoll > 0 ? `D4: ${entryCritRoll}` : 'D4: -');
+          })(),
           // Use lowercase minion nickname for minion attacker when available
           attackerName: (entry as any).isMinionHit
             ? (minionFromTeams?.nicknameEng?.toLowerCase().slice(0, 11) + "..." || atk?.nicknameEng || entry.attackerId)
@@ -1322,8 +1484,15 @@ export default function BattleHUD({
         } as any;
 
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
-        if (!(entry as any).isMinionHit) {
+        // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
+        if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus) {
           resolveCache.current = { ...resolveCache.current, ...rc } as any;
+          // Resolve bar must never show power name for Beyond the Nimbus (treat as normal attack); once resolveVisible goes false the fill stops, so force it here
+          if (turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) {
+            resolveCache.current.isPower = false;
+            resolveCache.current.powerName = '';
+          }
+          setResolveCacheMergeTick((t) => t + 1);
         }
         onResolveVisible?.(true);
         if ((entry as any).isMinionHit) {
@@ -1416,7 +1585,7 @@ export default function BattleHUD({
   const atkSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
   const defSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
-  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy shocks)
+  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock)
   const ae = battle.activeEffects || [];
   const disabledPowerNames = (() => {
     const disabled = new Set<string>();
@@ -1454,7 +1623,7 @@ export default function BattleHUD({
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
               <span className="bhud__phase-label">
-                {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action })}
+                {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action, treatAsNormalAttack: turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS })}
               </span>
             </>
           )}
@@ -1538,6 +1707,19 @@ export default function BattleHUD({
         </div>
       )}
 
+      {/* When turn passed to NPC (SELECT_ACTION): show stable placeholder in dice zone to avoid jitter from DiceModal unmounting */}
+      {turn.phase === PHASE.SELECT_ACTION && !isMyTurn && attacker && !showResolve && !skipCard && !showResurrecting && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={{ '--modal-primary': attacker.theme?.[0], '--modal-dark': attacker.theme?.[18] } as React.CSSProperties}>
+            <span className="bhud__dice-label">Choosing Action</span>
+            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
+            <div className="bhud__dice-roller bhud__dice-roller--waiting">
+              <div className="bhud__roll-waiting-spinner" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Season selection (Persephone's Ephemeral Season) */}
       {turn.phase === PHASE.SELECT_SEASON && attacker && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
@@ -1577,8 +1759,8 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Dice rolling (attack, defend, resolving replay) */}
-      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && (
+      {/* Dice rolling (attack, defend, resolving replay). In viewer mode hide when damage card is showing so blocked/hit card doesn't overlap dice. */}
+      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && !(isViewer && resolveVisible) && (
         <DiceModal
           turn={turn}
           attacker={attacker}
@@ -1587,14 +1769,31 @@ export default function BattleHUD({
           isMyDefend={!!isMyDefend}
           atkSide={atkSide}
           defSide={defSide}
+          preRolledAttack={preRolledAttack}
+          preRolledDefend={preRolledDefend}
           onAttackRoll={handleAttackRollResult}
           onDefendRoll={handleDefendRollResult}
-          onAtkRollDone={() => setAtkRollDone(true)}
-          onDefRollDone={() => setDefRollDone(true)}
+          onAttackRollStart={handleAttackRollStart}
+          onDefendRollStart={handleDefendRollStart}
+          onAtkRollDone={() => {
+            if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
+            atkRollDoneTimeoutRef.current = setTimeout(() => {
+              atkRollDoneTimeoutRef.current = null;
+              setAtkRollDone(true);
+            }, PLAYER_ROLL_RESULT_VIEW_MS);
+          }}
+          onDefRollDone={() => {
+            if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
+            defRollDoneTimeoutRef.current = setTimeout(() => {
+              defRollDoneTimeoutRef.current = null;
+              setDefRollDone(true);
+            }, PLAYER_ROLL_RESULT_VIEW_MS);
+          }}
           atkRollDone={atkRollDone}
           defRollDone={defRollDone}
           defendReady={defendReady}
           resolveReady={resolveReady}
+          isViewer={isViewer}
           critEligible={critEligible}
           critReady={critReady}
           critWinFaces={critRef.current.winFaces}
@@ -1625,6 +1824,9 @@ export default function BattleHUD({
         const rc = activePlaybackStep
           ? { ...resolveCache.current, ...activePlaybackStep }
           : resolveCache.current;
+        // Beyond the Nimbus: never show power name in resolve bar (treat as normal attack)
+        const hidePowerNameForNimbus = turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS;
+        const showPowerName = rc.isPower && rc.powerName && !hidePowerNameForNimbus;
         if (activePlaybackStep?.isMinionHit) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
@@ -1635,7 +1837,7 @@ export default function BattleHUD({
             </div>
           );
         }
-        if (rc.isPower && rc.atkRoll === 0) {
+        if (rc.isPower && rc.atkRoll === 0 && !hidePowerNameForNimbus) {
           return (
             <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
               <div className="bhud__resolve-info">
@@ -1656,9 +1858,9 @@ export default function BattleHUD({
           );
         }
         return (
-          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${rc.isPower ? 'bhud__resolve--power' : ''} ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${showPowerName ? 'bhud__resolve--power' : ''} ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
             <div className="bhud__resolve-info">
-              {rc.isPower && rc.powerName && (
+              {showPowerName && (
                 <span className="bhud__resolve-power-name">{rc.powerName}</span>
               )}
               <div className="bhud__resolve-rolls">
@@ -1686,18 +1888,26 @@ export default function BattleHUD({
                 <>
                   {rc.critEligible && (
                     <span className={rc.isCrit ? 'bhud__resolve-crit' : 'bhud__resolve-crit-miss'}>
-                      <span className="bhud__resolve-crit-roll">{rc.critRoll > 0 ? `D4: ${rc.critRoll}` : 'D4: -'}</span>
+                      <span className="bhud__resolve-crit-roll">
+                        {rc.critRollLabel ?? (() => {
+                          const ae = battle.activeEffects || [];
+                          const critBuff = getStatModifier(ae, turn?.attackerId ?? '', MOD_STAT.CRITICAL_RATE);
+                          const effectiveCrit = Math.max(attacker?.criticalRate ?? 0, (attacker?.criticalRate ?? 0) + critBuff);
+                          if (effectiveCrit >= 100) return 'D4: auto';
+                          return rc.critRoll > 0 ? `D4: ${rc.critRoll}` : 'D4: -';
+                        })()}
+                      </span>
                       <span className="bhud__resolve-crit-sep">-</span>
                       <span className="bhud__resolve-crit-text">{rc.isCrit ? 'CRIT!' : 'NO CRIT'}</span>
                     </span>
                   )}
-                  <span className="bhud__resolve-dmg">{rc.isPower ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
+                  <span className="bhud__resolve-dmg">{showPowerName ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
                   {rc.coAttackHit && rc.coAttackDamage > 0 && (
                     <span className="bhud__resolve-dmg">Co-Attack: -{rc.coAttackDamage} DMG</span>
                   )}
                 </>
               ) : (
-                <span className="bhud__resolve-miss">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>
+                <span className="bhud__resolve-miss">{showPowerName ? 'RESISTED!' : 'BLOCKED!'}</span>
               )}
             </div>
           </div>
@@ -1831,10 +2041,10 @@ export default function BattleHUD({
               powers: m.powers || [],
             } as FighterState);
           }
-          const atkName = atkFighter?.nicknameEng ?? '???';
-          const defName = defFighter?.nicknameEng ?? '???';
-          const atkColor = atkFighter?.theme[0];
-          const defColor = defFighter?.theme[0];
+          const atkName = atkFighter?.nicknameEng ?? (entry as any).attackerName ?? '???';
+          const defName = defFighter?.nicknameEng ?? (entry as any).defenderName ?? '???';
+          const atkColor = atkFighter?.theme[0] ?? (entry as any).attackerTheme;
+          const defColor = defFighter?.theme[0] ?? (entry as any).defenderTheme;
 
           if ((entry as any).skippedNoValidTarget) {
             return (
@@ -1846,6 +2056,16 @@ export default function BattleHUD({
                 {(entry as any).skipReason === POWER_NAMES.SHADOW_CAMOUFLAGING && (
                   <span className="bhud__log-skip-reason">(no valid target)</span>
                 )}
+              </div>
+            );
+          }
+
+          if ((entry as any).beyondTheNimbus) {
+            return (
+              <div className="bhud__log-entry bhud__log-entry--nimbus" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-power">Beyond the Nimbus</span>
               </div>
             );
           }

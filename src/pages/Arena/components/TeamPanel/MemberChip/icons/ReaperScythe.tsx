@@ -13,7 +13,7 @@ export default function ReaperScythe({ gradientId, color1, color2 }: Props) {
           <stop offset="100%" stopColor={color2} />
         </linearGradient>
       </defs>
-      {/* Scythe blade — curved crescent */}
+      {/* Scythe blade — curved crefragrance */}
       <path
         d="M6 3C6 3 4 7 4 10c0 4 4 7 8 7 2.5 0 4.5-1 6-3-1 2-4 4-7 4C6 18 2 14 2 10c0-3.5 2.5-6 4-7z"
         fill={`url(#${gradientId})`}

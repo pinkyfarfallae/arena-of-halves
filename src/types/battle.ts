@@ -139,10 +139,18 @@ export interface TurnState {
   critRoll?: number;
   critWinFaces?: number[];
 
-  /* Thunderbolt chain D4 (written by BattleHUD before resolve) */
+  /* Keraunos Voltage chain D4 (legacy; Keraunos now uses crit D4 + chosen targets) */
   chainRoll?: number;
   chainSuccess?: boolean;
   chainWinFaces?: number[];
+
+  /* Keraunos Voltage: multi-step target selection then D4 crit (rate = crit + 25%) */
+  /** Main target (3 damage). Same as defenderId when power is Keraunos. */
+  keraunosMainTargetId?: string;
+  /** Up to 2 targets for 2 damage each (1 if 2 enemies, 2 if 3+). */
+  keraunosSecondaryTargetIds?: string[];
+  /** 1 = need main, 2 = need first secondary, 3 = need second secondary. */
+  keraunosTargetStep?: number;
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
   isDodged?: boolean;
@@ -155,7 +163,7 @@ export interface TurnState {
   coAttackHit?: boolean;
   coAttackDamage?: number;
 
-  /* Ally-targeting power (e.g. Floral Scented) */
+  /* Ally-targeting power (e.g. Floral Fragrance) */
   allyTargetId?: string;
 
   /* Persephone's Ephemeral Season selection */
@@ -177,6 +185,10 @@ export interface TurnState {
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
+  /** When current player started rolling attack dice (timestamp) — so viewers can show rolling state in sync */
+  attackRollStartedAt?: number;
+  /** When current player started rolling defend dice (timestamp) — so viewers can show rolling state in sync */
+  defendRollStartedAt?: number;
 }
 
 /** A log entry for the battle feed */
@@ -184,6 +196,10 @@ export interface BattleLogEntry {
   round: number;
   attackerId: string;
   defenderId: string;
+  attackerName?: string;
+  attackerTheme?: string;
+  defenderName?: string;
+  defenderTheme?: string;
   attackRoll: number;
   defendRoll: number;
   damage: number;
@@ -206,6 +222,8 @@ export interface BattleLogEntry {
   skipReason?: string;
   /** Logged when confirming power before target/season; show power name only, no arrow/target until resolved */
   pendingTarget?: boolean;
+  /** Caster has Beyond the Nimbus this turn; show "Caster Beyond the nimbus" before the attack result line */
+  beyondTheNimbus?: boolean;
 }
 
 /** Full battle state stored alongside the room */

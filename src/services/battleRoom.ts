@@ -12,9 +12,9 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyThunderboltChain,
-  applySecretOfDryadPassive, applyFloralScented, applySeasonEffects,
-  applyPomegranateOath,
+  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageChain, applyKeraunosVoltageShock,
+  applySecretOfDryadPassive, applyFloralFragranced, applySeasonEffects,
+  applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS } from '../constants/effectTags';
@@ -763,8 +763,14 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
     const updates: Record<string, unknown> = {};
 
     // Self-buff already applied in selectAction → log after target chosen (self), then dice
+    // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged in selectAction; only advance phase here
     if (power.target === TARGET_TYPES.SELF) {
-      const selfLogEntry = {
+      if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
+        updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+      const selfLogEntry: Record<string, unknown> = {
         round: battle.roundNumber,
         attackerId,
         defenderId: attackerId,
@@ -827,43 +833,73 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           usedPowerName: power.name,
         };
 
-      // ── Thunderbolt: -3 primary, then D4 chain check ──
-      } else if (power.name === POWER_NAMES.THUNDERBOLT) {
-        const defender = findFighter(room, defenderId);
-        const defPath = findFighterPath(room, defenderId);
-        const defHpAfter = defender ? Math.max(0, defender.currentHp - power.value) : 0;
-        if (defPath && defender) updates[`${defPath}/currentHp`] = defHpAfter;
-
-        // Only chain if there are other alive enemies (skip in 1v1)
+      // ── Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = crit + 25%) ──
+      } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
         const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-        const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
-        const chainTargets = enemies.filter(e => e.characterId !== defenderId && e.currentHp > 0);
-        const hasChainTargets = chainTargets.length > 0;
+        const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
+        const n = enemies.length;
+        const step = turn.keraunosTargetStep ?? 0;
+        const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
+        const secondaries = turn.keraunosSecondaryTargetIds ?? [];
 
-        const logEntry = {
-          round: battle.roundNumber,
-          attackerId,
-          defenderId,
-          attackRoll: 0,
-          defendRoll: 0,
-          damage: power.value,
-          defenderHpAfter: defHpAfter,
-          eliminated: defHpAfter <= 0,
-          missed: false,
-          powerUsed: power.name,
-        };
-        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
-        updates[ARENA_PATH.BATTLE_TURN] = {
-          attackerId,
-          attackerTeam: turn.attackerTeam,
-          defenderId,
-          phase: PHASE.RESOLVING,
-          action: TURN_ACTION.POWER,
-          usedPowerIndex: turn.usedPowerIndex,
-          usedPowerName: power.name,
-          ...(hasChainTargets && { chainWinFaces: getWinningFaces(50) }),
-        };
+        if (step === 0) {
+          // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
+          const nextSecondaries: string[] = [];
+          const needMore = n >= 2;
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          const turnUpdate: Record<string, unknown> = {
+            ...turn,
+            defenderId,
+            keraunosMainTargetId: defenderId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: needMore ? 2 : null, // null = remove key (Firebase rejects undefined)
+          };
+          if (!needMore) {
+            turnUpdate.phase = PHASE.RESOLVING;
+            turnUpdate.critWinFaces = getWinningFaces(critRate);
+            turnUpdate.attackRoll = 0;
+            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+          } else {
+            turnUpdate.phase = PHASE.SELECT_TARGET;
+          }
+          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        } else if (step === 2) {
+          // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
+          const nextSecondaries = [...secondaries, defenderId];
+          const needMore = n >= 3;
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          const turnUpdate: Record<string, unknown> = {
+            ...turn,
+            defenderId: mainId,
+            keraunosMainTargetId: mainId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: needMore ? 3 : null,
+          };
+          if (!needMore) {
+            turnUpdate.phase = PHASE.RESOLVING;
+            turnUpdate.critWinFaces = getWinningFaces(critRate);
+            turnUpdate.attackRoll = 0;
+            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+          } else {
+            turnUpdate.phase = PHASE.SELECT_TARGET;
+          }
+          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        } else if (step === 3) {
+          // Third click: second 2-dmg target → done (3+ enemies)
+          const nextSecondaries = [...secondaries, defenderId];
+          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+          updates[ARENA_PATH.BATTLE_TURN] = {
+            ...turn,
+            defenderId: mainId,
+            keraunosMainTargetId: mainId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: null, // remove key when done
+            phase: PHASE.RESOLVING,
+            critWinFaces: getWinningFaces(critRate),
+            attackRoll: 0,
+            defendRoll: 0, // Keraunos: defender cannot defend
+          };
+        }
 
       // ── Generic skipDice power ──
       } else {
@@ -1210,8 +1246,8 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Scented (and other ally powers): apply buff, then follow-up normal attack ──
-    const floralUpdates = applyFloralScented(room, attackerId, allyTargetId, battle, power);
+    // ── Floral Fragrance (and other ally powers): apply buff, then follow-up normal attack ──
+    const floralUpdates = applyFloralFragranced(room, attackerId, allyTargetId, battle, power);
     Object.assign(updates, floralUpdates);
 
     const ally = findFighter(room, allyTargetId);
@@ -1251,7 +1287,27 @@ export async function selectAction(
     const effectUpdates = applyPowerEffect(room, attackerId, attackerId, adjusted as PowerDefinition, battle);
     Object.assign(updates, effectUpdates);
 
-    // Log only after target is chosen (in selectTarget)
+    // Beyond the Nimbus: log "Caster Beyond the Nimbus" at confirm (here); other self-buffs log in selectTarget
+    if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
+      const nimbusEntry: Record<string, unknown> = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId: attackerId,
+        attackRoll: 0,
+        defendRoll: 0,
+        damage: 0,
+        defenderHpAfter: attacker.currentHp,
+        eliminated: false,
+        missed: false,
+        beyondTheNimbus: true,
+        attackerName: attacker.nicknameEng,
+        attackerTheme: attacker.theme?.[0],
+        defenderName: attacker.nicknameEng,
+        defenderTheme: attacker.theme?.[0],
+      };
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), nimbusEntry]);
+    }
+
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
@@ -1512,6 +1568,7 @@ export async function selectAction(
 
   // ── Enemy-targeting power (skipDice or dice): store choice, go to target selection ──
   // Power effects will be applied in selectTarget(); log only after target is chosen
+  // (Self-buff e.g. Beyond the Nimbus is handled above and returns earlier.)
   updates[ARENA_PATH.BATTLE_TURN] = {
     attackerId,
     attackerTeam: battle.turn.attackerTeam,
@@ -1978,6 +2035,20 @@ export async function confirmSeason(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/* ── signal "roll started" so viewers can show dice rolling in sync ── */
+
+export async function requestAttackRollStart(arenaId: string): Promise<void> {
+  try {
+    await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL_STARTED_AT]: Date.now() });
+  } catch (_) {}
+}
+
+export async function requestDefendRollStart(arenaId: string): Promise<void> {
+  try {
+    await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL_STARTED_AT]: Date.now() });
+  } catch (_) {}
+}
+
 /* ── submit attack dice roll ─────────────────────────── */
 
 export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
@@ -2353,6 +2424,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           round: battle.roundNumber,
           attackerId: sk.characterId,
           defenderId,
+          attackerName: sk.nicknameEng?.toLowerCase?.() || 'skeleton',
+          attackerTheme: sk.theme?.[0] || '#666',
+          defenderName: defender.nicknameEng,
+          defenderTheme: defender.theme[0],
           attackRoll: 0,
           defendRoll: 0,
           damage: dmgToApply,
@@ -2461,6 +2536,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   let isCrit = false;
   let critRoll = 0;
   let shockBonusDamage = 0;
+  let baseDmg = 0;
   let soulDevourerDrain = false;
 
   // Resolve power that went through dice rolling
@@ -2469,7 +2545,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     ? attacker.powers?.[usedPowerIndex]
     : undefined;
 
-  // Self-buff power (e.g. Beyond the Cloud): buffs already applied in selectAction().
+  // Self-buff power (e.g. Beyond the Nimbus): buffs already applied in selectAction().
   // Treat as normal attack for damage calculation.
   const isSelfBuffPower = action === TURN_ACTION.POWER && usedPower && !usedPower.skipDice && usedPower.target === TARGET_TYPES.SELF;
 
@@ -2525,7 +2601,55 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLog, logEntry]);
     }
 
+  } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
+    // Keraunos Voltage: base main 3 / secondary 2 each; on crit ×2 (main 6 / secondary 4)
+    const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
+    const secondaryIds: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
+    const isCritK = !!(turn as any).isCrit;
+    const mult = isCritK ? 2 : 1;
+    const dmgMain = 3 * mult;
+    const dmgSecondary = 2 * mult;
+    const aoeDamageMapK: Record<string, number> = {};
+    if (mainId) {
+      const mainFighter = findFighter(room, mainId);
+      if (mainFighter && mainFighter.currentHp > 0) {
+        const newHp = Math.max(0, mainFighter.currentHp - dmgMain);
+        const path = findFighterPath(room, mainId);
+        if (path) updates[`${path}/currentHp`] = newHp;
+        aoeDamageMapK[mainId] = dmgMain;
+      }
+    }
+    for (const sid of secondaryIds) {
+      const sec = findFighter(room, sid);
+      if (sec && sec.currentHp > 0) {
+        const newHp = Math.max(0, sec.currentHp - dmgSecondary);
+        const path = findFighterPath(room, sid);
+        if (path) updates[`${path}/currentHp`] = newHp;
+        aoeDamageMapK[sid] = dmgSecondary;
+      }
+    }
+    const mainPath = mainId ? findFighterPath(room, mainId) : null;
+    const mainHpAfter = mainPath && `${mainPath}/currentHp` in updates ? (updates[`${mainPath}/currentHp`] as number) : (mainId ? findFighter(room, mainId)?.currentHp ?? 0 : 0);
+    const logEntryK = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId: mainId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: dmgMain,
+      defenderHpAfter: mainHpAfter,
+      eliminated: mainHpAfter <= 0,
+      missed: false,
+      powerUsed: POWER_NAMES.KERAUNOS_VOLTAGE,
+      aoeDamageMap: aoeDamageMapK,
+      ...(isCritK && (turn as any).critRoll != null && { isCrit: true, critRoll: (turn as any).critRoll }),
+    };
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntryK]);
+
   } else if (action !== TURN_ACTION.POWER || isSelfBuffPower) {
+    const attackerHasBeyondTheNimbus = activeEffects.some(
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.BEYOND_THE_NIMBUS,
+    );
     // Soul Devourer drain: no dice, no block, no crit; damage = caster main hit only; heal = ceil(main damage * 0.5) — skeleton damage does not heal
     soulDevourerDrain = !!battle.turn.soulDevourerDrain;
     if (soulDevourerDrain) {
@@ -2598,7 +2722,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
     if (hit) {
       const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
-      const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+      baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let rawDmg = baseDmg;
 
       // Critical hit: read from turn state (written by BattleHUD) or compute fallback
@@ -2621,13 +2745,28 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (isCrit) rawDmg *= 2;
       }
 
-      // Lightning Reflex passive: apply shock or detonate for bonus damage (only on pure normal attacks)
-      // Use pre-crit baseDmg so shock detonation = x2 of base damage, not x2 of crit-doubled damage
-      if (!isSelfBuffPower) {
-        const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
-        rawDmg += shockResult.bonusDamage;
-        shockBonusDamage = shockResult.bonusDamage;
-        Object.assign(updates, shockResult.updates);
+      // Attack success → apply shock rule. If target has shock: bonus damage + remove shock. If not: add shock.
+      // Run when: normal attack (Lightning Reflex) OR Nimbus attack (shock all enemies). Nimbus is self-buff so we must check attackerHasBeyondTheNimbus.
+      if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
+        if (attackerHasBeyondTheNimbus) {
+          const battleWithNimbusEffects = {
+            ...battle,
+            activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
+          };
+          const prevEffects = (battleWithNimbusEffects.activeEffects || []) as ActiveEffect[];
+          const defenderHadShock = prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
+          const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects, baseDmg);
+          Object.assign(updates, nimbusShockUpdates);
+          if (defenderHadShock) {
+            rawDmg += baseDmg;
+            shockBonusDamage = baseDmg;
+          }
+        } else {
+          const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+          rawDmg += shockResult.bonusDamage;
+          shockBonusDamage = shockResult.bonusDamage;
+          Object.assign(updates, shockResult.updates);
+        }
       }
 
       // Collect skeletons belonging to the attacker — we will resolve them
@@ -2749,7 +2888,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       eliminated: hit && defenderHpAfter <= 0,
       missed: !hit,
     };
-    
+    if (hit) {
+      logEntry.baseDmg = baseDmg;
+    }
     if (critRoll > 0) {
       logEntry.isCrit = isCrit;
       logEntry.critRoll = critRoll;
@@ -2761,7 +2902,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       logEntry.isDodged = true;
       logEntry.dodgeRoll = battle.turn.dodgeRoll;
     }
-    if (isSelfBuffPower && battle.turn.usedPowerName) {
+    // Do not set powerUsed for self-buff + attack so log shows "Caster vs Defender — hit for X dmg" not "Caster Beyond the Nimbus X dmg"
+    if (isSelfBuffPower && battle.turn.usedPowerName && battle.turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS) {
       logEntry.powerUsed = battle.turn.usedPowerName;
     }
 
@@ -2775,7 +2917,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       lastPrevNorm.defenderId === defenderId &&
       lastPrevNorm.damage === 0 &&
       (lastPrevNorm.powerUsed === battle.turn.usedPowerName || (isSelfBuffPower && lastPrevNorm.powerUsed));
-    if (canUpdateNorm) {
+
+    // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged at confirm (selectTarget); only append attack result with dice
+    if (attackerHasBeyondTheNimbus) {
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
+    } else if (canUpdateNorm) {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), { ...lastPrevNorm, ...logEntry }]);
     } else {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
@@ -2784,16 +2930,34 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
   // skipDice powers: effect + log already written in selectAction()
 
-  // Thunderbolt chain: if D4 succeeded, apply -1 AoE to other enemies
-  if (turn.usedPowerName === POWER_NAMES.THUNDERBOLT && turn.chainSuccess && defenderId) {
-    const { updates: chainUpdates, aoeDamageMap } = applyThunderboltChain(room, attackerId, defenderId, battle);
-    Object.assign(updates, chainUpdates);
-    // Append chain AoE info to the last log entry (use already-updated log if we merged in place)
-    const existingLog = (updates[ARENA_PATH.BATTLE_LOG] as typeof battle.log) || [...(battle.log || [])];
-    if (existingLog.length > 0) {
-      existingLog[existingLog.length - 1].aoeDamageMap = aoeDamageMap;
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
+  // Keraunos Voltage: apply shock to everyone alive on the opponent team (D4 was already rolled before resolve)
+  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && defenderId) {
+    const mainIdK = (turn as any).keraunosMainTargetId ?? defenderId;
+    const secondaryIdsK: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
+    const isTeamAK = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+    const enemyTeam = isTeamAK ? (room.teamB?.members || []) : (room.teamA?.members || []);
+    const getHpForShock = (characterId: string) => {
+      const path = findFighterPath(room, characterId);
+      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+      const f = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === characterId);
+      return f?.currentHp ?? 0;
+    };
+    const allAliveEnemyIds = enemyTeam.filter(e => getHpForShock(e.characterId) > 0).map(e => e.characterId);
+    const baseDamageByTarget: Record<string, number> = {};
+    if (mainIdK) baseDamageByTarget[mainIdK] = 3;
+    for (const sid of secondaryIdsK) baseDamageByTarget[sid] = 2;
+    for (const id of allAliveEnemyIds) {
+      if (baseDamageByTarget[id] === undefined) baseDamageByTarget[id] = 0; // shock only, no bolt damage
     }
+    const currentHpByTarget: Record<string, number> = {};
+    for (const id of allAliveEnemyIds) currentHpByTarget[id] = getHpForShock(id);
+    const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
+      ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
+      : battle;
+    const keraunosShockUpdates = applyKeraunosVoltageShock(
+      room, attackerId, mainIdK, battleForKeraunos, 0, currentHpByTarget, baseDamageByTarget,
+    );
+    Object.assign(updates, keraunosShockUpdates);
   }
 
   // Secret of Dryad passive: grant petal-shield if atkTotal > 10
@@ -2850,7 +3014,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         return;
       }
     }
-  // (applyPowerEffect, applyLightningReflexPassive, applyThunderboltChain, applySecretOfDryadPassive
+  // (applyPowerEffect, applyLightningReflexPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
   //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };

@@ -1,3 +1,5 @@
+import { DEITY_HADES_AND_PERSEPHONE } from "../pages/AdminManager/pages/PowerVfxDemo/utils/constants";
+
 export const DEITY = {
   ZEUS: 'Zeus',
   POSEIDON: 'Poseidon',
@@ -23,7 +25,7 @@ export const DEITY = {
 } as const;
 
 /** Deity display name (PascalCase) — use for labels, DEITY_POWERS, and DEITY_SVG keys. */
-export type Deity = (typeof DEITY)[keyof typeof DEITY] | 'Hades and Persephone';
+export type Deity = (typeof DEITY)[keyof typeof DEITY] | typeof DEITY_HADES_AND_PERSEPHONE;
 
 /** Standard Camp Half-Blood cabin numbers by deity */
 export const DEITY_CABIN: Record<string, number> = {

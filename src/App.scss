@@ -248,6 +248,8 @@
 
 * {
   box-sizing: border-box;
+  outline: none;
+  user-select: none;
   scrollbar-width: thin;
   -webkit-tap-highlight-color: transparent;
 

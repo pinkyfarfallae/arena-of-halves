@@ -3,11 +3,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import User from './pages/User/User';
 import SystemTesting, { SystemTestDice, SystemTestIris } from './pages/SystemTesting/SystemTesting';
+import PowerVfxDemo from './pages/PowerVfxDemo/PowerVfxDemo';
 import './AdminManager.scss';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'System Testing', path: 'testing' },
+  { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
 
 function AdminManager() {
@@ -17,11 +19,13 @@ function AdminManager() {
     return <Navigate to="/" replace />;
   }
 
+  const visibleTabs = TABS.filter(t => !('developerOnly' in t && t.developerOnly) || role === ROLE.DEVELOPER);
+
   return (
     <div className="admin">
       <header className="admin__bar">
         <nav className="admin__tabs">
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <NavLink
               key={t.path}
               to={`/admin/${t.path}`}
@@ -42,6 +46,7 @@ function AdminManager() {
           <Route path="testing" element={<SystemTesting />} />
           <Route path="testing/dice" element={<SystemTestDice />} />
           <Route path="testing/iris-message" element={<SystemTestIris />} />
+          <Route path="power-vfx-demo" element={<PowerVfxDemo />} />
         </Routes>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import type { PowerDefinition } from '../types/power';
 import { EFFECT_TAGS } from '../constants/effectTags';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { POWER_NAMES, POWER_TYPES } from '../constants';
+import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
 import { DEITY } from '../constants/deities';
 
 /**
@@ -32,11 +32,12 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       target: TARGET_TYPES.ENEMY,
       value: 0,
       duration: 999,
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
     {
       deity: DEITY.ZEUS,
       type: POWER_TYPES.FIRST_SKILL,
-      name: DEITY_POWER_NAMES.BEYOND_THE_CLOUD,
+      name: DEITY_POWER_NAMES.BEYOND_THE_NIMBUS,
       description:
         'ทายาทแห่งซุสจะเข้าสู่สถานะ "เหนือเมฆครึ้ม" เป็นเวลา 2 รอบ นั่นคือ ทายาทแห่งซุสจะมีความเร็วเพิ่มขึ้น 2 หน่วยและอัตราติดคริติคอลเพิ่มขึ้น 25% จากนั้นทำการโจมตีต่อทันที  ทั้งนี้ ขณะที่ทายาทแห่งซุสอยู่ในสถานะเหนือเมฆครึ้ม  หากทายาทแห่งซุสทำการโจมตีศัตรูเป้าหมายได้สำเร็จ ศัตรูทั้งสนามจะเข้าสู่สถานะติดช็อตโดยพร้อมเพรียง',
       available: true,
@@ -49,6 +50,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
         { effect: EFFECT_TYPES.BUFF, target: TARGET_TYPES.SELF, value: 2, duration: 2, modStat: MOD_STAT.SPEED },
         { effect: EFFECT_TYPES.BUFF, target: TARGET_TYPES.SELF, value: 25, duration: 2, modStat: MOD_STAT.CRITICAL_RATE },
       ],
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
     {
       deity: DEITY.ZEUS,
@@ -63,19 +65,21 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       duration: 0,
       skipDice: true,
       requiresTargetHasEffect: EFFECT_TAGS.SHOCK,
+      afflictions: [EFFECT_TAGS.JOLT_ARC_DECELERATION],
     },
     {
       deity: DEITY.ZEUS,
       type: POWER_TYPES.ULTIMATE,
-      name: DEITY_POWER_NAMES.THUNDERBOLT,
+      name: DEITY_POWER_NAMES.KERAUNOS_VOLTAGE,
       description:
-        'ทายาทแห่งซุสเสียสละโอกาสในการโจมตีเพื่อเรียกอัสนีบาตผ่าศัตรู 1 ตัว ทำดาเมจ 3 หน่วยทันทีรวทถึงทำดาเมจโดนศัตรูคนอื่นรอบข้าง 2 คน ทำดาเมจ 2 หน่วยโดยไม่ต้องทอยเต่าอีกทั้งศัตรูจะไม่มีโอกาสในการป้องกัน ทั้งนี้ ศักตรูทั้งหมดที่ได้รับดาเมจจากการใช้พลังนี้จะติดสถานะช็อตเช่นกัน',
+        'ทายาทแห่งซุสเสียสละโอกาสในการโจมตีเพื่อเรียกอัสนีบาตผ่าศัตรู 1 ตัว ทำดาเมจ 3 หน่วยทันทีรวมถึงทำดาเมจโดนศัตรูคนอื่นรอบข้าง 2 คน ทำดาเมจ 2 หน่วยโดยไม่ต้องทอยเต่าอีกทั้งศัตรูจะไม่มีโอกาสในการป้องกัน ทั้งนี้ ศักตรูทั้งหมดที่ได้รับดาเมจจากการใช้พลังนี้จะติดสถานะช็อตเช่นกัน ทั้งนี้ เครานอส โวลเทจสามารถติดคริติคอลได้และจะเพิ่มเติมอัตราคริติคอลของทายาทแห่งซุสในการใช้พลังนี้ขึ้นอีก 25%',
       available: true,
       effect: EFFECT_TYPES.DAMAGE,
       target: TARGET_TYPES.ENEMY,
       value: 3,
       duration: 0,
       skipDice: true,
+      afflictions: [EFFECT_TAGS.SHOCK],
     },
   ],
 
@@ -828,6 +832,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     },
   ],
 };
+
+/** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
+export const NO_STACK_POWER_NAMES: Set<string> = new Set([
+  POWER_NAMES.BEYOND_THE_NIMBUS,
+  POWER_NAMES.SHADOW_CAMOUFLAGING,
+  POWER_NAMES.SOUL_DEVOURER,
+]);
 
 /** Synchronous power lookup by deity name (case-insensitive). */
 export function getPowers(deity: string): PowerDefinition[] {
