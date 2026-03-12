@@ -301,8 +301,9 @@ function addEffectsForCharacter(
 }
 
 /**
- * Build synthetic battle from independent caster/target effect choices.
- * Caster modal selections → always apply to caster (left). Target modal selections → always apply to target (right).
+ * Build synthetic battle from independent left/right effect choices.
+ * Left modal selections → apply to caster (left fighter). Right modal selections → apply to target (right fighter).
+ * Each side may include both caster-type and target-type effects.
  */
 export function buildSyntheticBattleFromChoices(
   casterEffectIds: string[],
@@ -318,7 +319,7 @@ export function buildSyntheticBattleFromChoices(
     addEffectsForCharacter(entry, casterId, targetId, activeEffects, idGen);
   }
   for (const effectId of targetEffectIds) {
-    const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId && e.side === 'target');
+    const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId);
     if (entry) addEffectsForCharacter(entry, targetId, casterId, activeEffects, idGen);
   }
   const demoVfxKey = [...casterEffectIds, ...targetEffectIds].sort().join(',');

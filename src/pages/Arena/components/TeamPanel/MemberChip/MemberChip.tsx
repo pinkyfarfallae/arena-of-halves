@@ -6,6 +6,8 @@ import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
+import Flower from './icons/Flower';
+import WavyLines from './icons/WavyLines';
 import ReaperScythe from './icons/ReaperScythe';
 import TargetCrosshair from './icons/TargetCrosshair';
 
@@ -787,8 +789,24 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
+      {/* Wavy line background — Petal Shield only: thin lines, green/yellow/white/pink, low opacity */}
+      {isPetalShielded && battleLive && (
+        <div className="mchip__wavy-line mchip__wavy-line--petal" aria-hidden="true">
+          <WavyLines className="mchip__wavy-line-svg" />
+        </div>
+      )}
+
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
       {isPetalShielded && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
+
+      {/* Rising pink & green particles (nimbus-style, bottom to top), no glow */}
+      {isPetalShielded && battleLive && (
+        <div className="mchip__petal-rise" aria-hidden="true">
+          {Array.from({ length: 40 }, (_, i) => (
+            <span key={i} className="mchip__petal-rise-particle" />
+          ))}
+        </div>
+      )}
 
       {/* Jolt Arc Deceleration — rich decoration (storm, charge drops, rise particles) */}
       {hasJoltArcDeceleration && battleLive && (
@@ -929,13 +947,33 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         <div className="mchip__soul-devourer-wave" aria-hidden="true" />
       )}
 
-      {/* Falling white light motes — like sunlight through leaves */}
+      {/* Falling white (20) + yellow (15) + green (5) + pink (5) motes */}
       {isPetalShielded && battleLive && (
-        <div className="mchip__dryad-lights" aria-hidden="true">
-          {Array.from({ length: 15 }, (_, i) => (
-            <span key={i} className="mchip__dryad-light" />
-          ))}
-        </div>
+        <>
+          <div className="mchip__dryad-lights" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className="mchip__dryad-light" />
+            ))}
+          </div>
+          <div className="mchip__petal-yellow-sparks" aria-hidden="true">
+            {Array.from({ length: 15 }, (_, i) => (
+              <span key={i} className="mchip__petal-yellow-spark" />
+            ))}
+          </div>
+          <div className="mchip__petal-green-pink-sparks" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className="mchip__petal-green-pink-spark" />
+            ))}
+          </div>
+          {/* Falling white flower shapes */}
+          <div className="mchip__petal-flower-fall" aria-hidden="true">
+            {Array.from({ length: 15 }, (_, i) => (
+              <span key={i} className="mchip__petal-flower">
+                <Flower />
+              </span>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Body — clips pattern, fades edges with gradient */}
@@ -1139,6 +1177,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           </div>
         </>
       )}
+
+      {/* Petal shield — white overlay clipped by gradient (over image, under accents) */}
+      {isPetalShielded && battleLive && <div className="mchip__petal-overlay" aria-hidden="true" />}
 
       {/* Resurrection flash — purple falling lights */}
       {showResurrecting && battleLive && (

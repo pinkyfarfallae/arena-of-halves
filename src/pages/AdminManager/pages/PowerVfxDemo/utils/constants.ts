@@ -17,8 +17,14 @@ export const FIGHTER_OPTION_GROUP = {
   NPC: 'NPC',
 } as const;
 
-/** Bar side titles (Caster / Target). */
+/** Bar side titles (Left / Right). */
 export const SIDE_LABEL = {
+  LEFT: 'Left',
+  RIGHT: 'Right',
+} as const;
+
+/** Caster/target labels. */
+export const EFFECT_SIDE_LABEL = {
   CASTER: 'Caster',
   TARGET: 'Target',
 } as const;
@@ -32,8 +38,8 @@ export const PLACEHOLDER = {
 
 /** Effect stack modal titles. */
 export const MODAL_TITLE = {
-  CASTER_EFFECTS: 'Caster effects',
-  TARGET_EFFECTS: 'Target effects',
+  LEFT_EFFECTS: 'Left effects',
+  RIGHT_EFFECTS: 'Right effects',
 } as const;
 
 /** State messages when loading or empty. */
