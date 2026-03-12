@@ -250,6 +250,55 @@
   width: 100%;
 }
 
+.power-vfx-demo__bar-top-inner--center {
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.power-vfx-demo__season-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-radius: 6px;
+  background: var(--ci-surface, #faf8f5);
+  color: var(--ci-muted, #6b6356);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--ci-surface-hover, #f0ebe3);
+    color: var(--ci-fg, #2c2720);
+  }
+
+  &.power-vfx-demo__season-btn--active {
+    background: var(--ci-light, #f5f2ed);
+    border-color: currentColor;
+  }
+}
+
+.power-vfx-demo__season-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.power-vfx-demo__season-icon--none {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .power-vfx-demo__bar-field {
   display: flex;
   align-items: center;

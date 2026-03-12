@@ -703,7 +703,7 @@ function Arena(props?: ArenaDemoProps) {
               side={PANEL_SIDE.LEFT}
               battle={battle}
               teamMinions={effectiveRoom.teamA?.minions}
-              myId={user?.characterId}
+              myId={undefined}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
               soulDevourerHealReady={soulDevourerHealReady}
@@ -732,7 +732,7 @@ function Arena(props?: ArenaDemoProps) {
                 side={PANEL_SIDE.RIGHT}
                 battle={battle}
                 teamMinions={effectiveRoom.teamB?.minions}
-                myId={user?.characterId}
+                myId={undefined}
                 resolveShown={resolveShown}
                 transientEffectsActive={transientEffectsActive}
                 soulDevourerHealReady={soulDevourerHealReady}

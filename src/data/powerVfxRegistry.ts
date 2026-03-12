@@ -226,11 +226,13 @@ export function getTagBasedChipProps(
 }
 
 /**
- * Add activeEffect(s) for one entry so that the effect shows on characterId (otherId is the other fighter).
+ * Add activeEffect(s) for one entry so that the effect shows on recipientId (the chip that gets the props).
+ * otherId is the other fighter (used as source when recipient is target, or target when recipient is source).
+ * Demo rule: caster modal → recipient = caster; target modal → recipient = target.
  */
 function addEffectsForCharacter(
   entry: PowerVfxEntry,
-  characterId: string,
+  recipientId: string,
   otherId: string,
   activeEffects: ActiveEffect[],
   idGen: { current: number }
@@ -241,34 +243,32 @@ function addEffectsForCharacter(
         id: `demo-${++idGen.current}`,
         powerName: 'Demo',
         effectType: EFFECT_TYPES.BUFF,
-        sourceId: characterId,
+        sourceId: recipientId,
         targetId: otherId,
         value: 0,
         turnsRemaining: 2,
         tag: entry.tag,
       });
     } else if (entry.applyTo === 'target') {
-      // Effect applies to the "target" of the power. For caster-side entry: target is otherId (defender).
-      // For target-side entry: target is characterId (defender has the effect).
-      const effectTargetId = entry.side === 'caster' ? otherId : characterId;
-      const effectSourceId = entry.side === 'caster' ? characterId : otherId;
+      // Chip gets props when e.targetId === characterId → put effect on recipient
       activeEffects.push({
         id: `demo-${++idGen.current}`,
         powerName: 'Demo',
         effectType: EFFECT_TYPES.BUFF,
-        sourceId: effectSourceId,
-        targetId: effectTargetId,
+        sourceId: otherId,
+        targetId: recipientId,
         value: 0,
         turnsRemaining: 2,
         tag: entry.tag,
       });
     } else {
+      // applyTo 'source': chip gets props when e.sourceId === characterId → self-buff on recipient
       activeEffects.push({
         id: `demo-${++idGen.current}`,
         powerName: 'Demo',
         effectType: EFFECT_TYPES.BUFF,
-        sourceId: characterId,
-        targetId: characterId,
+        sourceId: recipientId,
+        targetId: recipientId,
         value: 0,
         turnsRemaining: 2,
         tag: entry.tag,
@@ -279,22 +279,20 @@ function addEffectsForCharacter(
       id: `demo-${++idGen.current}`,
       powerName: 'Demo',
       effectType: EFFECT_TYPES.BUFF,
-      sourceId: characterId,
-      targetId: characterId,
+      sourceId: recipientId,
+      targetId: recipientId,
       value: 0,
       modStat: entry.modStat as ActiveEffect['modStat'],
       turnsRemaining: 2,
     });
   } else if (entry.id && Object.keys(entry.props).length > 0) {
-    // Demo-only effects (no tag/modStat): use entry.id as tag so getTagBasedChipProps can match. Effect goes on defender.
-    const effectTargetId = entry.side === 'caster' ? otherId : characterId;
-    const effectSourceId = entry.side === 'caster' ? characterId : otherId;
+    // Demo-only effects: getTagBasedChipProps matches e.targetId === characterId
     activeEffects.push({
       id: `demo-${++idGen.current}`,
       powerName: 'Demo',
       effectType: EFFECT_TYPES.BUFF,
-      sourceId: effectSourceId,
-      targetId: effectTargetId,
+      sourceId: otherId,
+      targetId: recipientId,
       value: 0,
       turnsRemaining: 2,
       tag: entry.id as unknown as EffectTag,
@@ -304,7 +302,7 @@ function addEffectsForCharacter(
 
 /**
  * Build synthetic battle from independent caster/target effect choices.
- * Caster dropdown can select any effects (multi); target dropdown only target-type effects (multi).
+ * Caster modal selections → always apply to caster (left). Target modal selections → always apply to target (right).
  */
 export function buildSyntheticBattleFromChoices(
   casterEffectIds: string[],
@@ -316,7 +314,8 @@ export function buildSyntheticBattleFromChoices(
   const idGen = { current: 0 };
   for (const effectId of casterEffectIds) {
     const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId);
-    if (entry) addEffectsForCharacter(entry, casterId, targetId, activeEffects, idGen);
+    if (!entry) continue;
+    addEffectsForCharacter(entry, casterId, targetId, activeEffects, idGen);
   }
   for (const effectId of targetEffectIds) {
     const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId && e.side === 'target');
