@@ -77,8 +77,17 @@ function buildHalfStyle(
   return { background: bg } as React.CSSProperties;
 }
 
+export interface ArenaDemoProps {
+  /** When true, Arena runs in demo mode: no Firebase, field-only, uses demoRoom/demoSeason. */
+  isDemo?: boolean;
+  /** Room to display in demo mode (required when isDemo is true). */
+  demoRoom?: BattleRoom | null;
+  /** Season to show in demo (e.g. for SeasonalEffects preview). */
+  demoSeason?: SeasonKey | null;
+}
 
-function Arena() {
+function Arena(props?: ArenaDemoProps) {
+  const { isDemo = false, demoRoom = null, demoSeason = null } = props ?? {};
   const { arenaId } = useParams<{ arenaId: string }>();
   const [searchParams] = useSearchParams();
   const watchOnly = searchParams.get('watch') === 'true';
@@ -240,9 +249,9 @@ function Arena() {
     }
   }, [room?.battle?.turn?.phase]);
 
-  /* ── Subscribe to room changes ──────────────── */
+  /* ── Subscribe to room changes (skip when demo mode) ──────────────── */
   useEffect(() => {
-    if (!arenaId) return;
+    if (isDemo || !arenaId) return;
     const unsub = onRoomChange(arenaId, (r) => {
       const apply = () => {
         if (!r) {
@@ -256,7 +265,7 @@ function Arena() {
       requestAnimationFrame(apply);
     });
     return unsub;
-  }, [arenaId]);
+  }, [arenaId, isDemo]);
 
   /* ── Determine role & join ──────────────────── */
   const join = useCallback(async () => {
@@ -590,8 +599,10 @@ function Arena() {
     setTimeout(() => { setCopied(null); setToast(null); }, 2000);
   };
 
-  /* ── Loading / Error states ─────────────────── */
-  if (error) {
+  const effectiveRoom = isDemo ? (demoRoom ?? null) : room;
+
+  /* ── Loading / Error states (skip when demo mode) ─────────────────── */
+  if (!isDemo && error) {
     return (
       <div className="arena">
         <div className="arena__state">
@@ -602,7 +613,7 @@ function Arena() {
     );
   }
 
-  if (!room) {
+  if (!effectiveRoom) {
     return (
       <div className="arena">
         <div className="arena__state">
@@ -614,21 +625,24 @@ function Arena() {
     );
   }
 
-  const viewerCount = room.viewers ? Object.keys(room.viewers).length : 0;
-  const teamAMembers = (room.teamA?.members || []).map(m => normalizeFighter(m));
-  const teamBMembers = (room.teamB?.members || []).map(m => normalizeFighter(m));
-  const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
+  const viewerCount = effectiveRoom.viewers ? Object.keys(effectiveRoom.viewers).length : 0;
+  const teamAMembers = (effectiveRoom.teamA?.members || []).map(m => normalizeFighter(m));
+  const teamBMembers = (effectiveRoom.teamB?.members || []).map(m => normalizeFighter(m));
+  const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
-  const battle = room.battle;
-  const isBattling = room.status === ROOM_STATUS.BATTLING || room.status === ROOM_STATUS.FINISHED;
-  const isNpcPlaybackDriver = !!(room.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
+  const battle = effectiveRoom.battle;
+  const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
+  const isNpcPlaybackDriver = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
   const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
+
+  /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
+  const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
 
   /** Which power is selected this turn: from server (battle.turn.usedPowerName) or from last confirm (lastConfirmedPowerName). */
   const selectedPowerName = battle?.turn?.usedPowerName ?? lastConfirmedPowerName;
 
   const handlePreviewSeason = (season: SeasonKey | null) => {
-    setActiveSeason(season);
+    if (!isDemo) setActiveSeason(season);
   };
 
   const handleSelectSeason = async (season: SeasonKey) => {
@@ -674,6 +688,73 @@ function Arena() {
     if (arenaId) await resolveTurn(arenaId);
   };
 
+  /* ── Demo mode: field only (includes SeasonalEffects), no bar / HUD / actions ── */
+  if (isDemo) {
+    return (
+      <div className="arena arena--demo">
+        <div className={`arena__field ${effectiveRoom.status !== ROOM_STATUS.BATTLING ? 'arena__field--finished' : ''}`}>
+          <div
+            className="arena__half arena__half--left"
+            style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, PANEL_SIDE.LEFT) : undefined}
+          >
+            <TeamPanel
+              members={teamAMembers}
+              allMembers={[...teamAMembers, ...teamBMembers]}
+              side={PANEL_SIDE.LEFT}
+              battle={battle}
+              teamMinions={effectiveRoom.teamA?.minions}
+              myId={user?.characterId}
+              resolveShown={resolveShown}
+              transientEffectsActive={transientEffectsActive}
+              soulDevourerHealReady={soulDevourerHealReady}
+              casterFrameRef={casterFrameRef}
+              defenderFrameRef={defenderFrameRef}
+              minionPulseMap={minionPulseMap}
+              clientVisualDefenderId={npcVisualTarget}
+              clientVisualPowerName={npcVisualPowerName}
+              suppressHitAfterBack={suppressHitAfterBack}
+            />
+            <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
+          </div>
+          <div className="arena__divider">
+            <div className="arena__vs-ring">
+              <span className="arena__vs">{battle?.roundNumber ? `R${battle.roundNumber}` : 'VS'}</span>
+            </div>
+          </div>
+          <div
+            className={`arena__half arena__half--right ${!teamBFull ? 'arena__half--empty' : ''}`}
+            style={teamBMembers.length ? buildHalfStyle(teamBMembers, teamAMembers, PANEL_SIDE.RIGHT) : undefined}
+          >
+            {teamBMembers.length > 0 ? (
+              <TeamPanel
+                members={teamBMembers}
+                allMembers={[...teamAMembers, ...teamBMembers]}
+                side={PANEL_SIDE.RIGHT}
+                battle={battle}
+                teamMinions={effectiveRoom.teamB?.minions}
+                myId={user?.characterId}
+                resolveShown={resolveShown}
+                transientEffectsActive={transientEffectsActive}
+                soulDevourerHealReady={soulDevourerHealReady}
+                casterFrameRef={casterFrameRef}
+                defenderFrameRef={defenderFrameRef}
+                minionPulseMap={minionPulseMap}
+                clientVisualDefenderId={npcVisualTarget}
+                clientVisualPowerName={npcVisualPowerName}
+                suppressHitAfterBack={suppressHitAfterBack}
+              />
+            ) : (
+              <div className="arena__empty-slot">
+                <span>Awaiting Challenger…</span>
+              </div>
+            )}
+            <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="arena">
       {/* ── Toast notification ── */}
@@ -691,14 +772,14 @@ function Arena() {
         </Link>
 
         <div className="arena__bar-title">
-          <span className="arena__bar-name">{room.roomName}</span>
+          <span className="arena__bar-name">{effectiveRoom.roomName}</span>
         </div>
 
         <span className="arena__bar-spacer" />
 
         <div className="arena__bar-meta">
-          {room.teamSize > 1 && (
-            <span className="arena__bar-badge">{room.teamSize}v{room.teamSize}</span>
+          {effectiveRoom.teamSize > 1 && (
+            <span className="arena__bar-badge">{effectiveRoom.teamSize}v{effectiveRoom.teamSize}</span>
           )}
           {role === ARENA_ROLE.VIEWER && (
             <span className="arena__bar-badge arena__bar-badge--spectator">Spectating</span>
@@ -708,7 +789,7 @@ function Arena() {
           )}
         </div>
 
-        {room.status === ROOM_STATUS.FINISHED ? (
+        {effectiveRoom.status === ROOM_STATUS.FINISHED ? (
           <div className="arena__bar-share">
             <button
               className="arena__share-btn"
@@ -729,7 +810,7 @@ function Arena() {
           </div>
         ) : (
           <div className="arena__bar-share">
-            {room.status === ROOM_STATUS.WAITING && (
+            {effectiveRoom.status === ROOM_STATUS.WAITING && (
               <button
                 className={`arena__share-btn ${copied === COPY_TYPE.CODE ? 'arena__share-btn--copied' : ''}`}
                 onClick={() => handleCopy(COPY_TYPE.CODE)}
@@ -752,7 +833,7 @@ function Arena() {
       </header>
 
       {/* ── Battle field ── */}
-      <div className={`arena__field ${room.status !== ROOM_STATUS.BATTLING ? 'arena__field--finished' : ''}`}>
+      <div className={`arena__field ${effectiveRoom.status !== ROOM_STATUS.BATTLING ? 'arena__field--finished' : ''}`}>
         {/* Team A */}
         <div
           className="arena__half arena__half--left"
@@ -763,7 +844,7 @@ function Arena() {
             allMembers={[...teamAMembers, ...teamBMembers]}
             side={PANEL_SIDE.LEFT}
             battle={battle}
-            teamMinions={room.teamA?.minions}
+            teamMinions={effectiveRoom.teamA?.minions}
             myId={user?.characterId}
             resolveShown={resolveShown}
             transientEffectsActive={transientEffectsActive}
@@ -777,7 +858,7 @@ function Arena() {
             suppressHitAfterBack={suppressHitAfterBack}
           />
           {/* Seasonal effects overlay (left side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
+          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
         </div>
 
         <div className="arena__divider">
@@ -797,7 +878,7 @@ function Arena() {
               allMembers={[...teamAMembers, ...teamBMembers]}
               side={PANEL_SIDE.RIGHT}
               battle={battle}
-              teamMinions={room.teamB?.minions}
+              teamMinions={effectiveRoom.teamB?.minions}
               myId={user?.characterId}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
@@ -816,7 +897,7 @@ function Arena() {
             </div>
           )}
           {/* Seasonal effects overlay (right side) */}
-          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!activeSeason && room?.status !== ROOM_STATUS.FINISHED} />
+          <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
         </div>
 
         {/* Soul Devourer: soul floats from defender frame center to caster frame center, then explodes */}
@@ -857,8 +938,8 @@ function Arena() {
             battle={battle}
             teamA={teamAMembers}
             teamB={teamBMembers}
-            teamMinionsA={room.teamA?.minions}
-            teamMinionsB={room.teamB?.minions}
+            teamMinionsA={effectiveRoom.teamA?.minions}
+            teamMinionsB={effectiveRoom.teamB?.minions}
             myId={user?.characterId}
             transientEffectsActive={transientEffectsActive}
             confirmedPowerName={selectedPowerName}
@@ -890,20 +971,20 @@ function Arena() {
 
       {/* ── Footer actions ── */}
       <div className="arena__actions">
-        {isCreator && room.status === ROOM_STATUS.READY && (
+        {isCreator && effectiveRoom.status === ROOM_STATUS.READY && (
           <button className="arena__action-btn arena__action-btn--primary" onClick={() => runAsync(handleStartBattle)}>
             Start Battle
           </button>
         )}
-        {isCreator && room.status === ROOM_STATUS.WAITING && (
+        {isCreator && effectiveRoom.status === ROOM_STATUS.WAITING && (
           <button className="arena__action-btn arena__action-btn--danger" onClick={() => runAsync(handleClose)}>
             Close Room
           </button>
         )}
       </div>
 
-      {showLog && room && (
-        <BattleLogModal room={room} onClose={() => setShowLog(false)} />
+      {showLog && effectiveRoom && (
+        <BattleLogModal room={effectiveRoom} onClose={() => setShowLog(false)} />
       )}
     </div>
   );

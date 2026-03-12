@@ -4,6 +4,7 @@ import type { BattlePlaybackStep, BattleState, FighterState } from '../../../../
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
+import { getTagBasedChipProps } from '../../../../data/powerVfxRegistry';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
@@ -228,12 +229,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // attacker's own side, only show hit effects for AoE/co-attack cases
         // where allies actually take damage.
         const isOpposing = !!(turn && ((side === PANEL_SIDE.LEFT && turn.attackerTeam === BATTLE_TEAM.B) || (side === PANEL_SIDE.RIGHT && turn.attackerTeam === BATTLE_TEAM.A)));
-        const isHit = !!(
+        const isHitFromTurn = !!(
           (isOpposing && (
             (allowHitVisuals && !playbackDrivenResolve && !playbackStepActive && !hasMasterMinions && isAoeHit)
           )) ||
           (!isOpposing && isAoeHit)
         );
+
+        // Tag-based chip props from shared registry (single source of truth for effect → props)
+        const tagBasedProps = getTagBasedChipProps(activeEffects, m.characterId);
+        // Merge tag-based (e.g. demo-only hit VFX) so demo selection shows hit/shock/resurrecting etc.
+        const isHit = isHitFromTurn || !!tagBasedProps.isHit;
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
@@ -241,28 +247,29 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           attacker?.passiveSkillPoint === SKILL_UNLOCK &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
-        const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId);
+        const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
+          || !!tagBasedProps.isShockHit;
 
         // Keraunos Voltage hit: massive lightning strike effect
         const isKeraunosVoltageHit = !!(
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
-        );
+        ) || !!tagBasedProps.isKeraunosVoltageHit;
 
-        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration) blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
+        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
         const isJoltArcAttackHit = !!(
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
           (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC)
-        );
+        ) || !!tagBasedProps.isJoltArcAttackHit;
 
-        // Shock visual: has any active shock DOT
-        const isShocked = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SHOCK,
-        );
-
-        // Jolt Arc Deceleration: -7 speed debuff from being hit by Jolt Arc
-        const hasJoltArcDeceleration = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION,
-        );
+        const isShocked = tagBasedProps.isShocked;
+        const hasJoltArcDeceleration = tagBasedProps.hasJoltArcDeceleration;
+        const isPetalShielded = tagBasedProps.isPetalShielded;
+        const hasPomegranateEffect = tagBasedProps.hasPomegranateEffect;
+        const isSpiritForm = tagBasedProps.isSpiritForm;
+        const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
+        const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
+        const hasDeathKeeper = tagBasedProps.hasDeathKeeper;
+        const isResurrected = tagBasedProps.isResurrected;
 
         // Active effect pips (deduplicate same power from same source; group by tag so Jolt Arc vs Jolt Arc Deceleration are separate)
         const effectPips: EffectPip[] = (() => {
@@ -294,40 +301,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           });
         })();
 
-        // Petal-shield (Secret of Dryad) status immunity
-        const isPetalShielded = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
-        );
-
-        // Pomegranate's Oath: ruby seed effect on both caster and target
-        const hasPomegranateEffect = activeEffects.some(
-          e => e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT && (e.targetId === m.characterId || e.sourceId === m.characterId),
-        );
-
-        // Spirit form: ethereal ghost effect on target only (includes self-target)
-        const isSpiritForm = activeEffects.some(
-          e => e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT && e.targetId === m.characterId,
-        );
-
-        // Death Keeper: subtle frame on caster, dark mist on resurrected target
-        const hasSoulDevourer = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
-        );
-        const hasBeyondNimbus = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.BEYOND_THE_NIMBUS,
-        );
-        const hasDeathKeeper = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER,
-        );
-        const isResurrected = activeEffects.some(
-          e => e.targetId === m.characterId && e.tag === EFFECT_TAGS.RESURRECTED,
-        );
-
-        // Resurrecting: mid-resurrection visual (self-resurrect overlay active)
+        // Resurrecting: mid-resurrection visual (self-resurrect overlay active), or from demo tag-based
         const isResurrecting = !!(
           turn?.resurrectTargetId === m.characterId &&
           turn?.phase === PHASE.SELECT_ACTION
-        );
+        ) || !!tagBasedProps.isResurrecting;
 
         // Floral Fragrance: brief trigger when just applied
         // Also watch recent persistent log entries so we show the fragrance VFX even
@@ -377,7 +355,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const serverFragranceOnTarget = turn?.allyTargetId === m.characterId && isFloralPowerInUse;
         // Suppress fragrance wave visual while transient effects (minion hits, DamageCards)
         // are actively playing so effects chain sequentially instead of overlapping.
-        const isFragranceWaved = !!(serverFragranceOnTarget || clientFragrance || logHasFloral) && phaseOk && !transientEffectsActive;
+        const isFragranceWaved = (!!(serverFragranceOnTarget || clientFragrance || logHasFloral) && phaseOk && !transientEffectsActive)
+          || !!tagBasedProps.isFragranceWaved;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -424,9 +403,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
             // Allow pulses when hit visuals allowed, or during RESOLVING with skeleton playback (n hits → n shakes)
-            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive)}
+            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey}
             visualDefenderId={visualDefenderId}
-            hitEventKey={playbackHitEventKey}
+            hitEventKey={
+              playbackHitEventKey
+              ?? ((tagBasedProps.isHit || tagBasedProps.isShockHit || tagBasedProps.isKeraunosVoltageHit || tagBasedProps.isJoltArcAttackHit)
+                ? (battle as { _demoVfxKey?: string })?._demoVfxKey
+                : undefined)
+            }
             playbackHitTargetId={playbackStepActive ? playbackStep?.defenderId : undefined}
             playbackHitEventKey={playbackStepActive ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep) : undefined}
             minionHitPulseId={
