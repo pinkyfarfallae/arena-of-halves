@@ -609,6 +609,10 @@
     border-radius: 8px;
   }
 
+  .mchip__overlay {
+    border-radius: 0 0 8px 8px;
+  }
+
   .mchip__critical {
     height: 106px;
     left: calc(50% + 56px);
@@ -772,7 +776,6 @@
 
   .mchip__overlay {
     padding: 0 0.3rem 0.35rem;
-    border-radius: 0 0 8px 8px;
   }
 
   .mchip__popup {

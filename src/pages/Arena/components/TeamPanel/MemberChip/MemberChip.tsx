@@ -144,6 +144,8 @@ interface Props {
   minionHitPulseId?: number | undefined;
   /** Unique key for a master-hit playback step — when this changes, play one hit flash */
   hitEventKey?: string;
+  /** When this key changes (e.g. demo replay), restart shock-hit effect. */
+  shockHitEventKey?: string;
   /** Current playback-step target id/event for minion-frame hits */
   playbackHitTargetId?: string;
   playbackHitEventKey?: string;
@@ -165,7 +167,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -258,6 +260,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (isHitTimerRef.current) clearTimeout(isHitTimerRef.current);
     isHitTimerRef.current = null;
     setIsHitActive(false);
+    // Restart hit animation after brief delay so DOM loses class and replays (demo Replay / transient hits)
     const restart = setTimeout(() => {
       setIsHitActive(true);
       isHitTimerRef.current = setTimeout(() => {
@@ -401,6 +404,31 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
     if (!isShockHit) prevIsShockHitRef.current = false;
   }, [isShockHit]);
+
+  // When shockHitEventKey changes (e.g. demo "Play Shock Hit"), restart shock-hit effect
+  const prevShockHitEventKeyRef = useRef<string | undefined>(undefined);
+  const shockHitEventKeyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!shockHitEventKey) return;
+    if (shockHitEventKey === prevShockHitEventKeyRef.current) return;
+    prevShockHitEventKeyRef.current = shockHitEventKey;
+    setIsShockHitActive(false);
+    const restart = setTimeout(() => {
+      setIsShockHitActive(true);
+      if (shockHitEventKeyTimerRef.current) clearTimeout(shockHitEventKeyTimerRef.current);
+      shockHitEventKeyTimerRef.current = setTimeout(() => {
+        shockHitEventKeyTimerRef.current = null;
+        setIsShockHitActive(false);
+      }, 1500);
+    }, 50);
+    return () => {
+      clearTimeout(restart);
+      if (shockHitEventKeyTimerRef.current) {
+        clearTimeout(shockHitEventKeyTimerRef.current);
+        shockHitEventKeyTimerRef.current = null;
+      }
+    };
+  }, [shockHitEventKey]);
 
   useEffect(() => {
     if (isShocked) {

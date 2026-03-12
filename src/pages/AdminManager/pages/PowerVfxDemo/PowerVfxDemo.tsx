@@ -141,13 +141,18 @@ export default function PowerVfxDemo() {
 
   const syntheticBattle = useMemo(() => {
     if (!casterFighter || !targetFighter) return undefined;
-    return buildSyntheticBattleFromChoices(
+    const battle = buildSyntheticBattleFromChoices(
       casterEffectIds,
       targetEffectIds,
       casterFighter.characterId,
       targetFighter.characterId
     );
-  }, [casterFighter, targetFighter, casterEffectIds, targetEffectIds]);
+    return {
+      ...battle,
+      _demoReplayTargetKey: replayTargetKey,
+      _demoShockHitReplayKey: replayTargetKey,
+    };
+  }, [casterFighter, targetFighter, casterEffectIds, targetEffectIds, replayTargetKey]);
 
   const syntheticRoom = useMemo(() => {
     if (!casterFighter || !targetFighter || !syntheticBattle) return null;
@@ -281,7 +286,7 @@ export default function PowerVfxDemo() {
         </div>
 
         <div className="power-vfx-demo__arena">
-          <div key={`arena-${replayCasterKey}-${replayTargetKey}`} className="power-vfx-demo__arena-inner">
+          <div key={`arena-${replayCasterKey}`} className="power-vfx-demo__arena-inner">
             <Arena
               isDemo
               demoRoom={syntheticRoom ?? undefined}
