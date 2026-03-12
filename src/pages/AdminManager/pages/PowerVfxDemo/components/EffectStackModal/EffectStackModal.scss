@@ -220,13 +220,13 @@
     color: var(--ci-bg, #faf7f0);
   }
 
-  /* Target-type effect in caster modal: use accent as badge background */
+  /* Target-type effect in left modal: use accent as badge background */
   .effect-stack-modal__backdrop--left & .effect-stack-modal__option-badge--target {
     background: var(--ci-accent, #9dad71);
     color: var(--ci-bg, #faf7f0);
   }
 
-  /* Right (target) modal: badge uses target fighter theme */
+  /* Right (target) modal: badge uses right fighter theme */
   .effect-stack-modal__backdrop--right & .effect-stack-modal__option-badge {
     background: var(--ci-primary, #8b7355);
     color: var(--ci-bg, #faf7f0);
