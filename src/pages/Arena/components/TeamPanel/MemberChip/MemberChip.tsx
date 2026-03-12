@@ -6,7 +6,9 @@ import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
+import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
+import Rose from './icons/Rose';
 import WavyLines from './icons/WavyLines';
 import ReaperScythe from './icons/ReaperScythe';
 import TargetCrosshair from './icons/TargetCrosshair';
@@ -17,6 +19,7 @@ import { DEITY_SVG, toDeityKey } from '../../../../../data/deities';
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
 import { EFFECT_TAGS } from '../../../../../constants/effectTags';
+import { CHARACTER } from '../../../../../constants/characters';
 
 import './MemberChip.scss';
 
@@ -999,6 +1002,80 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
           </>
         )}
+        {/* Vines climbing around all four sides of the frame + flowers at vine frame corners */}
+        {isPetalShielded && battleLive && (() => {
+          const charId = fighter.characterId;
+          const charIdLower = charId?.toLowerCase();
+          const isRosabella = charIdLower === CHARACTER.ROSABELLA;
+          // eslint-disable-next-line no-console -- debug: petal shield corner flower (Rose vs Flower)
+          console.log('[MemberChip petal shield] characterId:', charId, 'lower:', charIdLower, 'CHARACTER.ROSABELLA:', CHARACTER.ROSABELLA, 'showRose:', isRosabella);
+          return (
+            <>
+              <div className="mchip__petal-vines" aria-hidden="true">
+                <PetalVines />
+              </div>
+              <div className="mchip__petal-corners" aria-hidden="true">
+                <div className="mchip__petal-corner mchip__petal-corner--tl">
+                  {isRosabella ? (
+                    <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={14} height={14} />
+                  )}
+                </div>
+                <div className="mchip__petal-corner mchip__petal-corner--tr">
+                  {isRosabella ? (
+                    <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={14} height={14} />
+                  )}
+                </div>
+                <div className="mchip__petal-corner mchip__petal-corner--bl">
+                  {isRosabella ? (
+                    <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={14} height={14} />
+                  )}
+                </div>
+                <div className="mchip__petal-corner mchip__petal-corner--br">
+                  {isRosabella ? (
+                    <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={14} height={14} />
+                  )}
+                </div>
+                {/* Smaller flower/rose at the middle of each side */}
+                <div className="mchip__petal-side mchip__petal-side--t">
+                  {isRosabella ? (
+                    <Rose width={10} height={10} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={10} height={10} />
+                  )}
+                </div>
+                <div className="mchip__petal-side mchip__petal-side--r">
+                  {isRosabella ? (
+                    <Rose width={10} height={10} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={10} height={10} />
+                  )}
+                </div>
+                <div className="mchip__petal-side mchip__petal-side--b">
+                  {isRosabella ? (
+                    <Rose width={10} height={10} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={10} height={10} />
+                  )}
+                </div>
+                <div className="mchip__petal-side mchip__petal-side--l">
+                  {isRosabella ? (
+                    <Rose width={10} height={10} color="#f48fb1" centerColor="#e91e63" />
+                  ) : (
+                    <Flower width={10} height={10} />
+                  )}
+                </div>
+              </div>
+            </>
+          );
+        })()}
         <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
           {fighter.image ? (
             <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />

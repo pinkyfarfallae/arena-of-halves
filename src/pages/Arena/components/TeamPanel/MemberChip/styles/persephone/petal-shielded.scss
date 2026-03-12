@@ -2,6 +2,18 @@
 @use 'sass:math';
 @use 'sass:list';
 
+/* Same gradient as .mchip__body: top visible, fade to transparent at bottom (teamPanel/mchip transparent gradient). */
+$petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+
+@mixin petal-body-gradient-clip {
+  mask-image: $petal-clip-gradient;
+  -webkit-mask-image: $petal-clip-gradient;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
 /* ── Petal shield (Secret of Dryad) — power VFX ──────────────────────────── */
 
 .mchip--petal-shielded {
@@ -9,7 +21,7 @@
     box-shadow:
       0 0 0 1.5px rgba(#81c784, 0.7),
       0 0 14px rgba(#66bb6a, 0.4),
-      0 0 28px rgba(#4caf50, 0.2);
+      0 0 28px rgba(#29922c, 0.2);
     animation: petal-pulse 2s ease-in-out infinite;
   }
 
@@ -20,6 +32,7 @@
     z-index: 0;
     pointer-events: none;
     overflow: hidden;
+    @include petal-body-gradient-clip;
   }
 
   .mchip__wavy-line-svg {
@@ -47,12 +60,14 @@
     pointer-events: none;
     border-radius: inherit;
     background: linear-gradient(to top, transparent 0%, rgb(255, 255, 255) 8%, transparent 95%);
-    mask-image: radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
-    -webkit-mask-image: radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
-    mask-size: cover;
-    mask-position: center;
-    -webkit-mask-size: cover;
-    -webkit-mask-position: center;
+    mask-image: $petal-clip-gradient, radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
+    -webkit-mask-image: $petal-clip-gradient, radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
+    mask-size: 100% 100%, cover;
+    mask-position: 0 0, center;
+    -webkit-mask-size: 100% 100%, cover;
+    -webkit-mask-position: 0 0, center;
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
   }
 }
 
@@ -62,14 +77,14 @@
   100% {
     box-shadow:
       0 0 0 1.5px rgba(#81c784, 0.7),
-      0 0 14px rgba(#66bb6a, 0.4),
-      0 0 28px rgba(#4caf50, 0.2);
+      0 0 14px rgba(#59d95f, 0.4),
+      0 0 28px rgba(#00d207, 0.2);
   }
 
   50% {
     box-shadow:
       0 0 0 2px rgba(#81c784, 0.9),
-      0 0 20px rgba(#66bb6a, 0.55),
+      0 0 20px rgba(#25e32e, 0.55),
       0 0 40px rgba(#4caf50, 0.3);
   }
 }
@@ -96,6 +111,115 @@
   }
 }
 
+/* Vines climbing around all four sides of the frame (SVG: curved stems + leaves) */
+.mchip__petal-vines {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 11;
+  pointer-events: none;
+  color: #558b2f;
+  width: calc(100% + 16px);
+  height: calc(100% + 20px);
+  top: -10px;
+  left: -9px;
+  @include petal-body-gradient-clip;
+}
+
+.mchip__petal-vines-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mchip__petal-vine-stem {
+  filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.4));
+}
+
+.mchip__petal-vine-leaf {
+  color: #81c784;
+  fill: #81c784;
+}
+
+/* Flowers at all four corners */
+.mchip__petal-corners {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 13;
+  pointer-events: none;
+  width: calc(100% + 16px);
+  height: calc(100% + 20px);
+  top: -10px;
+  left: -9px;
+}
+
+.mchip__petal-corner {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--tl {
+    top: 5px;
+    left: 4px;
+  }
+
+  &--tr {
+    top: 7px;
+    right: 3px;
+    transform: scaleX(-1.25) scaleY(-1.25) rotate(-45deg);
+  }
+
+  &--bl {
+    bottom: 8px;
+    left: 4.5px;
+    transform: scaleY(-1.15) scaleX(-1.15) rotate(45deg);
+  }
+
+  &--br {
+    bottom: 5px;
+    right: 3px;
+    transform: scale(-1);
+  }
+}
+
+/* Smaller flower/rose at the middle of each side */
+.mchip__petal-side {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  &--t {
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  &--r {
+    top: 52%;
+    right: 2px;
+    transform: translateY(-50%);
+  }
+
+  &--b {
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  &--l {
+    top: 48%;
+    left: 2px;
+    transform: translateY(-50%);
+  }
+}
+
 /* Petal leaf accents — green spots around frame */
 .mchip__petal-accents {
   position: absolute;
@@ -103,6 +227,7 @@
   border-radius: inherit;
   z-index: 12;
   pointer-events: none;
+  @include petal-body-gradient-clip;
   background:
     radial-gradient(ellipse 10px 6px at 8% 15%, rgba(#81c784, 0.85) 0%, transparent 100%),
     radial-gradient(ellipse 7px 11px at 92% 20%, rgba(#a5d6a7, 0.8) 0%, transparent 100%),
@@ -180,12 +305,15 @@
     opacity: 0;
     transform: translateY(0) translateX(0);
   }
+
   12% {
     opacity: 0.65;
   }
+
   85% {
     opacity: 0.25;
   }
+
   100% {
     opacity: 0;
     transform: translateY(-130px) translateX(0);
@@ -236,13 +364,19 @@
       animation-duration: #{5 + ($i % 5) * 0.4}s;
       animation-delay: #{($i - 1) * 0.18}s;
 
-      @if $i % 4 == 1 {
+      @if $i % 4==1 {
         background: rgba(#f06292, 0.85);
-      } @else if $i % 4 == 2 {
+      }
+
+      @else if $i % 4==2 {
         background: rgba(#81c784, 0.8);
-      } @else if $i % 4 == 3 {
+      }
+
+      @else if $i % 4==3 {
         background: rgba(#ff78a7, 0.8);
-      } @else {
+      }
+
+      @else {
         background: rgba(#66bb6a, 0.8);
       }
     }
@@ -257,13 +391,19 @@
   pointer-events: none;
   overflow: hidden;
   mask-image:
+    $petal-clip-gradient,
     linear-gradient(180deg, transparent 0%, black 8%, black 88%, transparent 100%),
     linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
   mask-composite: intersect;
   -webkit-mask-image:
+    $petal-clip-gradient,
     linear-gradient(180deg, transparent 0%, black 8%, black 88%, transparent 100%),
     linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
-  -webkit-mask-composite: destination-in;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
 
   &::before,
   &::after {
@@ -451,6 +591,7 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  @include petal-body-gradient-clip;
 }
 
 .mchip__petal-yellow-spark {
@@ -481,6 +622,7 @@
   z-index: 4;
   pointer-events: none;
   overflow: hidden;
+  @include petal-body-gradient-clip;
 }
 
 .mchip__petal-green-pink-spark {
@@ -542,6 +684,7 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  @include petal-body-gradient-clip;
 }
 
 .mchip__petal-flower {
