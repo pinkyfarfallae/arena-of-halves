@@ -114,8 +114,8 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   // —— Persephone ——
   {
     id: 'petal-shielded',
-    label: 'Secret of Dryad / Petal Shield (affected)',
-    side: 'target',
+    label: 'Secret of Dryad / Petal Shield (caster)',
+    side: 'caster',
     group: 'Persephone',
     tag: EFFECT_TAGS.PETAL_SHIELD,
     applyTo: 'target',

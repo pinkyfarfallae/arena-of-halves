@@ -13,6 +13,8 @@ export interface EffectStackModalProps {
   selectedIds: string[];
   onApply: (ids: string[]) => void;
   onClose: () => void;
+  /** Map effect id (option value) to 'caster' | 'target' for badge; if omitted, badge uses modal side */
+  optionSideByValue?: Record<string, 'caster' | 'target'>;
   /** When set, modal is portaled into this container (e.g. arena half) and laid under team panel on that side */
   containerRef?: React.RefObject<HTMLElement | null>;
   /** Element to read --ci-* from; defaults to containerRef so theme works when portaled */
@@ -28,6 +30,7 @@ export default function EffectStackModal({
   selectedIds,
   onApply,
   onClose,
+  optionSideByValue,
   containerRef,
   themeSourceRef,
   side = PANEL_SIDE.LEFT,
@@ -60,6 +63,22 @@ export default function EffectStackModal({
     onApply(next);
   };
 
+  /** Split "Label (description)" into { main, desc }; if no parens, desc is empty. */
+  const parseOptionLabel = (label: string): { main: string; desc: string } => {
+    const match = label.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
+    if (match) return { main: match[1].trim(), desc: match[2].trim() };
+    return { main: label.trim(), desc: '' };
+  };
+
+  /** Badge per option: use effect type (target/caster) when optionSideByValue is provided, else modal side */
+  const getBadgeForValue = (value: string): { label: string; title: string } => {
+    const effectSide = optionSideByValue?.[value];
+    if (effectSide === 'target') return { label: 'T', title: 'Target' };
+    if (effectSide === 'caster') return { label: 'C', title: 'Caster' };
+    const modalSide = side === PANEL_SIDE.LEFT ? 'Caster' : 'Target';
+    return { label: side === PANEL_SIDE.LEFT ? 'C' : 'T', title: modalSide };
+  };
+
   if (!open) return null;
 
   const inArena = Boolean(containerRef);
@@ -87,6 +106,8 @@ export default function EffectStackModal({
               <ul className="effect-stack-modal__options">
                 {grp.options.map((o: { value: string; label: string }) => {
                   const checked = pending.includes(o.value);
+                  const { main, desc } = parseOptionLabel(o.label);
+                  const badge = getBadgeForValue(o.value);
                   return (
                     <li key={o.value}>
                       <label className="effect-stack-modal__option">
@@ -95,7 +116,17 @@ export default function EffectStackModal({
                           checked={checked}
                           onChange={() => toggle(o.value)}
                         />
-                        <span>{o.label}</span>
+                        <span className="effect-stack-modal__option-text">
+                          <span className="effect-stack-modal__option-label">{main}</span>
+                          {desc && <span className="effect-stack-modal__option-desc">{desc}</span>}
+                        </span>
+                        <span
+                          className={`effect-stack-modal__option-badge effect-stack-modal__option-badge--${badge.label === 'T' ? 'target' : 'caster'}`}
+                          title={badge.title}
+                          aria-hidden
+                        >
+                          {badge.label}
+                        </span>
                       </label>
                     </li>
                   );
