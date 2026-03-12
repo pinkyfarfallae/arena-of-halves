@@ -841,9 +841,43 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {/* Fragrance Wave — falling flower/leaf particles for Floral Fragrance buff */}
       {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
 
-      {/* Keraunos Voltage — ultimate Zeus strike: multiple bolts, corona, sparks, rings */}
+      {/* Keraunos Voltage — ultimate Zeus strike: rain + lightning drops (like Nimbus), multiple bolts, corona, sparks, rings */}
       {isKeraunosVoltageHit && battleLive && (
         <div className="mchip__keraunos-vfx" aria-hidden="true">
+          {/* Dim overlay — dramatic darkening so lightning and effects pop */}
+          <div className="mchip__keraunos-overlay" aria-hidden="true" />
+          {/* Rain drops + lightning bolt drops (same effect as Beyond the Nimbus, gold/amber theme) */}
+          <div className="mchip__keraunos-rain" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={i} className="mchip__keraunos-rain-drop" />
+            ))}
+          </div>
+          <div className="mchip__keraunos-bolt-drops" aria-hidden="true">
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--1" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--2" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--3" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--4" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--5" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--6" />
+            <span className="mchip__keraunos-bolt-drop mchip__keraunos-bolt-drop--7" />
+          </div>
+          {/* Floating splashing lights + scattered sparks */}
+          <div className="mchip__keraunos-splash" aria-hidden="true">
+            {Array.from({ length: 16 }, (_, i) => (
+              <span key={i} className={`mchip__keraunos-splash-dot mchip__keraunos-splash-dot--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__keraunos-scatter" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className={`mchip__keraunos-scatter-spark mchip__keraunos-scatter-spark--${i + 1}`} />
+            ))}
+          </div>
+          {/* Light blue rising particles — bottom to top */}
+          <div className="mchip__keraunos-rise-blue" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className={`mchip__keraunos-rise-blue-dot mchip__keraunos-rise-blue-dot--${i + 1}`} />
+            ))}
+          </div>
           <span className="mchip__keraunos-bolt mchip__keraunos-bolt--main" />
           <span className="mchip__keraunos-bolt mchip__keraunos-bolt--left" />
           <span className="mchip__keraunos-bolt mchip__keraunos-bolt--right" />
@@ -915,8 +949,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
           {battleLive && (
             <>
-              {/* Shocked effect — electric sparks around frame (hidden when Jolt Arc attack is showing) */}
-              {isShocked && !isJoltArcAttackActive && !hasJoltArcDeceleration && <div className="mchip__shock-sparks" aria-hidden="true" />}
+              {/* Shocked effect — electric sparks around frame; also show while in Jolt Arc Deceleration state */}
+              {((isShocked && !isJoltArcAttackActive) || (isShocked && hasJoltArcDeceleration)) && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+              {/* Keraunos Voltage — gold/white spark frame (like shocked but divine theme) */}
+              {isKeraunosVoltageHit && (
+                <div className="mchip__keraunos-frame-sparks" aria-hidden="true">
+                  <div className="mchip__keraunos-frame-sparks-inner" />
+                </div>
+              )}
 
               {/* Jolt Arc Deceleration — frame accents only (sparks are chip-level) */}
               {hasJoltArcDeceleration && (
