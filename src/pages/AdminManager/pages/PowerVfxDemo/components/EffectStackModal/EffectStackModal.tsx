@@ -1,19 +1,10 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { OptionGroup } from '../../../../../../components/Form';
+import { CI_THEME_VARS } from '../../utils/constants';
+import type { EffectModalSide } from '../../utils/types';
+import { PANEL_SIDE } from '../../../../../../constants/battle';
 import './EffectStackModal.scss';
-
-const CI_VARS = [
-  '--ci-border',
-  '--ci-muted',
-  '--ci-primary',
-  '--ci-primary-hover',
-  '--ci-bg',
-  '--ci-fg',
-  '--ci-surface',
-  '--ci-surface-hover',
-  '--ci-light',
-] as const;
 
 export interface EffectStackModalProps {
   open: boolean;
@@ -27,7 +18,7 @@ export interface EffectStackModalProps {
   /** Element to read --ci-* from; defaults to containerRef so theme works when portaled */
   themeSourceRef?: React.RefObject<HTMLElement | null>;
   /** When in-arena, which side so modal aligns left or right in that half */
-  side?: 'left' | 'right';
+  side?: EffectModalSide;
 }
 
 export default function EffectStackModal({
@@ -39,7 +30,7 @@ export default function EffectStackModal({
   onClose,
   containerRef,
   themeSourceRef,
-  side = 'left',
+  side = PANEL_SIDE.LEFT,
 }: EffectStackModalProps) {
   const [pending, setPending] = useState<string[]>([]);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -54,7 +45,7 @@ export default function EffectStackModal({
     if (!source) return;
     const s = getComputedStyle(source);
     const themeVars: Record<string, string> = {};
-    CI_VARS.forEach((name) => {
+    CI_THEME_VARS.forEach((name) => {
       const val = s.getPropertyValue(name).trim();
       if (val) themeVars[name] = val;
     });

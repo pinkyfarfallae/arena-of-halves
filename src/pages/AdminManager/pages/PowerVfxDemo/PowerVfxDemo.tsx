@@ -10,7 +10,20 @@ import { getPowers } from '../../../../data/powers';
 import { toFighterState } from '../../../../services/battleRoom';
 import { POWER_OVERRIDES } from '../../../CharacterInfo/constants/overrides';
 import EffectStackModal from './components/EffectStackModal/EffectStackModal';
+import {
+  DEITY_HADES_AND_PERSEPHONE,
+  ALLOWED_GROUPS_HADES_AND_PERSEPHONE,
+  EFFECT_GROUP_OTHER,
+  FIGHTER_OPTION_GROUP,
+  SIDE_LABEL,
+  PLACEHOLDER,
+  MODAL_TITLE,
+  STATE_MESSAGE,
+  BUTTON_LABEL,
+} from './utils/constants';
+import type { FighterOption } from './utils/types';
 import './PowerVfxDemo.scss';
+import { PANEL_SIDE } from '../../../../constants/battle';
 
 /** Effect-only preview: reuses <Arena isDemo />; effect stack chosen via modal (power-select style). */
 
@@ -58,15 +71,15 @@ export default function PowerVfxDemo() {
     return () => { cancelled = true; };
   }, []);
 
-  const fighterOptions = useMemo(() => {
+  const fighterOptions = useMemo((): FighterOption[] => {
     const memberOpts = members.map((m) => ({
       id: m.characterId,
-      label: `Member: ${m.nicknameEng}`,
+      label: `${FIGHTER_OPTION_GROUP.PLAYER}: ${m.nicknameEng}`,
       fighter: m,
     }));
     const npcOpts = npcs.map((n) => ({
       id: n.characterId,
-      label: `NPC: ${n.nicknameEng}`,
+      label: `${FIGHTER_OPTION_GROUP.NPC}: ${n.nicknameEng}`,
       fighter: n,
     }));
     return [...memberOpts, ...npcOpts];
@@ -133,15 +146,15 @@ export default function PowerVfxDemo() {
       label: n.nicknameEng,
     }));
     return [
-      { label: 'Player', options: memberOpts },
-      { label: 'NPC', options: npcOpts },
+      { label: FIGHTER_OPTION_GROUP.PLAYER, options: memberOpts },
+      { label: FIGHTER_OPTION_GROUP.NPC, options: npcOpts },
     ];
   }, [members, npcs]);
   const casterEffectOptions = useMemo((): OptionGroup[] => {
     const deity = casterFighter?.deityBlood;
     const allowedGroups =
-      deity === 'Hades and Persephone'
-        ? ['Persephone']
+      deity === DEITY_HADES_AND_PERSEPHONE
+        ? [...ALLOWED_GROUPS_HADES_AND_PERSEPHONE]
         : deity
           ? [deity]
           : [];
@@ -151,7 +164,7 @@ export default function PowerVfxDemo() {
       return false;
     });
     const byGroup = effects.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
-      const g = e.group ?? 'Other';
+      const g = e.group ?? EFFECT_GROUP_OTHER;
       if (!acc[g]) acc[g] = [];
       acc[g].push({ value: e.id, label: e.label });
       return acc;
@@ -160,7 +173,7 @@ export default function PowerVfxDemo() {
   }, [casterFighter?.deityBlood]);
   const targetEffectOptions = useMemo((): OptionGroup[] => {
     const byGroup = TARGET_TYPE_EFFECTS.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
-      const g = e.group ?? 'Other';
+      const g = e.group ?? EFFECT_GROUP_OTHER;
       if (!acc[g]) acc[g] = [];
       acc[g].push({ value: e.id, label: e.label });
       return acc;
@@ -169,7 +182,7 @@ export default function PowerVfxDemo() {
   }, []);
   const seasonDropdownOptions = useMemo(
     () => [
-      { value: '', label: 'None' },
+      { value: '', label: PLACEHOLDER.NONE },
       ...SEASON_ORDER.map((k) => ({ value: k, label: k.charAt(0).toUpperCase() + k.slice(1) })),
     ],
     []
@@ -178,7 +191,7 @@ export default function PowerVfxDemo() {
   if (loading) {
     return (
       <div className="power-vfx-demo">
-        <div className="power-vfx-demo__state">Loading fighters…</div>
+        <div className="power-vfx-demo__state">{STATE_MESSAGE.LOADING_FIGHTERS}</div>
       </div>
     );
   }
@@ -186,7 +199,7 @@ export default function PowerVfxDemo() {
   if (fighterOptions.length === 0) {
     return (
       <div className="power-vfx-demo">
-        <div className="power-vfx-demo__state">No members or NPCs found.</div>
+        <div className="power-vfx-demo__state">{STATE_MESSAGE.NO_MEMBERS_OR_NPCS}</div>
       </div>
     );
   }
@@ -194,7 +207,7 @@ export default function PowerVfxDemo() {
   if (!casterFighter || !targetFighter) {
     return (
       <div className="power-vfx-demo">
-        <div className="power-vfx-demo__state">Loading…</div>
+        <div className="power-vfx-demo__state">{STATE_MESSAGE.LOADING}</div>
       </div>
     );
   }
@@ -206,12 +219,12 @@ export default function PowerVfxDemo() {
         <div className="power-vfx-demo__bar power-vfx-demo__bar--top">
           <div className="power-vfx-demo__bar-top-inner">
             <div className="power-vfx-demo__bar-field">
-              <span className="power-vfx-demo__label">Season</span>
+              <span className="power-vfx-demo__label">{PLACEHOLDER.SEASON}</span>
               <Dropdown
                 value={demoSeason}
                 onChange={(v) => setDemoSeason(v as SeasonKey | '')}
                 options={seasonDropdownOptions}
-                placeholder="None"
+                placeholder={PLACEHOLDER.NONE}
                 className="power-vfx-demo__dropdown"
               />
             </div>
@@ -241,13 +254,13 @@ export default function PowerVfxDemo() {
         {/* Bottom bar: half Caster, half Target */}
         <div className="power-vfx-demo__bar power-vfx-demo__bar--bottom">
           <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--caster">
-            <span className="power-vfx-demo__side-title">Caster</span>
+            <span className="power-vfx-demo__side-title">{SIDE_LABEL.CASTER}</span>
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={casterFighterId}
                 onChange={setCasterFighterId}
                 options={fighterDropdownOptions}
-                placeholder="Fighter"
+                placeholder={PLACEHOLDER.FIGHTER}
                 className="power-vfx-demo__dropdown"
                 searchable
               />
@@ -256,22 +269,22 @@ export default function PowerVfxDemo() {
                 className="power-vfx-demo__btn power-vfx-demo__btn--effects"
                 onClick={() => setCasterEffectModalOpen(true)}
               >
-                Effects{casterEffectIds.length > 0 ? ` (${casterEffectIds.length})` : ''}
+                {BUTTON_LABEL.EFFECTS}{casterEffectIds.length > 0 ? ` (${casterEffectIds.length})` : ''}
               </button>
               <button type="button" className="power-vfx-demo__btn power-vfx-demo__btn--primary" onClick={handleReplayCaster}>
-                Replay
+                {BUTTON_LABEL.REPLAY}
               </button>
             </div>
           </div>
           <div className="power-vfx-demo__bar-divider" aria-hidden />
           <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--target">
-            <span className="power-vfx-demo__side-title">Target</span>
+            <span className="power-vfx-demo__side-title">{SIDE_LABEL.TARGET}</span>
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={targetFighterId}
                 onChange={setTargetFighterId}
                 options={fighterDropdownOptions}
-                placeholder="Fighter"
+                placeholder={PLACEHOLDER.FIGHTER}
                 className="power-vfx-demo__dropdown"
                 searchable
               />
@@ -280,10 +293,10 @@ export default function PowerVfxDemo() {
                 className="power-vfx-demo__btn power-vfx-demo__btn--effects"
                 onClick={() => setTargetEffectModalOpen(true)}
               >
-                Effects{targetEffectIds.length > 0 ? ` (${targetEffectIds.length})` : ''}
+                {BUTTON_LABEL.EFFECTS}{targetEffectIds.length > 0 ? ` (${targetEffectIds.length})` : ''}
               </button>
               <button type="button" className="power-vfx-demo__btn power-vfx-demo__btn--primary" onClick={handleReplayTarget}>
-                Replay
+                {BUTTON_LABEL.REPLAY}
               </button>
             </div>
           </div>
@@ -292,25 +305,25 @@ export default function PowerVfxDemo() {
 
       <EffectStackModal
         open={casterEffectModalOpen}
-        title="Caster effects"
+        title={MODAL_TITLE.CASTER_EFFECTS}
         groups={casterEffectOptions}
         selectedIds={casterEffectIds}
         onApply={setCasterEffectIds}
         onClose={() => setCasterEffectModalOpen(false)}
         containerRef={effectModalLeftRef}
         themeSourceRef={effectModalLeftRef}
-        side="left"
+        side={PANEL_SIDE.LEFT}
       />
       <EffectStackModal
         open={targetEffectModalOpen}
-        title="Target effects"
+        title={MODAL_TITLE.TARGET_EFFECTS}
         groups={targetEffectOptions}
         selectedIds={targetEffectIds}
         onApply={setTargetEffectIds}
         onClose={() => setTargetEffectModalOpen(false)}
         containerRef={effectModalRightRef}
         themeSourceRef={effectModalRightRef}
-        side="right"
+        side={PANEL_SIDE.RIGHT}
       />
     </div>
   );
