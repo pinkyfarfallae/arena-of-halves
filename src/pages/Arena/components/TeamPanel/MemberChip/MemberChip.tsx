@@ -750,6 +750,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       {hasJoltArcDeceleration && battleLive && (
         <>
           <div className="mchip__jolt-decel-storm" aria-hidden="true" />
+          <div className="mchip__jolt-decel-rain" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={i} className="mchip__jolt-decel-rain-drop" />
+            ))}
+          </div>
           <div className="mchip__jolt-decel-smoke" aria-hidden="true">
             {Array.from({ length: 10 }, (_, i) => (
               <span key={i} className={`mchip__jolt-decel-smoke-wisp mchip__jolt-decel-smoke-wisp--${i + 1}`} />

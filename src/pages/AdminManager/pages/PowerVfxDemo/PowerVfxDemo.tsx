@@ -1,9 +1,13 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactElement } from 'react';
 import Arena from '../../../Arena/Arena';
 import { Dropdown, type OptionGroup } from '../../../../components/Form';
 import type { FighterState } from '../../../../types/battle';
 import { POWER_VFX_EFFECTS, buildSyntheticBattleFromChoices, buildSyntheticRoom } from '../../../../data/powerVfxRegistry';
-import { SEASON_ORDER, type SeasonKey } from '../../../../data/seasons';
+import { SEASON_ORDER, SEASONS, type SeasonKey } from '../../../../data/seasons';
+import SunIcon from '../../../../data/icons/seasons/SunIcon';
+import MapleLeafIcon from '../../../../data/icons/seasons/MapleLeafIcon';
+import SnowflakeIcon from '../../../../data/icons/seasons/SnowflakeIcon';
+import RoseIcon from '../../../../data/icons/seasons/RoseIcon';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { fetchNPCs } from '../../../../data/npcs';
 import { getPowers } from '../../../../data/powers';
@@ -180,11 +184,14 @@ export default function PowerVfxDemo() {
     }, {});
     return Object.entries(byGroup).map(([label, options]) => ({ label, options }));
   }, []);
-  const seasonDropdownOptions = useMemo(
-    () => [
-      { value: '', label: PLACEHOLDER.NONE },
-      ...SEASON_ORDER.map((k) => ({ value: k, label: k.charAt(0).toUpperCase() + k.slice(1) })),
-    ],
+
+  const SeasonIconByKey: Record<SeasonKey, () => ReactElement> = useMemo(
+    () => ({
+      summer: () => <SunIcon />,
+      autumn: () => <MapleLeafIcon />,
+      winter: () => <SnowflakeIcon />,
+      spring: () => <RoseIcon />,
+    }),
     []
   );
 
@@ -215,19 +222,38 @@ export default function PowerVfxDemo() {
   return (
     <div className="power-vfx-demo">
       <div className="power-vfx-demo__layout">
-        {/* Top bar: Season only (1v1) */}
+        {/* Top bar: season icons only, centered */}
         <div className="power-vfx-demo__bar power-vfx-demo__bar--top">
-          <div className="power-vfx-demo__bar-top-inner">
-            <div className="power-vfx-demo__bar-field">
-              <span className="power-vfx-demo__label">{PLACEHOLDER.SEASON}</span>
-              <Dropdown
-                value={demoSeason}
-                onChange={(v) => setDemoSeason(v as SeasonKey | '')}
-                options={seasonDropdownOptions}
-                placeholder={PLACEHOLDER.NONE}
-                className="power-vfx-demo__dropdown"
-              />
-            </div>
+          <div className="power-vfx-demo__bar-top-inner power-vfx-demo__bar-top-inner--center">
+            <button
+              type="button"
+              className={`power-vfx-demo__season-btn power-vfx-demo__season-btn--none ${demoSeason === '' ? 'power-vfx-demo__season-btn--active' : ''}`}
+              onClick={() => setDemoSeason('')}
+              title="No season"
+              aria-pressed={demoSeason === ''}
+            >
+              <span className="power-vfx-demo__season-icon power-vfx-demo__season-icon--none" aria-hidden>—</span>
+            </button>
+            {SEASON_ORDER.map((key) => {
+              const config = SEASONS[key];
+              const Icon = SeasonIconByKey[key];
+              const isActive = demoSeason === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`power-vfx-demo__season-btn ${isActive ? 'power-vfx-demo__season-btn--active' : ''}`}
+                  onClick={() => setDemoSeason(isActive ? '' : key)}
+                  title={config.labelEn}
+                  aria-pressed={isActive}
+                  style={isActive ? { color: config.color } : undefined}
+                >
+                  <span className="power-vfx-demo__season-icon" style={isActive ? { color: config.color } : undefined}>
+                    <Icon />
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -302,22 +328,24 @@ export default function PowerVfxDemo() {
       </div>
 
       <EffectStackModal
+        key="caster-effects"
         open={casterEffectModalOpen}
         title={MODAL_TITLE.CASTER_EFFECTS}
         groups={casterEffectOptions}
         selectedIds={casterEffectIds}
-        onApply={setCasterEffectIds}
+        onApply={(ids) => setCasterEffectIds(ids)}
         onClose={() => setCasterEffectModalOpen(false)}
         containerRef={effectModalLeftRef}
         themeSourceRef={effectModalLeftRef}
         side={PANEL_SIDE.LEFT}
       />
       <EffectStackModal
+        key="target-effects"
         open={targetEffectModalOpen}
         title={MODAL_TITLE.TARGET_EFFECTS}
         groups={targetEffectOptions}
         selectedIds={targetEffectIds}
-        onApply={setTargetEffectIds}
+        onApply={(ids) => setTargetEffectIds(ids)}
         onClose={() => setTargetEffectModalOpen(false)}
         containerRef={effectModalRightRef}
         themeSourceRef={effectModalRightRef}
