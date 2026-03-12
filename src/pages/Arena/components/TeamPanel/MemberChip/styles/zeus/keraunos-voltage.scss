@@ -1,4 +1,5 @@
 @use '../vars' as *;
+@use 'sass:math';
 @use '../../../../../../../styles/variables' as *;
 
 /* ── Keraunos Voltage — ultimate Zeus heir strike ─────────────────────────────
@@ -42,12 +43,380 @@ $zeus-electric: #e3f2fd;
     animation: keraunos-flash 12s ease-out forwards !important;
   }
 
+  /* Spark frame effect — like shocked but gold/white; outer = 12s fade, inner = flicker (opacities multiply) */
+  .mchip__keraunos-frame-sparks {
+    position: absolute;
+    inset: -25px;
+    border-radius: inherit;
+    z-index: 11;
+    pointer-events: none;
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-frame-sparks-inner {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 20% 10%, rgba($zeus-white, 0.65) 0%, transparent 18%),
+      radial-gradient(circle at 80% 90%, rgba($zeus-white, 0.5) 0%, transparent 14%),
+      radial-gradient(circle at 90% 30%, rgba($zeus-gold, 0.6) 0%, transparent 16%),
+      radial-gradient(circle at 10% 70%, rgba($zeus-gold, 0.4) 0%, transparent 12%);
+    filter: blur(8px);
+    animation: keraunos-spark-flicker 0.3s step-end infinite;
+  }
+
+  @keyframes keraunos-spark-flicker {
+    0% { opacity: 1; }
+    25% { opacity: 0; }
+    50% { opacity: 0.85; }
+    75% { opacity: 0.25; }
+  }
+
   /* ── VFX container: covers chip, all elements positioned from frame ── */
   .mchip__keraunos-vfx {
     position: absolute;
     inset: 0;
-    z-index: 18;
     pointer-events: none;
+  }
+
+  /* Dim overlay — darkens chip so lightning and effects read dramatically */
+  .mchip__keraunos-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.5) 40%, transparent 80%);
+    animation: keraunos-overlay-dim 12s ease-out forwards;
+  }
+
+  @keyframes keraunos-overlay-dim {
+    0% {
+      opacity: 0;
+    }
+
+    8% {
+      opacity: 0.55;
+    }
+
+    45% {
+      opacity: 0.55;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* Shared fade: rain and bolt-drops fade in/out with overlay (same 12s timeline) */
+  @keyframes keraunos-vfx-fade {
+    0% { opacity: 0; }
+    8% { opacity: 1; }
+    45% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Rain drops (same effect as Beyond the Nimbus — gold/amber/white theme) */
+  .mchip__keraunos-rain {
+    position: absolute;
+    height: 100%;
+    inset: 0 -0.15rem 0.9rem -0.15rem;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    filter: brightness(1.2);
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-rain-drop {
+    position: absolute;
+    top: -18%;
+    width: 2px;
+    height: 40%;
+    border-radius: 999px;
+    background: linear-gradient(180deg,
+        rgba($zeus-white, 0) 0%,
+        rgba($zeus-gold, 0.75) 26%,
+        rgba($zeus-amber, 0.85) 100%);
+    box-shadow: 0 0 7px rgba($zeus-white, 0.6);
+    animation: keraunos-rain-fall linear infinite;
+    animation-fill-mode: backwards;
+
+    @for $i from 1 through 18 {
+      &:nth-child(#{$i}) {
+        left: 4% + (($i - 1) * 8.2%);
+        animation-duration: #{1 + math.div(($i % 4), 10)}s;
+        opacity: #{0.35 + math.div(($i % 3), 10)};
+      }
+    }
+  }
+
+  @keyframes keraunos-rain-fall {
+    0% {
+      transform: translateY(-12%) scaleY(0.7);
+      opacity: 0;
+    }
+
+    12% {
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateY(138%) scaleY(1.05);
+      opacity: 0;
+    }
+  }
+
+  /* Lightning bolt drops (same as Nimbus bolt strips — gold/white vertical fall) */
+  .mchip__keraunos-bolt-drops {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-bolt-drop {
+    position: absolute;
+    width: 2px;
+    height: 62%;
+    top: -8%;
+    opacity: 0;
+    background: linear-gradient(180deg,
+        rgba($zeus-white, 0) 0%,
+        rgba($zeus-white, 0.95) 18%,
+        rgba($zeus-white, 1) 48%,
+        rgba($zeus-gold, 0.72) 78%,
+        rgba($zeus-amber, 0) 100%);
+    box-shadow:
+      0 0 4px rgba($zeus-white, 0.9),
+      0 0 10px rgba($zeus-gold, 0.45),
+      0 0 16px color-mix(in srgb, $zeus-amber 28%, transparent);
+    border-radius: 999px;
+    animation: keraunos-bolt-drop-fall 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation-fill-mode: backwards;
+  }
+
+  .mchip__keraunos-bolt-drop--1 {
+    left: 10%;
+    height: 54%;
+    animation-delay: 0.16s;
+  }
+
+  .mchip__keraunos-bolt-drop--2 {
+    left: 24%;
+    height: 68%;
+    animation-delay: 0.48s;
+  }
+
+  .mchip__keraunos-bolt-drop--3 {
+    left: 38%;
+    height: 58%;
+    animation-delay: 0.96s;
+  }
+
+  .mchip__keraunos-bolt-drop--4 {
+    left: 50%;
+    height: 74%;
+    animation-delay: 1.44s;
+  }
+
+  .mchip__keraunos-bolt-drop--5 {
+    left: 62%;
+    height: 60%;
+    animation-delay: 1.92s;
+  }
+
+  .mchip__keraunos-bolt-drop--6 {
+    left: 76%;
+    height: 70%;
+    animation-delay: 2.4s;
+  }
+
+  .mchip__keraunos-bolt-drop--7 {
+    left: 88%;
+    height: 52%;
+    animation-delay: 2.88s;
+  }
+
+  @keyframes keraunos-bolt-drop-fall {
+    0% {
+      opacity: 0;
+      transform: translateY(-22%) scaleY(0.85);
+    }
+
+    8% {
+      opacity: 0.7;
+      transform: translateY(-6%) scaleY(0.98);
+    }
+
+    15% {
+      opacity: 1;
+      transform: translateY(4%) scaleY(1);
+    }
+
+    40% {
+      opacity: 1;
+      transform: translateY(45%) scaleY(1.02);
+    }
+
+    75% {
+      opacity: 0.85;
+      transform: translateY(95%) scaleY(1.02);
+    }
+
+    92% {
+      opacity: 0.2;
+      transform: translateY(118%) scaleY(1.04);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(125%) scaleY(1.05);
+    }
+  }
+
+  /* Floating splashing lights — same pattern as other chip effects: full chip, scattered positions */
+  .mchip__keraunos-splash {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-splash-dot {
+    position: absolute;
+    border-radius: 50%;
+    width: 5px;
+    height: 5px;
+    margin-left: -2.5px;
+    margin-top: -2.5px;
+    filter: blur(2px);
+    background: rgba($zeus-white, 1);
+    box-shadow:
+      0 0 12px 2px rgba($zeus-white, 1),
+      0 0 20px 4px rgba($zeus-gold, 0.9),
+      0 0 32px 6px rgba($zeus-amber, 0.6);
+    animation: keraunos-splash-rise-blink 1s ease-in-out infinite;
+
+    $lefts: 8% 88% 25% 72% 12% 65% 42% 18% 82% 35% 55% 8% 78% 28% 62% 48%;
+    $tops: 15% 78% 35% 58% 8% 68% 42% 22% 85% 52% 28% 72% 12% 48% 65% 38%;
+
+    @for $i from 1 through 16 {
+      &.mchip__keraunos-splash-dot--#{$i} {
+        left: nth($lefts, $i);
+        top: nth($tops, $i);
+        animation-delay: #{($i - 1) * 0.05}s;
+        animation-duration: #{0.85 + ($i % 4) * 0.1}s;
+      }
+    }
+  }
+
+  @keyframes keraunos-splash-rise-blink {
+    0% { transform: translateY(0); opacity: 0.5; }
+    18% { transform: translateY(-22%); opacity: 1; }
+    36% { transform: translateY(-44%); opacity: 0.25; }
+    54% { transform: translateY(-66%); opacity: 0.9; }
+    72% { transform: translateY(-88%); opacity: 0.35; }
+    100% { transform: translateY(-115%); opacity: 0; }
+  }
+
+  /* Scatter sparks — same pattern as jolt-decel-spark-points: full chip, scattered positions */
+  .mchip__keraunos-scatter {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-scatter-spark {
+    position: absolute;
+    border-radius: 50%;
+    width: 1.5px;
+    height: 1.5px;
+    margin-left: -1.5px;
+    margin-top: -1.5px;
+    background: $zeus-white;
+    filter: blur(5px);
+    box-shadow:
+      0 0 10px 2px rgba($zeus-white, 1),
+      0 0 18px 4px rgba($zeus-gold, 0.95);
+    animation: keraunos-scatter-rise-blink 0.9s ease-in-out infinite;
+
+    $lefts: 6% 91% 33% 67% 14% 78% 48% 22% 85% 41% 9% 56% 72% 28% 95% 17% 61% 38% 82% 5% 44% 69% 12% 53%;
+    $tops: 8% 76% 34% 58% 92% 18% 45% 68% 4% 52% 82% 26% 61% 38% 88% 12% 71% 49% 22% 95% 33% 56% 79% 14%;
+
+    @for $i from 1 through 24 {
+      &.mchip__keraunos-scatter-spark--#{$i} {
+        left: nth($lefts, $i);
+        top: nth($tops, $i);
+        animation-delay: #{($i - 1) * 0.03}s;
+        animation-duration: #{0.75 + ($i % 5) * 0.09}s;
+      }
+    }
+  }
+
+  @keyframes keraunos-scatter-rise-blink {
+    0% { transform: translateY(0); opacity: 0.4; }
+    15% { transform: translateY(-20%); opacity: 1; }
+    30% { transform: translateY(-40%); opacity: 0.2; }
+    45% { transform: translateY(-60%); opacity: 0.95; }
+    60% { transform: translateY(-80%); opacity: 0.3; }
+    75% { transform: translateY(-100%); opacity: 0.8; }
+    100% { transform: translateY(-120%); opacity: 0; }
+  }
+
+  /* Light blue rising particles — bottom to top (electric/icy accent) */
+  .mchip__keraunos-rise-blue {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    animation: keraunos-vfx-fade 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-rise-blue-dot {
+    position: absolute;
+    border-radius: 50%;
+    width: 3px;
+    height: 3px;
+    margin-left: -1.5px;
+    margin-top: -1.5px;
+    background: rgba($zeus-electric, 0.75);
+    box-shadow:
+      0 0 6px 2px rgba($zeus-electric, 0.8),
+      0 0 12px 3px rgba(#90caf9, 0.6),
+      0 0 18px 4px rgba(#64b5f6, 0.4);
+    animation: keraunos-rise-blue-blink 0.5s ease-in-out infinite;
+
+    /* Spread across width; start in bottom 60% so they rise bottom → top */
+    $lefts: 5% 92% 28% 65% 15% 78% 48% 22% 85% 38% 58% 8% 72% 35% 55% 18% 82% 42% 68% 12%;
+    $tops: 88% 75% 82% 68% 92% 72% 78% 65% 85% 70% 88% 62% 95% 74% 80% 58% 90% 66% 84% 72%;
+
+    @for $i from 1 through 20 {
+      &.mchip__keraunos-rise-blue-dot--#{$i} {
+        left: nth($lefts, $i);
+        top: nth($tops, $i);
+        animation-delay: #{($i - 1) * 0.02}s;
+        animation-duration: #{0.4 + ($i % 5) * 0.06}s;
+      }
+    }
+  }
+
+  @keyframes keraunos-rise-blue-blink {
+    0% { transform: translateY(0); opacity: 0.5; }
+    18% { transform: translateY(-22%); opacity: 1; }
+    36% { transform: translateY(-44%); opacity: 0.35; }
+    54% { transform: translateY(-66%); opacity: 0.9; }
+    72% { transform: translateY(-88%); opacity: 0.4; }
+    100% { transform: translateY(-115%); opacity: 0; }
   }
 
   /* Main vertical bolt — thicker, brighter (legacy-style fallback via frame::before if no DOM) */
@@ -60,14 +429,14 @@ $zeus-electric: #e3f2fd;
     transform: translateX(-50%);
     transform-origin: 50% 0%;
     background: linear-gradient(180deg,
-      transparent 0%,
-      rgba($zeus-white, 0.2) 20%,
-      rgba($zeus-divine, 0.5) 35%,
-      rgba($zeus-gold, 0.85) 55%,
-      rgba($zeus-amber, 1) 72%,
-      #fff 88%,
-      rgba($zeus-gold, 0.98) 96%,
-      rgba($zeus-amber, 0.9) 100%);
+        transparent 0%,
+        rgba($zeus-white, 0.2) 20%,
+        rgba($zeus-divine, 0.5) 35%,
+        rgba($zeus-gold, 0.85) 55%,
+        rgba($zeus-amber, 1) 72%,
+        #fff 88%,
+        rgba($zeus-gold, 0.98) 96%,
+        rgba($zeus-amber, 0.9) 100%);
     box-shadow:
       0 0 16px 4px rgba(#fff, 0.95),
       0 0 32px 8px rgba($zeus-gold, 0.8),
@@ -85,10 +454,10 @@ $zeus-electric: #e3f2fd;
     transform: translateX(-50%) rotate(-18deg);
     transform-origin: 50% 0%;
     background: linear-gradient(180deg,
-      transparent 0%,
-      rgba($zeus-gold, 0.4) 40%,
-      rgba($zeus-amber, 0.9) 70%,
-      rgba($zeus-white, 0.8) 100%);
+        transparent 0%,
+        rgba($zeus-gold, 0.4) 40%,
+        rgba($zeus-amber, 0.9) 70%,
+        rgba($zeus-white, 0.8) 100%);
     box-shadow: 0 0 12px 2px rgba($zeus-gold, 0.7);
     animation: keraunos-bolt-branch-left 12s ease-out 0.08s forwards;
   }
@@ -102,10 +471,10 @@ $zeus-electric: #e3f2fd;
     transform: translateX(-50%) rotate(18deg);
     transform-origin: 50% 0%;
     background: linear-gradient(180deg,
-      transparent 0%,
-      rgba($zeus-gold, 0.4) 40%,
-      rgba($zeus-amber, 0.9) 70%,
-      rgba($zeus-white, 0.8) 100%);
+        transparent 0%,
+        rgba($zeus-gold, 0.4) 40%,
+        rgba($zeus-amber, 0.9) 70%,
+        rgba($zeus-white, 0.8) 100%);
     box-shadow: 0 0 12px 2px rgba($zeus-gold, 0.7);
     animation: keraunos-bolt-branch-right 12s ease-out 0.12s forwards;
   }
@@ -121,11 +490,11 @@ $zeus-electric: #e3f2fd;
     margin-top: -100%;
     border-radius: 50%;
     background: radial-gradient(ellipse at center,
-      rgba($zeus-white, 0.7) 0%,
-      rgba($zeus-divine, 0.45) 15%,
-      rgba($zeus-gold, 0.3) 30%,
-      rgba($zeus-amber, 0.15) 50%,
-      transparent 70%);
+        rgba($zeus-white, 0.7) 0%,
+        rgba($zeus-divine, 0.45) 15%,
+        rgba($zeus-gold, 0.3) 30%,
+        rgba($zeus-amber, 0.15) 50%,
+        transparent 70%);
     animation: keraunos-corona 12s ease-out forwards;
   }
 
@@ -140,18 +509,36 @@ $zeus-electric: #e3f2fd;
     margin-top: -40%;
     transform-origin: 50% 50%;
     background: linear-gradient(180deg,
-      transparent,
-      rgba($zeus-white, 0.6) 30%,
-      rgba($zeus-gold, 0.9) 60%,
-      transparent);
+        transparent,
+        rgba($zeus-white, 0.6) 30%,
+        rgba($zeus-gold, 0.9) 60%,
+        transparent);
     opacity: 0;
   }
-  .mchip__keraunos-ray--1 { animation: keraunos-ray-1 12s ease-out 0s forwards; }
-  .mchip__keraunos-ray--2 { animation: keraunos-ray-2 12s ease-out 0.04s forwards; }
-  .mchip__keraunos-ray--3 { animation: keraunos-ray-3 12s ease-out 0.08s forwards; }
-  .mchip__keraunos-ray--4 { animation: keraunos-ray-4 12s ease-out 0.12s forwards; }
-  .mchip__keraunos-ray--5 { animation: keraunos-ray-5 12s ease-out 0.16s forwards; }
-  .mchip__keraunos-ray--6 { animation: keraunos-ray-6 12s ease-out 0.2s forwards; }
+
+  .mchip__keraunos-ray--1 {
+    animation: keraunos-ray-1 12s ease-out 0s forwards;
+  }
+
+  .mchip__keraunos-ray--2 {
+    animation: keraunos-ray-2 12s ease-out 0.04s forwards;
+  }
+
+  .mchip__keraunos-ray--3 {
+    animation: keraunos-ray-3 12s ease-out 0.08s forwards;
+  }
+
+  .mchip__keraunos-ray--4 {
+    animation: keraunos-ray-4 12s ease-out 0.12s forwards;
+  }
+
+  .mchip__keraunos-ray--5 {
+    animation: keraunos-ray-5 12s ease-out 0.16s forwards;
+  }
+
+  .mchip__keraunos-ray--6 {
+    animation: keraunos-ray-6 12s ease-out 0.2s forwards;
+  }
 
   /* Sparks — 12 small particles around frame (positions at 0°, 30°, … 330°) */
   .mchip__keraunos-spark {
@@ -167,18 +554,66 @@ $zeus-electric: #e3f2fd;
     box-shadow: 0 0 8px 2px rgba($zeus-gold, 0.9);
     opacity: 0;
   }
-  .mchip__keraunos-spark--1 { transform: translate(58%, 0); animation: keraunos-spark-out 12s ease-out 0s forwards; }
-  .mchip__keraunos-spark--2 { transform: translate(50.2%, 29%); animation: keraunos-spark-out-2 12s ease-out 0.02s forwards; }
-  .mchip__keraunos-spark--3 { transform: translate(29%, 50.2%); animation: keraunos-spark-out-3 12s ease-out 0.04s forwards; }
-  .mchip__keraunos-spark--4 { transform: translate(0, 58%); animation: keraunos-spark-out-4 12s ease-out 0.06s forwards; }
-  .mchip__keraunos-spark--5 { transform: translate(-29%, 50.2%); animation: keraunos-spark-out-5 12s ease-out 0.08s forwards; }
-  .mchip__keraunos-spark--6 { transform: translate(-50.2%, 29%); animation: keraunos-spark-out-6 12s ease-out 0.1s forwards; }
-  .mchip__keraunos-spark--7 { transform: translate(-58%, 0); animation: keraunos-spark-out-7 12s ease-out 0.12s forwards; }
-  .mchip__keraunos-spark--8 { transform: translate(-50.2%, -29%); animation: keraunos-spark-out-8 12s ease-out 0.14s forwards; }
-  .mchip__keraunos-spark--9 { transform: translate(-29%, -50.2%); animation: keraunos-spark-out-9 12s ease-out 0.16s forwards; }
-  .mchip__keraunos-spark--10 { transform: translate(0, -58%); animation: keraunos-spark-out-10 12s ease-out 0.18s forwards; }
-  .mchip__keraunos-spark--11 { transform: translate(29%, -50.2%); animation: keraunos-spark-out-11 12s ease-out 0.2s forwards; }
-  .mchip__keraunos-spark--12 { transform: translate(50.2%, -29%); animation: keraunos-spark-out-12 12s ease-out 0.22s forwards; }
+
+  .mchip__keraunos-spark--1 {
+    transform: translate(58%, 0);
+    animation: keraunos-spark-out 12s ease-out 0s forwards;
+  }
+
+  .mchip__keraunos-spark--2 {
+    transform: translate(50.2%, 29%);
+    animation: keraunos-spark-out-2 12s ease-out 0.02s forwards;
+  }
+
+  .mchip__keraunos-spark--3 {
+    transform: translate(29%, 50.2%);
+    animation: keraunos-spark-out-3 12s ease-out 0.04s forwards;
+  }
+
+  .mchip__keraunos-spark--4 {
+    transform: translate(0, 58%);
+    animation: keraunos-spark-out-4 12s ease-out 0.06s forwards;
+  }
+
+  .mchip__keraunos-spark--5 {
+    transform: translate(-29%, 50.2%);
+    animation: keraunos-spark-out-5 12s ease-out 0.08s forwards;
+  }
+
+  .mchip__keraunos-spark--6 {
+    transform: translate(-50.2%, 29%);
+    animation: keraunos-spark-out-6 12s ease-out 0.1s forwards;
+  }
+
+  .mchip__keraunos-spark--7 {
+    transform: translate(-58%, 0);
+    animation: keraunos-spark-out-7 12s ease-out 0.12s forwards;
+  }
+
+  .mchip__keraunos-spark--8 {
+    transform: translate(-50.2%, -29%);
+    animation: keraunos-spark-out-8 12s ease-out 0.14s forwards;
+  }
+
+  .mchip__keraunos-spark--9 {
+    transform: translate(-29%, -50.2%);
+    animation: keraunos-spark-out-9 12s ease-out 0.16s forwards;
+  }
+
+  .mchip__keraunos-spark--10 {
+    transform: translate(0, -58%);
+    animation: keraunos-spark-out-10 12s ease-out 0.18s forwards;
+  }
+
+  .mchip__keraunos-spark--11 {
+    transform: translate(29%, -50.2%);
+    animation: keraunos-spark-out-11 12s ease-out 0.2s forwards;
+  }
+
+  .mchip__keraunos-spark--12 {
+    transform: translate(50.2%, -29%);
+    animation: keraunos-spark-out-12 12s ease-out 0.22s forwards;
+  }
 
   /* Double ring */
   .mchip__keraunos-ring--inner {
@@ -206,9 +641,9 @@ $zeus-electric: #e3f2fd;
     border-radius: 50%;
     border: 2px solid rgba($zeus-gold, 0.6);
     background: radial-gradient(ellipse at center,
-      rgba($zeus-white, 0.2) 0%,
-      rgba($zeus-gold, 0.12) 40%,
-      transparent 70%);
+        rgba($zeus-white, 0.2) 0%,
+        rgba($zeus-gold, 0.12) 40%,
+        transparent 70%);
     filter: blur(10px);
     animation: keraunos-ring-outer 12s ease-out 0.05s forwards;
   }
@@ -226,13 +661,13 @@ $zeus-electric: #e3f2fd;
     top: -240%;
     transform-origin: 50% 0%;
     background: linear-gradient(180deg,
-      transparent 0%,
-      rgba($zeus-white, 0.3) 22%,
-      rgba($zeus-gold, 0.7) 48%,
-      rgba($zeus-amber, 0.95) 68%,
-      #fff 85%,
-      rgba($zeus-gold, 0.95) 95%,
-      rgba($zeus-amber, 0.85) 100%);
+        transparent 0%,
+        rgba($zeus-white, 0.3) 22%,
+        rgba($zeus-gold, 0.7) 48%,
+        rgba($zeus-amber, 0.95) 68%,
+        #fff 85%,
+        rgba($zeus-gold, 0.95) 95%,
+        rgba($zeus-amber, 0.85) 100%);
     box-shadow:
       0 0 14px 3px rgba(#fff, 0.9),
       0 0 28px 6px rgba($zeus-gold, 0.75),
@@ -251,10 +686,10 @@ $zeus-electric: #e3f2fd;
     pointer-events: none;
     border: 3px solid rgba($zeus-gold, 0.55);
     background: radial-gradient(ellipse at center,
-      rgba($zeus-white, 0.4) 0%,
-      rgba($zeus-gold, 0.28) 28%,
-      rgba($zeus-amber, 0.14) 55%,
-      transparent 78%);
+        rgba($zeus-white, 0.4) 0%,
+        rgba($zeus-gold, 0.28) 28%,
+        rgba($zeus-amber, 0.14) 55%,
+        transparent 78%);
     filter: blur(14px);
     animation: keraunos-ring 12s ease-out forwards;
   }
@@ -262,140 +697,862 @@ $zeus-electric: #e3f2fd;
 
 /* Keyframes */
 @keyframes keraunos-shake {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  3% { transform: translate(-10px, -6px) scale(1.03); }
-  6% { transform: translate(9px, 6px) scale(0.97); }
-  10% { transform: translate(-11px, 4px) scale(1.04); }
-  14% { transform: translate(8px, -8px) scale(0.96); }
-  18% { transform: translate(-6px, 9px) scale(1.03); }
-  22% { transform: translate(10px, -4px) scale(0.98); }
-  26% { transform: translate(-8px, -6px) scale(1.02); }
-  30% { transform: translate(6px, 7px) scale(0.99); }
-  38% { transform: translate(-6px, 5px) scale(1.01); }
-  50% { transform: translate(4px, -4px); }
-  62% { transform: translate(-3px, 2px); }
-  74% { transform: translate(2px, -1px); }
-  86% { transform: translate(-1px, 1px); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  3% {
+    transform: translate(-10px, -6px) scale(1.03);
+  }
+
+  6% {
+    transform: translate(9px, 6px) scale(0.97);
+  }
+
+  10% {
+    transform: translate(-11px, 4px) scale(1.04);
+  }
+
+  14% {
+    transform: translate(8px, -8px) scale(0.96);
+  }
+
+  18% {
+    transform: translate(-6px, 9px) scale(1.03);
+  }
+
+  22% {
+    transform: translate(10px, -4px) scale(0.98);
+  }
+
+  26% {
+    transform: translate(-8px, -6px) scale(1.02);
+  }
+
+  30% {
+    transform: translate(6px, 7px) scale(0.99);
+  }
+
+  38% {
+    transform: translate(-6px, 5px) scale(1.01);
+  }
+
+  50% {
+    transform: translate(4px, -4px);
+  }
+
+  62% {
+    transform: translate(-3px, 2px);
+  }
+
+  74% {
+    transform: translate(2px, -1px);
+  }
+
+  86% {
+    transform: translate(-1px, 1px);
+  }
 }
 
 @keyframes keraunos-flash {
-  0% { opacity: 1; background: $zeus-white; }
-  1% { opacity: 0.95; background: #fff; }
-  2% { opacity: 0.15; background: #fff; }
-  3% { opacity: 1; background: $zeus-white; }
-  5% { opacity: 0.92; background: rgba($zeus-gold, 0.95); }
-  9% { opacity: 0.12; }
-  14% { opacity: 0.75; background: rgba($zeus-amber, 0.7); }
-  22% { opacity: 0.06; }
-  30% { opacity: 0.4; background: rgba($zeus-orange, 0.5); }
-  42% { opacity: 0.08; background: rgba($zeus-amber, 0.2); }
-  55% { opacity: 0.06; background: rgba($zeus-gold, 0.15); }
-  100% { opacity: 0; background: transparent; }
+  0% {
+    opacity: 1;
+    background: $zeus-white;
+  }
+
+  1% {
+    opacity: 0.95;
+    background: #fff;
+  }
+
+  2% {
+    opacity: 0.15;
+    background: #fff;
+  }
+
+  3% {
+    opacity: 1;
+    background: $zeus-white;
+  }
+
+  5% {
+    opacity: 0.92;
+    background: rgba($zeus-gold, 0.95);
+  }
+
+  9% {
+    opacity: 0.12;
+  }
+
+  14% {
+    opacity: 0.75;
+    background: rgba($zeus-amber, 0.7);
+  }
+
+  22% {
+    opacity: 0.06;
+  }
+
+  30% {
+    opacity: 0.4;
+    background: rgba($zeus-orange, 0.5);
+  }
+
+  42% {
+    opacity: 0.08;
+    background: rgba($zeus-amber, 0.2);
+  }
+
+  55% {
+    opacity: 0.06;
+    background: rgba($zeus-gold, 0.15);
+  }
+
+  100% {
+    opacity: 0;
+    background: transparent;
+  }
 }
 
 @keyframes keraunos-bolt-main {
-  0% { opacity: 1; transform: translateX(-50%) scaleY(0); filter: brightness(2.8); }
-  1.5% { opacity: 1; transform: translateX(-50%) scaleY(1); filter: brightness(3.2); }
-  3% { opacity: 0.95; filter: brightness(2.8); }
-  4% { opacity: 1; filter: brightness(3); }
-  6% { opacity: 0.7; filter: brightness(2.2); }
-  10% { opacity: 0.5; transform: translateX(-50%) scaleY(1) scaleX(1.08); filter: brightness(1.8) blur(0.5px); }
-  20% { opacity: 0.25; filter: brightness(1.4) blur(1px); }
-  35% { opacity: 0.12; filter: blur(1.5px) brightness(1.1); }
-  55%, 100% { opacity: 0; transform: translateX(-50%) scaleY(1) scaleX(0.85); filter: blur(2px) brightness(0.5); }
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(0);
+    filter: brightness(2.8);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+    filter: brightness(3.2);
+  }
+
+  3% {
+    opacity: 0.95;
+    filter: brightness(2.8);
+  }
+
+  4% {
+    opacity: 1;
+    filter: brightness(3);
+  }
+
+  6% {
+    opacity: 0.7;
+    filter: brightness(2.2);
+  }
+
+  10% {
+    opacity: 0.5;
+    transform: translateX(-50%) scaleY(1) scaleX(1.08);
+    filter: brightness(1.8) blur(0.5px);
+  }
+
+  20% {
+    opacity: 0.25;
+    filter: brightness(1.4) blur(1px);
+  }
+
+  35% {
+    opacity: 0.12;
+    filter: blur(1.5px) brightness(1.1);
+  }
+
+  55%,
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1) scaleX(0.85);
+    filter: blur(2px) brightness(0.5);
+  }
 }
 
 @keyframes keraunos-bolt-branch-left {
-  0% { opacity: 0; transform: translateX(-50%) rotate(-18deg) scaleY(0); }
-  2% { opacity: 1; transform: translateX(-50%) rotate(-18deg) scaleY(1); filter: brightness(2.5); }
-  8% { opacity: 0.5; filter: brightness(1.8); }
-  25% { opacity: 0.2; filter: blur(0.5px); }
-  100% { opacity: 0; filter: blur(2px); }
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-18deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-18deg) scaleY(1);
+    filter: brightness(2.5);
+  }
+
+  8% {
+    opacity: 0.5;
+    filter: brightness(1.8);
+  }
+
+  25% {
+    opacity: 0.2;
+    filter: blur(0.5px);
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(2px);
+  }
 }
 
 @keyframes keraunos-bolt-branch-right {
-  0% { opacity: 0; transform: translateX(-50%) rotate(18deg) scaleY(0); }
-  2% { opacity: 1; transform: translateX(-50%) rotate(18deg) scaleY(1); filter: brightness(2.5); }
-  8% { opacity: 0.5; filter: brightness(1.8); }
-  25% { opacity: 0.2; filter: blur(0.5px); }
-  100% { opacity: 0; filter: blur(2px); }
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) rotate(18deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(18deg) scaleY(1);
+    filter: brightness(2.5);
+  }
+
+  8% {
+    opacity: 0.5;
+    filter: brightness(1.8);
+  }
+
+  25% {
+    opacity: 0.2;
+    filter: blur(0.5px);
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(2px);
+  }
 }
 
 @keyframes keraunos-corona {
-  0% { opacity: 0; transform: scale(0.2); }
-  2% { opacity: 1; transform: scale(0.9); }
-  4% { opacity: 0.95; transform: scale(1); }
-  15% { opacity: 0.5; transform: scale(1.1); }
-  35% { opacity: 0.15; transform: scale(1.25); }
-  100% { opacity: 0; transform: scale(1.4); }
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+
+  2% {
+    opacity: 1;
+    transform: scale(0.9);
+  }
+
+  4% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+
+  15% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+
+  35% {
+    opacity: 0.15;
+    transform: scale(1.25);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
 }
 
-@keyframes keraunos-ray-1 { 0% { opacity: 0; transform: rotate(0deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(0deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
-@keyframes keraunos-ray-2 { 0% { opacity: 0; transform: rotate(60deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(60deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
-@keyframes keraunos-ray-3 { 0% { opacity: 0; transform: rotate(120deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(120deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
-@keyframes keraunos-ray-4 { 0% { opacity: 0; transform: rotate(180deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(180deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
-@keyframes keraunos-ray-5 { 0% { opacity: 0; transform: rotate(240deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(240deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
-@keyframes keraunos-ray-6 { 0% { opacity: 0; transform: rotate(300deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(300deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-1 {
+  0% {
+    opacity: 0;
+    transform: rotate(0deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(0deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-ray-2 {
+  0% {
+    opacity: 0;
+    transform: rotate(60deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(60deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-ray-3 {
+  0% {
+    opacity: 0;
+    transform: rotate(120deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(120deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-ray-4 {
+  0% {
+    opacity: 0;
+    transform: rotate(180deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(180deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-ray-5 {
+  0% {
+    opacity: 0;
+    transform: rotate(240deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(240deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-ray-6 {
+  0% {
+    opacity: 0;
+    transform: rotate(300deg) scaleY(0);
+  }
+
+  2% {
+    opacity: 0.9;
+    transform: rotate(300deg) scaleY(1);
+  }
+
+  6% {
+    opacity: 0.4;
+  }
+
+  20% {
+    opacity: 0.1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
 
 @keyframes keraunos-spark-out {
-  0% { opacity: 0; transform: translate(58%, 0) scale(0); }
-  1.5% { opacity: 1; transform: translate(58%, 0) scale(1.2); }
-  4% { opacity: 0.6; transform: translate(58%, 0) scale(1); }
-  15% { opacity: 0.2; }
-  100% { opacity: 0; transform: translate(58%, 0) scale(0.5); }
+  0% {
+    opacity: 0;
+    transform: translate(58%, 0) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(58%, 0) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+    transform: translate(58%, 0) scale(1);
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(58%, 0) scale(0.5);
+  }
 }
-@keyframes keraunos-spark-out-2 { 0% { opacity: 0; transform: translate(50.2%, 29%) scale(0); } 1.5% { opacity: 1; transform: translate(50.2%, 29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-3 { 0% { opacity: 0; transform: translate(29%, 50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(29%, 50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-4 { 0% { opacity: 0; transform: translate(0, 58%) scale(0); } 1.5% { opacity: 1; transform: translate(0, 58%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-5 { 0% { opacity: 0; transform: translate(-29%, 50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(-29%, 50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-6 { 0% { opacity: 0; transform: translate(-50.2%, 29%) scale(0); } 1.5% { opacity: 1; transform: translate(-50.2%, 29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-7 { 0% { opacity: 0; transform: translate(-58%, 0) scale(0); } 1.5% { opacity: 1; transform: translate(-58%, 0) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-8 { 0% { opacity: 0; transform: translate(-50.2%, -29%) scale(0); } 1.5% { opacity: 1; transform: translate(-50.2%, -29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-9 { 0% { opacity: 0; transform: translate(-29%, -50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(-29%, -50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-10 { 0% { opacity: 0; transform: translate(0, -58%) scale(0); } 1.5% { opacity: 1; transform: translate(0, -58%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-11 { 0% { opacity: 0; transform: translate(29%, -50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(29%, -50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
-@keyframes keraunos-spark-out-12 { 0% { opacity: 0; transform: translate(50.2%, -29%) scale(0); } 1.5% { opacity: 1; transform: translate(50.2%, -29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+
+@keyframes keraunos-spark-out-2 {
+  0% {
+    opacity: 0;
+    transform: translate(50.2%, 29%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(50.2%, 29%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-3 {
+  0% {
+    opacity: 0;
+    transform: translate(29%, 50.2%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(29%, 50.2%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-4 {
+  0% {
+    opacity: 0;
+    transform: translate(0, 58%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(0, 58%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-5 {
+  0% {
+    opacity: 0;
+    transform: translate(-29%, 50.2%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(-29%, 50.2%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-6 {
+  0% {
+    opacity: 0;
+    transform: translate(-50.2%, 29%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(-50.2%, 29%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-7 {
+  0% {
+    opacity: 0;
+    transform: translate(-58%, 0) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(-58%, 0) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-8 {
+  0% {
+    opacity: 0;
+    transform: translate(-50.2%, -29%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(-50.2%, -29%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-9 {
+  0% {
+    opacity: 0;
+    transform: translate(-29%, -50.2%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(-29%, -50.2%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-10 {
+  0% {
+    opacity: 0;
+    transform: translate(0, -58%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(0, -58%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-11 {
+  0% {
+    opacity: 0;
+    transform: translate(29%, -50.2%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(29%, -50.2%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes keraunos-spark-out-12 {
+  0% {
+    opacity: 0;
+    transform: translate(50.2%, -29%) scale(0);
+  }
+
+  1.5% {
+    opacity: 1;
+    transform: translate(50.2%, -29%) scale(1.2);
+  }
+
+  4% {
+    opacity: 0.6;
+  }
+
+  15% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
 
 @keyframes keraunos-ring-inner {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); border-width: 4px; }
-  2% { opacity: 1; transform: translate(-50%, -50%) scale(0.95); border-width: 3px; }
-  8% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
-  25% { opacity: 0.3; transform: translate(-50%, -50%) scale(1.2); border-width: 2px; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); border-width: 0; }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+    border-width: 4px;
+  }
+
+  2% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.95);
+    border-width: 3px;
+  }
+
+  8% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+
+  25% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1.2);
+    border-width: 2px;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
+    border-width: 0;
+  }
 }
 
 @keyframes keraunos-ring-outer {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-  3% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.9); }
-  6% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
-  15% { opacity: 0.25; transform: translate(-50%, -50%) scale(1.15); }
-  35% { opacity: 0.1; transform: translate(-50%, -50%) scale(1.35); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+
+  3% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+
+  6% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  15% {
+    opacity: 0.25;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+
+  35% {
+    opacity: 0.1;
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.7);
+  }
 }
 
 @keyframes keraunos-ring {
-  0% { opacity: 0; transform: scale(0.25); border-width: 4px; filter: blur(14px); }
-  2.5% { opacity: 1; transform: scale(0.88); filter: blur(16px); }
-  5% { opacity: 0.92; transform: scale(1); border-width: 3px; filter: blur(14px); }
-  12% { opacity: 0.4; transform: scale(1.18); filter: blur(18px); }
-  25% { opacity: 0.2; transform: scale(1.3); border-width: 2px; filter: blur(20px); }
-  50% { opacity: 0.08; transform: scale(1.5); border-width: 1px; filter: blur(22px); }
-  100% { opacity: 0; transform: scale(1.75); border-width: 0; filter: blur(24px); }
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+    border-width: 4px;
+    filter: blur(14px);
+  }
+
+  2.5% {
+    opacity: 1;
+    transform: scale(0.88);
+    filter: blur(16px);
+  }
+
+  5% {
+    opacity: 0.92;
+    transform: scale(1);
+    border-width: 3px;
+    filter: blur(14px);
+  }
+
+  12% {
+    opacity: 0.4;
+    transform: scale(1.18);
+    filter: blur(18px);
+  }
+
+  25% {
+    opacity: 0.2;
+    transform: scale(1.3);
+    border-width: 2px;
+    filter: blur(20px);
+  }
+
+  50% {
+    opacity: 0.08;
+    transform: scale(1.5);
+    border-width: 1px;
+    filter: blur(22px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.75);
+    border-width: 0;
+    filter: blur(24px);
+  }
 }
 
 @keyframes keraunos-lightning-hit {
-  0% { opacity: 1; transform: translateX(-50%) scaleY(0); filter: brightness(2.6); }
-  2% { opacity: 1; transform: translateX(-50%) scaleY(1); filter: brightness(3); }
-  4% { opacity: 0.9; filter: brightness(2.5); }
-  5% { opacity: 1; filter: brightness(2.8); }
-  8% { opacity: 0.55; filter: brightness(2); }
-  15% { opacity: 0.3; transform: translateX(-50%) scaleY(1) scaleX(1.12); filter: brightness(1.5) blur(0.5px); }
-  30% { opacity: 0.15; filter: brightness(1.2) blur(1px); }
-  50%, 100% { opacity: 0; transform: translateX(-50%) scaleY(1) scaleX(0.82); filter: blur(2px) brightness(0.5); }
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(0);
+    filter: brightness(2.6);
+  }
+
+  2% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+    filter: brightness(3);
+  }
+
+  4% {
+    opacity: 0.9;
+    filter: brightness(2.5);
+  }
+
+  5% {
+    opacity: 1;
+    filter: brightness(2.8);
+  }
+
+  8% {
+    opacity: 0.55;
+    filter: brightness(2);
+  }
+
+  15% {
+    opacity: 0.3;
+    transform: translateX(-50%) scaleY(1) scaleX(1.12);
+    filter: brightness(1.5) blur(0.5px);
+  }
+
+  30% {
+    opacity: 0.15;
+    filter: brightness(1.2) blur(1px);
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1) scaleX(0.82);
+    filter: blur(2px) brightness(0.5);
+  }
 }
 
 @keyframes keraunos-frame-glow {
-  0%, 45% {
+
+  0%,
+  45% {
     box-shadow:
       0 0 0 4px rgba($zeus-gold, 0.95),
       0 0 30px rgba($zeus-amber, 0.9),
@@ -403,6 +1560,7 @@ $zeus-electric: #e3f2fd;
       0 0 100px rgba($zeus-gold, 0.35),
       inset 0 0 40px rgba($zeus-white, 0.15);
   }
+
   100% {
     box-shadow:
       0 0 0 0 rgba($zeus-gold, 0),
