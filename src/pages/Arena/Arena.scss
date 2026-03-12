@@ -108,27 +108,58 @@ $ink-faint: #9a8b76;
     left: 0;
   }
 
-  &--tl { top: 0.6rem; left: 2.25rem; }
+  &--tl {
+    top: 0.6rem;
+    left: 2.25rem;
+  }
 
   &--tr {
     top: 0.6rem;
     right: 2.25rem;
-    &::before { right: 0; left: auto; }
-    &::after { right: 0; left: auto; }
+
+    &::before {
+      right: 0;
+      left: auto;
+    }
+
+    &::after {
+      right: 0;
+      left: auto;
+    }
   }
 
   &--bl {
     bottom: 0.6rem;
     left: 2.25rem;
-    &::before { bottom: 0; top: auto; }
-    &::after { bottom: 0; top: auto; }
+
+    &::before {
+      bottom: 0;
+      top: auto;
+    }
+
+    &::after {
+      bottom: 0;
+      top: auto;
+    }
   }
 
   &--br {
     bottom: 0.6rem;
     right: 2.25rem;
-    &::before { bottom: 0; top: auto; right: 0; left: auto; }
-    &::after { bottom: 0; top: auto; right: 0; left: auto; }
+
+    &::before {
+      bottom: 0;
+      top: auto;
+      right: 0;
+      left: auto;
+    }
+
+    &::after {
+      bottom: 0;
+      top: auto;
+      right: 0;
+      left: auto;
+    }
   }
 }
 
@@ -222,7 +253,10 @@ $ink-faint: #9a8b76;
   white-space: nowrap;
   flex-shrink: 0;
 
-  svg { width: 15px; height: 15px; }
+  svg {
+    width: 15px;
+    height: 15px;
+  }
 
   @media (max-width: $bp-compact) {
     font-size: 0;
@@ -266,7 +300,9 @@ $ink-faint: #9a8b76;
   }
 }
 
-.arena__bar-spacer { flex: 1; }
+.arena__bar-spacer {
+  flex: 1;
+}
 
 .arena__bar-meta {
   display: flex;
@@ -274,7 +310,9 @@ $ink-faint: #9a8b76;
   gap: 0.4rem;
   flex-shrink: 0;
 
-  @media (max-width: $bp-mobile) { display: none; }
+  @media (max-width: $bp-mobile) {
+    display: none;
+  }
 }
 
 .arena__bar-badge {
@@ -322,7 +360,10 @@ $ink-faint: #9a8b76;
   transition: all 0.15s;
   padding: 0;
 
-  svg { width: 14px; height: 14px; }
+  svg {
+    width: 14px;
+    height: 14px;
+  }
 
   &:hover {
     color: $gold-dark;
@@ -378,13 +419,11 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 40% 40%,
-    color-mix(in srgb, var(--soul-color-start, #5e3575) 55%, transparent) 0%,
-    color-mix(in srgb, var(--soul-color-start, #5e3575) 75%, transparent) 40%,
-    color-mix(in srgb, var(--soul-color-start, #5e3575) 25%, transparent) 70%,
-    transparent 100%
-  );
+  background: radial-gradient(circle at 40% 40%,
+      color-mix(in srgb, var(--soul-color-start, #5e3575) 55%, transparent) 0%,
+      color-mix(in srgb, var(--soul-color-start, #5e3575) 75%, transparent) 40%,
+      color-mix(in srgb, var(--soul-color-start, #5e3575) 25%, transparent) 70%,
+      transparent 100%);
   box-shadow:
     0 0 10px color-mix(in srgb, var(--soul-color-start, #5e3575) 40%, transparent),
     0 0 20px color-mix(in srgb, var(--soul-color-start, #5e3575) 20%, transparent),
@@ -397,13 +436,11 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 40% 40%,
-    color-mix(in srgb, var(--soul-color-end, #5e3575) 55%, transparent) 0%,
-    color-mix(in srgb, var(--soul-color-end, #5e3575) 75%, transparent) 40%,
-    color-mix(in srgb, var(--soul-color-end, #5e3575) 25%, transparent) 70%,
-    transparent 100%
-  );
+  background: radial-gradient(circle at 40% 40%,
+      color-mix(in srgb, var(--soul-color-end, #5e3575) 55%, transparent) 0%,
+      color-mix(in srgb, var(--soul-color-end, #5e3575) 75%, transparent) 40%,
+      color-mix(in srgb, var(--soul-color-end, #5e3575) 25%, transparent) 70%,
+      transparent 100%);
   box-shadow:
     0 0 10px color-mix(in srgb, var(--soul-color-end, #5e3575) 40%, transparent),
     0 0 20px color-mix(in srgb, var(--soul-color-end, #5e3575) 20%, transparent),
@@ -413,8 +450,13 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
 }
 
 @keyframes arena-soul-orb-blend {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* Burst at caster center (position set by --soul-end-x/y), uses caster primary */
@@ -455,14 +497,17 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     transform: scale(0.85);
     opacity: 0.5;
   }
+
   12% {
     opacity: 0.9;
   }
+
   50% {
     left: 50%;
     margin-left: -14px;
     transform: translateY(calc(-50% - 10px)) scale(1);
   }
+
   88% {
     left: var(--soul-end-x, 88%);
     top: var(--soul-end-y, 50%);
@@ -471,6 +516,7 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     transform: scale(1);
     opacity: 0.95;
   }
+
   100% {
     left: var(--soul-end-x, 88%);
     top: var(--soul-end-y, 50%);
@@ -491,14 +537,17 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     transform: scale(0.85);
     opacity: 0.5;
   }
+
   12% {
     opacity: 0.9;
   }
+
   50% {
     left: 50%;
     margin-left: -14px;
     transform: translateY(calc(-50% - 10px)) scale(1);
   }
+
   88% {
     left: var(--soul-end-x, 12%);
     top: var(--soul-end-y, 50%);
@@ -507,6 +556,7 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     transform: scale(1);
     opacity: 0.95;
   }
+
   100% {
     left: var(--soul-end-x, 12%);
     top: var(--soul-end-y, 50%);
@@ -524,6 +574,7 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     opacity: 0.8;
     border-color: rgba(94, 53, 117, 0.6);
   }
+
   100% {
     transform: translate(-50%, -50%) scale(2.5);
     opacity: 0;
@@ -546,14 +597,12 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
 /* ── VS Divider ── */
 .arena__divider {
   width: 2px;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    $crimson-bright 15%,
-    rgba($crimson-bright, 0.9) 50%,
-    $crimson-bright 85%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom,
+      transparent 0%,
+      $crimson-bright 15%,
+      rgba($crimson-bright, 0.9) 50%,
+      $crimson-bright 85%,
+      transparent 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -641,7 +690,10 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     color: $ink-mid;
     border: 1px solid rgba($gold, 0.18);
 
-    &:hover { background: rgba($gold, 0.12); color: $ink; }
+    &:hover {
+      background: rgba($gold, 0.12);
+      color: $ink;
+    }
   }
 
   &--primary {
@@ -650,7 +702,9 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     border: 1px solid rgba($gold-dark, 0.3);
     box-shadow: 0 2px 8px rgba($gold, 0.2);
 
-    &:hover { background: linear-gradient(145deg, lighten($gold, 4%), $gold); }
+    &:hover {
+      background: linear-gradient(145deg, lighten($gold, 4%), $gold);
+    }
   }
 
   &--danger {
@@ -658,7 +712,10 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     color: $crimson-bright;
     border: 1px solid rgba($crimson, 0.12);
 
-    &:hover { background: rgba($crimson, 0.12); color: $crimson; }
+    &:hover {
+      background: rgba($crimson, 0.12);
+      color: $crimson;
+    }
   }
 }
 
@@ -723,10 +780,13 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
    KEYFRAMES
    ══════════════════════════════════════ */
 @keyframes arena-diamond-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.2;
     transform: scale(1) var(--diamond-base, translateX(-50%));
   }
+
   50% {
     opacity: 0.5;
     transform: scale(1.5) var(--diamond-base, translateX(-50%));
@@ -734,29 +794,53 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
 }
 
 @keyframes arena-divider-breathe {
-  0%, 100% { box-shadow: 0 0 8px rgba($crimson, 0.15), 0 0 20px rgba($crimson, 0.08); }
-  50%      { box-shadow: 0 0 14px rgba($crimson, 0.25), 0 0 32px rgba($crimson, 0.12); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba($crimson, 0.15), 0 0 20px rgba($crimson, 0.08);
+  }
+
+  50% {
+    box-shadow: 0 0 14px rgba($crimson, 0.25), 0 0 32px rgba($crimson, 0.12);
+  }
 }
 
 @keyframes arena-vs-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 12px rgba($crimson,0.2), 0 0 24px rgba($crimson,0.1);
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), 0 0 12px rgba($crimson, 0.2), 0 0 24px rgba($crimson, 0.1);
     transform: scale(1);
   }
+
   50% {
-    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 18px rgba($crimson,0.3), 0 0 36px rgba($crimson,0.15);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), 0 0 18px rgba($crimson, 0.3), 0 0 36px rgba($crimson, 0.15);
     transform: scale(1.05);
   }
 }
 
 @keyframes arena-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.45; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
 }
 
 @keyframes arena-shimmer {
-  0%, 100% { opacity: 0.65; }
-  50%      { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes arena-toast-enter {
@@ -764,6 +848,7 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     opacity: 0;
     transform: translateX(-50%) translateY(-100%);
   }
+
   100% {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
@@ -777,17 +862,39 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   .arena__corner {
     width: 14px;
     height: 14px;
-    &--tl, &--tr { top: 0.4rem; }
-    &--bl, &--br { bottom: 0.4rem; }
-    &--tl, &--bl { left: 1rem; }
-    &--tr, &--br { right: 1rem; }
+
+    &--tl,
+    &--tr {
+      top: 0.4rem;
+    }
+
+    &--bl,
+    &--br {
+      bottom: 0.4rem;
+    }
+
+    &--tl,
+    &--bl {
+      left: 1rem;
+    }
+
+    &--tr,
+    &--br {
+      right: 1rem;
+    }
   }
 
   .arena__diamond {
     width: 4px;
     height: 4px;
-    &--ml { left: 1rem; }
-    &--mr { right: 1rem; }
+
+    &--ml {
+      left: 1rem;
+    }
+
+    &--mr {
+      right: 1rem;
+    }
   }
 
   /* ── Stacked layout: halves top/bottom ── */
@@ -820,14 +927,12 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   .arena__divider {
     width: 100%;
     height: 2px;
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      $crimson-bright 15%,
-      rgba($crimson-bright, 0.9) 50%,
-      $crimson-bright 85%,
-      transparent 100%
-    );
+    background: linear-gradient(to right,
+        transparent 0%,
+        $crimson-bright 15%,
+        rgba($crimson-bright, 0.9) 50%,
+        $crimson-bright 85%,
+        transparent 100%);
   }
 
   .arena__vs-ring {
@@ -844,4 +949,3 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
     -webkit-mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
   }
 }
-

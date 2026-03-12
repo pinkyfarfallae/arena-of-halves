@@ -1,0 +1,584 @@
+@use '../../../../styles/variables' as *;
+@use '../../../Arena/Arena.scss';
+@use '../../../Arena/components/TeamPanel/TeamPanel.scss';
+
+/* ══════════════════════════════════════
+   Powers VFX Demo — compact, modern
+   Input/select style matches EditCharacterModal (cs__edit-input / cs__edit-label)
+   Arena field uses same structure as Arena page
+   ══════════════════════════════════════ */
+
+.power-vfx-demo {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% + 2.5rem);
+  min-height: 0;
+  margin: -1.25rem -1.5rem;
+  background: var(--ci-bg, #faf7f0);
+}
+
+.power-vfx-demo__layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+/* ── Input / label / select (EditCharacterModal style) ── */
+.power-vfx-demo__label {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--ci-muted, #8a8a9a);
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+}
+
+.power-vfx-demo__input {
+  font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: var(--ci-fg, #1a1a2e);
+  background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 40%, white);
+  border: 1px solid color-mix(in srgb, var(--ci-border, #d4c9a8) 65%, transparent);
+  border-radius: 6px;
+  padding: 0.32rem 0.45rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    border-color: color-mix(in srgb, var(--ci-primary) 50%, var(--ci-border, #d4c9a8));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ci-primary) 8%, transparent);
+  }
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--ci-muted, #8a8a9a) 40%, transparent);
+    font-size: 0.7rem;
+  }
+}
+
+.power-vfx-demo__select {
+  cursor: pointer;
+  min-height: 28px;
+  min-width: 0;
+}
+
+.power-vfx-demo__btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.32rem 0.55rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 81px;
+  max-width: 81px;
+  min-height: 26px;
+  max-height: 26px;
+  border: 1px solid transparent;
+
+  &--ghost {
+    color: var(--ci-muted, #8a8a9a);
+    background: transparent;
+    border-color: color-mix(in srgb, var(--ci-border, #d4c9a8) 70%, transparent);
+
+    &:hover {
+      color: var(--ci-fg, #1a1a2e);
+      border-color: var(--ci-primary, #c0a062);
+    }
+  }
+
+  &--primary {
+    color: var(--ci-bg, #faf7f0);
+    background: var(--ci-primary, #c0a062);
+    border-color: var(--ci-primary, #c0a062);
+
+    &:hover {
+      background: var(--ci-primary-hover, #a8884a);
+      box-shadow: 0 1px 4px color-mix(in srgb, var(--ci-primary) 25%, transparent);
+    }
+  }
+
+  &--effects {
+    color: var(--ci-fg, #1a1a2e);
+    background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 80%, white);
+    border-color: color-mix(in srgb, var(--ci-border, #d4c9a8) 60%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--ci-primary, #c0a062) 12%, white);
+      border-color: var(--ci-primary, #c0a062);
+    }
+  }
+}
+
+/* ── Sidebar ── */
+.power-vfx-demo__sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ci-surface, #f5f1ea);
+  border-right: 1px solid var(--ci-border, #d4c9a8);
+}
+
+.power-vfx-demo__sidebar-header {
+  flex-shrink: 0;
+  padding: 0.4rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.power-vfx-demo__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.4rem 0.5rem;
+}
+
+.power-vfx-demo__group {
+  margin-bottom: 0.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.power-vfx-demo__group-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ci-primary, #c0a062);
+  padding: 0.25rem 0.4rem 0.2rem;
+  border-bottom: 1px solid var(--ci-border, #d4c9a8);
+  margin-bottom: 0.2rem;
+}
+
+.power-vfx-demo__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  margin-bottom: 0.1rem;
+  font-size: 0.7rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ci-fg, #1a1a2e);
+  transition: background 0.12s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 10%, transparent);
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 16%, transparent);
+    font-weight: 600;
+  }
+}
+
+.power-vfx-demo__item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.power-vfx-demo__item-badge {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+
+  &--caster {
+    background: color-mix(in srgb, #87ceeb 35%, transparent);
+    color: #1a5a7a;
+  }
+
+  &--target {
+    background: color-mix(in srgb, #b05080 35%, transparent);
+    color: #6a2040;
+  }
+}
+
+.power-vfx-demo__empty {
+  font-size: 0.7rem;
+  color: var(--ci-muted, #8a8a9a);
+  padding: 0.5rem 0.4rem;
+}
+
+/* ── Preview + Arena field ── */
+.power-vfx-demo__preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ── Bars: top (season + fighters per side) & bottom (caster | target) ── */
+.power-vfx-demo__bar {
+  flex-shrink: 0;
+  height: $topbar-height;
+  display: flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 60%, white);
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-left: none;
+  border-right: none;
+  position: relative;
+  z-index: 2;
+}
+
+/* Top bar: Season + fighters per side (each team independently) */
+.power-vfx-demo__bar--top {
+  padding: 0 0.75rem;
+  border-bottom: 1px solid var(--ci-border, #d4c9a8);
+}
+
+.power-vfx-demo__bar-top-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.power-vfx-demo__bar-top-inner--center {
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.power-vfx-demo__season-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-radius: 6px;
+  background: var(--ci-surface, #faf8f5);
+  color: var(--ci-muted, #6b6356);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--ci-surface-hover, #f0ebe3);
+    color: var(--ci-fg, #2c2720);
+  }
+
+  &.power-vfx-demo__season-btn--active {
+    background: var(--ci-light, #f5f2ed);
+    border-color: currentColor;
+  }
+}
+
+.power-vfx-demo__season-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.power-vfx-demo__season-icon--none {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.power-vfx-demo__bar-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .power-vfx-demo__label {
+    margin-right: 0;
+  }
+
+  .power-vfx-demo__dropdown.form__field {
+    min-width: 140px;
+    max-width: 140px;
+    max-height: 26px;
+  }
+}
+
+.power-vfx-demo__input--number {
+  width: 2.75rem;
+  text-align: center;
+}
+
+/* Bottom bar: two equal halves with divider (Caster | Target) */
+.power-vfx-demo__bar--bottom {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  border-top: 1px solid var(--ci-border, #d4c9a8);
+}
+
+.power-vfx-demo__bar-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  max-height: 26px;
+}
+
+.power-vfx-demo__bar-half--caster {
+  border-right: none;
+}
+
+.power-vfx-demo__bar-half--target {
+  justify-content: flex-end;
+}
+
+.power-vfx-demo__bar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+  max-height: 26px;
+
+  .power-vfx-demo__dropdown.form__field {
+    flex: 1;
+    max-height: 26px;
+
+    .form__dropdown-trigger {
+      min-height: 26px;
+      max-height: 26px;
+      border-radius: 6px;
+    }
+  }
+
+  .power-vfx-demo__btn {
+    flex-shrink: 0;
+  }
+}
+
+.power-vfx-demo__bar-half--target .power-vfx-demo__bar-controls {
+  justify-content: flex-end;
+}
+
+.power-vfx-demo__bar-divider {
+  width: 1px;
+  align-self: stretch;
+  background: linear-gradient(to bottom,
+      transparent,
+      var(--ci-border, #d4c9a8) 15%,
+      var(--ci-border, #d4c9a8) 85%,
+      transparent);
+  flex-shrink: 0;
+}
+
+/* Arena (reused component) — scoped to preview height */
+.power-vfx-demo__arena {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  margin: 0;
+}
+
+.power-vfx-demo__arena-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.power-vfx-demo__effect-modal-anchor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.power-vfx-demo__effect-modal-anchor--left {
+  left: 0;
+  width: 50%;
+}
+
+.power-vfx-demo__effect-modal-anchor--right {
+  right: 0;
+  width: 50%;
+}
+
+/* When modal is open, anchor must receive pointer events so buttons are clickable */
+.power-vfx-demo__effect-modal-anchor--active {
+  pointer-events: auto;
+}
+
+.power-vfx-demo__arena .arena {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% -10%, #faf4ea 0%, #f5ece0 50%, #ede2d2 100%);
+
+  &::before,
+  &::after {
+    display: none;
+  }
+}
+
+.power-vfx-demo__arena .arena__field {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.power-vfx-demo__arena .arena__half {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+/* Same wrapper as Arena: team-panel fills half and centers the chip */
+.power-vfx-demo__panel.team-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+}
+
+.power-vfx-demo__panel .mchip {
+  flex-shrink: 0;
+}
+
+.power-vfx-demo__side-label {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.25rem 0 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ci-muted, #8a8a9a);
+}
+
+.power-vfx-demo__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--ci-muted, #8a8a9a);
+}
+
+@media (max-width: $bp-compact) {
+  .power-vfx-demo__bar-top-inner {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .power-vfx-demo__bar--bottom {
+    flex-direction: column;
+    height: auto;
+    min-height: $topbar-height;
+    padding: 0.4rem 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .power-vfx-demo__bar-half {
+    padding: 0 0.5rem;
+    justify-content: flex-start;
+  }
+
+  .power-vfx-demo__bar-half--target .power-vfx-demo__bar-controls {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
+  .power-vfx-demo__bar-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--ci-border, #d4c9a8);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .power-vfx-demo__effect-modal-anchor {
+    height: 50%;
+    width: calc(100% - 120px);
+
+    &--left {
+      right: 0;
+      left: auto;
+
+      .effect-stack-modal__backdrop {
+        padding: 1rem 2rem 2.5rem;
+      }
+    }
+
+    &--right {
+      right: 0;
+      left: auto;
+      top: auto;
+
+      .effect-stack-modal__backdrop {
+        padding: 2.5rem 2rem 1rem;
+      }
+    }
+  }
+
+  .power-vfx-demo__bar-half {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: $bp-mobile) {
+  .power-vfx-demo {
+    margin: -1rem -0.75rem;
+  }
+
+  .power-vfx-demo__bar-half {
+    .power-vfx-demo__btn {
+      font-size: 0.6rem;
+      padding: 0.26rem 0.4rem;
+      min-width: 68px;
+      max-width: 68px;
+    }
+
+    .power-vfx-demo__dropdown.form__field .form__dropdown-trigger {
+      font-size: 0.62rem;
+    }
+  }
+}

@@ -1,0 +1,414 @@
+@use '../vars' as *;
+@use '../../../../../../../styles/variables' as *;
+
+/* ── Keraunos Voltage — ultimate Zeus heir strike ─────────────────────────────
+   Rich decorative suite: main bolt + branch bolts, divine corona, rays,
+   sparks, double ring. WOW impact. */
+
+$zeus-gold: #ffd54f;
+$zeus-amber: #ffc107;
+$zeus-orange: #ff8f00;
+$zeus-white: #fffef8;
+$zeus-divine: #fffacd;
+$zeus-electric: #e3f2fd;
+
+.mchip--keraunos-voltage {
+  z-index: 20;
+  position: relative;
+
+  .mchip__frame-wrap {
+    overflow: visible;
+  }
+
+  .mchip__frame {
+    animation: keraunos-shake 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, keraunos-frame-glow 12s ease-out forwards !important;
+    box-shadow:
+      0 0 0 4px rgba($zeus-gold, 0.95),
+      0 0 30px rgba($zeus-amber, 0.9),
+      0 0 60px rgba($zeus-orange, 0.6),
+      0 0 100px rgba($zeus-gold, 0.35),
+      inset 0 0 40px rgba($zeus-white, 0.15) !important;
+    overflow: visible;
+  }
+
+  .mchip__frame::after {
+    content: '' !important;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 25;
+    pointer-events: none;
+    background: $zeus-white;
+    animation: keraunos-flash 12s ease-out forwards !important;
+  }
+
+  /* ── VFX container: covers chip, all elements positioned from frame ── */
+  .mchip__keraunos-vfx {
+    position: absolute;
+    inset: 0;
+    z-index: 18;
+    pointer-events: none;
+  }
+
+  /* Main vertical bolt — thicker, brighter (legacy-style fallback via frame::before if no DOM) */
+  .mchip__keraunos-bolt--main {
+    position: absolute;
+    left: 50%;
+    top: -180%;
+    width: 10px;
+    height: 320%;
+    transform: translateX(-50%);
+    transform-origin: 50% 0%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba($zeus-white, 0.2) 20%,
+      rgba($zeus-divine, 0.5) 35%,
+      rgba($zeus-gold, 0.85) 55%,
+      rgba($zeus-amber, 1) 72%,
+      #fff 88%,
+      rgba($zeus-gold, 0.98) 96%,
+      rgba($zeus-amber, 0.9) 100%);
+    box-shadow:
+      0 0 16px 4px rgba(#fff, 0.95),
+      0 0 32px 8px rgba($zeus-gold, 0.8),
+      0 0 56px 12px rgba($zeus-amber, 0.5);
+    filter: brightness(1.3);
+    animation: keraunos-bolt-main 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-bolt--left {
+    position: absolute;
+    left: 35%;
+    top: -120%;
+    width: 5px;
+    height: 200%;
+    transform: translateX(-50%) rotate(-18deg);
+    transform-origin: 50% 0%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba($zeus-gold, 0.4) 40%,
+      rgba($zeus-amber, 0.9) 70%,
+      rgba($zeus-white, 0.8) 100%);
+    box-shadow: 0 0 12px 2px rgba($zeus-gold, 0.7);
+    animation: keraunos-bolt-branch-left 12s ease-out 0.08s forwards;
+  }
+
+  .mchip__keraunos-bolt--right {
+    position: absolute;
+    left: 65%;
+    top: -120%;
+    width: 5px;
+    height: 200%;
+    transform: translateX(-50%) rotate(18deg);
+    transform-origin: 50% 0%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba($zeus-gold, 0.4) 40%,
+      rgba($zeus-amber, 0.9) 70%,
+      rgba($zeus-white, 0.8) 100%);
+    box-shadow: 0 0 12px 2px rgba($zeus-gold, 0.7);
+    animation: keraunos-bolt-branch-right 12s ease-out 0.12s forwards;
+  }
+
+  /* Divine corona — radial burst from center */
+  .mchip__keraunos-corona {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 200%;
+    height: 200%;
+    margin-left: -100%;
+    margin-top: -100%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      rgba($zeus-white, 0.7) 0%,
+      rgba($zeus-divine, 0.45) 15%,
+      rgba($zeus-gold, 0.3) 30%,
+      rgba($zeus-amber, 0.15) 50%,
+      transparent 70%);
+    animation: keraunos-corona 12s ease-out forwards;
+  }
+
+  /* Rays — 6 radial rays for “divine strike” */
+  .mchip__keraunos-ray {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 80%;
+    margin-left: -2px;
+    margin-top: -40%;
+    transform-origin: 50% 50%;
+    background: linear-gradient(180deg,
+      transparent,
+      rgba($zeus-white, 0.6) 30%,
+      rgba($zeus-gold, 0.9) 60%,
+      transparent);
+    opacity: 0;
+  }
+  .mchip__keraunos-ray--1 { animation: keraunos-ray-1 12s ease-out 0s forwards; }
+  .mchip__keraunos-ray--2 { animation: keraunos-ray-2 12s ease-out 0.04s forwards; }
+  .mchip__keraunos-ray--3 { animation: keraunos-ray-3 12s ease-out 0.08s forwards; }
+  .mchip__keraunos-ray--4 { animation: keraunos-ray-4 12s ease-out 0.12s forwards; }
+  .mchip__keraunos-ray--5 { animation: keraunos-ray-5 12s ease-out 0.16s forwards; }
+  .mchip__keraunos-ray--6 { animation: keraunos-ray-6 12s ease-out 0.2s forwards; }
+
+  /* Sparks — 12 small particles around frame (positions at 0°, 30°, … 330°) */
+  .mchip__keraunos-spark {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    margin-top: -3px;
+    border-radius: 50%;
+    background: $zeus-white;
+    box-shadow: 0 0 8px 2px rgba($zeus-gold, 0.9);
+    opacity: 0;
+  }
+  .mchip__keraunos-spark--1 { transform: translate(58%, 0); animation: keraunos-spark-out 12s ease-out 0s forwards; }
+  .mchip__keraunos-spark--2 { transform: translate(50.2%, 29%); animation: keraunos-spark-out-2 12s ease-out 0.02s forwards; }
+  .mchip__keraunos-spark--3 { transform: translate(29%, 50.2%); animation: keraunos-spark-out-3 12s ease-out 0.04s forwards; }
+  .mchip__keraunos-spark--4 { transform: translate(0, 58%); animation: keraunos-spark-out-4 12s ease-out 0.06s forwards; }
+  .mchip__keraunos-spark--5 { transform: translate(-29%, 50.2%); animation: keraunos-spark-out-5 12s ease-out 0.08s forwards; }
+  .mchip__keraunos-spark--6 { transform: translate(-50.2%, 29%); animation: keraunos-spark-out-6 12s ease-out 0.1s forwards; }
+  .mchip__keraunos-spark--7 { transform: translate(-58%, 0); animation: keraunos-spark-out-7 12s ease-out 0.12s forwards; }
+  .mchip__keraunos-spark--8 { transform: translate(-50.2%, -29%); animation: keraunos-spark-out-8 12s ease-out 0.14s forwards; }
+  .mchip__keraunos-spark--9 { transform: translate(-29%, -50.2%); animation: keraunos-spark-out-9 12s ease-out 0.16s forwards; }
+  .mchip__keraunos-spark--10 { transform: translate(0, -58%); animation: keraunos-spark-out-10 12s ease-out 0.18s forwards; }
+  .mchip__keraunos-spark--11 { transform: translate(29%, -50.2%); animation: keraunos-spark-out-11 12s ease-out 0.2s forwards; }
+  .mchip__keraunos-spark--12 { transform: translate(50.2%, -29%); animation: keraunos-spark-out-12 12s ease-out 0.22s forwards; }
+
+  /* Double ring */
+  .mchip__keraunos-ring--inner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 120%;
+    height: 120%;
+    margin-left: -60%;
+    margin-top: -60%;
+    border-radius: 50%;
+    border: 3px solid rgba($zeus-gold, 0.9);
+    box-shadow: 0 0 20px rgba($zeus-amber, 0.6);
+    animation: keraunos-ring-inner 12s ease-out forwards;
+  }
+
+  .mchip__keraunos-ring--outer {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 180%;
+    height: 180%;
+    margin-left: -90%;
+    margin-top: -90%;
+    border-radius: 50%;
+    border: 2px solid rgba($zeus-gold, 0.6);
+    background: radial-gradient(ellipse at center,
+      rgba($zeus-white, 0.2) 0%,
+      rgba($zeus-gold, 0.12) 40%,
+      transparent 70%);
+    filter: blur(10px);
+    animation: keraunos-ring-outer 12s ease-out 0.05s forwards;
+  }
+
+  /* Legacy single bolt on frame (keep for fallback / extra layer) */
+  .mchip__frame::before {
+    content: '' !important;
+    position: absolute;
+    z-index: 21;
+    pointer-events: none;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 240%;
+    top: -240%;
+    transform-origin: 50% 0%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba($zeus-white, 0.3) 22%,
+      rgba($zeus-gold, 0.7) 48%,
+      rgba($zeus-amber, 0.95) 68%,
+      #fff 85%,
+      rgba($zeus-gold, 0.95) 95%,
+      rgba($zeus-amber, 0.85) 100%);
+    box-shadow:
+      0 0 14px 3px rgba(#fff, 0.9),
+      0 0 28px 6px rgba($zeus-gold, 0.75),
+      0 0 48px 8px rgba($zeus-amber, 0.45);
+    filter: brightness(1.25);
+    animation: keraunos-lightning-hit 12s ease-out forwards !important;
+  }
+
+  /* Blur ring — outer aura */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -32px;
+    border-radius: 50%;
+    z-index: 17;
+    pointer-events: none;
+    border: 3px solid rgba($zeus-gold, 0.55);
+    background: radial-gradient(ellipse at center,
+      rgba($zeus-white, 0.4) 0%,
+      rgba($zeus-gold, 0.28) 28%,
+      rgba($zeus-amber, 0.14) 55%,
+      transparent 78%);
+    filter: blur(14px);
+    animation: keraunos-ring 12s ease-out forwards;
+  }
+}
+
+/* Keyframes */
+@keyframes keraunos-shake {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  3% { transform: translate(-10px, -6px) scale(1.03); }
+  6% { transform: translate(9px, 6px) scale(0.97); }
+  10% { transform: translate(-11px, 4px) scale(1.04); }
+  14% { transform: translate(8px, -8px) scale(0.96); }
+  18% { transform: translate(-6px, 9px) scale(1.03); }
+  22% { transform: translate(10px, -4px) scale(0.98); }
+  26% { transform: translate(-8px, -6px) scale(1.02); }
+  30% { transform: translate(6px, 7px) scale(0.99); }
+  38% { transform: translate(-6px, 5px) scale(1.01); }
+  50% { transform: translate(4px, -4px); }
+  62% { transform: translate(-3px, 2px); }
+  74% { transform: translate(2px, -1px); }
+  86% { transform: translate(-1px, 1px); }
+}
+
+@keyframes keraunos-flash {
+  0% { opacity: 1; background: $zeus-white; }
+  1% { opacity: 0.95; background: #fff; }
+  2% { opacity: 0.15; background: #fff; }
+  3% { opacity: 1; background: $zeus-white; }
+  5% { opacity: 0.92; background: rgba($zeus-gold, 0.95); }
+  9% { opacity: 0.12; }
+  14% { opacity: 0.75; background: rgba($zeus-amber, 0.7); }
+  22% { opacity: 0.06; }
+  30% { opacity: 0.4; background: rgba($zeus-orange, 0.5); }
+  42% { opacity: 0.08; background: rgba($zeus-amber, 0.2); }
+  55% { opacity: 0.06; background: rgba($zeus-gold, 0.15); }
+  100% { opacity: 0; background: transparent; }
+}
+
+@keyframes keraunos-bolt-main {
+  0% { opacity: 1; transform: translateX(-50%) scaleY(0); filter: brightness(2.8); }
+  1.5% { opacity: 1; transform: translateX(-50%) scaleY(1); filter: brightness(3.2); }
+  3% { opacity: 0.95; filter: brightness(2.8); }
+  4% { opacity: 1; filter: brightness(3); }
+  6% { opacity: 0.7; filter: brightness(2.2); }
+  10% { opacity: 0.5; transform: translateX(-50%) scaleY(1) scaleX(1.08); filter: brightness(1.8) blur(0.5px); }
+  20% { opacity: 0.25; filter: brightness(1.4) blur(1px); }
+  35% { opacity: 0.12; filter: blur(1.5px) brightness(1.1); }
+  55%, 100% { opacity: 0; transform: translateX(-50%) scaleY(1) scaleX(0.85); filter: blur(2px) brightness(0.5); }
+}
+
+@keyframes keraunos-bolt-branch-left {
+  0% { opacity: 0; transform: translateX(-50%) rotate(-18deg) scaleY(0); }
+  2% { opacity: 1; transform: translateX(-50%) rotate(-18deg) scaleY(1); filter: brightness(2.5); }
+  8% { opacity: 0.5; filter: brightness(1.8); }
+  25% { opacity: 0.2; filter: blur(0.5px); }
+  100% { opacity: 0; filter: blur(2px); }
+}
+
+@keyframes keraunos-bolt-branch-right {
+  0% { opacity: 0; transform: translateX(-50%) rotate(18deg) scaleY(0); }
+  2% { opacity: 1; transform: translateX(-50%) rotate(18deg) scaleY(1); filter: brightness(2.5); }
+  8% { opacity: 0.5; filter: brightness(1.8); }
+  25% { opacity: 0.2; filter: blur(0.5px); }
+  100% { opacity: 0; filter: blur(2px); }
+}
+
+@keyframes keraunos-corona {
+  0% { opacity: 0; transform: scale(0.2); }
+  2% { opacity: 1; transform: scale(0.9); }
+  4% { opacity: 0.95; transform: scale(1); }
+  15% { opacity: 0.5; transform: scale(1.1); }
+  35% { opacity: 0.15; transform: scale(1.25); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes keraunos-ray-1 { 0% { opacity: 0; transform: rotate(0deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(0deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-2 { 0% { opacity: 0; transform: rotate(60deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(60deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-3 { 0% { opacity: 0; transform: rotate(120deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(120deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-4 { 0% { opacity: 0; transform: rotate(180deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(180deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-5 { 0% { opacity: 0; transform: rotate(240deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(240deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+@keyframes keraunos-ray-6 { 0% { opacity: 0; transform: rotate(300deg) scaleY(0); } 2% { opacity: 0.9; transform: rotate(300deg) scaleY(1); } 6% { opacity: 0.4; } 20% { opacity: 0.1; } 100% { opacity: 0; } }
+
+@keyframes keraunos-spark-out {
+  0% { opacity: 0; transform: translate(58%, 0) scale(0); }
+  1.5% { opacity: 1; transform: translate(58%, 0) scale(1.2); }
+  4% { opacity: 0.6; transform: translate(58%, 0) scale(1); }
+  15% { opacity: 0.2; }
+  100% { opacity: 0; transform: translate(58%, 0) scale(0.5); }
+}
+@keyframes keraunos-spark-out-2 { 0% { opacity: 0; transform: translate(50.2%, 29%) scale(0); } 1.5% { opacity: 1; transform: translate(50.2%, 29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-3 { 0% { opacity: 0; transform: translate(29%, 50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(29%, 50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-4 { 0% { opacity: 0; transform: translate(0, 58%) scale(0); } 1.5% { opacity: 1; transform: translate(0, 58%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-5 { 0% { opacity: 0; transform: translate(-29%, 50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(-29%, 50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-6 { 0% { opacity: 0; transform: translate(-50.2%, 29%) scale(0); } 1.5% { opacity: 1; transform: translate(-50.2%, 29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-7 { 0% { opacity: 0; transform: translate(-58%, 0) scale(0); } 1.5% { opacity: 1; transform: translate(-58%, 0) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-8 { 0% { opacity: 0; transform: translate(-50.2%, -29%) scale(0); } 1.5% { opacity: 1; transform: translate(-50.2%, -29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-9 { 0% { opacity: 0; transform: translate(-29%, -50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(-29%, -50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-10 { 0% { opacity: 0; transform: translate(0, -58%) scale(0); } 1.5% { opacity: 1; transform: translate(0, -58%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-11 { 0% { opacity: 0; transform: translate(29%, -50.2%) scale(0); } 1.5% { opacity: 1; transform: translate(29%, -50.2%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+@keyframes keraunos-spark-out-12 { 0% { opacity: 0; transform: translate(50.2%, -29%) scale(0); } 1.5% { opacity: 1; transform: translate(50.2%, -29%) scale(1.2); } 4% { opacity: 0.6; } 15% { opacity: 0.2; } 100% { opacity: 0; } }
+
+@keyframes keraunos-ring-inner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); border-width: 4px; }
+  2% { opacity: 1; transform: translate(-50%, -50%) scale(0.95); border-width: 3px; }
+  8% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+  25% { opacity: 0.3; transform: translate(-50%, -50%) scale(1.2); border-width: 2px; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); border-width: 0; }
+}
+
+@keyframes keraunos-ring-outer {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  3% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.9); }
+  6% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  15% { opacity: 0.25; transform: translate(-50%, -50%) scale(1.15); }
+  35% { opacity: 0.1; transform: translate(-50%, -50%) scale(1.35); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
+}
+
+@keyframes keraunos-ring {
+  0% { opacity: 0; transform: scale(0.25); border-width: 4px; filter: blur(14px); }
+  2.5% { opacity: 1; transform: scale(0.88); filter: blur(16px); }
+  5% { opacity: 0.92; transform: scale(1); border-width: 3px; filter: blur(14px); }
+  12% { opacity: 0.4; transform: scale(1.18); filter: blur(18px); }
+  25% { opacity: 0.2; transform: scale(1.3); border-width: 2px; filter: blur(20px); }
+  50% { opacity: 0.08; transform: scale(1.5); border-width: 1px; filter: blur(22px); }
+  100% { opacity: 0; transform: scale(1.75); border-width: 0; filter: blur(24px); }
+}
+
+@keyframes keraunos-lightning-hit {
+  0% { opacity: 1; transform: translateX(-50%) scaleY(0); filter: brightness(2.6); }
+  2% { opacity: 1; transform: translateX(-50%) scaleY(1); filter: brightness(3); }
+  4% { opacity: 0.9; filter: brightness(2.5); }
+  5% { opacity: 1; filter: brightness(2.8); }
+  8% { opacity: 0.55; filter: brightness(2); }
+  15% { opacity: 0.3; transform: translateX(-50%) scaleY(1) scaleX(1.12); filter: brightness(1.5) blur(0.5px); }
+  30% { opacity: 0.15; filter: brightness(1.2) blur(1px); }
+  50%, 100% { opacity: 0; transform: translateX(-50%) scaleY(1) scaleX(0.82); filter: blur(2px) brightness(0.5); }
+}
+
+@keyframes keraunos-frame-glow {
+  0%, 45% {
+    box-shadow:
+      0 0 0 4px rgba($zeus-gold, 0.95),
+      0 0 30px rgba($zeus-amber, 0.9),
+      0 0 60px rgba($zeus-orange, 0.6),
+      0 0 100px rgba($zeus-gold, 0.35),
+      inset 0 0 40px rgba($zeus-white, 0.15);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba($zeus-gold, 0),
+      0 0 0 rgba($zeus-amber, 0),
+      0 0 0 rgba($zeus-orange, 0),
+      0 0 0 rgba($zeus-gold, 0),
+      inset 0 0 0 rgba($zeus-white, 0);
+  }
+}

@@ -21,13 +21,25 @@
   .team-panel--full {
     .mchip {
       max-height: 130px;
+      min-height: 0;
+      flex-shrink: 1;
+    }
+
+    .mchip__frame-wrap {
+      width: 88px;
+      height: 88px;
+      min-width: 88px;
+      min-height: 88px;
+      max-height: 88px;
     }
 
     .mchip__frame {
       width: 88px;
       height: 88px;
+      min-width: 88px;
+      min-height: 88px;
+      max-height: 88px;
       border-radius: 7px;
-      margin-top: 0.5rem;
     }
 
     .mchip__inner-border {
@@ -36,7 +48,6 @@
 
     .mchip__critical {
       height: 93px;
-      top: 0.5rem;
       left: calc(50% + 50px);
     }
 
@@ -79,13 +90,31 @@
   .team-panel--full {
     .mchip {
       max-height: 110px;
+      min-height: 0;
+      flex-shrink: 1;
+    }
+
+    .mchip__frame-wrap {
+      width: 68px;
+      height: 68px;
+      min-width: 68px;
+      min-height: 68px;
+      max-height: 68px;
+      margin-top: 0.5rem;
     }
 
     .mchip__frame {
       width: 68px;
       height: 68px;
+      min-width: 68px;
+      min-height: 68px;
+      max-height: 68px;
       border-radius: 6px;
-      margin-top: 0.4rem;
+    }
+
+    .mchip__deity-tag,
+    .mchip__hp-label {
+      display: none;
     }
 
     .mchip__inner-border {
@@ -94,14 +123,12 @@
 
     .mchip__critical {
       height: 72px;
-      top: 0.4rem;
       left: calc(50% + 40px);
     }
 
     .mchip__powerside {
       height: 74px;
-      top: 0.4rem;
-      right: calc(50% + 40px);
+      right: calc(50% + 37.5px);
     }
 
     .mchip__name {
@@ -139,6 +166,84 @@
 }
 
 @media (max-width: $bp-compact) {
+
+  .team-panel--full {
+    .mchip {
+      max-height: 110px;
+      min-height: 0;
+      flex-shrink: 1;
+    }
+
+    .mchip__frame-wrap {
+      width: 60px;
+      height: 60px;
+      min-width: 60px;
+      min-height: 60px;
+      max-height: 60px;
+      margin-top: 0.5rem;
+    }
+
+    .mchip__frame {
+      width: 60px;
+      height: 60px;
+      min-width: 60px;
+      min-height: 60px;
+      max-height: 60px;
+      border-radius: 6px;
+    }
+
+    .mchip__deity-tag,
+    .mchip__hp-label {
+      display: none;
+    }
+
+    .mchip__inner-border {
+      border-radius: 4px;
+    }
+
+    .mchip__critical {
+      height: 64px;
+      left: calc(50% + 40px);
+    }
+
+    .mchip__powerside {
+      height: 64px;
+      right: calc(50% + 37.5px);
+    }
+
+    .mchip__name {
+      font-size: 0.45rem;
+    }
+
+    .mchip__hp-label {
+      font-size: 0.3rem;
+    }
+
+    .mchip__deity-tag {
+      font-size: 0.3rem;
+    }
+
+    .mchip__order {
+      width: 12px;
+      height: 12px;
+      font-size: 0.35rem;
+    }
+
+    .mchip__effect-pip {
+      width: 6px;
+      height: 6px;
+    }
+
+    .mchip__quota {
+      margin-top: 0.25rem;
+    }
+
+    .mchip__quota-pip {
+      width: 6px;
+      height: 6px;
+    }
+  }
+
   .team-panel--left,
   .team-panel--right {
     flex-direction: column;

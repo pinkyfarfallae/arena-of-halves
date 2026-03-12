@@ -3,6 +3,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
+import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
 import PetalShield from './icons/PetalShield';
 import ReaperScythe from './icons/ReaperScythe';
@@ -10,9 +11,12 @@ import TargetCrosshair from './icons/TargetCrosshair';
 
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import { DEITY_SVG, toDeityKey } from '../../../../../data/deities';
-import './MemberChip.scss';
+
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
+import { EFFECT_TAGS } from '../../../../../constants/effectTags';
+
+import './MemberChip.scss';
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -24,7 +28,11 @@ const MINION_DESPAWN_MS = 1900;
 
 export interface EffectPip {
   powerName: string;
+  /** Optional display name in tooltip (e.g. "Jolt Arc Deceleration" for Jolt Arc speed debuff) */
+  displayName?: string;
   sourceName: string;
+  /** Deity of the source (e.g. "Zeus") — used for DEITY_POWERS lookup; if missing, shocked check falls back to sourceName */
+  sourceDeity?: string;
   sourceTheme: [string, string];
   turnsLeft: number;
   /** Number of stacked instances of this same power from the same source */
@@ -35,6 +43,7 @@ export interface EffectPip {
 function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  const showStacks = pip.count > 1 && !NO_STACK_POWER_NAMES.has(pip.powerName);
 
   useEffect(() => {
     const el = tipRef.current;
@@ -62,10 +71,10 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
         '--pip-c2': pip.sourceTheme[1],
       } as React.CSSProperties}
     >
-      <span className="mchip__pip-tooltip-name">{pip.powerName}</span>
+      <span className="mchip__pip-tooltip-name">{pip.displayName ?? pip.powerName}</span>
       <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
       <div className="mchip__pip-tooltip-meta">
-        {pip.count > 1 && <span className="mchip__pip-tooltip-stacks">{pip.count} stack{pip.count > 1 ? 's' : ''}</span>}
+        {showStacks && <span className="mchip__pip-tooltip-stacks">{pip.count} stacks</span>}
         <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 99 ? 'conditional' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
       </div>
     </div>,
@@ -107,17 +116,20 @@ interface Props {
   isCrit?: boolean;
   isHit?: boolean;
   isShockHit?: boolean;
-  isThunderboltHit?: boolean;
+  isKeraunosVoltageHit?: boolean;
+  isJoltArcAttackHit?: boolean;
   isShocked?: boolean;
+  hasJoltArcDeceleration?: boolean;
   isPetalShielded?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
   isShadowCamouflaged?: boolean;
+  hasBeyondNimbus?: boolean;
   hasSoulDevourer?: boolean;
   hasDeathKeeper?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
-  isScentWaved?: boolean;
+  isFragranceWaved?: boolean;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
@@ -141,7 +153,7 @@ interface Props {
   allowTransientHits?: boolean;
   /** Optional unique key derived from a recent log entry so Floral Fragrance
    *  from persistent logs is only shown once per client. If provided, the
-   *  chip will consult localStorage to avoid re-showing the scent after a
+   *  chip will consult localStorage to avoid re-showing the fragrance after a
    *  refresh. */
   floralLogKey?: string | undefined;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
@@ -153,8 +165,44 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isThunderboltHit, isShocked, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isScentWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isPetalShielded, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const frameLayoutLatchedRef = useRef(false);
+
+  const measureFrame = useCallback(() => {
+    const chip = chipRef.current;
+    const frame = frameRef.current;
+    if (!chip || !frame) return;
+    if (frameLayoutLatchedRef.current) return;
+    const cr = chip.getBoundingClientRect();
+    const fr = frame.getBoundingClientRect();
+    const next = { top: fr.top - cr.top, left: fr.left - cr.left, width: fr.width };
+    if (next.width <= 0) return;
+    frameLayoutLatchedRef.current = true;
+    setFrameLayout(next);
+  }, []);
+
+  const setFrameRef = useCallback((el: HTMLDivElement | null) => {
+    frameRef.current = el;
+    const ext = casterFrameRef ?? defenderFrameRef;
+    if (ext) (ext as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (el) requestAnimationFrame(measureFrame);
+    else {
+      frameLayoutLatchedRef.current = false;
+      setFrameLayout({ top: 0, left: 0, width: 0 });
+    }
+  }, [casterFrameRef, defenderFrameRef, measureFrame]);
+
+  useEffect(() => {
+    const chip = chipRef.current;
+    if (!chip) return;
+    const ro = new ResizeObserver(measureFrame);
+    ro.observe(chip);
+    return () => ro.disconnect();
+  }, [measureFrame]);
+
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
   const minionHoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -339,7 +387,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   /* ── Shock hit: electric zap on defender when attacker has Lightning Reflex ── */
   const [isShockHitActive, setIsShockHitActive] = useState(false);
+  const [shockBridgeActive, setShockBridgeActive] = useState(false);
   const prevIsShockHitRef = useRef(false);
+  const shockBridgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SHOCK_BRIDGE_MS = 5200;
 
   useEffect(() => {
     if (isShockHit && !prevIsShockHitRef.current) {
@@ -351,75 +402,110 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     if (!isShockHit) prevIsShockHitRef.current = false;
   }, [isShockHit]);
 
-  /* ── Thunderbolt hit: massive lightning strike ── */
-  const [isThunderboltActive, setIsThunderboltActive] = useState(false);
-  const prevIsThunderboltRef = useRef(false);
-
   useEffect(() => {
-    if (isThunderboltHit && !prevIsThunderboltRef.current) {
-      setIsThunderboltActive(true);
-      const timer = setTimeout(() => setIsThunderboltActive(false), 2000);
-      prevIsThunderboltRef.current = true;
-      return () => clearTimeout(timer);
-    }
-    if (!isThunderboltHit) prevIsThunderboltRef.current = false;
-  }, [isThunderboltHit]);
-
-  /* ── Scent wave + heal boost: brief 3s effect when Floral Scented applied ── */
-  const [showScentWave, setShowScentWave] = useState(false);
-  const prevScentRef = useRef(false);
-  const scentSuppressRef = useRef(false);
-  const scentSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!isScentWaved) {
-      prevScentRef.current = false;
+    if (isShocked) {
+      if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+      shockBridgeTimerRef.current = null;
+      setShockBridgeActive(false);
       return;
     }
-    if (prevScentRef.current) return;
+    if (!isShockHit) return;
+    setShockBridgeActive(true);
+    if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+    shockBridgeTimerRef.current = setTimeout(() => {
+      shockBridgeTimerRef.current = null;
+      setShockBridgeActive(false);
+    }, SHOCK_BRIDGE_MS);
+    return () => {
+      if (shockBridgeTimerRef.current) clearTimeout(shockBridgeTimerRef.current);
+      shockBridgeTimerRef.current = null;
+    };
+  }, [isShockHit, isShocked]);
 
-    // If this scent originates from a persistent log entry, check localStorage
+  /* ── Jolt Arc attack hit: blue/white arc on targets when Jolt Arc confirms ── */
+  const [isJoltArcAttackActive, setIsJoltArcAttackActive] = useState(false);
+  const prevIsJoltArcAttackRef = useRef(false);
+
+  useEffect(() => {
+    if (isJoltArcAttackHit && !prevIsJoltArcAttackRef.current) {
+      setIsJoltArcAttackActive(true);
+      const timer = setTimeout(() => setIsJoltArcAttackActive(false), 2000);
+      prevIsJoltArcAttackRef.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isJoltArcAttackHit) prevIsJoltArcAttackRef.current = false;
+  }, [isJoltArcAttackHit]);
+
+  /* ── Fragrance wave + heal boost: brief 3s effect when Floral Fragrance applied ── */
+  const [showFragranceWave, setShowFragranceWave] = useState(false);
+  const prevFragranceRef = useRef(false);
+  const fragranceSuppressRef = useRef(false);
+  const fragranceSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fragranceWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isFragranceWaved) {
+      prevFragranceRef.current = false;
+      if (fragranceWaveTimerRef.current) {
+        clearTimeout(fragranceWaveTimerRef.current);
+        fragranceWaveTimerRef.current = null;
+      }
+      setShowFragranceWave(false);
+      return;
+    }
+    if (prevFragranceRef.current) return;
+
+    // If this fragrance originates from a persistent log entry, check localStorage
     // so we only show it once per client (prevents showing again after reload).
     if (floralLogKey) {
       try {
         const seen = window.localStorage.getItem(floralLogKey);
         if (seen) {
           // Already shown before for this log — do not re-trigger.
-          prevScentRef.current = true;
+          prevFragranceRef.current = true;
           return;
         }
       } catch (e) { }
     }
 
-    if (!scentSuppressRef.current) {
-      setShowScentWave(true);
-      const timer = setTimeout(() => setShowScentWave(false), 3000);
-      prevScentRef.current = true;
+    if (!fragranceSuppressRef.current) {
+      setShowFragranceWave(true);
+      fragranceWaveTimerRef.current = setTimeout(() => {
+        setShowFragranceWave(false);
+        fragranceWaveTimerRef.current = null;
+      }, 3000);
+      prevFragranceRef.current = true;
       // Mark as shown if we were triggered by a persistent log
       if (floralLogKey) {
         try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
       }
-      return () => clearTimeout(timer);
+      // Do not return a cleanup that clears the timer here: React Strict Mode runs
+      // effect → cleanup → effect. That cleanup would clear the 3s timer before it
+      // fires, so the wave would never auto-hide after replay. Timer is cleared
+      // when isFragranceWaved becomes false and on unmount (empty-deps effect).
     }
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(isScentWaved), floralLogKey ?? '']);
+  }, [Boolean(isFragranceWaved), floralLogKey ?? '']);
 
-  // If the fighter's HP increases (heal applied), clear the scent wave visual
+  // Derive visible state: hide as soon as prop is false (no waiting for useEffect / state update)
+  const showFragranceVisual = showFragranceWave && isFragranceWaved;
+
+  // If the fighter's HP increases (heal applied), clear the fragrance wave visual
   // immediately to avoid leaving the +HP text/styling stuck after the heal.
   const prevHpRef = useRef<number>(fighter.currentHp);
   const [displayHp, setDisplayHp] = useState(fighter.currentHp);
   useEffect(() => {
     const prev = prevHpRef.current;
     if (fighter.currentHp > prev) {
-      // HP increased — immediately clear scent state and class.
-      setShowScentWave(false);
-      prevScentRef.current = false;
-      scentSuppressRef.current = true;
-      if (scentSuppressTimer.current) clearTimeout(scentSuppressTimer.current);
-      scentSuppressTimer.current = setTimeout(() => {
-        scentSuppressRef.current = false;
-        scentSuppressTimer.current = null;
+      // HP increased — immediately clear fragrance state and class.
+      setShowFragranceWave(false);
+      prevFragranceRef.current = false;
+      fragranceSuppressRef.current = true;
+      if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
+      fragranceSuppressTimer.current = setTimeout(() => {
+        fragranceSuppressRef.current = false;
+        fragranceSuppressTimer.current = null;
       }, 800);
     }
     prevHpRef.current = fighter.currentHp;
@@ -443,7 +529,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     return () => {
-      if (scentSuppressTimer.current) clearTimeout(scentSuppressTimer.current);
+      if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
+      if (fragranceWaveTimerRef.current) clearTimeout(fragranceWaveTimerRef.current);
     };
   }, []);
 
@@ -503,12 +590,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (battleLive && (isHitActive || isShockHitActive || isThunderboltActive)) {
+    if (battleLive && (isHitActive || isShockHitActive || isKeraunosVoltageHit)) {
       setShowEliminated(false); // hide eliminated while damage effects play
     } else {
       setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isThunderboltActive, battleLive]);
+  }, [isEliminated, isHitActive, isShockHitActive, isKeraunosVoltageHit, battleLive]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -598,19 +685,22 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     isSpotlight && 'mchip--spotlight',
     battleLive && isHitActive && 'mchip--hit',
     battleLive && isShockHitActive && 'mchip--shock-hit',
-    battleLive && isThunderboltActive && 'mchip--thunderbolt',
-    battleLive && isShocked && 'mchip--shocked',
+    battleLive && isKeraunosVoltageHit && 'mchip--keraunos-voltage',
+    battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
+    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
+    battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',
     battleLive && isPetalShielded && 'mchip--petal-shielded',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
     battleLive && isSpiritForm && 'mchip--spirit-form',
     battleLive && isShadowCamouflaged && 'mchip--shadow-camouflaged',
+    battleLive && hasBeyondNimbus && 'mchip--beyond-the-nimbus',
     battleLive && hasSoulDevourer && 'mchip--soul-devourer',
     battleLive && hasDeathKeeper && 'mchip--death-keeper',
     battleLive && showResurrecting && 'mchip--resurrecting',
     battleLive && showResFlash && 'mchip--res-flash',
     battleLive && showResGlow && 'mchip--res-glow',
     battleLive && isResurrected && 'mchip--resurrected',
-    battleLive && showScentWave && 'mchip--scent-waved',
+    battleLive && showFragranceVisual && 'mchip--fragrance-waved',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -657,12 +747,87 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     <div
       ref={chipRef}
       className={chipClass}
-      style={{ '--chip-primary': fighter.theme[0], '--chip-accent': fighter.theme[1] } as React.CSSProperties}
+      style={{
+        '--chip-primary': fighter.theme[0],
+        '--chip-accent': fighter.theme[1],
+        ...(frameLayout.width > 0 && {
+          '--mchip-frame-top': `${frameLayout.top}px`,
+          '--mchip-frame-left': `${frameLayout.left}px`,
+          '--mchip-frame-width': `${frameLayout.width}px`,
+        }),
+      } as React.CSSProperties}
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
       {isPetalShielded && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
+
+      {/* Jolt Arc Deceleration — rich decoration (storm, charge drops, rise particles) */}
+      {hasJoltArcDeceleration && battleLive && (
+        <>
+          <div className="mchip__jolt-decel-storm" aria-hidden="true" />
+          <div className="mchip__jolt-decel-rain" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={i} className="mchip__jolt-decel-rain-drop" />
+            ))}
+          </div>
+          <div className="mchip__jolt-decel-smoke" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className={`mchip__jolt-decel-smoke-wisp mchip__jolt-decel-smoke-wisp--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__jolt-decel-drops" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className={`mchip__jolt-decel-drop mchip__jolt-decel-drop--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__jolt-decel-rise" aria-hidden="true">
+            {Array.from({ length: 43 }, (_, i) => (
+              <span key={i} className="mchip__jolt-decel-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__jolt-decel-sparks" aria-hidden="true" />
+          {/* Spark points scattered over chip (not in frame) */}
+          <div className="mchip__jolt-decel-spark-points" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className={`mchip__jolt-decel-spark-point mchip__jolt-decel-spark-point--${i + 1}`} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Beyond the Nimbus — background storm, rain light, and cloud under frame */}
+      {hasBeyondNimbus && battleLive && (
+        <>
+          <div className="mchip__nimbus-storm" aria-hidden="true">
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--1" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--2" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--3" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--4" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--5" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--6" />
+            <span className="mchip__nimbus-bolt mchip__nimbus-bolt--7" />
+          </div>
+          <div className="mchip__nimbus-overlay" aria-hidden="true" />
+          <div className="mchip__nimbus-overlay mchip__nimbus-overlay--lower" aria-hidden="true" />
+          <div className="mchip__nimbus-rain" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={i} className="mchip__nimbus-drop" />
+            ))}
+          </div>
+          <div className="mchip__nimbus-clouds" aria-hidden="true">
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--1" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--2" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--3" />
+            <span className="mchip__nimbus-cloud mchip__nimbus-cloud--4" />
+          </div>
+          <div className="mchip__nimbus-rise" aria-hidden="true">
+            {Array.from({ length: 40 }, (_, i) => (
+              <span key={i} className="mchip__nimbus-rise-particle" />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Soul Devourer — souls from every edge/corner inhaled to center (black, purple, white) */}
       {hasSoulDevourer && battleLive && (
@@ -673,8 +838,29 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       )}
 
-      {/* Scent Wave — falling flower/leaf particles for Floral Scented buff */}
-      {showScentWave && battleLive && <div className="mchip__scent-wave" aria-hidden="true" />}
+      {/* Fragrance Wave — falling flower/leaf particles for Floral Fragrance buff */}
+      {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+
+      {/* Keraunos Voltage — ultimate Zeus strike: multiple bolts, corona, sparks, rings */}
+      {isKeraunosVoltageHit && battleLive && (
+        <div className="mchip__keraunos-vfx" aria-hidden="true">
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--main" />
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--left" />
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--right" />
+          <span className="mchip__keraunos-corona" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--1" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--2" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--3" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--4" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--5" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--6" />
+          <span className="mchip__keraunos-ring mchip__keraunos-ring--inner" />
+          <span className="mchip__keraunos-ring mchip__keraunos-ring--outer" />
+          {Array.from({ length: 12 }, (_, i) => (
+            <span key={i} className={`mchip__keraunos-spark mchip__keraunos-spark--${i + 1}`} />
+          ))}
+        </div>
+      )}
 
       {/* Soul Devourer lifesteal — same layout as Floral: wave (particles) only here; border + accents + text inside frame below */}
       {battleLive && showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
@@ -705,95 +891,136 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
       </div>
 
-      {/* Card frame — outside body so it's not masked */}
-      <div ref={casterFrameRef ?? defenderFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-        {fighter.image ? (
-          <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
-        ) : (
-          <div className="mchip__bg mchip__bg--placeholder" style={{ background: fighter.theme[0], color: fighter.theme[9] }}>
-            {fighter.nicknameEng.charAt(0)}
-          </div>
-        )}
-
-        <div className="mchip__inner-border" />
-
-        {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
-
-        {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
-        {battleLive && (
+      {/* Card frame — outside body so it's not masked; when Nimbus, wings align to frame via wrapper */}
+      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
+        {hasBeyondNimbus && battleLive && (
           <>
-            {/* Shocked effect — electric sparks around frame */}
-            {isShocked && <div className="mchip__shock-sparks" aria-hidden="true" />}
-
-            {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
-            {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
-
-            {/* Petal leaf accents — green spots around frame edge */}
-            {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
-
-            {/* Scent Wave border + accents (separate divs) + heal boost floating text */}
-            {showScentWave && (
-              <>
-                <div className="mchip__scent-border" aria-hidden="true" />
-                <div className="mchip__scent-accents" aria-hidden="true" />
-                <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
-              </>
-            )}
-
-            {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
-            {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
-              <>
-                <div className="mchip__soul-devourer-border" aria-hidden="true" />
-                <div className="mchip__soul-devourer-accents" aria-hidden="true" />
-                <div className="mchip__soul-devourer-heal" aria-hidden="true">
-                  +{soulDevourerHealDisplayAmount} HP
-                </div>
-              </>
-            )}
-
-            {/* Petal shield badge — Secret of Dryad status immunity */}
-            {isPetalShielded && (
-              <div className="mchip__petal-badge" aria-hidden="true">
-                <PetalShield
-                  gradientId={`petal-grad-${fighter.characterId}`}
-                  color1={lightenColor(fighter.theme[0], 0.5)}
-                  color2="#d1ffd4"
-                />
-              </div>
-            )}
-
-            {/* Death Keeper scythe badge */}
-            {hasDeathKeeper && (
-              <div className="mchip__reaper-badge" aria-hidden="true">
-                <ReaperScythe
-                  gradientId={`reaper-grad-${fighter.characterId}`}
-                  color1="#88789fff"
-                  color2="#cda4e0ff"
-                />
-              </div>
-            )}
-
-            {/* Target crosshair badge — shown when selected as defend target */}
-            {isDefender && (
-              <div className="mchip__target-badge">
-                <TargetCrosshair />
-              </div>
-            )}
+            <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
+            <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
           </>
         )}
-
-        <div className="mchip__overlay">
-          <span className="mchip__name">{fighter.nicknameEng}</span>
-          <span className="mchip__deity-tag">{deityLabel}</span>
-          <div className="mchip__hp">
-            <div className="mchip__hp-track">
-              <div className="mchip__hp-fill" style={{ width: `${hpPct}%` }} />
+        <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+          {fighter.image ? (
+            <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="mchip__bg mchip__bg--placeholder" style={{ background: fighter.theme[0], color: fighter.theme[9] }}>
+              {fighter.nicknameEng.charAt(0)}
             </div>
-            <span className="mchip__hp-label">
-              {displayHp}/{fighter.maxHp}
-            </span>
+          )}
+
+          <div className="mchip__inner-border" />
+
+          {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
+
+          {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
+          {battleLive && (
+            <>
+              {/* Shocked effect — electric sparks around frame (hidden when Jolt Arc attack is showing) */}
+              {isShocked && !isJoltArcAttackActive && !hasJoltArcDeceleration && <div className="mchip__shock-sparks" aria-hidden="true" />}
+
+              {/* Jolt Arc Deceleration — frame accents only (sparks are chip-level) */}
+              {hasJoltArcDeceleration && (
+                <div className="mchip__jolt-decel-accents" aria-hidden="true" />
+              )}
+
+              {/* Beyond the Nimbus — light storm glow on pic (like shocked sparks) */}
+              {hasBeyondNimbus && <div className="mchip__nimbus-sparks" aria-hidden="true" />}
+
+              {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
+              {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
+
+              {/* Petal leaf accents — green spots around frame edge */}
+              {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
+
+              {/* Fragrance Wave border + accents (separate divs) + heal boost floating text */}
+              {showFragranceVisual && (
+                <>
+                  <div className="mchip__fragrance-border" aria-hidden="true" />
+                  <div className="mchip__fragrance-accents" aria-hidden="true" />
+                  <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+                </>
+              )}
+
+              {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
+              {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
+                <>
+                  <div className="mchip__soul-devourer-border" aria-hidden="true" />
+                  <div className="mchip__soul-devourer-accents" aria-hidden="true" />
+                  <div className="mchip__soul-devourer-heal" aria-hidden="true">
+                    +{soulDevourerHealDisplayAmount} HP
+                  </div>
+                </>
+              )}
+
+              {/* Petal shield badge — Secret of Dryad status immunity */}
+              {isPetalShielded && (
+                <div className="mchip__petal-badge" aria-hidden="true">
+                  <PetalShield
+                    gradientId={`petal-grad-${fighter.characterId}`}
+                    color1={lightenColor(fighter.theme[0], 0.5)}
+                    color2="#d1ffd4"
+                  />
+                </div>
+              )}
+
+              {/* Death Keeper scythe badge */}
+              {hasDeathKeeper && (
+                <div className="mchip__reaper-badge" aria-hidden="true">
+                  <ReaperScythe
+                    gradientId={`reaper-grad-${fighter.characterId}`}
+                    color1="#88789fff"
+                    color2="#cda4e0ff"
+                  />
+                </div>
+              )}
+
+              {/* Target crosshair badge — shown when selected as defend target */}
+              {isDefender && (
+                <div className="mchip__target-badge">
+                  <TargetCrosshair />
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="mchip__overlay">
+            <span className="mchip__name">{fighter.nicknameEng}</span>
+            <span className="mchip__deity-tag">{deityLabel}</span>
+            <div className="mchip__hp">
+              <div className="mchip__hp-track">
+                <div className="mchip__hp-fill" style={{ width: `${hpPct}%` }} />
+              </div>
+              <span className="mchip__hp-label">
+                {displayHp}/{fighter.maxHp}
+              </span>
+            </div>
           </div>
         </div>
+        {battleLive && (
+          <>
+            {/* Critical rate bar — outside frame */}
+            <div className="mchip__critical">
+              <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
+              <div className="mchip__crit-bar">
+                <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
+              </div>
+            </div>
+
+            {/* Turn order + active effect pips */}
+            <div className="mchip__powerside">
+              {turnOrder != null && (
+                <div className="mchip__order">{turnOrder}</div>
+              )}
+              {effectPips && effectPips.length > 0 && (
+                <div className="mchip__effected-powers">
+                  {effectPips.map((ep, idx) => (
+                    <EffectPipDot key={idx} pip={ep} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
@@ -873,28 +1100,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
       {battleLive && (
         <>
-          {/* Critical rate bar — outside frame */}
-          <div className="mchip__critical">
-            <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
-            <div className="mchip__crit-bar">
-              <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
-            </div>
-          </div>
-
-          {/* Turn order + active effect pips */}
-          <div className="mchip__powerside">
-            {turnOrder != null && (
-              <div className="mchip__order">{turnOrder}</div>
-            )}
-            {effectPips && effectPips.length > 0 && (
-              <div className="mchip__effected-powers">
-                {effectPips.map((ep, idx) => (
-                  <EffectPipDot key={idx} pip={ep} />
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Quota pips — below frame, inside chip */}
           {fighter.maxQuota > 0 && (
             <div className="mchip__quota">

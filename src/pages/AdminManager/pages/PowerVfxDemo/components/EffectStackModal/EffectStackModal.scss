@@ -1,0 +1,340 @@
+@use '../../../../../../styles/variables' as *;
+
+/* ── Effect stack modal (power-select style, full list) ── */
+.effect-stack-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2rem 2.5rem;
+  height: calc(100% - 175px);
+  margin-top: auto;
+  animation: effect-stack-modal__backdrop-in 0.2s ease-out;
+}
+
+/* No full-page overlay: only the half, transparent so team panel stays visible; modal under panel on that side */
+.effect-stack-modal__backdrop--in-arena {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.effect-stack-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 300px;
+  max-height: 100%;
+  background: var(--ci-bg, #faf7f0);
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  animation: effect-stack-modal__modal-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  overflow: hidden;
+}
+
+.effect-stack-modal__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--ci-border, #d4c9a8);
+  background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 60%, white);
+}
+
+.effect-stack-modal__title {
+  margin: 0;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ci-fg, #1a1a2e);
+}
+
+.effect-stack-modal__close {
+  width: fit-content;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ci-muted, #8a8a9a);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    color: var(--ci-primary, #1a1a2e);
+  }
+}
+
+.effect-stack-modal__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.effect-stack-modal__group {
+  margin-bottom: 0.75rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.effect-stack-modal__group-label {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ci-muted, #8a8a9a);
+  padding: 0.25rem 0 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ci-border, #d4c9a8) 50%, transparent);
+  margin-bottom: 0.3rem;
+}
+
+.effect-stack-modal__options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.effect-stack-modal__option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.8rem;
+  color: var(--ci-fg, #1a1a2e);
+  transition: background 0.12s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 8%, transparent);
+  }
+
+  input[type='checkbox'] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--ci-primary, #c0a062);
+    flex-shrink: 0;
+  }
+
+  .effect-stack-modal__option-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 4px;
+    background: var(--ci-muted, #8a8a9a);
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  /* Effect-type badge: C = caster, T = target (overrides backdrop-based color when optionSideByValue is set) */
+  .effect-stack-modal__option-badge--caster {
+    background: var(--ci-primary, #c0a062);
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  .effect-stack-modal__option-badge--target {
+    background: #8b7355;
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  .effect-stack-modal__backdrop--left & .effect-stack-modal__option-badge {
+    background: var(--ci-primary, #c0a062);
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  /* Target-type effect in caster modal: use accent as badge background */
+  .effect-stack-modal__backdrop--left & .effect-stack-modal__option-badge--target {
+    background: var(--ci-accent, #9dad71);
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  /* Right (target) modal: badge uses target fighter theme */
+  .effect-stack-modal__backdrop--right & .effect-stack-modal__option-badge {
+    background: var(--ci-primary, #8b7355);
+    color: var(--ci-bg, #faf7f0);
+  }
+
+  .effect-stack-modal__option-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+  }
+
+  .effect-stack-modal__option-label {
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .effect-stack-modal__option-desc {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--ci-muted, #8a8a9a);
+    line-height: 1.2;
+  }
+}
+
+@keyframes effect-stack-modal__backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes effect-stack-modal__modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .effect-stack-modal__backdrop {
+    margin: unset;
+    height: 100%;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .effect-stack-modal {
+    max-width: 280px;
+  }
+
+  .effect-stack-modal__header {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .effect-stack-modal__title {
+    font-size: 0.8rem;
+  }
+
+  .effect-stack-modal__close {
+    width: 24px;
+    height: 24px;
+    font-size: 1.1rem;
+  }
+
+  .effect-stack-modal__list {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .effect-stack-modal__group {
+    margin-bottom: 0.5rem;
+  }
+
+  .effect-stack-modal__group-label {
+    font-size: 0.6rem;
+    padding: 0.2rem 0 0.25rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .effect-stack-modal__option {
+    gap: 0.4rem;
+    padding: 0.32rem 0.4rem;
+    font-size: 0.72rem;
+
+    .effect-stack-modal__option-badge {
+      min-width: 1.1rem;
+      height: 1.1rem;
+      font-size: 0.6rem;
+    }
+
+    .effect-stack-modal__option-desc {
+      font-size: 0.65rem;
+    }
+
+    input[type='checkbox'] {
+      width: 0.9rem;
+      height: 0.9rem;
+    }
+  }
+}
+
+@media (max-width: $bp-mobile) {
+  .effect-stack-modal__backdrop {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .effect-stack-modal {
+    max-width: 240px;
+    border-radius: 8px;
+  }
+
+  .effect-stack-modal__header {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .effect-stack-modal__title {
+    font-size: 0.72rem;
+  }
+
+  .effect-stack-modal__close {
+    width: 22px;
+    height: 22px;
+    font-size: 1rem;
+  }
+
+  .effect-stack-modal__list {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .effect-stack-modal__group {
+    margin-bottom: 0.4rem;
+  }
+
+  .effect-stack-modal__group-label {
+    font-size: 0.56rem;
+    padding: 0.15rem 0 0.2rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .effect-stack-modal__option {
+    gap: 0.35rem;
+    padding: 0.28rem 0.35rem;
+    font-size: 0.65rem;
+    border-radius: 4px;
+
+    .effect-stack-modal__option-badge {
+      min-width: 1rem;
+      height: 1rem;
+      font-size: 0.55rem;
+    }
+
+    .effect-stack-modal__option-desc {
+      font-size: 0.58rem;
+    }
+
+    input[type='checkbox'] {
+      width: 0.85rem;
+      height: 0.85rem;
+    }
+  }
+}

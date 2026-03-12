@@ -72,6 +72,8 @@ export const ARENA_PATH = {
   BATTLE_ROUND_NUMBER: 'battle/roundNumber',
   BATTLE_TURN_ATTACK_ROLL: 'battle/turn/attackRoll',
   BATTLE_TURN_DEFEND_ROLL: 'battle/turn/defendRoll',
+  BATTLE_TURN_ATTACK_ROLL_STARTED_AT: 'battle/turn/attackRollStartedAt',
+  BATTLE_TURN_DEFEND_ROLL_STARTED_AT: 'battle/turn/defendRollStartedAt',
   BATTLE_TURN_PHASE: 'battle/turn/phase',
   BATTLE_TURN_PLAYBACK_STEP: 'battle/turn/playbackStep',
   BATTLE_TURN_SELECTED_SEASON: 'battle/turn/selectedSeason',
@@ -94,10 +96,11 @@ export type PanelSide = (typeof PANEL_SIDE)[keyof typeof PANEL_SIDE];
 
 /**
  * Phase label for HUD (short status text).
+ * Pass treatAsNormalAttack: true when the turn is a self-buff+attack (e.g. Beyond the Nimbus) so the label shows as normal attack, not power name.
  */
 export function getPhaseLabel(
   phase: string,
-  context?: { defenderName?: string; usedPowerName?: string; action?: string },
+  context?: { defenderName?: string; usedPowerName?: string; action?: string; treatAsNormalAttack?: boolean },
 ): string {
   switch (phase) {
     case PHASE.SELECT_TARGET:
@@ -111,6 +114,8 @@ export function getPhaseLabel(
     case PHASE.ROLLING_DEFEND:
       return context?.defenderName ? `→ ${context.defenderName} defending...` : 'defending...';
     case PHASE.RESOLVING:
+      if (context?.treatAsNormalAttack)
+        return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
       if (context?.action === TURN_ACTION.POWER && !context?.usedPowerName) return 'used a power!';
       if (context?.action === TURN_ACTION.POWER && context?.usedPowerName)
         return `${context.usedPowerName} → ${context.defenderName ?? '...'}`;

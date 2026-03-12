@@ -1,0 +1,109 @@
+@use 'vars' as *;
+@use '../../../../../../styles/variables' as *;
+
+/* ── Hit / Shock hit — power VFX ───────────────────────────────────────── */
+
+.mchip--hit {
+  .mchip__frame {
+    animation: hit-shake 0.5s ease-out;
+  }
+
+  .mchip__frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba($crimson-bright, 0.45);
+    border-radius: inherit;
+    z-index: 10;
+    pointer-events: none;
+    animation: hit-flash 1.5s ease-out forwards;
+  }
+}
+
+.mchip--shock-hit {
+  .mchip__frame {
+    animation: hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards;
+  }
+
+  .mchip__frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(#4fc3f7, 0.5);
+    border-radius: inherit;
+    z-index: 10;
+    pointer-events: none;
+    animation: shock-flash 1.5s ease-out forwards;
+  }
+
+  .mchip__frame::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+    z-index: 12;
+    pointer-events: none;
+    background:
+      conic-gradient(from 0deg at 15% 10%, rgba(#4fc3f7, 0.9) 0deg, transparent 18deg),
+      conic-gradient(from 120deg at 85% 20%, rgba(#80d8ff, 0.8) 0deg, transparent 22deg),
+      conic-gradient(from 200deg at 90% 80%, rgba(#4fc3f7, 0.9) 0deg, transparent 16deg),
+      conic-gradient(from 300deg at 10% 75%, rgba(#80d8ff, 0.7) 0deg, transparent 20deg),
+      conic-gradient(from 60deg at 50% 5%, rgba(#e1f5fe, 0.9) 0deg, transparent 14deg),
+      conic-gradient(from 240deg at 50% 95%, rgba(#e1f5fe, 0.8) 0deg, transparent 14deg);
+    animation: shock-bolts 1.5s ease-out forwards;
+  }
+}
+
+/* Keyframes */
+@keyframes hit-shake {
+  0%, 100% { transform: translate(0, 0); }
+  12% { transform: translate(-4px, -2px); }
+  24% { transform: translate(3px, 3px); }
+  36% { transform: translate(-3px, 2px); }
+  48% { transform: translate(2px, -3px); }
+  60% { transform: translate(-2px, 1px); }
+  72% { transform: translate(1px, -1px); }
+  84% { transform: translate(-1px, 0); }
+}
+
+@keyframes hit-flash {
+  0% { opacity: 1; }
+  25% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+@keyframes shock-zap-glow {
+  0% {
+    box-shadow:
+      0 0 0 3px rgba(#4fc3f7, 0.9),
+      0 0 30px rgba(#4fc3f7, 0.8),
+      0 0 60px rgba(#64b5f6, 0.5);
+  }
+  30% {
+    box-shadow:
+      0 0 0 2px rgba(#4fc3f7, 0.7),
+      0 0 20px rgba(#4fc3f7, 0.5),
+      0 0 40px rgba(#64b5f6, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
+  }
+}
+
+@keyframes shock-flash {
+  0% { opacity: 1; }
+  15% { opacity: 0.3; }
+  30% { opacity: 0.8; }
+  50% { opacity: 0.2; }
+  70% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+@keyframes shock-bolts {
+  0% { opacity: 1; transform: scale(1) rotate(0deg); }
+  20% { opacity: 0.6; transform: scale(1.1) rotate(8deg); }
+  40% { opacity: 0.9; transform: scale(1.05) rotate(-5deg); }
+  60% { opacity: 0.4; transform: scale(1.15) rotate(3deg); }
+  100% { opacity: 0; transform: scale(1.3) rotate(0deg); }
+}

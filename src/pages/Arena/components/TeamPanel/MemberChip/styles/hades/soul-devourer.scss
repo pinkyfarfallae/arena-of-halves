@@ -1,0 +1,311 @@
+/* ── Soul Devourer (Hades Ultimate) — souls inhale, frame, border, wave, heal ─ */
+
+/* Masked container for soul layers */
+.mchip__soul-float {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.85;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46), transparent 100%);
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46) 95%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: destination-in;
+}
+
+.mchip__soul-layer {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-origin: 50% 50%;
+  background:
+    radial-gradient(ellipse 10px 14px at 12% 8%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 72% 12%, rgba(#0d0512, 0.85) 0%, rgba(#6b2d7a, 0.45) 50%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 35% 22%, rgba(#2d1535, 0.88) 0%, rgba(#8b5a9e, 0.4) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 13px at 88% 28%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
+    radial-gradient(ellipse 12px 8px at 18% 45%, rgba(#0d0512, 0.82) 0%, rgba(#6b2d7a, 0.48) 45%, transparent 100%),
+    radial-gradient(ellipse 10px 11px at 58% 52%, rgba(#2d1535, 0.85) 0%, rgba(#8b5a9e, 0.42) 50%, transparent 100%),
+    radial-gradient(ellipse 8px 10px at 82% 65%, rgba(#1a0a22, 0.88) 0%, rgba(#4a2060, 0.45) 40%, transparent 100%),
+    radial-gradient(ellipse 11px 12px at 8% 72%, rgba(#0d0512, 0.9) 0%, rgba(#6b2d7a, 0.4) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 9px at 48% 78%, rgba(#2d1535, 0.86) 0%, rgba(#8b5a9e, 0.45) 48%, transparent 100%),
+    radial-gradient(ellipse 9px 11px at 28% 15%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%),
+    radial-gradient(ellipse 10px 8px at 65% 38%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.52) 45%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 15% 58%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.58) 48%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 82% 82%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
+    radial-gradient(ellipse 9px 10px at 42% 92%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.54) 45%, transparent 100%);
+  animation-duration: 5s;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.mchip__soul-layer--tl { animation-name: soul-inhale-tl; animation-delay: 0s; }
+.mchip__soul-layer--tr { animation-name: soul-inhale-tr; animation-delay: -0.6s; }
+.mchip__soul-layer--br { animation-name: soul-inhale-br; animation-delay: -1.2s; }
+.mchip__soul-layer--bl { animation-name: soul-inhale-bl; animation-delay: -1.8s; }
+.mchip__soul-layer--t { animation-name: soul-inhale-t; animation-delay: -2.4s; }
+.mchip__soul-layer--r { animation-name: soul-inhale-r; animation-delay: -3s; }
+.mchip__soul-layer--b { animation-name: soul-inhale-b; animation-delay: -3.6s; }
+.mchip__soul-layer--l { animation-name: soul-inhale-l; animation-delay: -4.2s; }
+
+@keyframes soul-inhale-tl { 0% { transform: translate(-36%, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-tr { 0% { transform: translate(36%, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-br { 0% { transform: translate(36%, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-bl { 0% { transform: translate(-36%, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-t { 0% { transform: translate(0, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-r { 0% { transform: translate(36%, 0) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-b { 0% { transform: translate(0, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+@keyframes soul-inhale-l { 0% { transform: translate(-36%, 0) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+
+.mchip--soul-devourer {
+  .mchip__frame {
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 12px rgba(#1a0a1f, 0.35),
+      inset 0 0 24px rgba(#4a2060, 0.2),
+      0 0 10px rgba(#6b2d7a, 0.45),
+      0 0 20px rgba(#2d1535, 0.4);
+    animation: soul-devourer-pulse 2.5s ease-in-out infinite;
+  }
+
+  .mchip__inner-border {
+    border-color: rgba(#6b2d7a, 0.65);
+    box-shadow: inset 0 0 10px rgba(#2d1535, 0.6),
+      inset 0 0 20px rgba(#4a2060, 0.35),
+      0 0 5px rgba(#8b5a9e, 0.35);
+  }
+
+  .mchip__soul-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: inherit;
+    overflow: hidden;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' stitchTiles='stitch' result='t'%3E%3Canimate attributeName='seed' from='0' to='100' dur='0.4s' repeatCount='indefinite'/%3E%3C/feTurbulence%3E%3CfeColorMatrix in='t' type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' fill='%23fff' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    background-repeat: repeat;
+    background-color: rgba(#0d0512, 0.55);
+    box-shadow:
+      inset 0 0 30px rgba(#4a2060, 0.35),
+      inset 0 0 60px rgba(#1a0a22, 0.3);
+  }
+}
+
+@keyframes soul-devourer-pulse {
+  0%, 100% { filter: brightness(0.96) contrast(1.03); }
+  50% { filter: brightness(1.02) contrast(1.06); }
+}
+
+/* ── Soul Devourer (Hades Ultimate) — border, accents, wave, heal text ────── */
+
+.mchip__soul-devourer-boost {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: rgba(#ce93d8, 0.95);
+  text-shadow:
+    0 0 8px rgba(#81c784, 0.6),
+    0 0 16px rgba(#81c784, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: soul-devourer-heal-float 3s ease-out forwards;
+}
+
+@keyframes soul-devourer-heal-float {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  20% { transform: translate(-50%, -50%) scale(1); }
+  70% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -80%); }
+}
+
+.mchip__soul-devourer-wave {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 200%;
+    pointer-events: none;
+  }
+
+  &::before {
+    bottom: -100%;
+    background:
+      radial-gradient(ellipse 10px 6px at 20% 5%, rgba(#4a148c, 0.8) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 11px at 75% 10%, rgba(#7b1fa2, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 11px 7px at 45% 16%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 10px at 88% 22%, rgba(#ce93d8, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 12% 28%, rgba(#4a148c, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 8px at 62% 35%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 35% 42%, rgba(#0d0015, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 6px at 5% 12%, rgba(#4a148c, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 8px at 95% 35%, rgba(#e1bee7, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 7px at 55% 8%, rgba(#7b1fa2, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 52% 8%, rgba(#1a1a2e, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 30% 18%, rgba(#4a148c, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 82% 30%, rgba(#ce93d8, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 18% 40%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 70% 46%, rgba(#1a1a2e, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 8% 32%, rgba(#4a148c, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 92% 50%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px at 42% 25%, rgba(#ce93d8, 0.5) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 6px at 20% 55%, rgba(#4a148c, 0.8) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 11px at 75% 60%, rgba(#7b1fa2, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 11px 7px at 45% 66%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 10px at 88% 72%, rgba(#ce93d8, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 12% 78%, rgba(#4a148c, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 8px at 62% 85%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 35% 92%, rgba(#0d0015, 0.75) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 6px at 5% 62%, rgba(#4a148c, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 8px at 95% 85%, rgba(#e1bee7, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 7px at 55% 58%, rgba(#7b1fa2, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 52% 58%, rgba(#1a1a2e, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 30% 68%, rgba(#4a148c, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 82% 80%, rgba(#ce93d8, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 18% 90%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 70% 96%, rgba(#1a1a2e, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 8% 82%, rgba(#4a148c, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 92% 100%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 7px at 42% 75%, rgba(#ce93d8, 0.5) 0%, transparent 100%);
+    animation: fragrance-splash-up 6s ease-out infinite;
+  }
+
+  &::after {
+    bottom: -50%;
+    background:
+      radial-gradient(ellipse 8px 5px at 30% 6%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 68% 14%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 50% 22%, rgba(#4a148c, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 15% 30%, rgba(#ce93d8, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 85% 38%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 40% 46%, rgba(#0d0015, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 12% 16%, rgba(#4a148c, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 72% 36%, rgba(#e1bee7, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 4px at 58% 48%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 6px at 28% 52%, rgba(#1a1a2e, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 5px at 30% 56%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 9px at 68% 64%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 9px 5px at 50% 72%, rgba(#4a148c, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 8px at 15% 80%, rgba(#ce93d8, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 6px at 85% 88%, rgba(#7b1fa2, 0.7) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 5px at 40% 96%, rgba(#0d0015, 0.65) 0%, transparent 100%),
+      radial-gradient(ellipse 7px 6px at 12% 66%, rgba(#4a148c, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 6px 7px at 72% 86%, rgba(#e1bee7, 0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 8px 4px at 58% 98%, rgba(#7b1fa2, 0.6) 0%, transparent 100%),
+      radial-gradient(ellipse 5px 6px at 28% 102%, rgba(#1a1a2e, 0.55) 0%, transparent 100%);
+    animation: fragrance-splash-up 7s ease-out infinite 0.3s;
+  }
+}
+
+.mchip__soul-devourer-border {
+  position: absolute;
+  inset: -2.5px;
+  border-radius: inherit;
+  z-index: 12;
+  pointer-events: none;
+  padding: 2px;
+  background: linear-gradient(90deg,
+      rgba(#1a1a2e, 0.9) 0%,
+      rgba(#4a148c, 0.8) 25%,
+      rgba(#7b1fa2, 0.85) 50%,
+      rgba(#4a148c, 0.8) 75%,
+      rgba(#1a1a2e, 0.9) 100%);
+  background-size: 200% 100%;
+  animation: fragrance-border-flow 3s ease-in-out infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.mchip__soul-devourer-accents {
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  z-index: 12;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 10px 7px at 10% 12%, rgba(#4a148c, 0.7) 0%, transparent 100%),
+    radial-gradient(ellipse 7px 10px at 90% 18%, rgba(#7b1fa2, 0.75) 0%, transparent 100%),
+    radial-gradient(ellipse 9px 6px at 85% 80%, rgba(#ce93d8, 0.65) 0%, transparent 100%),
+    radial-gradient(ellipse 6px 9px at 15% 75%, rgba(#1a1a2e, 0.7) 0%, transparent 100%),
+    radial-gradient(ellipse 8px 5px at 50% 6%, rgba(#4a148c, 0.6) 0%, transparent 100%),
+    radial-gradient(ellipse 7px 6px at 48% 94%, rgba(#7b1fa2, 0.65) 0%, transparent 100%);
+  animation: fragrance-accents-drift 4s ease-in-out infinite alternate;
+}
+
+.mchip__soul-devourer-heal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ce93d8;
+  text-shadow:
+    0 0 8px rgba(#7b1fa2, 0.6),
+    0 0 16px rgba(#4a148c, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: heal-boost-float 3s ease-out forwards;
+}
+
+/* Combo: Shadow Camouflage + Soul Devourer */
+.mchip--shadow-camouflaged.mchip--soul-devourer {
+  .mchip__frame {
+    animation:
+      soul-devourer-pulse 2.5s ease-in-out infinite,
+      shadow-glitch 8s ease-in-out infinite;
+  }
+
+  &.mchip--death-keeper {
+    .mchip__frame {
+      box-shadow:
+        0 0 0 1.5px rgb(113 0 255 / 75%),
+        0 0 10px rgba(74, 20, 140, 0.45),
+        0 0 18px rgba(126, 87, 194, 0.2) !important;
+      animation:
+        soul-devourer-pulse 2.5s ease-in-out infinite,
+        shadow-glitch 8s ease-in-out infinite,
+        death-keeper-pulse 3s ease-in-out infinite;
+    }
+  }
+}

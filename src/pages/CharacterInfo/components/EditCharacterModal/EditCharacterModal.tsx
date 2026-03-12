@@ -2,6 +2,9 @@ import { useRef, useState } from 'react';
 import { Character } from '../../../../data/characters';
 import { EDIT_FIELDS, GROUP_ICONS, GROUPS } from '../../constants/editFields';
 import GripDots from '../../icons/GripDots';
+import ImageError from '../../icons/ImageError';
+import ImagePlaceholder from '../../icons/ImagePlaceholder';
+import RemoveX from '../../icons/RemoveX';
 import Close from '../../../../icons/Close';
 import Male from '../../../../icons/Male';
 import Female from '../../../../icons/Female';
@@ -208,18 +211,11 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
               />
             ) : form.image && imgError ? (
               <div className="cs__edit-preview-err">
-                <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                <ImageError width={18} height={18} />
               </div>
             ) : (
               <div className="cs__edit-preview-ph">
-                <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
-                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ImagePlaceholder width={20} height={20} />
               </div>
             )}
             <div className="cs__edit-img-fields">
@@ -259,7 +255,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                               <span key={i} className="cs__edit-chip">
                                 {chip}
                                 <button type="button" className="cs__edit-chip-x" onClick={() => removeAlias(i)}>
-                                  <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                  <RemoveX width={10} height={10} />
                                 </button>
                               </span>
                             ))}
@@ -323,7 +319,7 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
                                   placeholder="Description"
                                 />
                                 <button type="button" className="cs__edit-trait-rm" onClick={() => removeTrait(f.key, i)}>
-                                  <svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                  <RemoveX width={12} height={12} />
                                 </button>
                               </div>
                             ))}
