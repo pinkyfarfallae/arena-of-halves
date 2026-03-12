@@ -36,10 +36,14 @@ export default function EffectStackModal({
   side = PANEL_SIDE.LEFT,
 }: EffectStackModalProps) {
   const [pending, setPending] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) setPending([...selectedIds]);
+    if (open) {
+      setPending([...selectedIds]);
+      setSearchQuery('');
+    }
   }, [open, selectedIds]);
 
   useLayoutEffect(() => {
@@ -62,6 +66,24 @@ export default function EffectStackModal({
     setPending(next);
     onApply(next);
   };
+
+  const handleClear = () => {
+    setPending([]);
+    onApply([]);
+  };
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredGroups = q
+    ? groups
+        .map((grp) => ({
+          ...grp,
+          options: grp.options.filter(
+            (o: { value: string; label: string }) =>
+              o.label.toLowerCase().includes(q)
+          ),
+        }))
+        .filter((grp) => grp.options.length > 0)
+    : groups;
 
   /** Split "Label (description)" into { main, desc }; if no parens, desc is empty. */
   const parseOptionLabel = (label: string): { main: string; desc: string } => {
@@ -95,12 +117,34 @@ export default function EffectStackModal({
       <div className="effect-stack-modal" onClick={(e) => e.stopPropagation()}>
         <div className="effect-stack-modal__header">
           <h3 className="effect-stack-modal__title">{title}</h3>
-          <button type="button" className="effect-stack-modal__close" onClick={onClose} aria-label="Close">
-            ×
-          </button>
+          <div className="effect-stack-modal__header-actions">
+            {pending.length > 0 && (
+              <button
+                type="button"
+                className="effect-stack-modal__clear"
+                onClick={handleClear}
+                aria-label="Clear all effects"
+              >
+                Clear
+              </button>
+            )}
+            <button type="button" className="effect-stack-modal__close" onClick={onClose} aria-label="Close">
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="effect-stack-modal__search-wrap">
+          <input
+            type="search"
+            className="effect-stack-modal__search"
+            placeholder="Search effects"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search effects"
+          />
         </div>
         <div className="effect-stack-modal__list">
-          {groups.map((grp) => (
+          {filteredGroups.map((grp) => (
             <div key={grp.label} className="effect-stack-modal__group">
               <div className="effect-stack-modal__group-label">{grp.label}</div>
               <ul className="effect-stack-modal__options">

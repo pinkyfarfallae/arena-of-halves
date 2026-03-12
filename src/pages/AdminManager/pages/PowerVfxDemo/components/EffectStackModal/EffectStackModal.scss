@@ -25,7 +25,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 300px;
+  max-width: 280px;
+  min-width: 280px;
   max-height: 100%;
   background: var(--ci-bg, #faf7f0);
   border: 1px solid var(--ci-border, #d4c9a8);
@@ -40,17 +41,75 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   border-bottom: 1px solid var(--ci-border, #d4c9a8);
   background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 60%, white);
 }
 
 .effect-stack-modal__title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--ci-fg, #1a1a2e);
+}
+
+.effect-stack-modal__header-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.effect-stack-modal__clear {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ci-muted, #8a8a9a);
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: var(--ci-fg, #1a1a2e);
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 12%, transparent);
+    border-color: var(--ci-primary, #c0a062);
+  }
+}
+
+.effect-stack-modal__search-wrap {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ci-border, #d4c9a8) 60%, transparent);
+  background: var(--ci-bg, #faf7f0);
+}
+
+.effect-stack-modal__search {
+  width: 100%;
+  padding: 0.4rem 0.6rem 0.4rem 2rem;
+  border: 1px solid var(--ci-border, #d4c9a8);
+  border-radius: 6px;
+  background: var(--ci-surface, #f5f1ea) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%238a8a9a' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 0.5rem center;
+  color: var(--ci-fg, #1a1a2e);
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder {
+    color: var(--ci-muted, #8a8a9a);
+  }
+
+  &:focus {
+    border-color: var(--ci-primary, #c0a062);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ci-primary, #c0a062) 25%, transparent);
+  }
 }
 
 .effect-stack-modal__close {
@@ -226,6 +285,7 @@
 
   .effect-stack-modal {
     max-width: 280px;
+    min-width: 280px;
   }
 
   .effect-stack-modal__header {
@@ -237,9 +297,24 @@
   }
 
   .effect-stack-modal__close {
-    width: 24px;
     height: 24px;
     font-size: 1.1rem;
+  }
+
+  .effect-stack-modal__search-wrap {
+    padding: 0.35rem 0.6rem;
+  }
+
+  .effect-stack-modal__search {
+    padding: 0.35rem 0.5rem 0.35rem 1.75rem;
+    font-size: 0.75rem;
+    background-size: 12px;
+    background-position: 0.45rem center;
+  }
+
+  .effect-stack-modal__clear {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.68rem;
   }
 
   .effect-stack-modal__list {
@@ -278,13 +353,22 @@
   }
 }
 
+@media (max-width: 665px) {
+  .effect-stack-modal {
+    max-width: 230px;
+    min-width: 230px;
+    border-radius: 8px;
+  }
+}
+
 @media (max-width: $bp-mobile) {
   .effect-stack-modal__backdrop {
     padding: 0.35rem 0.5rem;
   }
 
   .effect-stack-modal {
-    max-width: 240px;
+    max-width: 190px;
+    min-width: 190px;
     border-radius: 8px;
   }
 
@@ -297,9 +381,28 @@
   }
 
   .effect-stack-modal__close {
-    width: 22px;
     height: 22px;
     font-size: 1rem;
+  }
+
+  .effect-stack-modal__search-wrap {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .effect-stack-modal__search {
+    padding: 0.3rem 0.4rem 0.3rem 1.6rem;
+    font-size: 0.72rem;
+    background-size: 11px;
+    background-position: 0.4rem center;
+  }
+
+  .effect-stack-modal__header-actions {
+    gap: 0.35rem;
+  }
+
+  .effect-stack-modal__clear {
+    padding: 0.18rem 0.35rem;
+    font-size: 0.65rem;
   }
 
   .effect-stack-modal__list {
