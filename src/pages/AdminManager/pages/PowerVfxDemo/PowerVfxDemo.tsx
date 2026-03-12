@@ -254,7 +254,6 @@ export default function PowerVfxDemo() {
         {/* Bottom bar: half Caster, half Target */}
         <div className="power-vfx-demo__bar power-vfx-demo__bar--bottom">
           <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--caster">
-            <span className="power-vfx-demo__side-title">{SIDE_LABEL.CASTER}</span>
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={casterFighterId}
@@ -278,7 +277,6 @@ export default function PowerVfxDemo() {
           </div>
           <div className="power-vfx-demo__bar-divider" aria-hidden />
           <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--target">
-            <span className="power-vfx-demo__side-title">{SIDE_LABEL.TARGET}</span>
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={targetFighterId}
