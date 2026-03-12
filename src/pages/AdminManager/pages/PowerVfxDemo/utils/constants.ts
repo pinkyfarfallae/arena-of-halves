@@ -3,6 +3,8 @@
  * Use these instead of magic strings/literals in PowerVfxDemo and EffectStackModal.
  */
 
+import { DEITY } from "../../../../../constants/deities";
+
 /** Deity value for "Hades and Persephone" (dual deity); used to allow both Hades and Persephone effect groups. */
 export const DEITY_HADES_AND_PERSEPHONE = 'Hades and Persephone' as const;
 
@@ -48,7 +50,7 @@ export const BUTTON_LABEL = {
 } as const;
 
 /** When deity is Hades and Persephone, allow both effect groups. */
-export const ALLOWED_GROUPS_HADES_AND_PERSEPHONE: readonly [string, string] = ['Hades', 'Persephone'];
+export const ALLOWED_GROUPS_HADES_AND_PERSEPHONE: readonly [string] = [DEITY.PERSEPHONE];
 
 /** CSS custom properties copied from theme source to portaled modal. */
 export const CI_THEME_VARS = [
@@ -56,6 +58,7 @@ export const CI_THEME_VARS = [
   '--ci-muted',
   '--ci-primary',
   '--ci-primary-hover',
+  '--ci-accent',
   '--ci-bg',
   '--ci-fg',
   '--ci-surface',

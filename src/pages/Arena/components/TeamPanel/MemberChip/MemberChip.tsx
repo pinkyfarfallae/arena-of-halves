@@ -11,12 +11,12 @@ import TargetCrosshair from './icons/TargetCrosshair';
 
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import { DEITY_SVG, toDeityKey } from '../../../../../data/deities';
-import './MemberChip.scss';
+
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
-import { POWER_NAMES } from '../../../../../constants/powers';
-import { POWER_META } from '../../../../CharacterInfo/constants/powerMeta';
 import { EFFECT_TAGS } from '../../../../../constants/effectTags';
+
+import './MemberChip.scss';
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -441,10 +441,16 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const prevFragranceRef = useRef(false);
   const fragranceSuppressRef = useRef(false);
   const fragranceSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fragranceWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isFragranceWaved) {
       prevFragranceRef.current = false;
+      if (fragranceWaveTimerRef.current) {
+        clearTimeout(fragranceWaveTimerRef.current);
+        fragranceWaveTimerRef.current = null;
+      }
+      setShowFragranceWave(false);
       return;
     }
     if (prevFragranceRef.current) return;
@@ -464,17 +470,26 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
     if (!fragranceSuppressRef.current) {
       setShowFragranceWave(true);
-      const timer = setTimeout(() => setShowFragranceWave(false), 3000);
+      fragranceWaveTimerRef.current = setTimeout(() => {
+        setShowFragranceWave(false);
+        fragranceWaveTimerRef.current = null;
+      }, 3000);
       prevFragranceRef.current = true;
       // Mark as shown if we were triggered by a persistent log
       if (floralLogKey) {
         try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
       }
-      return () => clearTimeout(timer);
+      // Do not return a cleanup that clears the timer here: React Strict Mode runs
+      // effect → cleanup → effect. That cleanup would clear the 3s timer before it
+      // fires, so the wave would never auto-hide after replay. Timer is cleared
+      // when isFragranceWaved becomes false and on unmount (empty-deps effect).
     }
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(isFragranceWaved), floralLogKey ?? '']);
+
+  // Derive visible state: hide as soon as prop is false (no waiting for useEffect / state update)
+  const showFragranceVisual = showFragranceWave && isFragranceWaved;
 
   // If the fighter's HP increases (heal applied), clear the fragrance wave visual
   // immediately to avoid leaving the +HP text/styling stuck after the heal.
@@ -515,6 +530,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   useEffect(() => {
     return () => {
       if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
+      if (fragranceWaveTimerRef.current) clearTimeout(fragranceWaveTimerRef.current);
     };
   }, []);
 
@@ -684,7 +700,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && showResFlash && 'mchip--res-flash',
     battleLive && showResGlow && 'mchip--res-glow',
     battleLive && isResurrected && 'mchip--resurrected',
-    battleLive && showFragranceWave && 'mchip--fragrance-waved',
+    battleLive && showFragranceVisual && 'mchip--fragrance-waved',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -823,7 +839,28 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Fragrance Wave — falling flower/leaf particles for Floral Fragrance buff */}
-      {showFragranceWave && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+      {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+
+      {/* Keraunos Voltage — ultimate Zeus strike: multiple bolts, corona, sparks, rings */}
+      {isKeraunosVoltageHit && battleLive && (
+        <div className="mchip__keraunos-vfx" aria-hidden="true">
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--main" />
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--left" />
+          <span className="mchip__keraunos-bolt mchip__keraunos-bolt--right" />
+          <span className="mchip__keraunos-corona" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--1" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--2" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--3" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--4" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--5" />
+          <span className="mchip__keraunos-ray mchip__keraunos-ray--6" />
+          <span className="mchip__keraunos-ring mchip__keraunos-ring--inner" />
+          <span className="mchip__keraunos-ring mchip__keraunos-ring--outer" />
+          {Array.from({ length: 12 }, (_, i) => (
+            <span key={i} className={`mchip__keraunos-spark mchip__keraunos-spark--${i + 1}`} />
+          ))}
+        </div>
+      )}
 
       {/* Soul Devourer lifesteal — same layout as Floral: wave (particles) only here; border + accents + text inside frame below */}
       {battleLive && showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
@@ -896,7 +933,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
 
               {/* Fragrance Wave border + accents (separate divs) + heal boost floating text */}
-              {showFragranceWave && (
+              {showFragranceVisual && (
                 <>
                   <div className="mchip__fragrance-border" aria-hidden="true" />
                   <div className="mchip__fragrance-accents" aria-hidden="true" />

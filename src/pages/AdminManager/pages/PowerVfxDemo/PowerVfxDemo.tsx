@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useRef, type ReactElement } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactElement, type CSSProperties } from 'react';
 import Arena from '../../../Arena/Arena';
 import { Dropdown, type OptionGroup } from '../../../../components/Form';
 import type { FighterState } from '../../../../types/battle';
+import type { Theme25 } from '../../../../types/character';
 import { POWER_VFX_EFFECTS, buildSyntheticBattleFromChoices, buildSyntheticRoom } from '../../../../data/powerVfxRegistry';
 import { SEASON_ORDER, SEASONS, type SeasonKey } from '../../../../data/seasons';
 import SunIcon from '../../../../data/icons/seasons/SunIcon';
@@ -33,6 +34,22 @@ import { PANEL_SIDE } from '../../../../constants/battle';
 
 /** Effects that can be applied to the target/defender (side === 'target'). */
 const TARGET_TYPE_EFFECTS = POWER_VFX_EFFECTS.filter((e) => e.side === 'target');
+
+/** Map Theme25 to CSS vars so modal theme source has fighter theme. Indices: 0 primary, 2 light, 3 accent, 4 bg, 5 fg, 6 surface, 7 muted, 8 border, 9 primaryHover, 11 surfaceHover. */
+function themeToCiStyle(theme: Theme25): CSSProperties {
+  return {
+    '--ci-primary': theme[0],
+    '--ci-primary-hover': theme[9],
+    '--ci-accent': theme[3],
+    '--ci-bg': theme[4],
+    '--ci-fg': theme[5],
+    '--ci-surface': theme[6],
+    '--ci-muted': theme[7],
+    '--ci-border': theme[8],
+    '--ci-surface-hover': theme[11],
+    '--ci-light': theme[2],
+  } as CSSProperties;
+}
 
 export default function PowerVfxDemo() {
   const [members, setMembers] = useState<FighterState[]>([]);
@@ -185,6 +202,12 @@ export default function PowerVfxDemo() {
     return Object.entries(byGroup).map(([label, options]) => ({ label, options }));
   }, []);
 
+  /** Map effect id -> 'caster' | 'target' for badge (effect type, not modal side) */
+  const effectSideByValue = useMemo(
+    () => Object.fromEntries(POWER_VFX_EFFECTS.map((e) => [e.id, e.side])) as Record<string, 'caster' | 'target'>,
+    []
+  );
+
   const SeasonIconByKey: Record<SeasonKey, () => ReactElement> = useMemo(
     () => ({
       summer: () => <SunIcon />,
@@ -268,11 +291,13 @@ export default function PowerVfxDemo() {
           <div
             ref={effectModalLeftRef}
             className={`power-vfx-demo__effect-modal-anchor power-vfx-demo__effect-modal-anchor--left ${casterEffectModalOpen ? 'power-vfx-demo__effect-modal-anchor--active' : ''}`}
+            style={casterFighter ? themeToCiStyle(casterFighter.theme) : undefined}
             aria-hidden
           />
           <div
             ref={effectModalRightRef}
             className={`power-vfx-demo__effect-modal-anchor power-vfx-demo__effect-modal-anchor--right ${targetEffectModalOpen ? 'power-vfx-demo__effect-modal-anchor--active' : ''}`}
+            style={targetFighter ? themeToCiStyle(targetFighter.theme) : undefined}
             aria-hidden
           />
         </div>
@@ -335,6 +360,7 @@ export default function PowerVfxDemo() {
         selectedIds={casterEffectIds}
         onApply={(ids) => setCasterEffectIds(ids)}
         onClose={() => setCasterEffectModalOpen(false)}
+        optionSideByValue={effectSideByValue}
         containerRef={effectModalLeftRef}
         themeSourceRef={effectModalLeftRef}
         side={PANEL_SIDE.LEFT}
@@ -347,6 +373,7 @@ export default function PowerVfxDemo() {
         selectedIds={targetEffectIds}
         onApply={(ids) => setTargetEffectIds(ids)}
         onClose={() => setTargetEffectModalOpen(false)}
+        optionSideByValue={effectSideByValue}
         containerRef={effectModalRightRef}
         themeSourceRef={effectModalRightRef}
         side={PANEL_SIDE.RIGHT}
