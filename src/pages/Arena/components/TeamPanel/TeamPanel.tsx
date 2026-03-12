@@ -408,8 +408,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             hitEventKey={
               playbackHitEventKey
               ?? ((tagBasedProps.isHit || tagBasedProps.isShockHit || tagBasedProps.isKeraunosVoltageHit || tagBasedProps.isJoltArcAttackHit)
-                ? (battle as { _demoVfxKey?: string })?._demoVfxKey
+                ? (() => {
+                    const b = battle as { _demoVfxKey?: string; _demoReplayTargetKey?: number; _demoShockHitReplayKey?: number };
+                    if (tagBasedProps.isHit && b._demoReplayTargetKey != null) return String(b._demoReplayTargetKey);
+                    return b._demoVfxKey;
+                  })()
                 : undefined)
+            }
+            shockHitEventKey={
+              (tagBasedProps.isShockHit && (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey != null)
+                ? String((battle as { _demoShockHitReplayKey?: number })._demoShockHitReplayKey)
+                : undefined
             }
             playbackHitTargetId={playbackStepActive ? playbackStep?.defenderId : undefined}
             playbackHitEventKey={playbackStepActive ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep) : undefined}

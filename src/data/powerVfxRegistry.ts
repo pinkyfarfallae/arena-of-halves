@@ -466,7 +466,11 @@ export function buildSyntheticRoom(
   const expandedBattle: BattleState = {
     ...battle,
     activeEffects: expandedEffects,
-  };
+    // Preserve demo replay keys so TeamPanel can pass hitEventKey / shock replay (spread may omit in some envs)
+    ...('_demoReplayTargetKey' in battle && { _demoReplayTargetKey: (battle as { _demoReplayTargetKey?: number })._demoReplayTargetKey }),
+    ...('_demoVfxKey' in battle && { _demoVfxKey: (battle as { _demoVfxKey?: string })._demoVfxKey }),
+    ...('_demoShockHitReplayKey' in battle && { _demoShockHitReplayKey: (battle as { _demoShockHitReplayKey?: number })._demoShockHitReplayKey }),
+  } as BattleState;
 
   return {
     arenaId: 'demo',

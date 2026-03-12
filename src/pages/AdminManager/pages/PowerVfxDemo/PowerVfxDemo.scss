@@ -99,6 +99,17 @@
     }
   }
 
+  &--secondary {
+    color: var(--ci-fg, #1a1a2e);
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 18%, transparent);
+    border-color: color-mix(in srgb, var(--ci-border, #d4c9a8) 80%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--ci-primary, #c0a062) 28%, transparent);
+      border-color: var(--ci-primary, #c0a062);
+    }
+  }
+
   &--effects {
     color: var(--ci-fg, #1a1a2e);
     background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 80%, white);
