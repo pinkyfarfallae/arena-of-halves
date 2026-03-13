@@ -33,9 +33,10 @@ import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
 import { isSkillUnlocked } from '../../constants/character';
-import './CharacterInfo.scss';
 import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
+import Lightning from '../../icons/Lightning';
+import './CharacterInfo.scss';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -349,11 +350,15 @@ function CharacterInfo() {
                 {wishes.map(({ deity, count }) => {
                   const iconKey = toDeityKey(deity);
                   return (
-                  <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
-                    <span className="cs__wish-icon">{iconKey ? DEITY_SVG[iconKey] : <span>⚡</span>}</span>
-                    <span className="cs__wish-deity">{deity}</span>
-                    <span className="cs__wish-count">{count}</span>
-                  </div>
+                    <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
+                      <span className="cs__wish-icon">
+                        {iconKey
+                          ? DEITY_SVG[iconKey]
+                          : (<span> <Lightning width={12} height={12} /></span>)}
+                      </span>
+                      <span className="cs__wish-deity">{deity}</span>
+                      <span className="cs__wish-count">{count}</span>
+                    </div>
                   );
                 })}
               </div>
