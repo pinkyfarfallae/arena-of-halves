@@ -2,6 +2,57 @@
 
 /* ── Jolt Arc Attack — power VFX (blue/white; line lightning from top hitting mchip__frame like real thunder) ── */
 
+/* Jolt Arc Attack voltage frame — white theme (same layout as shocked) */
+.mchip__jolt-arc-voltage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(#{$frame-size-large} + 10px);
+  height: calc(#{$frame-size-large} + 35px);
+  z-index: 0;
+  pointer-events: none;
+
+  .mchip__jolt-arc-voltage-svg {
+    display: block;
+    position: absolute;
+    top: -0.75em;
+    left: -0.25em;
+    width: calc(100% + 0.5em);
+    height: calc(100% + 1.5em);
+    opacity: 0.75;
+    pointer-events: none;
+
+    path {
+      stroke-dasharray: 100;
+      stroke-width: 0.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+
+      &.mchip__nimbus-voltage-line--1 {
+        stroke-dashoffset: 0;
+        animation: nimbus-spark-1 3s linear infinite;
+      }
+
+      &.mchip__nimbus-voltage-line--2 {
+        stroke-dashoffset: 500;
+        animation: nimbus-spark-2 3s linear infinite;
+      }
+    }
+
+    &.mchip__nimbus-voltage-svg--subtle {
+      opacity: 0.45;
+
+      path {
+        stroke-dasharray: 80;
+        stroke-width: 0.5;
+        stroke-dashoffset: 0;
+        animation: nimbus-spark-1 4s linear infinite;
+      }
+    }
+  }
+}
+
 .mchip--jolt-arc-attack {
   z-index: 20;
 

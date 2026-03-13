@@ -1,0 +1,119 @@
+@use '../vars' as *;
+@use 'sass:math';
+@use 'sass:list';
+
+/* ── Pomegranate's Oath Spirit (affected) — spirit form bg + ethereal ghost wisps ── */
+
+.mchip--spirit-form {
+  .mchip__bg {
+    filter: brightness(1.2) saturate(0.5) contrast(0.85);
+    opacity: 1;
+  }
+}
+
+.mchip__spirit-wisps {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: $frame-size-large;
+  height: $frame-size-large;
+  z-index: 7;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mchip__spirit-wisp {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  animation: spirit-wisp-rise ease-in-out infinite;
+
+  @for $i from 1 through 8 {
+    &:nth-child(#{$i}) {
+      $w: 6px + math.random(6) * 1px;
+      $h: 12px + math.random(14) * 1px;
+      width: $w;
+      height: $h;
+      opacity: 0.6;
+      border-radius: 50% 50% 40% 40%;
+      background: list.nth((rgba(#fff, 0.7) rgba(#e1bee7, 0.6) rgba(#fff, 0.55) rgba(#ce93d8, 0.55) rgba(#f3e5f5, 0.6) rgba(#fff, 0.5) rgba(#e1bee7, 0.55) rgba(#fff, 0.6)),
+          $i );
+      box-shadow: 0 0 #{6 + math.random(8)}px list.nth((rgba(#fff, 0.55) rgba(#ce93d8, 0.5) rgba(#fff, 0.45) rgba(#ba68c8, 0.45) rgba(#fff, 0.5) rgba(#ce93d8, 0.4) rgba(#fff, 0.45) rgba(#e1bee7, 0.5)),
+        $i );
+      filter: blur(#{1 + math.random(1)}px);
+      animation-duration: #{3 + math.random(3)}s;
+      animation-delay: #{math.div(math.random(25), 10)}s;
+
+      @if $i <=3 {
+        bottom: -4px;
+        top: auto;
+        left: percentage(math.div(10 + ($i - 1) * 35, 100));
+      }
+
+      @else if $i <=5 {
+        bottom: 5%;
+        top: auto;
+        left: percentage(math.div(5 + ($i - 4) * 75, 100));
+      }
+
+      @else if $i <=7 {
+        bottom: 20%;
+        top: auto;
+        left: percentage(math.div(-2 + ($i - 6) * 95, 100));
+      }
+
+      @else {
+        bottom: 35%;
+        top: auto;
+        left: 40%;
+      }
+    }
+  }
+}
+
+@keyframes spirit-wisp-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scaleY(0.8) scaleX(1);
+  }
+
+  12% {
+    opacity: 0.9;
+    transform: translateY(-5px) scaleY(1.1) scaleX(0.9);
+  }
+
+  40% {
+    opacity: 0.6;
+    transform: translateY(-18px) scaleY(1.4) scaleX(0.7) translateX(#{-4 + math.random(8)}px);
+  }
+
+  75% {
+    opacity: 0.25;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scaleY(1.6) scaleX(0.4) translateX(#{-5 + math.random(10)}px);
+  }
+}
+
+/* Spirit — responsive */
+@media (max-width: $bp-medium) {
+  .mchip__spirit-wisps {
+    left: 50%;
+    width: $frame-size-medium;
+    height: $frame-size-medium;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .mchip__spirit-wisps {
+    top: calc(50% - ($frame-size-small / 2 - 7px - 0.65rem));
+    left: 50%;
+    width: $frame-size-small;
+    height: $frame-size-small;
+    transform: translate(-50%, -50%);
+  }
+}

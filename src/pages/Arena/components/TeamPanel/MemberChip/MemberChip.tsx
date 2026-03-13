@@ -9,6 +9,7 @@ import FloralMaiden from './icons/FloralMaiden';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
 import Rose from './icons/Rose';
+import VoltageFrame from './icons/VoltageFrame';
 import WavyLines from './icons/WavyLines';
 import ReaperScythe from './icons/ReaperScythe';
 import TargetCrosshair from './icons/TargetCrosshair';
@@ -167,6 +168,12 @@ interface Props {
   floralFragranceHeal?: number;
   /** When set, delay showing the fragrance wave by this many ms (e.g. to sync with D4 result card). */
   floralFragranceDelayMs?: number;
+  /** True when Floral Heal D4 result card is visible; when false and isFloralHealTarget, hide fragrance wave (healing ended). */
+  floralHealResultCardVisible?: boolean;
+  /** True when this chip is the Floral Fragrance heal target (allyTargetId); used with floralHealResultCardVisible to hide wave after heal. */
+  isFloralHealTarget?: boolean;
+  /** In demo mode, when this key changes (effect selection changed), hide the fragrance wave. Not tied to Replay so Replay can re-trigger hit/shock without breaking fragrance. */
+  demoFragranceSessionKey?: string;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
@@ -176,7 +183,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -540,8 +547,46 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(isFragranceWaved), floralLogKey ?? '', floralFragranceDelayMs ?? 0]);
 
-  // Derive visible state: hide as soon as prop is false (no waiting for useEffect / state update)
-  const showFragranceVisual = showFragranceWave && isFragranceWaved;
+  // When healing has ended (result card hidden or not shown) and this chip is the Floral heal target, hide the wave immediately
+  const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true);
+  useEffect(() => {
+    if (!hideFragranceAfterHeal) return;
+    setShowFragranceWave(false);
+    prevFragranceRef.current = false;
+    if (fragranceDelayTimerRef.current) {
+      clearTimeout(fragranceDelayTimerRef.current);
+      fragranceDelayTimerRef.current = null;
+    }
+    if (fragranceWaveTimerRef.current) {
+      clearTimeout(fragranceWaveTimerRef.current);
+      fragranceWaveTimerRef.current = null;
+    }
+  }, [hideFragranceAfterHeal]);
+
+  // Demo mode: hide fragrance wave only when effect selection changes (_demoVfxKey), not when Replay is clicked, so Replay can re-trigger hit/shock without breaking
+  const lastDemoSessionKeyRef = useRef<string | null>(null);
+  if (demoFragranceSessionKey != null && demoFragranceSessionKey !== '' && showFragranceWave && isFragranceWaved && lastDemoSessionKeyRef.current === null) {
+    lastDemoSessionKeyRef.current = demoFragranceSessionKey;
+  }
+  if (demoFragranceSessionKey == null || demoFragranceSessionKey === '' || !showFragranceWave) lastDemoSessionKeyRef.current = null;
+  const demoSessionMismatch = demoFragranceSessionKey != null && lastDemoSessionKeyRef.current != null && lastDemoSessionKeyRef.current !== demoFragranceSessionKey;
+
+  useEffect(() => {
+    if (!demoSessionMismatch) return;
+    setShowFragranceWave(false);
+    lastDemoSessionKeyRef.current = null;
+    if (fragranceDelayTimerRef.current) {
+      clearTimeout(fragranceDelayTimerRef.current);
+      fragranceDelayTimerRef.current = null;
+    }
+    if (fragranceWaveTimerRef.current) {
+      clearTimeout(fragranceWaveTimerRef.current);
+      fragranceWaveTimerRef.current = null;
+    }
+  }, [demoSessionMismatch]);
+
+  // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide
+  const showFragranceVisual = showFragranceWave && isFragranceWaved && !hideFragranceAfterHeal && !demoSessionMismatch;
 
   // If the fighter's HP increases (heal applied), clear the fragrance wave visual
   // immediately to avoid leaving the +HP text stuck after the heal — unless the
@@ -1057,10 +1102,45 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
       {/* Card frame — outside body so it's not masked; when Nimbus/Petal, wings align to frame via wrapper */}
       <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${isEfflorescenceMuse && battleLive ? 'mchip__frame-wrap--efflorescence-muse' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
+        {/* Shocked — voltage frame (gold/blue + subtle line), same as Nimbus */}
+        {((isShocked && !isJoltArcAttackActive) || (isShocked && hasJoltArcDeceleration)) && battleLive && (
+          <div className="mchip__shocked-voltage" aria-hidden="true">
+            <VoltageFrame className="mchip__shocked-voltage-svg" strokeLine1="#f6de8d" strokeLine2="#6bfeff" />
+            <VoltageFrame className="mchip__shocked-voltage-svg" variant="single-subtle" strokeLine1="rgba(255,255,255,0.6)" />
+          </div>
+        )}
+        {/* Jolt Arc Attack — voltage frame (white) */}
+        {isJoltArcAttackActive && battleLive && (
+          <div className="mchip__jolt-arc-voltage" aria-hidden="true">
+            <VoltageFrame className="mchip__jolt-arc-voltage-svg" strokeLine1="#ffffff" strokeLine2="rgba(255,255,255,0.85)" />
+            <VoltageFrame className="mchip__jolt-arc-voltage-svg" variant="single-subtle" strokeLine1="rgba(255,255,255,0.6)" />
+          </div>
+        )}
+        {/* Keraunos Voltage — voltage frame (gold) */}
+        {isKeraunosVoltageHit && battleLive && (
+          <div className="mchip__keraunos-voltage" aria-hidden="true">
+            <VoltageFrame className="mchip__keraunos-voltage-svg" strokeLine1="#f6de8d" strokeLine2="#fff59d" />
+            <VoltageFrame className="mchip__keraunos-voltage-svg" variant="single-subtle" strokeLine1="rgba(255,248,225,0.7)" />
+          </div>
+        )}
         {hasBeyondNimbus && battleLive && (
           <>
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
+            <div className="mchip__nimbus-voltage" aria-hidden="true">
+              <VoltageFrame className="mchip__nimbus-voltage-svg" strokeLine1="#f6de8d" strokeLine2="#6bfeff" />
+              <VoltageFrame className="mchip__nimbus-voltage-svg" variant="single-subtle" strokeLine1="rgba(255,255,255,0.6)" />
+              <div className="mchip__nimbus-voltage-dots">
+                <div className="mchip__nimbus-voltage-dot mchip__nimbus-voltage-dot--1" />
+                <div className="mchip__nimbus-voltage-dot mchip__nimbus-voltage-dot--2" />
+                <div className="mchip__nimbus-voltage-dot mchip__nimbus-voltage-dot--3" />
+                <div className="mchip__nimbus-voltage-dot mchip__nimbus-voltage-dot--4" />
+                <div className="mchip__nimbus-voltage-dot mchip__nimbus-voltage-dot--5" />
+              </div>
+            </div>
+            <div className="mchip__nimbus-voltage mchip__nimbus-voltage--subtle-low" aria-hidden="true">
+              <VoltageFrame className="mchip__nimbus-voltage-svg mchip__voltage-subtle-low" variant="single-subtle" strokeLine1="#ffffff" />
+            </div>
           </>
         )}
         {/* Efflorescence Muse: fairy wings — 4 lobes (left top/bottom, right top/bottom) */}
@@ -1369,6 +1449,19 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             {Array.from({ length: 10 }, (_, i) => (
               <span key={i} className="mchip__pom-rise-particle" />
             ))}
+          </div>
+          {/* Pomegranate's Oath caster-only: glow dots, oath particles */}
+          <div className="mchip__pom-caster" aria-hidden="true">
+            <div className="mchip__pom-glow-dots" aria-hidden="true">
+              {Array.from({ length: 24 }, (_, i) => (
+                <span key={i} className="mchip__pom-glow-dot" />
+              ))}
+            </div>
+            <div className="mchip__pom-oath-particles">
+              {Array.from({ length: 8 }, (_, i) => (
+                <span key={i} className="mchip__pom-oath-particle" />
+              ))}
+            </div>
           </div>
         </>
       )}

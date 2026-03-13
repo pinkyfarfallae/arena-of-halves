@@ -364,12 +364,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
         // Never use client state for Floral Fragrance — avoids jitter (flash before D4). Show only from server: roll result or log.
         const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
-        // Show fragrance: (1) client selected ally (non–Floral Fragrance only), (2) server turn (phaseOk), (3) after D4 roll result, (4) log, (5) demo/tag
+        // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack; heal is done, hide fragrance wave
+        const postHealFollowUp = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.allyTargetId);
+        // Show fragrance: (1) client selected ally (non–Floral only), (2) server turn (phaseOk) but not after heal, (3) after D4 roll result, (4) log but not after heal, (5) demo/tag
         const isFragranceWaved =
           (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
-          || (!!serverFragranceOnTarget && phaseOk)
+          || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp)
           || !!floralHealRollDone
-          || !!logHasFloral
+          || (!!logHasFloral && !postHealFollowUp)
           || !!tagBasedProps.isFragranceWaved;
 
         // Stat modifiers from active buffs/debuffs
@@ -451,6 +453,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                 : undefined
             }
             floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
+            floralHealResultCardVisible={floralHealResultCardVisible}
+            isFloralHealTarget={!!serverFragranceOnTarget}
+            demoFragranceSessionKey={isDemo ? (battle as { _demoVfxKey?: string })?._demoVfxKey ?? '' : undefined}
             floralFragranceHeal={
               floralLogIndex >= 0
                 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal

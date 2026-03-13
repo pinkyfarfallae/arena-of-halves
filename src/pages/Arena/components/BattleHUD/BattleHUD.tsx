@@ -82,6 +82,8 @@ interface Props {
   onSkipTurnNoTarget?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
+  /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
+  onFloralHealResultCardHidden?: () => void;
 }
 
 /** Find a fighter across both teams */
@@ -126,7 +128,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -1787,6 +1789,7 @@ export default function BattleHUD({
               try {
                 await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
                 await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                onFloralHealResultCardHidden?.(); // hide fragrance wave immediately, don't wait for phase update
                 await advanceAfterFloralHealD4(arenaId);
               } catch (e) {}
             }}
