@@ -698,7 +698,8 @@ export function applyKeraunosVoltageShock(
 /* ── Persephone: Floral Maiden passive ────────────────── */
 
 /**
- * Upon attack turn, grant Floral Maiden (status immunity + 25% crit).
+ * When advancing to a fighter's turn (before select action): grant Floral Maiden (status immunity + 25% crit)
+ * only if Secret of Dryad is unlocked and the fighter has Secret of Dryad in their powers list.
  * Lasts one full round. Does not stack; re-applied on turn start when still active (see onFloralMaidenTurnStart).
  */
 export function applySecretOfDryadPassive(
@@ -708,8 +709,12 @@ export function applySecretOfDryadPassive(
   _atkTotal: number,
 ): Record<string, unknown> {
   const attacker = findFighter(room, attackerId);
-  if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
+  if (!attacker) return {};
 
+  // Do not apply unless passive skill is unlocked
+  if (attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
+
+  // Only if fighter has Secret of Dryad in their powers list
   const passive = attacker.powers.find(
     p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.SECRET_OF_DRYAD,
   );
@@ -719,9 +724,9 @@ export function applySecretOfDryadPassive(
   const effects = [...(battle.activeEffects || [])];
   if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)) return {};
 
-  // Duration = turnQueue.length + 1 (offset: tickEffects decrements 1 in same resolve)
+  // 1 round: duration = one full turn cycle (tickEffects decrements once per resolve)
   const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen + 1;
+  const duration = queueLen;
   effects.push({
     id: makeEffectId(attackerId, POWER_NAMES.SECRET_OF_DRYAD),
     powerName: POWER_NAMES.SECRET_OF_DRYAD,
@@ -767,7 +772,7 @@ export function onFloralMaidenTurnStart(
   if (!hasFloralMaiden) return null;
 
   const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen + 1;
+  const duration = queueLen; // 1 round when refreshing
 
   // Remove afflictions on this fighter (shock, stun, dot, debuff)
   let next = effects.filter(e => {
