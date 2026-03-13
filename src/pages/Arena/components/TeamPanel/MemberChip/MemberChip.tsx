@@ -125,7 +125,7 @@ interface Props {
   isJoltArcAttackHit?: boolean;
   isShocked?: boolean;
   hasJoltArcDeceleration?: boolean;
-  isFloralMaiden?: boolean;
+  isEfflorescenceMuse?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
   isShadowCamouflaged?: boolean;
@@ -172,7 +172,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isFloralMaiden, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -722,7 +722,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
     battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',
-    battleLive && isFloralMaiden && 'mchip--floral-maiden',
+    battleLive && isEfflorescenceMuse && 'mchip--efflorescence-muse',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
     battleLive && isSpiritForm && 'mchip--spirit-form',
     battleLive && isShadowCamouflaged && 'mchip--shadow-camouflaged',
@@ -792,18 +792,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
-      {/* Wavy line background — Floral Maiden only: thin lines, green/yellow/white/pink, low opacity */}
-      {isFloralMaiden && battleLive && (
+      {/* Wavy line background — Efflorescence Muse only: thin lines, green/yellow/white/pink, low opacity */}
+      {isEfflorescenceMuse && battleLive && (
         <div className="mchip__wavy-line mchip__wavy-line--petal" aria-hidden="true">
           <WavyLines className="mchip__wavy-line-svg" />
         </div>
       )}
 
       {/* Falling petal/leaf particles — clipped by overflow:hidden wrapper */}
-      {isFloralMaiden && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
+      {isEfflorescenceMuse && battleLive && <div className="mchip__petal-fall" aria-hidden="true" />}
 
       {/* Rising pink & green particles (nimbus-style, bottom to top), no glow */}
-      {isFloralMaiden && battleLive && (
+      {isEfflorescenceMuse && battleLive && (
         <div className="mchip__petal-rise" aria-hidden="true">
           {Array.from({ length: 40 }, (_, i) => (
             <span key={i} className="mchip__petal-rise-particle" />
@@ -811,8 +811,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       )}
 
-      {/* Floral Maiden: raindrops (white and yellow only, like Beyond the Nimbus) */}
-      {isFloralMaiden && battleLive && (
+      {/* Efflorescence Muse: raindrops (white and yellow only, like Beyond the Nimbus) */}
+      {isEfflorescenceMuse && battleLive && (
         <div className="mchip__petal-rain" aria-hidden="true">
           {Array.from({ length: 18 }, (_, i) => (
             <span key={i} className="mchip__petal-drop" />
@@ -821,7 +821,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Wind VFX at bottom — pink / green / yellow (autumn-style): streaks + drifting squares */}
-      {isFloralMaiden && battleLive && (
+      {isEfflorescenceMuse && battleLive && (
         <div className="mchip__petal-wind" aria-hidden="true">
           <div className="mchip__petal-wind-streak mchip__petal-wind-streak--1" />
           <div className="mchip__petal-wind-streak mchip__petal-wind-streak--2" />
@@ -988,7 +988,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Falling white (20) + yellow (15) + green (5) + pink (5) motes */}
-      {isFloralMaiden && battleLive && (
+      {isEfflorescenceMuse && battleLive && (
         <>
           <div className="mchip__dryad-lights" aria-hidden="true">
             {Array.from({ length: 20 }, (_, i) => (
@@ -1032,15 +1032,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Card frame — outside body so it's not masked; when Nimbus/Petal, wings align to frame via wrapper */}
-      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${isFloralMaiden && battleLive ? 'mchip__frame-wrap--floral-maiden' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
+      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${isEfflorescenceMuse && battleLive ? 'mchip__frame-wrap--efflorescence-muse' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
         {hasBeyondNimbus && battleLive && (
           <>
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
           </>
         )}
-        {/* Floral Maiden: fairy wings — 4 lobes (left top/bottom, right top/bottom) */}
-        {isFloralMaiden && battleLive && (
+        {/* Efflorescence Muse: fairy wings — 4 lobes (left top/bottom, right top/bottom) */}
+        {isEfflorescenceMuse && battleLive && (
           <>
             <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--lt" aria-hidden="true" />
             <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--lb" aria-hidden="true" />
@@ -1049,7 +1049,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           </>
         )}
         {/* Vines climbing around all four sides of the frame + flowers at vine frame corners */}
-        {isFloralMaiden && battleLive && (() => {
+        {isEfflorescenceMuse && battleLive && (() => {
           const charId = fighter.characterId;
           const charIdLower = charId?.toLowerCase();
           const isRosabella = charIdLower === CHARACTER.ROSABELLA;
@@ -1234,7 +1234,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {hasSoulDevourer && <div className="mchip__soul-frame" aria-hidden="true" />}
 
               {/* Petal leaf accents — green spots around frame edge */}
-              {isFloralMaiden && <div className="mchip__petal-accents" aria-hidden="true" />}
+              {isEfflorescenceMuse && <div className="mchip__petal-accents" aria-hidden="true" />}
               {/* Fragrance Wave border + accents (separate divs) + heal boost floating text */}
               {showFragranceVisual && (
                 <>
@@ -1255,11 +1255,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                 </>
               )}
 
-              {/* Floral Maiden badge — status immunity */}
-              {isFloralMaiden && (
+              {/* Efflorescence Muse badge — status immunity */}
+              {isEfflorescenceMuse && (
                 <div className="mchip__petal-badge" aria-hidden="true">
                   <FloralMaiden
-                    gradientId={`floral-maiden-grad-${fighter.characterId}`}
+                    gradientId={`efflorescence-muse-grad-${fighter.characterId}`}
                     color1={lightenColor(fighter.theme[0], 0.5)}
                     color2="#d1ffd4"
                   />
@@ -1374,8 +1374,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Floral Maiden — white overlay clipped by gradient (over image, under accents) */}
-      {isFloralMaiden && battleLive && <div className="mchip__petal-overlay" aria-hidden="true" />}
+      {/* Efflorescence Muse — white overlay clipped by gradient (over image, under accents) */}
+      {isEfflorescenceMuse && battleLive && <div className="mchip__petal-overlay" aria-hidden="true" />}
 
       {/* Resurrection flash — purple falling lights */}
       {showResurrecting && battleLive && (

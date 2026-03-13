@@ -138,17 +138,17 @@ export function applyPowerEffect(
   const targetPath = findFighterPath(room, targetId);
   const attackerPath = findFighterPath(room, attackerId);
 
-  // Floral Maiden immunity: block debuff/stun/dot on shielded target; when negated, consume Floral Maiden
+  // Efflorescence Muse immunity: block debuff/stun/dot on shielded target; when negated, consume Efflorescence Muse
   if (
     (power.effect === EFFECT_TYPES.DEBUFF || power.effect === EFFECT_TYPES.STUN || power.effect === EFFECT_TYPES.DOT) &&
     power.target !== 'self' &&
-    effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)
+    effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE)
   ) {
     const withoutFloralMaiden = effects.filter(
-      e => !(e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN),
+      e => !(e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
     );
     updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutFloralMaiden;
-    return updates; // blocked; Floral Maiden consumed
+    return updates; // blocked; Efflorescence Muse consumed
   }
 
   switch (power.effect) {
@@ -161,7 +161,7 @@ export function applyPowerEffect(
     case EFFECT_TYPES.HEAL: {
       let healValue = power.value;
       const casterHasFloralMaiden = effects.some(
-        e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+        e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
       );
       if (casterHasFloralMaiden) {
         const healCritRoll = Math.ceil(Math.random() * 4); // d4
@@ -410,7 +410,7 @@ export function tickEffects(
 /* ── Zeus: central shock application (shared by Lightning Spark, Nimbus, Keraunos) ── */
 
 export type ApplyShockedEffectOptions = {
-  /** If true, do not apply shock to targets with Floral Maiden (default true). */
+  /** If true, do not apply shock to targets with Efflorescence Muse (default true). */
   skipIfFloralMaiden?: boolean;
   /** If set, use this as target's current HP for bonus-damage calculation (e.g. after other damage this turn). */
   currentHp?: number;
@@ -439,13 +439,13 @@ export function applyShockedEffectToTarget(
   const nextEffects = [...effects];
 
   if (skipIfFloralMaiden) {
-    const isFloralMaiden = nextEffects.some(
-      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+    const isEfflorescenceMuse = nextEffects.some(
+      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
     );
-    if (isFloralMaiden) {
-      // Negate affliction (shock); consume Floral Maiden
+    if (isEfflorescenceMuse) {
+      // Negate affliction (shock); consume Efflorescence Muse
       const consumed = nextEffects.filter(
-        (e) => !(e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN),
+        (e) => !(e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
       );
       return { effects: consumed, bonusDamage: 0, hpUpdate: null };
     }
@@ -695,10 +695,10 @@ export function applyKeraunosVoltageShock(
   return updates;
 }
 
-/* ── Persephone: Floral Maiden passive ────────────────── */
+/* ── Persephone: Efflorescence Muse passive ────────────────── */
 
 /**
- * When advancing to a fighter's turn (before select action): grant Floral Maiden (status immunity + 25% crit)
+ * When advancing to a fighter's turn (before select action): grant Efflorescence Muse (status immunity + 25% crit)
  * only if Secret of Dryad is unlocked and the fighter has Secret of Dryad in their powers list.
  * Lasts one full round. Does not stack; re-applied on turn start when still active (see onFloralMaidenTurnStart).
  */
@@ -720,9 +720,9 @@ export function applySecretOfDryadPassive(
   );
   if (!passive) return {};
 
-  // Already has Floral Maiden? Skip (don't stack)
+  // Already has Efflorescence Muse? Skip (don't stack)
   const effects = [...(battle.activeEffects || [])];
-  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)) return {};
+  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE)) return {};
 
   // 1 round: duration = one full turn cycle (tickEffects decrements once per resolve)
   const queueLen = battle.turnQueue?.length || 1;
@@ -735,9 +735,9 @@ export function applySecretOfDryadPassive(
     targetId: attackerId,
     value: 0,
     turnsRemaining: duration,
-    tag: EFFECT_TAGS.FLORAL_MAIDEN,
+    tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
   });
-  // +25% critical hit chance while in Floral Maiden (same duration; removed when Floral Maiden is consumed)
+  // +25% critical hit chance while in Efflorescence Muse (same duration; removed when Efflorescence Muse is consumed)
   effects.push({
     id: makeEffectId(attackerId, `${POWER_NAMES.SECRET_OF_DRYAD}_crit`),
     powerName: POWER_NAMES.SECRET_OF_DRYAD,
@@ -746,19 +746,19 @@ export function applySecretOfDryadPassive(
     targetId: attackerId,
     value: 25,
     turnsRemaining: duration,
-    tag: EFFECT_TAGS.FLORAL_MAIDEN,
+    tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
     modStat: MOD_STAT.CRITICAL_RATE,
   });
 
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
 }
 
-/** Affliction tags/effects that Floral Maiden clears on turn start */
+/** Affliction tags/effects that Efflorescence Muse clears on turn start */
 const AFFLICTION_TAGS = [EFFECT_TAGS.SHOCK, EFFECT_TAGS.STUN, EFFECT_TAGS.JOLT_ARC_DECELERATION] as const;
 
 /**
- * When it's the fighter's turn again while still in Floral Maiden: clear previous turn's afflictions,
- * then refresh Floral Maiden (reset duration, no stack). Call when advancing to next attacker.
+ * When it's the fighter's turn again while still in Efflorescence Muse: clear previous turn's afflictions,
+ * then refresh Efflorescence Muse (reset duration, no stack). Call when advancing to next attacker.
  */
 export function onFloralMaidenTurnStart(
   room: BattleRoom,
@@ -767,7 +767,7 @@ export function onFloralMaidenTurnStart(
 ): Record<string, unknown> | null {
   const effects = [...(battle.activeEffects || [])];
   const hasFloralMaiden = effects.some(
-    e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+    e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
   );
   if (!hasFloralMaiden) return null;
 
@@ -782,9 +782,9 @@ export function onFloralMaidenTurnStart(
     return true;
   });
 
-  // Refresh Floral Maiden duration (shield + crit buff)
+  // Refresh Efflorescence Muse duration (shield + crit buff)
   next = next.map(e => {
-    if (e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN) {
+    if (e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE) {
       return { ...e, turnsRemaining: duration };
     }
     return e;
@@ -797,7 +797,7 @@ export function onFloralMaidenTurnStart(
 
 /**
  * Anoint an ally with flower fragrance: heal +value HP (capped at maxHp), then normal attack follows.
- * If caster has Floral Maiden, roll d4 for heal crit; on 4, double the heal.
+ * If caster has Efflorescence Muse, roll d4 for heal crit; on 4, double the heal.
  */
 export function applyFloralFragranced(
   room: BattleRoom,
@@ -813,7 +813,7 @@ export function applyFloralFragranced(
 
   let healValue = power.value;
   const casterHasFloralMaiden = (battle.activeEffects || []).some(
-    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
   );
   if (casterHasFloralMaiden) {
     const healCritRoll = Math.ceil(Math.random() * 4); // d4

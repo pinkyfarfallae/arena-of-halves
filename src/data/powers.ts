@@ -788,14 +788,14 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       effect: EFFECT_TYPES.SHIELD,
       target: TARGET_TYPES.SELF,
       value: 0,
-      duration: 999,
+      duration: 1,
     },
     {
       deity: DEITY.PERSEPHONE,
       type: POWER_TYPES.FIRST_SKILL,
       name: DEITY_POWER_NAMES.FLORAL_FRAGRANCE,
       description:
-        'ชโลมกลิ่นดอกไม้ให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 2 หน่วยจากนั้นทำการโจมตีตามปกติ',
+        'ทายาทแห่งเพอร์เซโฟนีชโลมกลิ่นดอกไม้ให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 20% ของ Max HP ของตนให้เป้าหมายจากนั้นทำการโจมตีตามปกติ',
       available: true,
       effect: EFFECT_TYPES.HEAL,
       target: TARGET_TYPES.ALLY,

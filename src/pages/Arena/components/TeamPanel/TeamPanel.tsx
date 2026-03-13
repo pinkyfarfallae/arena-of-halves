@@ -4,7 +4,7 @@ import type { BattlePlaybackStep, BattleState, FighterState } from '../../../../
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
 import { getStatModifier } from '../../../../services/powerEngine';
-import { getTagBasedChipProps } from '../../../../data/powerVfxRegistry';
+import { getTagBasedChipProps, getEffectDisplayNameForTag } from '../../../../data/powerVfxRegistry';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
 import { EFFECT_TAGS } from '../../../../constants/effectTags';
@@ -91,6 +91,14 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     for (const f of (allMembers || members)) map.set(f.characterId, f);
     return map;
   }, [allMembers, members]);
+
+  // Demo mode: effect pip source on the opposite panel shows as "Caster" or "Target" instead of fighter name
+  const isDemo = !!(battle as { _demoVfxKey?: string })?._demoVfxKey;
+  const oppositeMemberIds = useMemo(() => {
+    if (!isDemo || !allMembers?.length || !members?.length) return new Set<string>();
+    const memberIds = new Set(members.map((m) => m.characterId));
+    return new Set(allMembers.filter((f) => !memberIds.has(f.characterId)).map((f) => f.characterId));
+  }, [isDemo, allMembers, members]);
 
   // Build minions list: for each main fighter, if they have any minions in allMembers, include them right after the main fighter
   const minionsMap = useMemo(() => {
@@ -263,7 +271,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         const isShocked = tagBasedProps.isShocked;
         const hasJoltArcDeceleration = tagBasedProps.hasJoltArcDeceleration;
-        const isFloralMaiden = tagBasedProps.isFloralMaiden;
+        const isEfflorescenceMuse = tagBasedProps.isEfflorescenceMuse;
         const hasPomegranateEffect = tagBasedProps.hasPomegranateEffect;
         const isSpiritForm = tagBasedProps.isSpiritForm;
         const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
@@ -288,11 +296,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           const queueLen = battle?.turnQueue?.length || 1;
           return Array.from(grouped.values()).map(g => {
             const source = fighterMap.get(g.sourceId);
-            const displayName = g.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION ? 'Jolt Arc Deceleration' : undefined;
+            const displayName = getEffectDisplayNameForTag(g.tag);
+            const sourceName =
+              isDemo && oppositeMemberIds.has(g.sourceId)
+                ? (side === PANEL_SIDE.LEFT ? 'Target' : 'Caster')
+                : (source?.nicknameEng || '?');
             return {
               powerName: g.powerName,
               ...(displayName && { displayName }),
-              sourceName: source?.nicknameEng || '?',
+              sourceName,
               ...(source?.deityBlood != null && { sourceDeity: source.deityBlood }),
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
               turnsLeft: Math.ceil(g.maxTurns / queueLen),
@@ -386,7 +398,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isJoltArcAttackHit={isJoltArcAttackHit}
             isShocked={isShocked}
             hasJoltArcDeceleration={hasJoltArcDeceleration}
-            isFloralMaiden={isFloralMaiden}
+            isEfflorescenceMuse={isEfflorescenceMuse}
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
             isShadowCamouflaged={isShadowCamouflaged}

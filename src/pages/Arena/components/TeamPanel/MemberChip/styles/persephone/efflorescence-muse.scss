@@ -23,9 +23,9 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   -webkit-mask-repeat: no-repeat;
 }
 
-/* ── Floral Maiden — power VFX ───────────────────────────────────────────── */
+/* ── Efflorescence Muse — power VFX ───────────────────────────────────────── */
 
-.mchip--floral-maiden {
+.mchip--efflorescence-muse {
   .mchip__frame {
     box-shadow:
       0 0 0 1.5px rgba(#81c784, 0.7),
@@ -113,8 +113,8 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* Floral Maiden: wider frame-wrap so fairy wings sit left/right of frame (like Nimbus) */
-.mchip__frame-wrap--floral-maiden {
+/* Efflorescence Muse: wider frame-wrap so fairy wings sit left/right of frame (like Nimbus) */
+.mchip__frame-wrap--efflorescence-muse {
   width: calc(v.$frame-size-large + 72px);
   min-width: calc(v.$frame-size-large + 72px);
 }
@@ -141,8 +141,8 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
       rgb(255 166 203 / 69%) 56%,
       rgba(255, 249, 196, 0.5) 72%,
       transparent 80%);
-  filter: 
-    blur(6px) 
+  filter:
+    blur(6px)
     brightness(1.13)
     drop-shadow(0 0 18px rgba(#ffebf2, 0.6))
     drop-shadow(0 0 26px rgba(#ffb0d1, 0.5));
@@ -267,7 +267,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
 
 /* Medium screen: petal VFX use frame-size-medium */
 @media (max-width: v.$bp-medium) {
-  .mchip__frame-wrap--floral-maiden {
+  .mchip__frame-wrap--efflorescence-muse {
     width: calc(v.$frame-size-medium + 72px);
     min-width: calc(v.$frame-size-medium + 72px);
   }
@@ -584,7 +584,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   animation: leaf-drift-a 4s ease-in-out infinite alternate;
 }
 
-/* Floral Maiden badge */
+/* Efflorescence Muse badge */
 .mchip__petal-badge {
   position: absolute;
   top: 4px;
@@ -668,13 +668,13 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
 
 /* Compact: petal badge + frame-size-small for all petal VFX */
 @media (max-width: v.$bp-compact) {
-  .mchip--floral-maiden .mchip__frame {
+  .mchip--efflorescence-muse .mchip__frame {
     box-shadow:
       0 0 0 1px rgba(#81c784, 0.6),
       0 0 8px rgba(#66bb6a, 0.3);
   }
 
-  .mchip__frame-wrap--floral-maiden {
+  .mchip__frame-wrap--efflorescence-muse {
     width: calc(v.$frame-size-small + 72px);
     min-width: calc(v.$frame-size-small + 72px);
   }
@@ -933,7 +933,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* ── Falling petals & leaves (Floral Maiden) ── */
+/* ── Falling petals & leaves (Efflorescence Muse) ── */
 .mchip__petal-fall {
   position: absolute;
   inset: 0;
@@ -1127,7 +1127,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* ── White falling lights (Floral Maiden — sunlight through leaves); white shine ── */
+/* ── White falling lights (Efflorescence Muse — sunlight through leaves); white shine ── */
 .mchip__dryad-lights {
   position: absolute;
   inset: 0;
@@ -1270,7 +1270,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   display: block;
   opacity: 0;
   animation: petal-flower-fall linear infinite;
-  /* 5-petal flower: clip-path so it’s not a rectangle */
+  /* 5-petal flower: clip-path so it's not a rectangle */
   width: 12px;
   height: 12px;
   margin-left: -8px;

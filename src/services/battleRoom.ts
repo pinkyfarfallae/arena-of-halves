@@ -656,7 +656,7 @@ export async function startBattle(arenaId: string): Promise<void> {
     log: [],
     activeEffects: passiveEffects,
   };
-  // Secret of Dryad: apply Floral Maiden for the first attacker before select action
+  // Secret of Dryad: apply Efflorescence Muse for the first attacker before select action
   const dryadFirst = applySecretOfDryadPassive(room, first.characterId, battle, 0);
   const initialEffects = dryadFirst[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined;
   if (initialEffects) {
@@ -2857,7 +2857,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         shieldsModified = true;
       }
       if (shieldsModified) {
-        // Remove depleted shields, persist remaining values (keep tagged shields like Floral Maiden)
+        // Remove depleted shields, persist remaining values (keep tagged shields like Efflorescence Muse)
         const cleaned = activeEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
         updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
       }
