@@ -1263,6 +1263,9 @@ export async function selectAction(
     Object.assign(updates, floralUpdates);
 
     const ally = findFighter(room, allyTargetId);
+    const attacker = findFighter(room, attackerId);
+    const floralHeal = attacker ? Math.ceil(0.2 * attacker.maxHp) : 0;
+    const defenderHpAfterFloral = ally ? Math.min(ally.currentHp + floralHeal, ally.maxHp) : 0;
     const logEntry = {
       round: battle.roundNumber,
       attackerId,
@@ -1270,7 +1273,8 @@ export async function selectAction(
       attackRoll: 0,
       defendRoll: 0,
       damage: 0,
-      defenderHpAfter: ally ? Math.min(ally.currentHp + power.value, ally.maxHp) : 0,
+      heal: floralHeal,
+      defenderHpAfter: defenderHpAfterFloral,
       eliminated: false,
       missed: false,
       powerUsed: power.name,

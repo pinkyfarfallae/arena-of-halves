@@ -13,8 +13,9 @@ import { EFFECT_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { BATTLE_TEAM, ROOM_STATUS } from '../constants/battle';
 import { DEITY } from '../constants/deities';
 import type { EffectPip } from '../pages/Arena/components/TeamPanel/MemberChip/MemberChip';
-
-export type VfxSide = 'caster' | 'target';
+import { POWER_NAMES } from '../constants/powers';
+import { EffectSide } from '../pages/AdminManager/pages/PowerVfxDemo/utils/types';
+import { EFFECT_SIDE_LABEL } from '../pages/AdminManager/pages/PowerVfxDemo/utils/constants';
 
 /** Chip props that an effect can set (subset of MemberChip props). Keep in sync with MemberChip. */
 export interface PowerVfxChipProps {
@@ -40,7 +41,7 @@ export interface PowerVfxChipProps {
 export interface PowerVfxEntry {
   id: string;
   label: string;
-  side: VfxSide;
+  side: EffectSide;
   group?: string;
   /** Props to pass to MemberChip when this effect is active (demo) or when derived from battle (Arena). */
   props: PowerVfxChipProps;
@@ -50,15 +51,15 @@ export interface PowerVfxEntry {
    */
   tag?: EffectTag;
   /** For tag-based effects: who gets the props — target of effect, source, or both. */
-  applyTo?: 'target' | 'source' | 'both';
+  applyTo?: EffectSide | 'both';
   /** If set, demo builds an activeEffect with this modStat (e.g. Shadow Camouflaging). */
   modStat?: string;
 }
 
 function shockPip(sourceDeity: string, sourceTheme: [string, string]): EffectPip {
   return {
-    powerName: 'Lightning Spark',
-    sourceName: 'Caster',
+    powerName: POWER_NAMES.LIGHTNING_SPARK,
+    sourceName: EFFECT_SIDE_LABEL.CASTER,
     sourceDeity,
     sourceTheme,
     turnsLeft: 2,
@@ -73,101 +74,144 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   {
     id: 'beyond-nimbus-caster',
     label: 'Beyond the Nimbus (caster)',
-    side: 'caster',
-    group: 'Zeus',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.ZEUS,
     tag: EFFECT_TAGS.BEYOND_THE_NIMBUS,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.CASTER,
     props: { hasBeyondNimbus: true },
   },
   {
     id: 'beyond-nimbus-affected',
     label: 'Beyond the Nimbus (affected → Shocked)',
-    side: 'target',
-    group: 'Zeus',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
     tag: EFFECT_TAGS.SHOCK,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isShocked: true, effectPips: [shockPip(DEITY.ZEUS, ZEUS_THEME)] },
   },
   {
     id: 'lightning-spark-affected',
     label: 'Lightning Spark (affected → Shocked)',
-    side: 'target',
-    group: 'Zeus',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
     tag: EFFECT_TAGS.SHOCK,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isShocked: true, effectPips: [shockPip(DEITY.ZEUS, ZEUS_THEME)] },
   },
   {
     id: 'jolt-arc-deceleration',
     label: 'Jolt Arc Deceleration (affected)',
-    side: 'target',
-    group: 'Zeus',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
     tag: EFFECT_TAGS.JOLT_ARC_DECELERATION,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { hasJoltArcDeceleration: true },
   },
   // Demo-only hit VFX (no tag; TeamPanel derives from turn/usedPowerName)
-  { id: 'jolt-arc-attack', label: 'Jolt Arc (hit VFX)', side: 'target', group: 'Zeus', props: { isJoltArcAttackHit: true } },
-  { id: 'keraunos-voltage', label: 'Keraunos Voltage (hit)', side: 'target', group: 'Zeus', props: { isKeraunosVoltageHit: true } },
-  { id: 'hit', label: 'Hit (normal)', side: 'target', group: 'Zeus', props: { isHit: true } },
-  { id: 'shock-hit', label: 'Shock Hit', side: 'target', group: 'Zeus', props: { isShockHit: true } },
+  {
+    id: 'jolt-arc-attack',
+    label: 'Jolt Arc (hit VFX)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
+    props: { isJoltArcAttackHit: true }
+  },
+  {
+    id: 'keraunos-voltage',
+    label: 'Keraunos Voltage (hit)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
+    props: { isKeraunosVoltageHit: true }
+  },
+  {
+    id: 'hit',
+    label: 'Hit (normal)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
+    props: { isHit: true }
+  },
+  {
+    id: 'shock-hit',
+    label: 'Shock Hit',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.ZEUS,
+    props: { isShockHit: true }
+  },
   // —— Persephone ——
   {
-    id: 'efflorescence-muse',
+    id: EFFECT_TAGS.EFFLORESCENCE_MUSE,
     label: 'Efflorescence Muse (caster)',
-    side: 'caster',
-    group: 'Persephone',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.PERSEPHONE,
     tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.CASTER,
     props: { isEfflorescenceMuse: true },
   },
   {
     id: 'pomegranate-caster',
     label: "Pomegranate's Oath (caster)",
-    side: 'caster',
-    group: 'Persephone',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.PERSEPHONE,
     tag: EFFECT_TAGS.POMEGRANATE_SPIRIT,
-    applyTo: 'source',
+    applyTo: EFFECT_SIDE_LABEL.CASTER,
     props: { hasPomegranateEffect: true },
   },
   {
-    id: 'pomegranate-spirit',
-    label: "Pomegranate's Oath / Spirit (affected)",
-    side: 'target',
-    group: 'Persephone',
+    id: EFFECT_TAGS.POMEGRANATE_SPIRIT,
+    label: "Pomegranate's Oath Spirit (affected)",
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.PERSEPHONE,
     tag: EFFECT_TAGS.POMEGRANATE_SPIRIT,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isSpiritForm: true },
   },
-  { id: 'floral-fragrance', label: 'Floral Fragrance (affected)', side: 'target', group: 'Persephone', props: { isFragranceWaved: true } },
+  { 
+    id: 'floral-fragrance', 
+    label: 'Floral Fragrance (affected)', 
+    side: EFFECT_SIDE_LABEL.TARGET, 
+    group: DEITY.PERSEPHONE, 
+    props: { isFragranceWaved: true } 
+  },
   // —— Hades ——
-  { id: 'shadow-camouflaged', label: 'Shadow Camouflaging (caster)', side: 'caster', group: 'Hades', modStat: MOD_STAT.SHADOW_CAMOUFLAGED, props: { isShadowCamouflaged: true } },
+  { 
+    id: 'shadow-camouflaged', 
+    label: 'Shadow Camouflaging (caster)', 
+    side: EFFECT_SIDE_LABEL.CASTER, 
+    group: DEITY.HADES, 
+    modStat: MOD_STAT.SHADOW_CAMOUFLAGED, 
+    props: { isShadowCamouflaged: true } 
+  },
   {
     id: 'soul-devourer',
     label: 'Soul Devourer (caster)',
-    side: 'caster',
-    group: 'Hades',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.HADES,
     tag: EFFECT_TAGS.SOUL_DEVOURER,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { hasSoulDevourer: true },
   },
   {
     id: 'death-keeper',
     label: 'Death Keeper (caster)',
-    side: 'caster',
-    group: 'Hades',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.HADES,
     tag: EFFECT_TAGS.DEATH_KEEPER,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { hasDeathKeeper: true },
   },
-  { id: 'resurrecting', label: 'Death Keeper (resurrecting)', side: 'target', group: 'Hades', props: { isResurrecting: true } },
+  { 
+    id: 'resurrecting', 
+    label: 'Death Keeper (resurrecting)', 
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.HADES, 
+    props: { isResurrecting: true } 
+  },
   {
     id: 'resurrected',
     label: 'Death Keeper (resurrected)',
-    side: 'target',
-    group: 'Hades',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.HADES,
     tag: EFFECT_TAGS.RESURRECTED,
-    applyTo: 'target',
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isResurrected: true },
   },
 ];
@@ -175,7 +219,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
 /** Merge props from multiple effects for the same side (for demo stacking). */
 export function mergePropsForSide(
   effects: PowerVfxEntry[],
-  side: VfxSide
+  side: EffectSide
 ): PowerVfxChipProps {
   const entries = effects.filter((e) => e.side === side);
   if (entries.length === 0) return {};
@@ -217,13 +261,13 @@ export function getTagBasedChipProps(
   for (const entry of POWER_VFX_EFFECTS) {
     if (!entry.tag && !entry.id) continue;
     const matches = entry.tag && entry.applyTo
-      ? (entry.applyTo === 'target'
-          ? activeEffects.some((e) => e.targetId === characterId && e.tag === entry.tag)
-          : entry.applyTo === 'source'
-            ? activeEffects.some((e) => e.sourceId === characterId && e.tag === entry.tag)
-            : activeEffects.some(
-                (e) => (e.targetId === characterId || e.sourceId === characterId) && e.tag === entry.tag
-              ))
+      ? (entry.applyTo === EFFECT_SIDE_LABEL.TARGET
+        ? activeEffects.some((e) => e.targetId === characterId && e.tag === entry.tag)
+        : entry.applyTo === EFFECT_SIDE_LABEL.CASTER
+          ? activeEffects.some((e) => e.sourceId === characterId && e.tag === entry.tag)
+          : activeEffects.some(
+            (e) => (e.targetId === characterId || e.sourceId === characterId) && e.tag === entry.tag
+          ))
       : activeEffects.some((e) => e.tag === entry.id && e.targetId === characterId);
     if (matches) {
       for (const [k, v] of Object.entries(entry.props) as [keyof PowerVfxChipProps, unknown][]) {
@@ -238,8 +282,7 @@ export function getTagBasedChipProps(
 
 /**
  * Add activeEffect(s) for one entry so that the effect shows on recipientId (the chip that gets the props).
- * otherId is the other fighter (used as source when recipient is target, or target when recipient is source).
- * Demo rule: caster modal → recipient = caster; target modal → recipient = target.
+ * otherId is the other fighter. Demo: left modal → recipient = left fighter; right modal → recipient = right fighter.
  */
 function addEffectsForCharacter(
   entry: PowerVfxEntry,
@@ -260,7 +303,7 @@ function addEffectsForCharacter(
         turnsRemaining: 2,
         tag: entry.tag,
       });
-    } else if (entry.applyTo === 'target') {
+    } else if (entry.applyTo === EFFECT_SIDE_LABEL.TARGET) {
       // Chip gets props when e.targetId === characterId → put effect on recipient
       activeEffects.push({
         id: `demo-${++idGen.current}`,
@@ -313,31 +356,31 @@ function addEffectsForCharacter(
 
 /**
  * Build synthetic battle from independent left/right effect choices.
- * Left modal selections → apply to caster (left fighter). Right modal selections → apply to target (right fighter).
+ * Left modal selections → apply to left fighter. Right modal selections → apply to right fighter.
  * Each side may include both caster-type and target-type effects.
  */
 export function buildSyntheticBattleFromChoices(
-  casterEffectIds: string[],
-  targetEffectIds: string[],
-  casterId: string,
-  targetId: string
+  leftEffectIds: string[],
+  rightEffectIds: string[],
+  leftId: string,
+  rightId: string
 ): BattleState {
   const activeEffects: ActiveEffect[] = [];
   const idGen = { current: 0 };
-  for (const effectId of casterEffectIds) {
+  for (const effectId of leftEffectIds) {
     const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId);
     if (!entry) continue;
-    addEffectsForCharacter(entry, casterId, targetId, activeEffects, idGen);
+    addEffectsForCharacter(entry, leftId, rightId, activeEffects, idGen);
   }
-  for (const effectId of targetEffectIds) {
+  for (const effectId of rightEffectIds) {
     const entry = POWER_VFX_EFFECTS.find((e) => e.id === effectId);
-    if (entry) addEffectsForCharacter(entry, targetId, casterId, activeEffects, idGen);
+    if (entry) addEffectsForCharacter(entry, rightId, leftId, activeEffects, idGen);
   }
-  const demoVfxKey = [...casterEffectIds, ...targetEffectIds].sort().join(',');
+  const demoVfxKey = [...leftEffectIds, ...rightEffectIds].sort().join(',');
   return {
     turnQueue: [
-      { characterId: casterId, team: BATTLE_TEAM.A, speed: 10 },
-      { characterId: targetId, team: BATTLE_TEAM.B, speed: 8 },
+      { characterId: leftId, team: BATTLE_TEAM.A, speed: 10 },
+      { characterId: rightId, team: BATTLE_TEAM.B, speed: 8 },
     ],
     currentTurnIndex: 0,
     roundNumber: 1,
@@ -354,8 +397,8 @@ export function buildSyntheticBattleFromChoices(
  */
 export function buildSyntheticBattle(
   selectedEntries: PowerVfxEntry[],
-  casterId: string,
-  targetId: string
+  leftId: string,
+  rightId: string
 ): BattleState {
   const activeEffects: ActiveEffect[] = [];
   let idGen = 0;
@@ -366,15 +409,15 @@ export function buildSyntheticBattle(
           id: `demo-${++idGen}`,
           powerName: 'Demo',
           effectType: EFFECT_TYPES.BUFF,
-          sourceId: casterId,
-          targetId: targetId,
+          sourceId: leftId,
+          targetId: rightId,
           value: 0,
           turnsRemaining: 2,
           tag: entry.tag,
         });
       } else {
-        const effectTargetId = entry.applyTo === 'target' ? targetId : casterId;
-        const effectSourceId = entry.side === 'caster' ? casterId : targetId;
+        const effectTargetId = entry.applyTo === EFFECT_SIDE_LABEL.TARGET ? rightId : leftId;
+        const effectSourceId = entry.side === EFFECT_SIDE_LABEL.CASTER ? leftId : rightId;
         activeEffects.push({
           id: `demo-${++idGen}`,
           powerName: 'Demo',
@@ -387,7 +430,7 @@ export function buildSyntheticBattle(
         });
       }
     } else if (entry.modStat) {
-      const effectTargetId = entry.side === 'caster' ? casterId : targetId;
+      const effectTargetId = entry.side === EFFECT_SIDE_LABEL.CASTER ? leftId : rightId;
       activeEffects.push({
         id: `demo-${++idGen}`,
         powerName: 'Demo',
@@ -402,8 +445,8 @@ export function buildSyntheticBattle(
   }
   return {
     turnQueue: [
-      { characterId: casterId, team: BATTLE_TEAM.A, speed: 10 },
-      { characterId: targetId, team: BATTLE_TEAM.B, speed: 8 },
+      { characterId: leftId, team: BATTLE_TEAM.A, speed: 10 },
+      { characterId: rightId, team: BATTLE_TEAM.B, speed: 8 },
     ],
     currentTurnIndex: 0,
     roundNumber: 1,
@@ -415,60 +458,60 @@ export function buildSyntheticBattle(
 /**
  * Build a minimal BattleRoom for the VFX demo so we can pass it to <Arena demoRoom={...} />.
  * Includes seasonal effect preview when used with demoSeason.
- * Pads each side with clones of the selected fighter so multiple chips show (per casterCount/targetCount).
+ * Pads each side with clones so multiple chips show (per leftCount/rightCount).
  */
 export function buildSyntheticRoom(
-  caster: FighterState,
-  target: FighterState,
+  leftFighter: FighterState,
+  rightFighter: FighterState,
   battle: BattleState,
-  casterCount: number = 1,
-  targetCount: number = 1
+  leftCount: number = 1,
+  rightCount: number = 1
 ): BattleRoom {
-  const casterCountClamped = Math.max(1, Math.min(6, Math.floor(casterCount) || 1));
-  const targetCountClamped = Math.max(1, Math.min(6, Math.floor(targetCount) || 1));
+  const leftCountClamped = Math.max(1, Math.min(6, Math.floor(leftCount) || 1));
+  const rightCountClamped = Math.max(1, Math.min(6, Math.floor(rightCount) || 1));
 
   function cloneFighter(fighter: FighterState, suffix: string): FighterState {
     return { ...fighter, characterId: `${fighter.characterId}${suffix}` };
   }
 
-  const casterMembers: FighterState[] = [caster];
-  for (let i = 1; i < casterCountClamped; i++) {
-    casterMembers.push(cloneFighter(caster, `-${i + 1}`));
+  const leftMembers: FighterState[] = [leftFighter];
+  for (let i = 1; i < leftCountClamped; i++) {
+    leftMembers.push(cloneFighter(leftFighter, `-${i + 1}`));
   }
-  const targetMembers: FighterState[] = [target];
-  for (let i = 1; i < targetCountClamped; i++) {
-    targetMembers.push(cloneFighter(target, `-${i + 1}`));
+  const rightMembers: FighterState[] = [rightFighter];
+  for (let i = 1; i < rightCountClamped; i++) {
+    rightMembers.push(cloneFighter(rightFighter, `-${i + 1}`));
   }
 
-  const casterIds = casterMembers.map((m) => m.characterId);
-  const targetIds = targetMembers.map((m) => m.characterId);
+  const leftIds = leftMembers.map((m) => m.characterId);
+  const rightIds = rightMembers.map((m) => m.characterId);
 
   const expandedEffects = [...battle.activeEffects];
   battle.activeEffects.forEach((eff) => {
-    if (eff.targetId === target.characterId) {
-      targetIds.forEach((id) => {
-        if (id !== target.characterId) {
+    if (eff.targetId === rightFighter.characterId) {
+      rightIds.forEach((id) => {
+        if (id !== rightFighter.characterId) {
           expandedEffects.push({ ...eff, id: `${eff.id}-t-${id}`, targetId: id });
         }
       });
     }
-    if (eff.sourceId === caster.characterId) {
-      casterIds.forEach((id) => {
-        if (id !== caster.characterId) {
+    if (eff.sourceId === leftFighter.characterId) {
+      leftIds.forEach((id) => {
+        if (id !== leftFighter.characterId) {
           expandedEffects.push({ ...eff, id: `${eff.id}-s-${id}`, sourceId: id });
         }
       });
     }
-    if (eff.sourceId === target.characterId) {
-      targetIds.forEach((id) => {
-        if (id !== target.characterId) {
+    if (eff.sourceId === rightFighter.characterId) {
+      rightIds.forEach((id) => {
+        if (id !== rightFighter.characterId) {
           expandedEffects.push({ ...eff, id: `${eff.id}-s-${id}`, sourceId: id });
         }
       });
     }
-    if (eff.targetId === caster.characterId) {
-      casterIds.forEach((id) => {
-        if (id !== caster.characterId) {
+    if (eff.targetId === leftFighter.characterId) {
+      leftIds.forEach((id) => {
+        if (id !== leftFighter.characterId) {
           expandedEffects.push({ ...eff, id: `${eff.id}-t-${id}`, targetId: id });
         }
       });
@@ -488,9 +531,9 @@ export function buildSyntheticRoom(
     arenaId: 'demo',
     roomName: 'VFX Demo',
     status: ROOM_STATUS.BATTLING,
-    teamSize: Math.max(casterCountClamped, targetCountClamped),
-    teamA: { members: casterMembers, maxSize: casterCountClamped },
-    teamB: { members: targetMembers, maxSize: targetCountClamped },
+    teamSize: Math.max(leftCountClamped, rightCountClamped),
+    teamA: { members: leftMembers, maxSize: leftCountClamped },
+    teamB: { members: rightMembers, maxSize: rightCountClamped },
     viewers: {},
     battle: expandedBattle,
     createdAt: Date.now(),

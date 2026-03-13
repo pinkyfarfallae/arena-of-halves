@@ -163,6 +163,8 @@ interface Props {
    *  chip will consult localStorage to avoid re-showing the fragrance after a
    *  refresh. */
   floralLogKey?: string | undefined;
+  /** Floral Fragrance heal amount from log (shown as +n HP in fragrance wave). */
+  floralFragranceHeal?: number;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
@@ -172,7 +174,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -494,29 +496,22 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       try {
         const seen = window.localStorage.getItem(floralLogKey);
         if (seen) {
-          // Already shown before for this log — do not re-trigger.
           prevFragranceRef.current = true;
           return;
         }
       } catch (e) { }
     }
 
-    if (!fragranceSuppressRef.current) {
-      setShowFragranceWave(true);
-      fragranceWaveTimerRef.current = setTimeout(() => {
-        setShowFragranceWave(false);
-        fragranceWaveTimerRef.current = null;
-      }, 3000);
-      prevFragranceRef.current = true;
-      // Mark as shown if we were triggered by a persistent log
+    // Always show the wave when isFragranceWaved is true (don't gate on suppress ref so battle VFX always appears)
+    setShowFragranceWave(true);
+    fragranceWaveTimerRef.current = setTimeout(() => {
+      setShowFragranceWave(false);
+      fragranceWaveTimerRef.current = null;
       if (floralLogKey) {
         try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
       }
-      // Do not return a cleanup that clears the timer here: React Strict Mode runs
-      // effect → cleanup → effect. That cleanup would clear the 3s timer before it
-      // fires, so the wave would never auto-hide after replay. Timer is cleared
-      // when isFragranceWaved becomes false and on unmount (empty-deps effect).
-    }
+    }, 3000);
+    prevFragranceRef.current = true;
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(isFragranceWaved), floralLogKey ?? '']);
@@ -525,25 +520,29 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const showFragranceVisual = showFragranceWave && isFragranceWaved;
 
   // If the fighter's HP increases (heal applied), clear the fragrance wave visual
-  // immediately to avoid leaving the +HP text/styling stuck after the heal.
+  // immediately to avoid leaving the +HP text stuck after the heal — unless the
+  // increase is the Floral Fragrance heal we are about to show (same update as log).
   const prevHpRef = useRef<number>(fighter.currentHp);
   const [displayHp, setDisplayHp] = useState(fighter.currentHp);
   useEffect(() => {
     const prev = prevHpRef.current;
     if (fighter.currentHp > prev) {
-      // HP increased — immediately clear fragrance state and class.
-      setShowFragranceWave(false);
-      prevFragranceRef.current = false;
-      fragranceSuppressRef.current = true;
-      if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
-      fragranceSuppressTimer.current = setTimeout(() => {
-        fragranceSuppressRef.current = false;
-        fragranceSuppressTimer.current = null;
-      }, 800);
+      const increase = fighter.currentHp - prev;
+      const isFloralFragranceHeal = floralFragranceHeal != null && increase === floralFragranceHeal;
+      if (!isFloralFragranceHeal) {
+        setShowFragranceWave(false);
+        prevFragranceRef.current = false;
+        fragranceSuppressRef.current = true;
+        if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
+        fragranceSuppressTimer.current = setTimeout(() => {
+          fragranceSuppressRef.current = false;
+          fragranceSuppressTimer.current = null;
+        }, 800);
+      }
     }
     prevHpRef.current = fighter.currentHp;
     return undefined;
-  }, [fighter.currentHp]);
+  }, [fighter.currentHp, floralFragranceHeal]);
 
   useEffect(() => {
     if (fighter.currentHp >= displayHp) {
@@ -1240,7 +1239,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                 <>
                   <div className="mchip__fragrance-border" aria-hidden="true" />
                   <div className="mchip__fragrance-accents" aria-hidden="true" />
-                  <div className="mchip__heal-boost" aria-hidden="true">+2 HP</div>
+                  {floralFragranceHeal != null && floralFragranceHeal > 0 && (
+                    <div className="mchip__heal-boost" aria-hidden="true">+{floralFragranceHeal} HP</div>
+                  )}
                 </>
               )}
 
