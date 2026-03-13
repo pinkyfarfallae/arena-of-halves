@@ -811,6 +811,43 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       )}
 
+      {/* Petal shield: raindrops (white and yellow only, like Beyond the Nimbus) */}
+      {isPetalShielded && battleLive && (
+        <div className="mchip__petal-rain" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, i) => (
+            <span key={i} className="mchip__petal-drop" />
+          ))}
+        </div>
+      )}
+
+      {/* Wind VFX at bottom — pink / green / yellow (autumn-style): streaks + drifting squares */}
+      {isPetalShielded && battleLive && (
+        <div className="mchip__petal-wind" aria-hidden="true">
+          <div className="mchip__petal-wind-streak mchip__petal-wind-streak--1" />
+          <div className="mchip__petal-wind-streak mchip__petal-wind-streak--2" />
+          <div className="mchip__petal-wind-streak mchip__petal-wind-streak--3" />
+          <div className="mchip__petal-wind-streak mchip__petal-wind-streak--4" />
+          <div className="mchip__petal-wind-streak mchip__petal-wind-streak--5" />
+          <div className="mchip__petal-wind-drifts" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span
+                key={i}
+                className="mchip__petal-wind-drift"
+                style={
+                  {
+                    '--drift-x': `${8 + (i * 4) % 84}%`,
+                    '--drift-y': `${28 + (i * 3) % 68}%`,
+                    '--drift-delay': `${(i * 0.25) % 3}s`,
+                    '--drift-duration': `${3.5 + (i % 4) * 0.5}s`,
+                    '--drift-color': ['#f48fb1', '#81c784', '#ffeb3b'][i % 3],
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Jolt Arc Deceleration — rich decoration (storm, charge drops, rise particles) */}
       {hasJoltArcDeceleration && battleLive && (
         <>
@@ -994,12 +1031,21 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
       </div>
 
-      {/* Card frame — outside body so it's not masked; when Nimbus, wings align to frame via wrapper */}
-      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
+      {/* Card frame — outside body so it's not masked; when Nimbus/Petal, wings align to frame via wrapper */}
+      <div className={`mchip__frame-wrap ${hasBeyondNimbus && battleLive ? 'mchip__frame-wrap--nimbus' : ''} ${isPetalShielded && battleLive ? 'mchip__frame-wrap--petal' : ''} ${!battleLive ? 'mchip__frame-wrap--ended' : ''}`}>
         {hasBeyondNimbus && battleLive && (
           <>
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--1" aria-hidden="true" />
             <span className="mchip__nimbus-lightning mchip__nimbus-lightning--2" aria-hidden="true" />
+          </>
+        )}
+        {/* Petal shield: fairy wings — 4 lobes (left top/bottom, right top/bottom) */}
+        {isPetalShielded && battleLive && (
+          <>
+            <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--lt" aria-hidden="true" />
+            <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--lb" aria-hidden="true" />
+            <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--rt" aria-hidden="true" />
+            <span className="mchip__petal-fairy-wing mchip__petal-fairy-wing--rb" aria-hidden="true" />
           </>
         )}
         {/* Vines climbing around all four sides of the frame + flowers at vine frame corners */}
@@ -1007,8 +1053,28 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           const charId = fighter.characterId;
           const charIdLower = charId?.toLowerCase();
           const isRosabella = charIdLower === CHARACTER.ROSABELLA;
-          // eslint-disable-next-line no-console -- debug: petal shield corner flower (Rose vs Flower)
-          console.log('[MemberChip petal shield] characterId:', charId, 'lower:', charIdLower, 'CHARACTER.ROSABELLA:', CHARACTER.ROSABELLA, 'showRose:', isRosabella);
+                const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
+                  angle: (i / 12) * 360 + 8,
+                  delay: i * 0.18,
+                  duration: 5 + (i % 3) * 0.8,
+                  distance: 80 + (i % 3) * 24,
+                }));
+                const leafParticles = Array.from({ length: 12 }, (_, i) => ({
+                  angle: (i / 12) * 360 + 7,
+                  delay: 0.1 + (i % 4) * 0.15,
+                  duration: 5.5 + (i % 5) * 0.5,
+                  distance: 92 + (i % 4) * 24,
+                  size: 0.8 + (i % 3) * 0.2,
+                }));
+                const dustParticles = Array.from({ length: 24 }, (_, i) => ({
+                  angle: (i / 24) * 360 + (i % 7) * 5,
+                  delay: (i % 6) * 0.12,
+                  duration: 4.5 + (i % 4) * 0.6,
+                  distance: 82 + (i % 5) * 20,
+                  size: 2.5 + (i % 4) * 0.8,
+                  scale: 0.9 + (i % 4) * 0.1,
+                  color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
+                }));
           return (
             <>
               <div className="mchip__petal-vines" aria-hidden="true">
@@ -1073,6 +1139,60 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                   )}
                 </div>
               </div>
+              <div className="mchip__petal-emission" aria-hidden="true">
+                {flowerParticles.map((p, i) => (
+                  <div
+                    key={`f-${i}`}
+                    className="mchip__petal-emission-flower"
+                    style={
+                      {
+                        '--angle': `${p.angle}deg`,
+                        '--delay': `${p.delay}s`,
+                        '--duration': `${p.duration}s`,
+                        '--distance': `${p.distance}px`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {isRosabella ? (
+                          <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                        ) : (
+                          <Flower width={14} height={14} />
+                        )}
+                  </div>
+                ))}
+                {leafParticles.map((p, i) => (
+                  <span
+                    key={`l-${i}`}
+                    className="mchip__petal-emission-leaf"
+                    style={
+                      {
+                        '--angle': `${p.angle}deg`,
+                        '--delay': `${p.delay}s`,
+                        '--duration': `${p.duration}s`,
+                        '--distance': `${p.distance}px`,
+                        '--size': p.size,
+                      } as React.CSSProperties
+                    }
+                  />
+                ))}
+                {dustParticles.map((p, i) => (
+                  <span
+                    key={`d-${i}`}
+                    className="mchip__petal-emission-dust"
+                    style={
+                      {
+                        '--angle': `${p.angle}deg`,
+                        '--delay': `${p.delay}s`,
+                        '--duration': `${p.duration}s`,
+                        '--distance': `${p.distance}px`,
+                        '--size': `${p.size}px`,
+                        '--scale': p.scale,
+                        '--dust-color': p.color,
+                      } as React.CSSProperties
+                    }
+                  />
+                ))}
+              </div>
             </>
           );
         })()}
@@ -1115,7 +1235,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
               {/* Petal leaf accents — green spots around frame edge */}
               {isPetalShielded && <div className="mchip__petal-accents" aria-hidden="true" />}
-
               {/* Fragrance Wave border + accents (separate divs) + heal boost floating text */}
               {showFragranceVisual && (
                 <>

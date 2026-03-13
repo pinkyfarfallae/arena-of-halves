@@ -59,15 +59,8 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
     z-index: 0;
     pointer-events: none;
     border-radius: inherit;
-    background: linear-gradient(to top, transparent 0%, rgb(255, 255, 255) 8%, transparent 95%);
-    mask-image: $petal-clip-gradient, radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
-    -webkit-mask-image: $petal-clip-gradient, radial-gradient(ellipse 85% 80% at 50% 50%, black 0%, transparent 72%);
-    mask-size: 100% 100%, cover;
-    mask-position: 0 0, center;
-    -webkit-mask-size: 100% 100%, cover;
-    -webkit-mask-position: 0 0, center;
-    mask-composite: intersect;
-    -webkit-mask-composite: source-in;
+    background: radial-gradient(ellipse 85% 80% at 50% 50%, rgb(255, 255, 255) 0%, transparent 72%);
+    @include petal-body-gradient-clip;
   }
 }
 
@@ -111,6 +104,206 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
+/* Petal shield: wider frame-wrap so fairy wings sit left/right of frame (like Nimbus) */
+.mchip__frame-wrap--petal {
+  width: calc(v.$frame-size-large + 72px);
+  min-width: calc(v.$frame-size-large + 72px);
+}
+
+/* Fairy wings — 4 lobes: left top, left bottom, right top, right bottom */
+.mchip__petal-fairy-wing {
+  position: absolute;
+  top: 0.6rem;
+  width: 45%;
+  height: 50%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.55;
+  border: 4px solid #ecff00;
+  box-shadow: 0 0 10px rgba(#a56078, 0.6);
+  background:
+    radial-gradient(ellipse 100% 80% at 20% 50%,
+      rgba(255, 255, 255, 0.4) 0%,
+      transparent 55%),
+    radial-gradient(ellipse 100% 80% at 20% 50%,
+      transparent 0%, rgba(255, 255, 255, 0) 8%,
+      rgba(225, 255, 226, 0.5) 24% 30%,
+      rgb(255 227 128 / 50%) 30%,
+      rgb(255 166 203 / 69%) 56%,
+      rgba(255, 249, 196, 0.5) 72%,
+      transparent 80%);
+  filter: 
+    blur(6px) 
+    brightness(1.13)
+    drop-shadow(0 0 18px rgba(#ffebf2, 0.6))
+    drop-shadow(0 0 26px rgba(#ffb0d1, 0.5));
+  /* Curve to point: smooth sides meeting at a sharp tip */
+  clip-path: polygon(
+    0% 50%,
+    8% 32%,
+    18% 18%,
+    35% 8%,
+    55% 5%,
+    75% 12%,
+    92% 35%,
+    100% 50%,
+    92% 65%,
+    75% 88%,
+    55% 95%,
+    35% 92%,
+    18% 82%,
+    8% 68%,
+    0% 50%
+  );
+}
+
+.mchip__petal-fairy-wing--lt {
+  left: calc(50% + math.div(v.$frame-size-large, 2));
+  top: 1.5rem;
+  scale: 1.1;
+  transform-origin: left center;
+  transform: scale(1) rotate(-35deg);
+  animation: petal-fairy-wing-float-lt 4s ease-in-out infinite;
+}
+
+.mchip__petal-fairy-wing--lb {
+  left: calc(50% + math.div(v.$frame-size-large, 2));
+  top: 35%;
+  margin-top: -0.4rem;
+  transform-origin: left center;
+  scale: 0.85;
+  rotate: 17deg;
+  transform: scale(1) rotate(45deg);
+  animation: petal-fairy-wing-float-lb 4s ease-in-out infinite;
+  animation-delay: -0.5s;
+}
+
+.mchip__petal-fairy-wing--rt {
+  left: calc(50% - math.div(v.$frame-size-large, 2));
+  top: 1.5rem;
+  transform-origin: left center;
+  scale: 1.1;
+  transform: scale(1) scaleX(-1) rotate(-32deg);
+  animation: petal-fairy-wing-float-rt 4s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.mchip__petal-fairy-wing--rb {
+  left: calc(50% - math.div(v.$frame-size-large, 2));
+  top: 35%;
+  margin-top: -0.4rem;
+  transform-origin: left center;
+  scale: 0.85;
+  rotate: -17deg;
+  transform: scale(1) scaleX(-1) rotate(45deg);
+  animation: petal-fairy-wing-float-rb 4s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+@keyframes petal-fairy-wing-float-lt {
+
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1) rotate(-35deg) scaleY(1);
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: scale(1) rotate(-35deg) scaleY(1.05);
+  }
+}
+
+@keyframes petal-fairy-wing-float-lb {
+
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1) rotate(35deg) scaleY(1);
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: scale(1) rotate(35deg) scaleY(1.05);
+  }
+}
+
+@keyframes petal-fairy-wing-float-rt {
+
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1) scaleX(-1) rotate(-35deg) scaleY(1);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1) scaleX(-1) rotate(-35deg) scaleY(1.05);
+  }
+}
+
+@keyframes petal-fairy-wing-float-rb {
+
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1) scaleX(-1) rotate(35deg) scaleY(1);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1) scaleX(-1) rotate(35deg) scaleY(1.05);
+  }
+}
+
+/* Petal raindrops — white and yellow only (like Beyond the Nimbus) */
+.mchip__petal-rain {
+  position: absolute;
+  height: 100%;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  @include petal-body-gradient-clip;
+}
+
+.mchip__petal-drop {
+  position: absolute;
+  top: -18%;
+  width: 2px;
+  height: 40%;
+  border-radius: 999px;
+  filter: blur(0.75px);
+  background: linear-gradient(180deg, rgba(#ffffff, 0) 0%, rgba(#ffffff, 0.9) 26%, rgba(#fff9c4, 0.85) 70%, rgba(#ffeb3b, 0.5) 100%);
+  box-shadow: 0 0 6px rgba(#ffffff, 0.5);
+  animation: petal-rain-fall linear infinite;
+
+  @for $i from 1 through 18 {
+    &:nth-child(#{$i}) {
+      left: 4% + (($i - 1) * 8.2%);
+      animation-delay: #{($i - 1) * 0.18}s;
+      animation-duration: #{1.2 + math.div(($i % 4), 10)}s;
+      opacity: #{0.4 + math.div(($i % 3), 10)};
+    }
+  }
+}
+
+@keyframes petal-rain-fall {
+  0% {
+    transform: translateY(-12%) scaleY(0.7);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(138%) scaleY(1.05);
+    opacity: 0;
+  }
+}
+
 /* Vines climbing around all four sides of the frame (SVG: curved stems + leaves) */
 .mchip__petal-vines {
   position: absolute;
@@ -119,10 +312,11 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   z-index: 11;
   pointer-events: none;
   color: #558b2f;
-  width: calc(100% + 16px);
-  height: calc(100% + 20px);
-  top: -10px;
-  left: -9px;
+  width: calc(v.$frame-size-large + 16px);
+  height: calc(v.$frame-size-large + 20px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   @include petal-body-gradient-clip;
 }
 
@@ -133,10 +327,11 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   width: 100%;
   height: 100%;
   overflow: visible;
+  margin-top: 3px
 }
 
 .mchip__petal-vine-stem {
-  filter: drop-shadow(0px 0px 3px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0px 0px 0.5px rgba(0, 0, 0, 0.2));
 }
 
 .mchip__petal-vine-leaf {
@@ -151,10 +346,11 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   border-radius: inherit;
   z-index: 13;
   pointer-events: none;
-  width: calc(100% + 16px);
-  height: calc(100% + 20px);
-  top: -10px;
-  left: -9px;
+  width: calc(v.$frame-size-large + 16px);
+  height: calc(v.$frame-size-large + 20px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .mchip__petal-corner {
@@ -164,12 +360,12 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   justify-content: center;
 
   &--tl {
-    top: 5px;
+    top: 7px;
     left: 4px;
   }
 
   &--tr {
-    top: 7px;
+    top: 10px;
     right: 3px;
     transform: scaleX(-1.25) scaleY(-1.25) rotate(-45deg);
   }
@@ -217,6 +413,119 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
     top: 48%;
     left: 2px;
     transform: translateY(-50%);
+  }
+}
+
+/* Fantasy particle emission from center: flowers, leaves, magical dust — burst outward then drift and fade. Blur/fade left and right edges. */
+.mchip__petal-emission {
+  position: absolute;
+  width: 200%;
+  height: 175%;
+  left: 52%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: hidden;
+  filter: brightness(1.15);
+  opacity: 0.6;
+  z-index: 1;
+  mask-image:
+    $petal-clip-gradient,
+    linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+  -webkit-mask-image:
+    $petal-clip-gradient,
+    linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-composite: intersect;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+}
+
+.mchip__petal-emission-flower {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  filter: drop-shadow(0 0 5px rgba(#81c784, 0.5));
+  animation: petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.mchip__petal-emission-flower svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mchip__petal-emission-leaf {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 16px;
+  margin-left: -5px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: rgba(#81c784, 0.8);
+  box-shadow:
+    0 0 6px rgba(#a5d6a7, 0.6),
+    0 0 12px rgba(#66bb6a, 0.25);
+  transform-origin: center center;
+  animation: petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.mchip__petal-emission-dust {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--size, 3px);
+  height: var(--size, 3px);
+  margin-left: calc(-0.5 * var(--size, 3px));
+  margin-top: calc(-0.5 * var(--size, 3px));
+  border-radius: 50%;
+  background: var(--dust-color, rgba(#fff9c4, 0.9));
+  box-shadow:
+    0 0 6px var(--dust-color),
+    0 0 12px rgba(255, 255, 255, 0.4);
+  transform-origin: center center;
+  animation: petal-emission-burst-drift var(--duration, 4.5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Burst outward in circular pattern, then drift with rotation and fade (--scale for dust, --size for leaf). Bigger circle. */
+@keyframes petal-emission-burst-drift {
+  0% {
+    transform: rotate(var(--angle, 0deg)) translateY(0) rotate(0deg) scale(0);
+    opacity: 0;
+  }
+
+  12% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1 * var(--distance, 110px))) rotate(15deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.95;
+  }
+
+  40% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.06 * var(--distance, 110px))) rotate(80deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.85;
+  }
+
+  75% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.12 * var(--distance, 110px))) rotate(160deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.45;
+  }
+
+  100% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.18 * var(--distance, 110px))) rotate(220deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0;
   }
 }
 
@@ -380,6 +689,180 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
         background: rgba(#66bb6a, 0.8);
       }
     }
+  }
+}
+
+/* ── Wind VFX at bottom (autumn-style): pink / green / yellow — streaks + drifting squares ── */
+.mchip__petal-wind {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  @include petal-body-gradient-clip;
+}
+
+.mchip__petal-wind-streak {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  bottom: -10px;
+  opacity: 0.8;
+  pointer-events: none;
+  filter: blur(4px);
+  transform: skewY(-3deg);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: skewY(-3deg);
+    filter: blur(2px);
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(#f48fb1, 1) 18%,
+        rgba(#81c784, 0.8) 45%,
+        rgba(#ffeb3b, 1) 68%,
+        rgba(#f48fb1, 1) 95%,
+        transparent 100%);
+    animation: petal-wind-gust 7s ease-in-out infinite;
+  }
+
+  &--1 {
+    bottom: -12px;
+    transform: skewY(-3deg) translateY(-5%) translateX(-30%) rotate(60deg);
+  }
+
+  &--2 {
+    bottom: -12px;
+    left: 25%;
+    transform: translateX(-20%) rotate(45deg);
+
+    &::after {
+      animation-delay: -2.5s;
+      background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(#f48fb1, 1) 18%,
+          rgba(#81c784, 0.8) 45%,
+          rgba(#ffeb3b, 1) 68%,
+          rgba(#f48fb1, 1) 95%,
+          transparent 100%);
+    }
+  }
+
+  &--3 {
+    bottom: -12px;
+    left: 53%;
+    transform: translateX(-53%) rotate(54deg);
+
+    &::after {
+      animation-delay: -5s;
+      background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(#ffeb3b, 0.06) 30%,
+          rgba(#f48fb1, 0.1) 60%,
+          rgba(#81c784, 0.06) 88%,
+          transparent 100%);
+    }
+  }
+
+  &--4 {
+    bottom: -12px;
+    left: 80%;
+    transform: translateX(-80%) rotate(120deg);
+
+    &::after {
+      animation-delay: -1s;
+      background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(#ff7ba7, 1) 18%,
+          rgba(#81c784, 0.8) 45%,
+          rgba(#ffeb3b, 1) 68%,
+          rgba(#f48fb1, 1) 95%,
+          transparent 100%);
+    }
+  }
+
+  &--5 {
+    bottom: 0;
+    left: 95%;
+    transform: translateX(-95%) rotate(160deg);
+
+    &::after {
+      animation-delay: -3.5s;
+      background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(#f48fb1, 1) 18%,
+          rgba(#81c784, 0.8) 45%,
+          rgba(#ffeb3b, 1) 68%,
+          rgba(#f48fb1, 1) 95%,
+          transparent 100%);
+    }
+  }
+}
+
+@keyframes petal-wind-gust {
+  0% {
+    left: -140%;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.75;
+  }
+
+  92% {
+    opacity: 0.75;
+  }
+
+  100% {
+    left: 40%;
+    opacity: 0;
+  }
+}
+
+.mchip__petal-wind-drifts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mchip__petal-wind-drift {
+  position: absolute;
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 0;
+  left: var(--drift-x, 50%);
+  top: var(--drift-y, 70%);
+  background: var(--drift-color, rgba(#f48fb1, 0.9));
+  box-shadow: 0 0 2px var(--drift-color);
+  opacity: 0;
+  animation: petal-wind-drift var(--drift-duration, 4s) ease-in-out infinite;
+  animation-delay: var(--drift-delay, 0s);
+}
+
+@keyframes petal-wind-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+
+  18% {
+    opacity: 0.8;
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: translate(5px, -4px) scale(1);
+  }
+
+  82% {
+    opacity: 0.45;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-4px, 3px) scale(0.5);
   }
 }
 

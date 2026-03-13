@@ -60,7 +60,7 @@ export default function WavyLines({ className }: Props) {
               d={WAVE_D}
               fill="none"
               stroke={`url(#${gradientId})`}
-              strokeWidth="2"
+              strokeWidth="1.5"
               style={{ animationDelay: `${i * 0.12}s` }}
             />
           </g>
