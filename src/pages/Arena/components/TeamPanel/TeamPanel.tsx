@@ -416,18 +416,21 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            // Allow pulses when hit visuals allowed, or during RESOLVING with skeleton playback (n hits → n shakes)
-            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey}
+            // Allow pulses when hit visuals allowed, or during RESOLVING with skeleton playback (n hits → n shakes), or in demo (VFX/replay keys)
+            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number'}
             visualDefenderId={visualDefenderId}
             hitEventKey={
-              playbackHitEventKey
-              ?? ((tagBasedProps.isHit || tagBasedProps.isShockHit || tagBasedProps.isKeraunosVoltageHit || tagBasedProps.isJoltArcAttackHit)
-                ? (() => {
-                    const b = battle as { _demoVfxKey?: string; _demoReplayTargetKey?: number; _demoShockHitReplayKey?: number };
-                    if (tagBasedProps.isHit && b._demoReplayTargetKey != null) return String(b._demoReplayTargetKey);
-                    return b._demoVfxKey;
-                  })()
-                : undefined)
+              (() => {
+                const b = battle as { _demoVfxKey?: string; _demoReplayTargetKey?: number; _demoShockHitReplayKey?: number };
+                const hasDemoReplayKeys = b._demoReplayTargetKey != null || b._demoShockHitReplayKey != null || b._demoVfxKey != null;
+                const tagBasedHit = tagBasedProps.isHit || tagBasedProps.isShockHit || tagBasedProps.isKeraunosVoltageHit || tagBasedProps.isJoltArcAttackHit;
+                if (hasDemoReplayKeys && tagBasedHit) {
+                  // Prefer replay key so Replay button works for Hit, Shock Hit, or both (otherwise _demoVfxKey doesn't change on click)
+                  if (b._demoReplayTargetKey != null) return String(b._demoReplayTargetKey);
+                  return b._demoVfxKey ?? undefined;
+                }
+                return playbackHitEventKey ?? (tagBasedHit ? (tagBasedProps.isHit && b._demoReplayTargetKey != null ? String(b._demoReplayTargetKey) : b._demoVfxKey) : undefined);
+              })()
             }
             shockHitEventKey={
               (tagBasedProps.isShockHit && (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey != null)
