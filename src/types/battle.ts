@@ -166,6 +166,10 @@ export interface TurnState {
   /* Ally-targeting power (e.g. Floral Fragrance) */
   allyTargetId?: string;
 
+  /* Floral Fragrance + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterFloralHealD4) */
+  floralHealWinFaces?: number[];
+  floralHealRoll?: number;
+
   /* Persephone's Ephemeral Season selection */
   selectedSeason?: string; // 'summer' | 'autumn' | 'winter' | 'spring'
 
@@ -224,6 +228,10 @@ export interface BattleLogEntry {
   pendingTarget?: boolean;
   /** Caster has Beyond the Nimbus this turn; show "Caster Beyond the nimbus" before the attack result line */
   beyondTheNimbus?: boolean;
+  /** Floral Fragrance (and similar) heal amount */
+  heal?: number;
+  /** Floral Fragrance + Efflorescence Muse: D4 heal crit (2× heal) */
+  floralHealCrit?: boolean;
 }
 
 /** Full battle state stored alongside the room */

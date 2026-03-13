@@ -22,9 +22,17 @@ export interface RefillSPDiceModalProps {
   onRoll: (roll: number) => void | Promise<void>;
   /** Ms to show dice before showing refill card (fallback if onRollEnd not fired). */
   diceViewMs?: number;
+  /** Override labels for non-refill D4 (e.g. Floral Heal crit). */
+  title?: string;
+  subTitle?: string;
+  wonText?: string;
+  lostText?: string;
+  bonusLabel?: string;
+  /** Called when the result card (Normal Heal / Heal x2) is shown (after dice animation ends). */
+  onResultCardVisible?: () => void;
 }
 
-/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Waits for dice animation to end before showing result card. */
+/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Also used for Floral Heal crit (Efflorescence Muse). */
 export default function RefillSPDiceModal({
   attacker,
   isMyTurn,
@@ -33,10 +41,25 @@ export default function RefillSPDiceModal({
   atkSide,
   onRoll,
   diceViewMs = REFILL_DICE_VIEW_MS,
+  title,
+  subTitle,
+  wonText,
+  lostText,
+  bonusLabel,
+  onResultCardVisible,
 }: RefillSPDiceModalProps) {
+  const effectiveTitle = title ?? 'Refill SP Quota';
+  const effectiveSub = subTitle ?? (attacker ? `${attacker.nicknameEng} — D4 (25%)` : 'D4 (25%)');
+  const effectiveWon = wonText ?? '+ 1 SP';
+  const effectiveLost = lostText ?? 'NO REFILL';
+  const effectiveBonus = bonusLabel ?? `refill: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`;
   const [showRefillCard, setShowRefillCard] = useState(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Once we've shown the result card for this roll, don't reset to dice view (avoids "dice again" when effect re-runs). */
+  const resultCardShownForRollRef = useRef<number | null>(null);
+  const rollRef = useRef<number | null | undefined>(undefined);
+  rollRef.current = roll;
 
   const clearTimers = useCallback(() => {
     if (fallbackTimerRef.current) {
@@ -49,24 +72,35 @@ export default function RefillSPDiceModal({
     }
   }, []);
 
-  // When dice animation ends, wait briefly then show result card
+  // When dice animation ends, wait briefly then show result card and notify parent (healing VFX shows at same time)
   const handleRollEnd = useCallback(() => {
     clearTimers();
-    resultTimerRef.current = setTimeout(() => setShowRefillCard(true), REFILL_RESULT_VIEW_MS);
-  }, [clearTimers]);
+    resultTimerRef.current = setTimeout(() => {
+      onResultCardVisible?.(); // notify first so parent state batches with result card
+      setShowRefillCard(true);
+      const r = rollRef.current;
+      if (r != null) resultCardShownForRollRef.current = r;
+    }, REFILL_RESULT_VIEW_MS);
+  }, [clearTimers, onResultCardVisible]);
 
-  // When roll is set: show dice only; start fallback timer. Transition to result card only after onRollEnd or fallback.
+  // When roll is set: show dice only; start fallback timer. Transition to result card only after onRollEnd or fallback. Do not reset to dice once result card was shown.
   useEffect(() => {
     if (roll == null) {
       setShowRefillCard(false);
+      resultCardShownForRollRef.current = null;
       clearTimers();
       return;
     }
+    if (resultCardShownForRollRef.current === roll) return; // already showing result card for this roll — don't show dice again
     setShowRefillCard(false);
     clearTimers();
-    fallbackTimerRef.current = setTimeout(() => setShowRefillCard(true), diceViewMs);
+    fallbackTimerRef.current = setTimeout(() => {
+      onResultCardVisible?.(); // notify first so healing VFX shows with result card
+      setShowRefillCard(true);
+      resultCardShownForRollRef.current = roll;
+    }, diceViewMs);
     return () => clearTimers();
-  }, [roll, diceViewMs, clearTimers]);
+  }, [roll, diceViewMs, clearTimers, onResultCardVisible]);
 
   const themeStyle: React.CSSProperties = {
     '--modal-primary': attacker?.theme?.[0] ?? '#666',
@@ -88,9 +122,9 @@ export default function RefillSPDiceModal({
             <span className="refill-card__atkname" style={{ color: themeColors?.primary }}>{attacker?.nicknameEng ?? '—'}</span>
           </div>
           {won ? (
-            <span className="refill-card__total">+ 1 SP</span>
+            <span className="refill-card__total">{effectiveWon}</span>
           ) : (
-            <span className="refill-card__invoked">NO REFILL</span>
+            <span className="refill-card__invoked">{effectiveLost}</span>
           )}
         </div>
       </div>
@@ -101,8 +135,8 @@ export default function RefillSPDiceModal({
   return (
     <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
       <div className="bhud__dice-modal" style={themeStyle}>
-        <span className="bhud__dice-label">Refill SP Quota</span>
-        <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (25%)</span>
+        <span className="bhud__dice-label">{effectiveTitle}</span>
+        <span className="bhud__dice-sub">{effectiveSub}</span>
         {isMyTurn ? (
           <DiceRoller
             key="sc-refill-my-roll"
@@ -130,7 +164,7 @@ export default function RefillSPDiceModal({
             <div className="bhud__roll-waiting-spinner" />
           </div>
         )}
-        <span className="bhud__dice-bonus">refill: {[...winFaces].sort((a, b) => a - b).join(', ') || '—'}</span>
+        <span className="bhud__dice-bonus">{effectiveBonus}</span>
       </div>
     </div>
   );

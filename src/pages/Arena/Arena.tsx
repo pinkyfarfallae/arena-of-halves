@@ -31,6 +31,7 @@ import {
   resolveTurn,
   normalizeFighter,
   advanceAfterShadowCamouflageD4,
+  advanceAfterFloralHealD4,
   skipTurnNoValidTarget,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
@@ -190,6 +191,8 @@ function Arena(props?: ArenaDemoProps) {
 
   /** Set when user confirms a power in the action modal (action === POWER). Cleared when turn/phase changes. */
   const [lastConfirmedPowerName, setLastConfirmedPowerName] = useState<string | null>(null);
+  /** Set when Floral Heal D4 result card is shown (so TeamPanel can show healing VFX in sync). Cleared when leaving ROLLING_FLORAL_HEAL. */
+  const [floralHealResultCardVisible, setFloralHealResultCardVisible] = useState(false);
 
   /* ── Handlers (must be before any early return for rules-of-hooks) ── */
   const handleStartBattle = useCallback(async () => {
@@ -264,6 +267,13 @@ function Arena(props?: ArenaDemoProps) {
     const phase = room?.battle?.turn?.phase;
     if (phase && phase !== PHASE.SELECT_ACTION && phase !== PHASE.SELECT_TARGET) {
       setLastConfirmedPowerName(null);
+    }
+  }, [room?.battle?.turn?.phase]);
+
+  /* ── Clear floral heal result card flag when leaving D4 phase ── */
+  useEffect(() => {
+    if (room?.battle?.turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) {
+      setFloralHealResultCardVisible(false);
     }
   }, [room?.battle?.turn?.phase]);
 
@@ -436,6 +446,20 @@ function Arena(props?: ArenaDemoProps) {
         fn();
       }, delay);
     };
+
+    // NPC: Floral Fragrance + Efflorescence Muse — roll D4 for heal crit, then advance
+    const floralWinFaces = (turn as any)?.floralHealWinFaces;
+    const floralRoll = (turn as any)?.floralHealRoll;
+    if (turn.phase === PHASE.ROLLING_FLORAL_HEAL && Array.isArray(floralWinFaces) && floralWinFaces.length > 0 && floralRoll == null && teamBIds.has(turn.attackerId)) {
+      schedule(async () => {
+        const roll = Math.ceil(Math.random() * 4);
+        try {
+          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
+          await advanceAfterFloralHealD4(arenaId);
+        } catch (e) {}
+      }, 2000);
+      return;
+    }
 
     // NPC cast Shadow Camouflaging: roll D4 for refill SP, then advance
     const scWinFaces = (turn as any)?.shadowCamouflageRefillWinFaces;
@@ -731,6 +755,7 @@ function Arena(props?: ArenaDemoProps) {
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
+              floralHealResultCardVisible={floralHealResultCardVisible}
             />
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
           </div>
@@ -760,6 +785,7 @@ function Arena(props?: ArenaDemoProps) {
                 clientVisualDefenderId={npcVisualTarget}
                 clientVisualPowerName={npcVisualPowerName}
                 suppressHitAfterBack={suppressHitAfterBack}
+                floralHealResultCardVisible={floralHealResultCardVisible}
               />
             ) : (
               <div className="arena__empty-slot">
@@ -874,6 +900,7 @@ function Arena(props?: ArenaDemoProps) {
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
             suppressHitAfterBack={suppressHitAfterBack}
+            floralHealResultCardVisible={floralHealResultCardVisible}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -905,6 +932,7 @@ function Arena(props?: ArenaDemoProps) {
               defenderFrameRef={defenderFrameRef}
               minionPulseMap={minionPulseMap}
               onSelectTarget={onSelectTargetDeferred}
+              floralHealResultCardVisible={floralHealResultCardVisible}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
@@ -983,6 +1011,7 @@ function Arena(props?: ArenaDemoProps) {
               flushSync(() => setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId })));
               // Don't clear per-pulse: that removed pulse 1 before skeleton 2 (2.5s), so only 1 shake. Map cleared when chain ends (transientEffectsActive→false) and when leaving RESOLVING.
             }}
+            onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
           />
         )}
       </div>

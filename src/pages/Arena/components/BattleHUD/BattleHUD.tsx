@@ -3,7 +3,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4 } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4 } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -80,6 +80,8 @@ interface Props {
   confirmedPowerName?: string | null;
   /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
   onSkipTurnNoTarget?: () => void;
+  /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
+  onFloralHealResultCardVisible?: () => void;
 }
 
 /** Find a fighter across both teams */
@@ -124,7 +126,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -136,8 +138,8 @@ export default function BattleHUD({
   const isMyDefend = turn?.defenderId === myId;
   const opposingTeam = turn?.attackerTeam === BATTLE_TEAM.A ? teamB : teamA;
 
-  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back). */
-  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) ?? false;
+  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back; Floral Fragrance follow-up after heal must pick enemy). */
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || (turn?.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && !!turn?.allyTargetId)) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -807,10 +809,14 @@ export default function BattleHUD({
     onResolve();
   }, [isPlaybackDriver, turn, onResolve]);
 
-  /* ── Floral Fragrance: delay target selection so fragrance wave visual plays ── */
+  /* ── Floral Fragrance: delay target selection only when picking ally (so fragrance wave can play). After heal (allyTargetId set) we already waited for result card + VFX, so show target selector immediately to avoid jitter. ── */
   const [floralDelay, setFloralDelay] = useState(false);
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && turn.allyTargetId) {
+      setFloralDelay(false); // follow-up attack after heal: no delay, show target selector right away
+      return;
+    }
+    if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE) {
       setFloralDelay(true);
       const t = setTimeout(() => setFloralDelay(false), 3000);
       return () => clearTimeout(t);
@@ -1751,13 +1757,43 @@ export default function BattleHUD({
             if (!arenaId) return;
             try {
               await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
-              // Dice view (diceViewMs) + refill card view (REFILL_CARD_VIEW_MS) so player sees dice then card at least as long as damage card
               await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
               await advanceAfterShadowCamouflageD4(arenaId);
             } catch (e) {}
           }}
         />
       )}
+
+      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit (same rate as target's critical rate); crit = 2× heal */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (() => {
+        const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
+        const floralRoll = (turn as any).floralHealRoll;
+        const critPct = floralWinFaces.length * 25;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            winFaces={floralWinFaces}
+            roll={floralRoll}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            title="Heal Crit"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
+            wonText="HEAL x2!"
+            lostText="Normal Heal"
+            bonusLabel={`crit: ${[...floralWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRoll={async (roll: number) => {
+              if (!arenaId) return;
+              try {
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
+                await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                await advanceAfterFloralHealD4(arenaId);
+              } catch (e) {}
+            }}
+            onResultCardVisible={onFloralHealResultCardVisible}
+          />
+        );
+      })()}
 
       {/* Dice rolling (attack, defend, resolving replay). In viewer mode hide when damage card is showing so blocked/hit card doesn't overlap dice. */}
       {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && !(isViewer && resolveVisible) && (

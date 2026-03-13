@@ -1258,12 +1258,37 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Fragrance (and other ally powers): apply buff, then follow-up normal attack ──
+    // ── Floral Fragrance: if target has Efflorescence Muse, roll D4 for heal crit first ──
+    const ally = findFighter(room, allyTargetId);
+    const attacker = findFighter(room, attackerId);
+    const allyHasEfflorescenceMuse = (battle.activeEffects || []).some(
+      (e) => e.targetId === allyTargetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
+    );
+
+    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasEfflorescenceMuse && ally && attacker) {
+      // Heal crit rate = target's critical rate (same as attack crit)
+      const baseCritRate = typeof ally.criticalRate === 'number' ? ally.criticalRate : 25;
+      const critMod = getStatModifier(battle.activeEffects || [], allyTargetId, MOD_STAT.CRITICAL_RATE);
+      const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
+      const winFaces = getWinningFaces(healCritRate);
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        phase: PHASE.ROLLING_FLORAL_HEAL,
+        action: TURN_ACTION.POWER,
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+        allyTargetId,
+        floralHealWinFaces: winFaces,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+
+    // ── Floral Fragrance (no Muse) or other ally powers: apply heal/buff, then follow-up normal attack ──
     const floralUpdates = applyFloralFragranced(room, attackerId, allyTargetId, battle, power);
     Object.assign(updates, floralUpdates);
 
-    const ally = findFighter(room, allyTargetId);
-    const attacker = findFighter(room, attackerId);
     const floralHeal = attacker ? Math.ceil(0.2 * attacker.maxHp) : 0;
     const defenderHpAfterFloral = ally ? Math.min(ally.currentHp + floralHeal, ally.maxHp) : 0;
     const logEntry = {
@@ -1280,13 +1305,12 @@ export async function selectAction(
       powerUsed: power.name,
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-    
 
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
       phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.ATTACK,       // follow-up as normal attack
+      action: TURN_ACTION.ATTACK,
       usedPowerIndex: powerIndex,
       usedPowerName: power.name,
       allyTargetId,
@@ -1914,6 +1938,61 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
 
   updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+  await update(roomRef(arenaId), updates);
+}
+
+/* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
+
+export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !turn?.floralHealWinFaces?.length || turn.floralHealRoll == null) return;
+
+  const attackerId = turn.attackerId;
+  const allyTargetId = turn.allyTargetId;
+  if (!attackerId || !allyTargetId || !battle) return;
+  const attacker = findFighter(room, attackerId);
+  const ally = findFighter(room, allyTargetId);
+  if (!attacker || !ally) return;
+
+  const winFaces = (turn.floralHealWinFaces ?? []).map((f: unknown) => Number(f));
+  const roll = Number(turn.floralHealRoll);
+  const isHealCrit = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
+  const baseHeal = Math.ceil(0.2 * attacker.maxHp);
+  const actualHeal = isHealCrit ? baseHeal * 2 : baseHeal;
+  const allyPath = findFighterPath(room, allyTargetId);
+  const newHp = Math.min(ally.currentHp + actualHeal, ally.maxHp);
+  const updates: Record<string, unknown> = {};
+  if (allyPath) updates[`${allyPath}/currentHp`] = newHp;
+
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId: allyTargetId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    heal: actualHeal,
+    defenderHpAfter: newHp,
+    eliminated: false,
+    missed: false,
+    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
+    floralHealCrit: isHealCrit,
+  };
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle!.log || []), logEntry]);
+  updates[ARENA_PATH.BATTLE_TURN] = {
+    attackerId,
+    attackerTeam: turn.attackerTeam,
+    phase: PHASE.SELECT_TARGET,
+    action: TURN_ACTION.ATTACK,
+    usedPowerIndex: turn.usedPowerIndex,
+    usedPowerName: turn.usedPowerName,
+    allyTargetId,
+  };
   await update(roomRef(arenaId), updates);
 }
 
