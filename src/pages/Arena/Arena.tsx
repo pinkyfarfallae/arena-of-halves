@@ -1012,6 +1012,7 @@ function Arena(props?: ArenaDemoProps) {
               // Don't clear per-pulse: that removed pulse 1 before skeleton 2 (2.5s), so only 1 shake. Map cleared when chain ends (transientEffectsActive→false) and when leaving RESOLVING.
             }}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
+            onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}
           />
         )}
       </div>

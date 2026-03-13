@@ -2,7 +2,7 @@
 @use 'sass:math';
 @use 'sass:list';
 
-/* ── Pomegranate's Oath / Spirit form — power VFX ────────────────────────── */
+/* ── Pomegranate's Oath (caster) — frame pulse, seeds, lights, mist, glow dots, oath particles ── */
 
 .mchip--pomegranate {
   .mchip__frame {
@@ -11,13 +11,6 @@
       0 0 14px rgba(#c62828, 0.45),
       0 0 28px rgba(#d32f2f, 0.2);
     animation: pomegranate-pulse 2.2s ease-in-out infinite;
-  }
-}
-
-.mchip--spirit-form {
-  .mchip__bg {
-    filter: brightness(1.2) saturate(0.5) contrast(0.85);
-    opacity: 1;
   }
 }
 
@@ -36,7 +29,7 @@
   }
 }
 
-/* POMEGRANATE EFFECT — ruby seeds + red/black lights + black mist */
+/* Caster — ruby seeds + red/black lights + black mist */
 .mchip__pom-seeds {
   position: absolute;
   top: calc(0.75rem - 5px);
@@ -130,11 +123,6 @@
   }
 }
 
-@keyframes pom-mist-breathe {
-  0% { opacity: 0.65; transform: scale(1); }
-  100% { opacity: 1; transform: scale(1.03); }
-}
-
 @keyframes pom-seed-drift {
   0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
   20% { opacity: 0.8; }
@@ -209,74 +197,83 @@
   100% { opacity: 0; transform: translateY(-35px) scaleY(1.6) scaleX(0.4) translateX(#{-5 + math.random(10)}px); }
 }
 
-/* SPIRIT FORM — ethereal ghost wisps */
-.mchip__spirit-wisps {
+/* Caster-only — glow dots, oath particles */
+.mchip__pom-caster {
   position: absolute;
-  top: 0.75rem;
+  top: calc(0.75rem - 28px);
   left: 50%;
   transform: translateX(-50%);
-  width: $frame-size-large;
-  height: $frame-size-large;
-  z-index: 7;
+  width: 180px;
+  height: 180px;
+  z-index: 5;
   pointer-events: none;
   overflow: visible;
 }
 
-.mchip__spirit-wisp {
+.mchip__pom-oath-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.mchip__pom-oath-particle {
   position: absolute;
   border-radius: 50%;
   opacity: 0;
-  animation: spirit-wisp-rise ease-in-out infinite;
+  animation: pom-oath-float ease-in-out infinite;
 
   @for $i from 1 through 8 {
     &:nth-child(#{$i}) {
-      $w: 6px + math.random(6) * 1px;
-      $h: 12px + math.random(14) * 1px;
-      width: $w;
-      height: $h;
-      opacity: 0.6;
-      border-radius: 50% 50% 40% 40%;
-      background: list.nth((rgba(#fff, 0.7) rgba(#e1bee7, 0.6) rgba(#fff, 0.55) rgba(#ce93d8, 0.55) rgba(#f3e5f5, 0.6) rgba(#fff, 0.5) rgba(#e1bee7, 0.55) rgba(#fff, 0.6)),
-          $i );
-      box-shadow: 0 0 #{6 + math.random(8)}px list.nth((rgba(#fff, 0.55) rgba(#ce93d8, 0.5) rgba(#fff, 0.45) rgba(#ba68c8, 0.45) rgba(#fff, 0.5) rgba(#ce93d8, 0.4) rgba(#fff, 0.45) rgba(#e1bee7, 0.5)),
-        $i );
-      filter: blur(#{1 + math.random(1)}px);
-      animation-duration: #{3 + math.random(3)}s;
-      animation-delay: #{math.div(math.random(25), 10)}s;
+      $size: 3px + math.random(3) * 1px;
+      width: $size;
+      height: $size;
+      background: list.nth((
+        rgba(#c62828, 0.7) rgba(#b71c1c, 0.6) rgba(#d32f2f, 0.5)
+        rgba(#8b0000, 0.5) rgba(#e53935, 0.45) rgba(#ff5252, 0.4)
+        rgba(#b71c1c, 0.55) rgba(#c62828, 0.5)
+      ), (($i - 1) % 8) + 1);
+      box-shadow: 0 0 #{4 + math.random(4)}px list.nth((
+        rgba(#c62828, 0.5) rgba(#b71c1c, 0.4) rgba(#d32f2f, 0.45)
+        rgba(#8b0000, 0.35) rgba(#e53935, 0.4) rgba(#ff5252, 0.35)
+        rgba(#b71c1c, 0.4) rgba(#c62828, 0.45)
+      ), (($i - 1) % 8) + 1);
+      animation-duration: #{3.5 + math.random(3)}s;
+      animation-delay: #{math.div(math.random(40), 10)}s;
 
-      @if $i <=3 {
-        bottom: -4px;
-        top: auto;
-        left: percentage(math.div(10 + ($i - 1) * 35, 100));
+      @if $i <= 2 {
+        top: 8% + ($i - 1) * 6%;
+        left: 15% + ($i - 1) * 60%;
       }
-      @else if $i <=5 {
-        bottom: 5%;
-        top: auto;
-        left: percentage(math.div(5 + ($i - 4) * 75, 100));
+      @else if $i <= 4 {
+        top: 25% + ($i - 3) * 25%;
+        right: 5%;
+        left: auto;
       }
-      @else if $i <=7 {
-        bottom: 20%;
+      @else if $i <= 6 {
+        bottom: 15% + ($i - 5) * 8%;
         top: auto;
-        left: percentage(math.div(-2 + ($i - 6) * 95, 100));
+        left: 10% + ($i - 5) * 70%;
       }
       @else {
-        bottom: 35%;
-        top: auto;
-        left: 40%;
+        top: 20% + ($i - 7) * 30%;
+        left: 5%;
       }
     }
   }
 }
 
-@keyframes spirit-wisp-rise {
-  0% { opacity: 0; transform: translateY(0) scaleY(0.8) scaleX(1); }
-  12% { opacity: 0.9; transform: translateY(-5px) scaleY(1.1) scaleX(0.9); }
-  40% { opacity: 0.6; transform: translateY(-18px) scaleY(1.4) scaleX(0.7) translateX(#{-4 + math.random(8)}px); }
-  75% { opacity: 0.25; }
-  100% { opacity: 0; transform: translateY(-40px) scaleY(1.6) scaleX(0.4) translateX(#{-5 + math.random(10)}px); }
+@keyframes pom-oath-float {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  25% { opacity: 0.8; transform: translate(#{-6 + math.random(12)}px, #{-4 + math.random(8)}px) scale(1); }
+  50% { opacity: 0.5; transform: translate(#{-8 + math.random(16)}px, #{-8 + math.random(16)}px) scale(0.9); }
+  75% { opacity: 0.3; }
+  100% { opacity: 0; transform: translate(#{-4 + math.random(8)}px, #{-12 + math.random(24)}px) scale(0.5); }
 }
 
-/* Medium screen: pom + spirit layout */
+/* Caster — responsive */
 @media (max-width: $bp-medium) {
   .mchip__pom-seeds {
     top: calc(0.75rem - 4px);
@@ -302,15 +299,13 @@
     transform: translateX(-50%);
   }
 
-  .mchip__spirit-wisps {
-    left: 50%;
-    width: $frame-size-medium;
-    height: $frame-size-medium;
-    transform: translateX(-50%);
+  .mchip__pom-caster {
+    top: calc(0.75rem - 22px);
+    width: 145px;
+    height: 145px;
   }
 }
 
-/* Compact screen: pom + spirit centered */
 @media (max-width: $bp-compact) {
   .mchip--pomegranate .mchip__frame {
     box-shadow:
@@ -321,8 +316,9 @@
   .mchip__pom-seeds,
   .mchip__pom-lights,
   .mchip__pom-rise,
+  .mchip__pom-caster,
   .mchip__spirit-wisps {
-    top: calc(50% - 6px);
+    top: calc(50% - ($frame-size-small / 2 - 7px - 0.65rem));
     left: 50%;
     transform: translate(-50%, -50%);
   }
@@ -342,8 +338,8 @@
     height: 80px;
   }
 
-  .mchip__spirit-wisps {
-    width: $frame-size-small;
-    height: $frame-size-small;
+  .mchip__pom-caster {
+    width: 100px;
+    height: 100px;
   }
 }
