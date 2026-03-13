@@ -11,6 +11,7 @@ import { EFFECT_TAGS } from '../../../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
+import { REFILL_DICE_VIEW_MS } from '../BattleHUD/components/RefillSPDiceModal/RefillSPDiceModal';
 import './TeamPanel.scss';
 import { SKILL_UNLOCK } from '../../../../constants/character';
 
@@ -39,6 +40,8 @@ interface Props {
   clientVisualPowerName?: string | null;
   /** True briefly when user clicks Back from target modal — prevents opposite mchip__frame shake */
   suppressHitAfterBack?: boolean;
+  /** True when Floral Heal D4 result card is visible (so healing VFX shows in sync with "Normal Heal" / "Heal x2") */
+  floralHealResultCardVisible?: boolean;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -58,7 +61,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -357,10 +360,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const clientFragrance = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
         const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
         const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
-        // Show fragrance: (1) client just selected ally (choose → select target → show), (2) server turn, (3) log, (4) demo/tag
+        // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
+        const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
+        // Never use client state for Floral Fragrance — avoids jitter (flash before D4). Show only from server: roll result or log.
+        const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
+        // Show fragrance: (1) client selected ally (non–Floral Fragrance only), (2) server turn (phaseOk), (3) after D4 roll result, (4) log, (5) demo/tag
         const isFragranceWaved =
-          !!clientFragrance
+          (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
           || (!!serverFragranceOnTarget && phaseOk)
+          || !!floralHealRollDone
           || !!logHasFloral
           || !!tagBasedProps.isFragranceWaved;
 
@@ -439,15 +447,25 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                 ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
                 : undefined
             }
+            floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
             floralFragranceHeal={
               floralLogIndex >= 0
                 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
                 : isDemo && isFragranceWaved
                   ? 2
-                  : clientFragrance && turn?.attackerId && allMembers?.length
+                  : (clientFragrance || floralHealRollDone) && turn?.attackerId && allMembers?.length
                     ? (() => {
                         const caster = allMembers.find((a) => a.characterId === turn.attackerId);
-                        return caster ? Math.ceil(0.2 * caster.maxHp) : undefined;
+                        if (!caster) return undefined;
+                        const baseHeal = Math.ceil(0.2 * caster.maxHp);
+                        if (floralHealRollDone) {
+                          const t = turn as { floralHealRoll?: number; floralHealWinFaces?: number[] };
+                          const roll = t.floralHealRoll;
+                          const winFaces = t.floralHealWinFaces ?? [];
+                          const isCrit = typeof roll === 'number' && winFaces.includes(roll);
+                          return isCrit ? baseHeal * 2 : baseHeal;
+                        }
+                        return baseHeal;
                       })()
                     : undefined
             }

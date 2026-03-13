@@ -165,6 +165,8 @@ interface Props {
   floralLogKey?: string | undefined;
   /** Floral Fragrance heal amount from log (shown as +n HP in fragrance wave). */
   floralFragranceHeal?: number;
+  /** When set, delay showing the fragrance wave by this many ms (e.g. to sync with D4 result card). */
+  floralFragranceDelayMs?: number;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
@@ -174,7 +176,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -477,10 +479,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const fragranceSuppressRef = useRef(false);
   const fragranceSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fragranceWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fragranceDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isFragranceWaved) {
       prevFragranceRef.current = false;
+      if (fragranceDelayTimerRef.current) {
+        clearTimeout(fragranceDelayTimerRef.current);
+        fragranceDelayTimerRef.current = null;
+      }
       if (fragranceWaveTimerRef.current) {
         clearTimeout(fragranceWaveTimerRef.current);
         fragranceWaveTimerRef.current = null;
@@ -502,19 +509,36 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       } catch (e) { }
     }
 
-    // Always show the wave when isFragranceWaved is true (don't gate on suppress ref so battle VFX always appears)
-    setShowFragranceWave(true);
-    fragranceWaveTimerRef.current = setTimeout(() => {
-      setShowFragranceWave(false);
-      fragranceWaveTimerRef.current = null;
-      if (floralLogKey) {
-        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
-      }
-    }, 3000);
-    prevFragranceRef.current = true;
+    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit)
+    const showWave = () => {
+      setShowFragranceWave(true);
+      fragranceWaveTimerRef.current = setTimeout(() => {
+        setShowFragranceWave(false);
+        fragranceWaveTimerRef.current = null;
+        if (floralLogKey) {
+          try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
+        }
+      }, 3000);
+      prevFragranceRef.current = true;
+    };
+    if (typeof floralFragranceDelayMs === 'number' && floralFragranceDelayMs > 0) {
+      if (fragranceDelayTimerRef.current) clearTimeout(fragranceDelayTimerRef.current);
+      fragranceDelayTimerRef.current = setTimeout(showWave, floralFragranceDelayMs);
+      return () => {
+        if (fragranceDelayTimerRef.current) {
+          clearTimeout(fragranceDelayTimerRef.current);
+          fragranceDelayTimerRef.current = null;
+        }
+      };
+    }
+    if (fragranceDelayTimerRef.current) {
+      clearTimeout(fragranceDelayTimerRef.current);
+      fragranceDelayTimerRef.current = null;
+    }
+    showWave();
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(isFragranceWaved), floralLogKey ?? '']);
+  }, [Boolean(isFragranceWaved), floralLogKey ?? '', floralFragranceDelayMs ?? 0]);
 
   // Derive visible state: hide as soon as prop is false (no waiting for useEffect / state update)
   const showFragranceVisual = showFragranceWave && isFragranceWaved;
@@ -563,6 +587,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     return () => {
       if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
       if (fragranceWaveTimerRef.current) clearTimeout(fragranceWaveTimerRef.current);
+      if (fragranceDelayTimerRef.current) clearTimeout(fragranceDelayTimerRef.current);
     };
   }, []);
 

@@ -4,9 +4,12 @@
 export const PHASE = {
   SELECT_TARGET: 'select-target',
   SELECT_ACTION: 'select-action',
+  /** Persephone's Ephemeral Season selection */
   SELECT_SEASON: 'select-season',
   ROLLING_ATTACK: 'rolling-attack',
   ROLLING_DEFEND: 'rolling-defend',
+  /** Floral Fragrance on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
+  ROLLING_FLORAL_HEAL: 'rolling-floral-heal',
   RESOLVING: 'resolving',
   DONE: 'done',
 } as const;
@@ -120,6 +123,8 @@ export function getPhaseLabel(
       if (context?.action === TURN_ACTION.POWER && context?.usedPowerName)
         return `${context.usedPowerName} → ${context.defenderName ?? '...'}`;
       return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
+    case PHASE.ROLLING_FLORAL_HEAL:
+      return 'heal crit';
     case PHASE.DONE:
       return 'done';
     default:
