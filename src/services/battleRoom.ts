@@ -2845,7 +2845,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         shieldsModified = true;
       }
       if (shieldsModified) {
-        // Remove depleted shields, persist remaining values (keep tagged shields like petal-shield)
+        // Remove depleted shields, persist remaining values (keep tagged shields like Floral Maiden)
         const cleaned = activeEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
         updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
       }
@@ -2960,7 +2960,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     Object.assign(updates, keraunosShockUpdates);
   }
 
-  // Secret of Dryad passive: grant petal-shield if atkTotal > 10
+  // Floral Maiden passive: grant shield if atkTotal > 10
   const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
   if (dryadUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     Object.assign(updates, dryadUpdates);

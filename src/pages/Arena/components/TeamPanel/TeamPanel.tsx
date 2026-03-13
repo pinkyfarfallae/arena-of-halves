@@ -263,7 +263,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         const isShocked = tagBasedProps.isShocked;
         const hasJoltArcDeceleration = tagBasedProps.hasJoltArcDeceleration;
-        const isPetalShielded = tagBasedProps.isPetalShielded;
+        const isFloralMaiden = tagBasedProps.isFloralMaiden;
         const hasPomegranateEffect = tagBasedProps.hasPomegranateEffect;
         const isSpiritForm = tagBasedProps.isSpiritForm;
         const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
@@ -386,7 +386,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isJoltArcAttackHit={isJoltArcAttackHit}
             isShocked={isShocked}
             hasJoltArcDeceleration={hasJoltArcDeceleration}
-            isPetalShielded={isPetalShielded}
+            isFloralMaiden={isFloralMaiden}
             hasPomegranateEffect={hasPomegranateEffect}
             isSpiritForm={isSpiritForm}
             isShadowCamouflaged={isShadowCamouflaged}

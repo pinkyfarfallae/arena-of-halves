@@ -23,9 +23,9 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   -webkit-mask-repeat: no-repeat;
 }
 
-/* ── Petal shield (Secret of Dryad) — power VFX ──────────────────────────── */
+/* ── Floral Maiden — power VFX ───────────────────────────────────────────── */
 
-.mchip--petal-shielded {
+.mchip--floral-maiden {
   .mchip__frame {
     box-shadow:
       0 0 0 1.5px rgba(#81c784, 0.7),
@@ -113,8 +113,8 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* Petal shield: wider frame-wrap so fairy wings sit left/right of frame (like Nimbus) */
-.mchip__frame-wrap--petal {
+/* Floral Maiden: wider frame-wrap so fairy wings sit left/right of frame (like Nimbus) */
+.mchip__frame-wrap--floral-maiden {
   width: calc(v.$frame-size-large + 72px);
   min-width: calc(v.$frame-size-large + 72px);
 }
@@ -267,7 +267,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
 
 /* Medium screen: petal VFX use frame-size-medium */
 @media (max-width: v.$bp-medium) {
-  .mchip__frame-wrap--petal {
+  .mchip__frame-wrap--floral-maiden {
     width: calc(v.$frame-size-medium + 72px);
     min-width: calc(v.$frame-size-medium + 72px);
   }
@@ -584,7 +584,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   animation: leaf-drift-a 4s ease-in-out infinite alternate;
 }
 
-/* Petal shield badge (Secret of Dryad) */
+/* Floral Maiden badge */
 .mchip__petal-badge {
   position: absolute;
   top: 4px;
@@ -668,13 +668,13 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
 
 /* Compact: petal badge + frame-size-small for all petal VFX */
 @media (max-width: v.$bp-compact) {
-  .mchip--petal-shielded .mchip__frame {
+  .mchip--floral-maiden .mchip__frame {
     box-shadow:
       0 0 0 1px rgba(#81c784, 0.6),
       0 0 8px rgba(#66bb6a, 0.3);
   }
 
-  .mchip__frame-wrap--petal {
+  .mchip__frame-wrap--floral-maiden {
     width: calc(v.$frame-size-small + 72px);
     min-width: calc(v.$frame-size-small + 72px);
   }
@@ -933,7 +933,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* ── Falling petals & leaves (Secret of Dryad) ── */
+/* ── Falling petals & leaves (Floral Maiden) ── */
 .mchip__petal-fall {
   position: absolute;
   inset: 0;
@@ -1127,7 +1127,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* ── White falling lights (Secret of Dryad — sunlight through leaves); white shine ── */
+/* ── White falling lights (Floral Maiden — sunlight through leaves); white shine ── */
 .mchip__dryad-lights {
   position: absolute;
   inset: 0;

@@ -17,7 +17,7 @@ const DEFAULT_GRADIENT = {
 } as const;
 
 /**
- * Vine frame — curved stems and leaves along all four edges (Petal Shield / Secret of Dryad).
+ * Vine frame — curved stems and leaves along all four edges (Floral Maiden).
  * Designed for viewBox 0 0 100 100, to be scaled over the chip frame.
  */
 export default function PetalVines({

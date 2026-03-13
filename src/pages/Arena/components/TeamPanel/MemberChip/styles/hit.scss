@@ -58,7 +58,7 @@
 $effects-with-hit: (
   'jolt-arc-deceleration': 'hit-shake 0.5s ease-out, jolt-decel-pulse 2s ease-in-out infinite',
   'keraunos-voltage': 'hit-shake 0.5s ease-out, keraunos-shake 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, keraunos-frame-glow 12s ease-out forwards !important',
-  'petal-shielded': 'hit-shake 0.5s ease-out',
+  'floral-maiden': 'hit-shake 0.5s ease-out',
   'pomegranate': 'hit-shake 0.5s ease-out',
   'spirit-form': 'hit-shake 0.5s ease-out',
   'shadow-camouflaged': 'hit-shake 0.5s ease-out, shadow-glitch 8s ease-in-out infinite',
@@ -92,7 +92,7 @@ $effects-with-hit: (
 $effects-with-shock-hit: (
   'jolt-arc-deceleration': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, jolt-decel-pulse 2s ease-in-out infinite',
   'keraunos-voltage': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, keraunos-shake 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, keraunos-frame-glow 12s ease-out forwards !important',
-  'petal-shielded': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'floral-maiden': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
   'pomegranate': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
   'spirit-form': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
   'shadow-camouflaged': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, shadow-glitch 8s ease-in-out infinite',
