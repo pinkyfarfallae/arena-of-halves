@@ -4,7 +4,7 @@ interface Props {
   color2: string;
 }
 
-export default function PetalShield({ gradientId, color1, color2 }: Props) {
+export default function FloralMaiden({ gradientId, color1, color2 }: Props) {
   return (
     <svg viewBox="0 0 24 24">
       <defs>

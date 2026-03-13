@@ -17,7 +17,7 @@ export const EFFECT_TAGS = {
   SOUL_DEVOURER: 'soul-devourer',
 
   // Persephone
-  PETAL_SHIELD: 'petal-shield',
+  FLORAL_MAIDEN: 'floral-maiden',
   SEASON_SPRING: 'season-spring',
   SEASON_AUTUMN: 'season-autumn',
   SEASON_WINTER: 'season-winter',

@@ -21,7 +21,7 @@ export interface PowerVfxChipProps {
   hasBeyondNimbus?: boolean;
   isShocked?: boolean;
   hasJoltArcDeceleration?: boolean;
-  isPetalShielded?: boolean;
+  isFloralMaiden?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
   isShadowCamouflaged?: boolean;
@@ -113,13 +113,13 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   { id: 'shock-hit', label: 'Shock Hit', side: 'target', group: 'Zeus', props: { isShockHit: true } },
   // —— Persephone ——
   {
-    id: 'petal-shielded',
-    label: 'Secret of Dryad / Petal Shield (caster)',
+    id: 'floral-maiden',
+    label: 'Floral Maiden (caster)',
     side: 'caster',
     group: 'Persephone',
-    tag: EFFECT_TAGS.PETAL_SHIELD,
+    tag: EFFECT_TAGS.FLORAL_MAIDEN,
     applyTo: 'target',
-    props: { isPetalShielded: true },
+    props: { isFloralMaiden: true },
   },
   {
     id: 'pomegranate-caster',

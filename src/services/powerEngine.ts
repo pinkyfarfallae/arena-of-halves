@@ -138,11 +138,11 @@ export function applyPowerEffect(
   const targetPath = findFighterPath(room, targetId);
   const attackerPath = findFighterPath(room, attackerId);
 
-  // Petal-shield immunity: block debuff/stun/dot on shielded target
+  // Floral Maiden immunity: block debuff/stun/dot on shielded target
   if (
     (power.effect === EFFECT_TYPES.DEBUFF || power.effect === EFFECT_TYPES.STUN || power.effect === EFFECT_TYPES.DOT) &&
     power.target !== 'self' &&
-    effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.PETAL_SHIELD)
+    effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)
   ) {
     return updates; // blocked by status immunity
   }
@@ -398,8 +398,8 @@ export function tickEffects(
 /* ── Zeus: central shock application (shared by Lightning Spark, Nimbus, Keraunos) ── */
 
 export type ApplyShockedEffectOptions = {
-  /** If true, do not apply shock to targets with petal-shield (default true). */
-  skipIfPetalShield?: boolean;
+  /** If true, do not apply shock to targets with Floral Maiden (default true). */
+  skipIfFloralMaiden?: boolean;
   /** If set, use this as target's current HP for bonus-damage calculation (e.g. after other damage this turn). */
   currentHp?: number;
 };
@@ -423,14 +423,14 @@ export function applyShockedEffectToTarget(
   bonusDamage: number;
   hpUpdate: { path: string; value: number } | null;
 } {
-  const { skipIfPetalShield = true, currentHp: currentHpOverride } = options;
+  const { skipIfFloralMaiden = true, currentHp: currentHpOverride } = options;
   const nextEffects = [...effects];
 
-  if (skipIfPetalShield) {
-    const isPetalShielded = nextEffects.some(
-      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.PETAL_SHIELD,
+  if (skipIfFloralMaiden) {
+    const isFloralMaiden = nextEffects.some(
+      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
     );
-    if (isPetalShielded) return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
+    if (isFloralMaiden) return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
   }
 
   const hasShock = nextEffects.some(
@@ -494,7 +494,7 @@ export function applyLightningReflexPassive(
     effects,
     baseDamage,
     POWER_NAMES.LIGHTNING_SPARK,
-    { skipIfPetalShield: true },
+    { skipIfFloralMaiden: true },
   );
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = result.effects;
   if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -533,7 +533,7 @@ export function applyBeyondTheNimbusTeamShock(
       effects,
       baseDamage,
       POWER_NAMES.BEYOND_THE_NIMBUS,
-      { skipIfPetalShield: true },
+      { skipIfFloralMaiden: true },
     );
     effects = result.effects;
     if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -668,7 +668,7 @@ export function applyKeraunosVoltageShock(
       effects,
       baseDmg,
       POWER_NAMES.KERAUNOS_VOLTAGE,
-      { skipIfPetalShield: true, ...(currentHp !== undefined && { currentHp }) },
+      { skipIfFloralMaiden: true, ...(currentHp !== undefined && { currentHp }) },
     );
     effects = result.effects;
     if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -677,10 +677,10 @@ export function applyKeraunosVoltageShock(
   return updates;
 }
 
-/* ── Persephone: Secret of Dryad passive ─────────────── */
+/* ── Persephone: Floral Maiden passive ────────────────── */
 
 /**
- * When Persephone is attacker and atkTotal > 10, grant petal-shield
+ * When Persephone is attacker and atkTotal > 10, grant Floral Maiden
  * (status immunity: blocks debuff/stun/dot) lasting one full round.
  */
 export function applySecretOfDryadPassive(
@@ -699,9 +699,9 @@ export function applySecretOfDryadPassive(
   );
   if (!passive) return {};
 
-  // Already has petal-shield? Skip (don't stack)
+  // Already has Floral Maiden? Skip (don't stack)
   const effects = [...(battle.activeEffects || [])];
-  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.PETAL_SHIELD)) return {};
+  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)) return {};
 
   // Duration = turnQueue.length + 1 (offset: tickEffects decrements 1 in same resolve)
   const queueLen = battle.turnQueue?.length || 1;
@@ -713,7 +713,7 @@ export function applySecretOfDryadPassive(
     targetId: attackerId,
     value: 0,
     turnsRemaining: queueLen + 1,
-    tag: EFFECT_TAGS.PETAL_SHIELD,
+    tag: EFFECT_TAGS.FLORAL_MAIDEN,
   });
 
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
