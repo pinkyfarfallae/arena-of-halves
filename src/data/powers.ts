@@ -835,9 +835,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
 
 /** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
 export const NO_STACK_POWER_NAMES: Set<string> = new Set([
+  // Zeus
   POWER_NAMES.BEYOND_THE_NIMBUS,
+  // Hades
   POWER_NAMES.SHADOW_CAMOUFLAGING,
   POWER_NAMES.SOUL_DEVOURER,
+  // Persephone
+  POWER_NAMES.SECRET_OF_DRYAD,
 ]);
 
 /** Synchronous power lookup by deity name (case-insensitive). */

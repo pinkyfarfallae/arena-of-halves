@@ -656,6 +656,12 @@ export async function startBattle(arenaId: string): Promise<void> {
     log: [],
     activeEffects: passiveEffects,
   };
+  // Secret of Dryad: apply Floral Maiden for the first attacker before select action
+  const dryadFirst = applySecretOfDryadPassive(room, first.characterId, battle, 0);
+  const initialEffects = dryadFirst[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined;
+  if (initialEffects) {
+    battle.activeEffects = initialEffects;
+  }
 
   await update(roomRef(arenaId), {
     status: ROOM_STATUS.BATTLING,
@@ -1234,12 +1240,18 @@ export async function selectAction(
         updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
         if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+        const battleForDryadS1 = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+        const d1 = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadS1, 0);
+        if (d1[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, d1);
       } else {
         updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
         updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
         const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
         if (selfRes1) turnData.resurrectTargetId = nextEntry.characterId;
         updates[ARENA_PATH.BATTLE_TURN] = turnData;
+        const battleForDryadN1 = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+        const d2 = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryadN1, 0);
+        if (d2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, d2);
       }
 
       await update(roomRef(arenaId), updates);
@@ -2960,12 +2972,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     Object.assign(updates, keraunosShockUpdates);
   }
 
-  // Floral Maiden passive: upon attack turn, enter Floral Maiden (immunity + 25% crit)
-  const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
-  if (dryadUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
-    Object.assign(updates, dryadUpdates);
-  }
-
   // Pomegranate's Oath co-attack: when oath-bearer attacks + hits, caster co-attacks
   // Self-target (caster === oath-bearer): no co-attack
   if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
@@ -3108,6 +3114,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       attackerTeam: skipEntry.team,
       phase: PHASE.SELECT_ACTION,
     };
+    const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
+    if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
     const battleForFloralSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
     const floralSkipUpdates = onFloralMaidenTurnStart(room, battleForFloralSkip, skipEntry.characterId);
     if (floralSkipUpdates) Object.assign(updates, floralSkipUpdates);
@@ -3121,6 +3130,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     };
     if (selfRes3) turnData.resurrectTargetId = nextEntry.characterId;
     updates[ARENA_PATH.BATTLE_TURN] = turnData;
+    const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
+    if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
     const battleForFloral = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
     const floralUpdates = onFloralMaidenTurnStart(room, battleForFloral, nextEntry.characterId);
     if (floralUpdates) Object.assign(updates, floralUpdates);
