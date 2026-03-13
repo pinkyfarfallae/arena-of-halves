@@ -21,7 +21,7 @@ export interface PowerVfxChipProps {
   hasBeyondNimbus?: boolean;
   isShocked?: boolean;
   hasJoltArcDeceleration?: boolean;
-  isFloralMaiden?: boolean;
+  isEfflorescenceMuse?: boolean;
   hasPomegranateEffect?: boolean;
   isSpiritForm?: boolean;
   isShadowCamouflaged?: boolean;
@@ -99,7 +99,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   },
   {
     id: 'jolt-arc-deceleration',
-    label: 'Jolt Arc (affected → Deceleration)',
+    label: 'Jolt Arc Deceleration (affected)',
     side: 'target',
     group: 'Zeus',
     tag: EFFECT_TAGS.JOLT_ARC_DECELERATION,
@@ -113,13 +113,13 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   { id: 'shock-hit', label: 'Shock Hit', side: 'target', group: 'Zeus', props: { isShockHit: true } },
   // —— Persephone ——
   {
-    id: 'floral-maiden',
-    label: 'Floral Maiden (caster)',
+    id: 'efflorescence-muse',
+    label: 'Efflorescence Muse (caster)',
     side: 'caster',
     group: 'Persephone',
-    tag: EFFECT_TAGS.FLORAL_MAIDEN,
+    tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
     applyTo: 'target',
-    props: { isFloralMaiden: true },
+    props: { isEfflorescenceMuse: true },
   },
   {
     id: 'pomegranate-caster',
@@ -192,6 +192,17 @@ export function mergePropsForSide(
   }
   if (effectPips.length) merged.effectPips = effectPips;
   return merged;
+}
+
+/**
+ * Effect name for tooltips (e.g. effect pip hover). Strips parenthetical suffix from registry label.
+ * Returns undefined if no registry entry has this tag.
+ */
+export function getEffectDisplayNameForTag(tag: string | undefined): string | undefined {
+  if (!tag) return undefined;
+  const entry = POWER_VFX_EFFECTS.find((e) => e.tag === tag);
+  if (!entry?.label) return undefined;
+  return entry.label.replace(/\s*\([^)]*\)\s*$/, '').trim() || entry.label;
 }
 
 /**

@@ -7,5 +7,5 @@ export const BLESSINGS_TAGS: EffectTag[] = [
   // Zeus
   EFFECT_TAGS.BEYOND_THE_NIMBUS,
   // Persephone
-  EFFECT_TAGS.FLORAL_MAIDEN,
+  EFFECT_TAGS.EFFLORESCENCE_MUSE,
 ] as const;
