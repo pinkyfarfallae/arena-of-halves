@@ -14,6 +14,15 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   -webkit-mask-repeat: no-repeat;
 }
 
+@mixin petal-right-side-fade-mask {
+  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
 /* ── Petal shield (Secret of Dryad) — power VFX ──────────────────────────── */
 
 .mchip--petal-shielded {
@@ -253,6 +262,34 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   50% {
     opacity: 0.95;
     transform: scale(1) scaleX(-1) rotate(35deg) scaleY(1.05);
+  }
+}
+
+/* Medium screen: petal VFX use frame-size-medium */
+@media (max-width: v.$bp-medium) {
+  .mchip__frame-wrap--petal {
+    width: calc(v.$frame-size-medium + 72px);
+    min-width: calc(v.$frame-size-medium + 72px);
+  }
+
+  .mchip__petal-fairy-wing--lt,
+  .mchip__petal-fairy-wing--lb {
+    left: calc(50% + math.div(v.$frame-size-medium, 2));
+  }
+
+  .mchip__petal-fairy-wing--rt,
+  .mchip__petal-fairy-wing--rb {
+    left: calc(50% - math.div(v.$frame-size-medium, 2));
+  }
+
+  .mchip__petal-vines {
+    width: calc(v.$frame-size-medium + 16px) !important;
+    height: calc(v.$frame-size-medium + 20px) !important;
+  }
+
+  .mchip__petal-corners {
+    width: calc(v.$frame-size-medium + 16px);
+    height: calc(v.$frame-size-medium + 20px);
   }
 }
 
@@ -629,12 +666,42 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
   }
 }
 
-/* Compact: petal badge */
+/* Compact: petal badge + frame-size-small for all petal VFX */
 @media (max-width: v.$bp-compact) {
   .mchip--petal-shielded .mchip__frame {
     box-shadow:
       0 0 0 1px rgba(#81c784, 0.6),
       0 0 8px rgba(#66bb6a, 0.3);
+  }
+
+  .mchip__frame-wrap--petal {
+    width: calc(v.$frame-size-small + 72px);
+    min-width: calc(v.$frame-size-small + 72px);
+  }
+
+  .mchip__petal-fairy-wing {
+    filter: brightness(1.5) saturate(15.5);
+    border: 2.5px solid white;
+  }
+
+  .mchip__petal-fairy-wing--lt,
+  .mchip__petal-fairy-wing--lb {
+    left: calc(50% + math.div(v.$frame-size-small, 2));
+  }
+
+  .mchip__petal-fairy-wing--rt,
+  .mchip__petal-fairy-wing--rb {
+    left: calc(50% - math.div(v.$frame-size-small, 2));
+  }
+
+  .mchip__petal-vines {
+    width: calc(v.$frame-size-small + 16px) !important;
+    height: calc(v.$frame-size-small + 20px) !important;
+  }
+
+  .mchip__petal-corners {
+    width: calc(v.$frame-size-small + 16px);
+    height: calc(v.$frame-size-small + 20px);
   }
 
   .mchip__petal-badge {
@@ -895,6 +962,7 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
     left: 0;
     right: 0;
     height: 200%;
+    opacity: 0.75;
     pointer-events: none;
     filter: brightness(1.15) saturate(1.5);
   }
@@ -967,6 +1035,26 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
 }
 
 @media (max-width: v.$bp-compact) {
+  .mchip__petal-wind {
+    opacity: 0.5;
+    @include petal-right-side-fade-mask;
+  }
+
+  .mchip__petal-emission {
+    width: 100%;
+    @include petal-right-side-fade-mask;
+  }
+
+  .mchip__petal-overlay {
+    opacity: 0.75;
+    @include petal-right-side-fade-mask;
+  }
+
+  .mchip__petal-flower {
+    width: 10px;
+    height: 10px;
+  }
+
   .mchip__petal-fall {
     &::before {
       background:
@@ -1029,6 +1117,13 @@ $petal-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 1
         radial-gradient(ellipse 4px 3px at 88% 88%, rgba(#81c784, 0.65) 0%, transparent 100%),
         radial-gradient(ellipse 3px 4px at 40% 95%, rgba(#66bb6a, 0.7) 0%, transparent 100%);
     }
+  }
+
+  .mchip__petal-fairy-wing--lt {
+    rotate: -17deg;
+  }
+  .mchip__petal-fairy-wing--rt {
+    rotate: 23deg;
   }
 }
 
