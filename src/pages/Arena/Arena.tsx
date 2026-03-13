@@ -179,9 +179,10 @@ function Arena(props?: ArenaDemoProps) {
       clearTimeout(tEnd);
     };
   }, [soulDrainTurn?.phase, (soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain]);
-  // Local visual override used when NPC schedules a target but server update is delayed
+  // Local visual override: NPC schedules a target, or human selects ally for Floral Fragrance (show heal effect immediately)
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
+  const floralVisualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
@@ -235,11 +236,28 @@ function Arena(props?: ArenaDemoProps) {
   const onSelectActionDeferred = useCallback((action: TurnAction, powerName?: string, allyTargetId?: string) => {
     if (action === TURN_ACTION.POWER && powerName) {
       setLastConfirmedPowerName(powerName);
+      // Show Floral Fragrance healing effect immediately when human selects ally (choose → select target → show)
+      if (powerName === POWER_NAMES.FLORAL_FRAGRANCE && allyTargetId) {
+        if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+        setNpcVisualTarget(allyTargetId);
+        setNpcVisualPowerName(POWER_NAMES.FLORAL_FRAGRANCE);
+        floralVisualTimerRef.current = setTimeout(() => {
+          setNpcVisualTarget(null);
+          setNpcVisualPowerName(null);
+          floralVisualTimerRef.current = null;
+        }, 3000);
+      }
     } else {
       setLastConfirmedPowerName(null);
     }
     runAsync(() => handleSelectAction(action, powerName, allyTargetId));
   }, [runAsync, handleSelectAction]);
+
+  useEffect(() => {
+    return () => {
+      if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+    };
+  }, []);
 
   /* ── Clear confirmed power name when leaving action/target flow (so next turn shows action modal) ── */
   useEffect(() => {

@@ -796,29 +796,22 @@ export function onFloralMaidenTurnStart(
 /* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
 
 /**
- * Anoint an ally with flower fragrance: heal +value HP (capped at maxHp), then normal attack follows.
- * If caster has Efflorescence Muse, roll d4 for heal crit; on 4, double the heal.
+ * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.
  */
 export function applyFloralFragranced(
   room: BattleRoom,
   attackerId: string,
   allyTargetId: string,
   battle: BattleState,
-  power: PowerDefinition,
+  _power: PowerDefinition,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
+  const caster = findFighter(room, attackerId);
   const ally = findFighter(room, allyTargetId);
   const allyPath = findFighterPath(room, allyTargetId);
-  if (!ally || !allyPath) return {};
+  if (!caster || !ally || !allyPath) return {};
 
-  let healValue = power.value;
-  const casterHasFloralMaiden = (battle.activeEffects || []).some(
-    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
-  );
-  if (casterHasFloralMaiden) {
-    const healCritRoll = Math.ceil(Math.random() * 4); // d4
-    if (healCritRoll === 4) healValue *= 2; // critical heal: HP doubled
-  }
+  const healValue = Math.ceil(0.2 * caster.maxHp);
   const newCurrentHp = Math.min(ally.currentHp + healValue, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
   return updates;

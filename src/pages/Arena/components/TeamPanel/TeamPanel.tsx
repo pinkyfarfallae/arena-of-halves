@@ -92,7 +92,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     return map;
   }, [allMembers, members]);
 
-  // Demo mode: effect pip source on the opposite panel shows as "Caster" or "Target" instead of fighter name
+  // Demo mode: effect pip source on the opposite panel shows as "Left" or "Right" (panel side), not fighter name
   const isDemo = !!(battle as { _demoVfxKey?: string })?._demoVfxKey;
   const oppositeMemberIds = useMemo(() => {
     if (!isDemo || !allMembers?.length || !members?.length) return new Set<string>();
@@ -297,9 +297,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return Array.from(grouped.values()).map(g => {
             const source = fighterMap.get(g.sourceId);
             const displayName = getEffectDisplayNameForTag(g.tag);
-            const sourceName =
-              isDemo && oppositeMemberIds.has(g.sourceId)
-                ? (side === PANEL_SIDE.LEFT ? 'Target' : 'Caster')
+            const isSelfTarget = g.sourceId === m.characterId;
+            const sourceName = isSelfTarget
+              ? 'Self'
+              : isDemo && oppositeMemberIds.has(g.sourceId)
+                ? (side === PANEL_SIDE.LEFT ? 'Right' : 'Left')
                 : (source?.nicknameEng || '?');
             return {
               powerName: g.powerName,
@@ -319,27 +321,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase === PHASE.SELECT_ACTION
         ) || !!tagBasedProps.isResurrecting;
 
-        // Floral Fragrance: brief trigger when just applied
-        // Also watch recent persistent log entries so we show the fragrance VFX even
-        // when the server wrote a log entry but the turn fields aren't present
-        // on the client yet. Only show the fragrance for the exact 'Floral Fragrance' power.
-        // Only consider recent persistent log entries from the current round
-        const recentLog = Array.isArray(battle?.log)
-          ? (battle!.log as any[]).slice(-8).filter((le) => le.round === battle?.roundNumber)
-          : [];
-        // Only consider a recent Floral Fragrance log as a fragrance trigger if the
-        // log appears to be written but the heal hasn't been applied yet.
-        // For skipDice heal powers the log may contain a `defenderHpAfter` that
-        // reflects the defender's HP before the heal (server writes effect + log
-        // in one update). If the local fighter's currentHp is already greater
-        // than the log's `defenderHpAfter`, the heal has been applied — do not
-        // show the transient fragrance in that case.
+        // Floral Fragrance: brief trigger when just applied (real battle + demo)
+        // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
+        const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-8) : [];
+        const recentLog = rawRecent.filter((le) => le.round === battle?.roundNumber);
+        const floralSearchLog = rawRecent;
         const floralLogIndex = (() => {
-          for (let idx = recentLog.length - 1; idx >= 0; idx--) {
-            const le = recentLog[idx];
-            if (typeof le.powerUsed !== 'string' || le.powerUsed !== POWER_NAMES.FLORAL_FRAGRANCE) continue;
-            if (le.defenderId !== m.characterId) continue;
-            if (typeof le.defenderHpAfter === 'number' && Number(le.defenderHpAfter) === Number(m.currentHp)) return idx;
+          const powerName = (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
+          const charId = String(m.characterId);
+          for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
+            const le = floralSearchLog[idx];
+            const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
+            if (pu !== powerName) continue;
+            if (String(le.defenderId) !== charId) continue;
+            return idx;
           }
           return -1;
         })();
@@ -360,14 +355,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
         const clientFragrance = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
-        // Server-driven fragrance: show only on the explicit ally target.
-        // Floral Fragrance is always an ally-target power, so fragrance should only
-        // appear on the target, never on the caster side.
-        const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
-        const serverFragranceOnTarget = turn?.allyTargetId === m.characterId && isFloralPowerInUse;
-        // Suppress fragrance wave visual while transient effects (minion hits, DamageCards)
-        // are actively playing so effects chain sequentially instead of overlapping.
-        const isFragranceWaved = (!!(serverFragranceOnTarget || clientFragrance || logHasFloral) && phaseOk && !transientEffectsActive)
+        const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
+        const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
+        // Show fragrance: (1) client just selected ally (choose → select target → show), (2) server turn, (3) log, (4) demo/tag
+        const isFragranceWaved =
+          !!clientFragrance
+          || (!!serverFragranceOnTarget && phaseOk)
+          || !!logHasFloral
           || !!tagBasedProps.isFragranceWaved;
 
         // Stat modifiers from active buffs/debuffs
@@ -444,6 +438,18 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               logHasFloral && battle?.roundNumber != null && floralLogIndex >= 0
                 ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
                 : undefined
+            }
+            floralFragranceHeal={
+              floralLogIndex >= 0
+                ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
+                : isDemo && isFragranceWaved
+                  ? 2
+                  : clientFragrance && turn?.attackerId && allMembers?.length
+                    ? (() => {
+                        const caster = allMembers.find((a) => a.characterId === turn.attackerId);
+                        return caster ? Math.ceil(0.2 * caster.maxHp) : undefined;
+                      })()
+                    : undefined
             }
             soulDevourerHealAmount={soulDevourerHealFromLog?.amount}
             soulDevourerHealKey={soulDevourerHealFromLog?.key}

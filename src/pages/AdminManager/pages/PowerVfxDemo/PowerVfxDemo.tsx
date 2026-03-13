@@ -183,8 +183,8 @@ export default function PowerVfxDemo() {
           ? [deity]
           : [];
     const effects = POWER_VFX_EFFECTS.filter((e) => {
-      if (e.side === 'target') return true;
-      if (e.side === 'caster') return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
+      if (e.side === EFFECT_SIDE_LABEL.TARGET) return true;
+      if (e.side === EFFECT_SIDE_LABEL.CASTER) return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
       return false;
     });
     const byGroup = effects.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
@@ -205,8 +205,8 @@ export default function PowerVfxDemo() {
           ? [deity]
           : [];
     const effects = POWER_VFX_EFFECTS.filter((e) => {
-      if (e.side === 'target') return true;
-      if (e.side === 'caster') return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
+      if (e.side === EFFECT_SIDE_LABEL.TARGET) return true;
+      if (e.side === EFFECT_SIDE_LABEL.CASTER) return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
       return false;
     });
     const byGroup = effects.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
@@ -224,7 +224,7 @@ export default function PowerVfxDemo() {
       Object.fromEntries(
         POWER_VFX_EFFECTS.map((e) => [
           e.id,
-          e.side === 'caster' ? EFFECT_SIDE_LABEL.CASTER : EFFECT_SIDE_LABEL.TARGET,
+          e.side === EFFECT_SIDE_LABEL.CASTER ? EFFECT_SIDE_LABEL.CASTER : EFFECT_SIDE_LABEL.TARGET,
         ])
       ),
     []

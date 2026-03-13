@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { OptionGroup } from '../../../../../../components/Form';
-import { CI_THEME_VARS, EFFECT_SIDE_LABEL } from '../../utils/constants';
+import { CI_THEME_VARS, EFFECT_SIDE_LABEL, SIDE_LABEL } from '../../utils/constants';
 import type { EffectModalSide, EffectSide } from '../../utils/types';
 import { PANEL_SIDE } from '../../../../../../constants/battle';
 import EmptyStateIcon from './icons/EmptyStateIcon';
@@ -93,12 +93,12 @@ export default function EffectStackModal({
     return { main: label.trim(), desc: '' };
   };
 
-  /** Badge per option: effect type (caster/target) when optionSideByValue is provided; else infer from modal side */
+  /** Badge per option: effect type (caster/target) when optionSideByValue is provided; else panel side (Left/Right) */
   const getBadgeForValue = (value: string): { label: string; title: string } => {
     const effectSide = optionSideByValue?.[value];
     if (effectSide === EFFECT_SIDE_LABEL.TARGET) return { label: 'T', title: EFFECT_SIDE_LABEL.TARGET };
     if (effectSide === EFFECT_SIDE_LABEL.CASTER) return { label: 'C', title: EFFECT_SIDE_LABEL.CASTER };
-    return { label: side === PANEL_SIDE.LEFT ? 'C' : 'T', title: side === PANEL_SIDE.LEFT ? EFFECT_SIDE_LABEL.CASTER : EFFECT_SIDE_LABEL.TARGET };
+    return { label: side === PANEL_SIDE.LEFT ? 'L' : 'R', title: side === PANEL_SIDE.LEFT ? SIDE_LABEL.LEFT : SIDE_LABEL.RIGHT };
   };
 
   if (!open) return null;
