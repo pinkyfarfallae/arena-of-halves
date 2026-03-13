@@ -138,13 +138,17 @@ export function applyPowerEffect(
   const targetPath = findFighterPath(room, targetId);
   const attackerPath = findFighterPath(room, attackerId);
 
-  // Floral Maiden immunity: block debuff/stun/dot on shielded target
+  // Floral Maiden immunity: block debuff/stun/dot on shielded target; when negated, consume Floral Maiden
   if (
     (power.effect === EFFECT_TYPES.DEBUFF || power.effect === EFFECT_TYPES.STUN || power.effect === EFFECT_TYPES.DOT) &&
     power.target !== 'self' &&
     effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN)
   ) {
-    return updates; // blocked by status immunity
+    const withoutFloralMaiden = effects.filter(
+      e => !(e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN),
+    );
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutFloralMaiden;
+    return updates; // blocked; Floral Maiden consumed
   }
 
   switch (power.effect) {
@@ -155,7 +159,15 @@ export function applyPowerEffect(
     }
 
     case EFFECT_TYPES.HEAL: {
-      const newHp = Math.min(target.maxHp, target.currentHp + power.value);
+      let healValue = power.value;
+      const casterHasFloralMaiden = effects.some(
+        e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+      );
+      if (casterHasFloralMaiden) {
+        const healCritRoll = Math.ceil(Math.random() * 4); // d4
+        if (healCritRoll === 4) healValue *= 2; // critical heal: HP doubled
+      }
+      const newHp = Math.min(target.maxHp, target.currentHp + healValue);
       if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
       break;
     }
@@ -430,7 +442,13 @@ export function applyShockedEffectToTarget(
     const isFloralMaiden = nextEffects.some(
       (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
     );
-    if (isFloralMaiden) return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
+    if (isFloralMaiden) {
+      // Negate affliction (shock); consume Floral Maiden
+      const consumed = nextEffects.filter(
+        (e) => !(e.targetId === targetId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN),
+      );
+      return { effects: consumed, bonusDamage: 0, hpUpdate: null };
+    }
   }
 
   const hasShock = nextEffects.some(
@@ -680,17 +698,15 @@ export function applyKeraunosVoltageShock(
 /* ── Persephone: Floral Maiden passive ────────────────── */
 
 /**
- * When Persephone is attacker and atkTotal > 10, grant Floral Maiden
- * (status immunity: blocks debuff/stun/dot) lasting one full round.
+ * Upon attack turn, grant Floral Maiden (status immunity + 25% crit).
+ * Lasts one full round. Does not stack; re-applied on turn start when still active (see onFloralMaidenTurnStart).
  */
 export function applySecretOfDryadPassive(
   room: BattleRoom,
   attackerId: string,
   battle: BattleState,
-  atkTotal: number,
+  _atkTotal: number,
 ): Record<string, unknown> {
-  if (atkTotal <= 10) return {};
-
   const attacker = findFighter(room, attackerId);
   if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
 
@@ -705,6 +721,7 @@ export function applySecretOfDryadPassive(
 
   // Duration = turnQueue.length + 1 (offset: tickEffects decrements 1 in same resolve)
   const queueLen = battle.turnQueue?.length || 1;
+  const duration = queueLen + 1;
   effects.push({
     id: makeEffectId(attackerId, POWER_NAMES.SECRET_OF_DRYAD),
     powerName: POWER_NAMES.SECRET_OF_DRYAD,
@@ -712,23 +729,76 @@ export function applySecretOfDryadPassive(
     sourceId: attackerId,
     targetId: attackerId,
     value: 0,
-    turnsRemaining: queueLen + 1,
+    turnsRemaining: duration,
     tag: EFFECT_TAGS.FLORAL_MAIDEN,
+  });
+  // +25% critical hit chance while in Floral Maiden (same duration; removed when Floral Maiden is consumed)
+  effects.push({
+    id: makeEffectId(attackerId, `${POWER_NAMES.SECRET_OF_DRYAD}_crit`),
+    powerName: POWER_NAMES.SECRET_OF_DRYAD,
+    effectType: EFFECT_TYPES.BUFF,
+    sourceId: attackerId,
+    targetId: attackerId,
+    value: 25,
+    turnsRemaining: duration,
+    tag: EFFECT_TAGS.FLORAL_MAIDEN,
+    modStat: MOD_STAT.CRITICAL_RATE,
   });
 
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
+}
+
+/** Affliction tags/effects that Floral Maiden clears on turn start */
+const AFFLICTION_TAGS = [EFFECT_TAGS.SHOCK, EFFECT_TAGS.STUN, EFFECT_TAGS.JOLT_ARC_DECELERATION] as const;
+
+/**
+ * When it's the fighter's turn again while still in Floral Maiden: clear previous turn's afflictions,
+ * then refresh Floral Maiden (reset duration, no stack). Call when advancing to next attacker.
+ */
+export function onFloralMaidenTurnStart(
+  room: BattleRoom,
+  battle: BattleState,
+  nextAttackerId: string,
+): Record<string, unknown> | null {
+  const effects = [...(battle.activeEffects || [])];
+  const hasFloralMaiden = effects.some(
+    e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+  );
+  if (!hasFloralMaiden) return null;
+
+  const queueLen = battle.turnQueue?.length || 1;
+  const duration = queueLen + 1;
+
+  // Remove afflictions on this fighter (shock, stun, dot, debuff)
+  let next = effects.filter(e => {
+    if (e.targetId !== nextAttackerId) return true;
+    if (AFFLICTION_TAGS.includes(e.tag as any)) return false;
+    if (e.effectType === EFFECT_TYPES.DOT || e.effectType === EFFECT_TYPES.DEBUFF) return false;
+    return true;
+  });
+
+  // Refresh Floral Maiden duration (shield + crit buff)
+  next = next.map(e => {
+    if (e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN) {
+      return { ...e, turnsRemaining: duration };
+    }
+    return e;
+  });
+
+  return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: next };
 }
 
 /* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
 
 /**
  * Anoint an ally with flower fragrance: heal +value HP (capped at maxHp), then normal attack follows.
+ * If caster has Floral Maiden, roll d4 for heal crit; on 4, double the heal.
  */
 export function applyFloralFragranced(
   room: BattleRoom,
-  _attackerId: string,
+  attackerId: string,
   allyTargetId: string,
-  _battle: BattleState,
+  battle: BattleState,
   power: PowerDefinition,
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
@@ -736,7 +806,15 @@ export function applyFloralFragranced(
   const allyPath = findFighterPath(room, allyTargetId);
   if (!ally || !allyPath) return {};
 
-  const newCurrentHp = Math.min(ally.currentHp + power.value, ally.maxHp);
+  let healValue = power.value;
+  const casterHasFloralMaiden = (battle.activeEffects || []).some(
+    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.FLORAL_MAIDEN,
+  );
+  if (casterHasFloralMaiden) {
+    const healCritRoll = Math.ceil(Math.random() * 4); // d4
+    if (healCritRoll === 4) healValue *= 2; // critical heal: HP doubled
+  }
+  const newCurrentHp = Math.min(ally.currentHp + healValue, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
   return updates;
 }

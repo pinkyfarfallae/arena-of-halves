@@ -13,7 +13,7 @@ import {
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
   applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageChain, applyKeraunosVoltageShock,
-  applySecretOfDryadPassive, applyFloralFragranced, applySeasonEffects,
+  applySecretOfDryadPassive, onFloralMaidenTurnStart, applyFloralFragranced, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
@@ -2960,7 +2960,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     Object.assign(updates, keraunosShockUpdates);
   }
 
-  // Floral Maiden passive: grant shield if atkTotal > 10
+  // Floral Maiden passive: upon attack turn, enter Floral Maiden (immunity + 25% crit)
   const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
   if (dryadUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     Object.assign(updates, dryadUpdates);
@@ -3108,6 +3108,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       attackerTeam: skipEntry.team,
       phase: PHASE.SELECT_ACTION,
     };
+    const battleForFloralSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const floralSkipUpdates = onFloralMaidenTurnStart(room, battleForFloralSkip, skipEntry.characterId);
+    if (floralSkipUpdates) Object.assign(updates, floralSkipUpdates);
   } else {
     updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
     updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
@@ -3118,6 +3121,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     };
     if (selfRes3) turnData.resurrectTargetId = nextEntry.characterId;
     updates[ARENA_PATH.BATTLE_TURN] = turnData;
+    const battleForFloral = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const floralUpdates = onFloralMaidenTurnStart(room, battleForFloral, nextEntry.characterId);
+    if (floralUpdates) Object.assign(updates, floralUpdates);
   }
 
   // Clear transient minion-hit markers so next turn doesn't show stale hit state.

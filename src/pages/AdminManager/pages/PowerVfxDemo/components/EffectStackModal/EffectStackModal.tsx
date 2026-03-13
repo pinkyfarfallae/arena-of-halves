@@ -4,6 +4,7 @@ import type { OptionGroup } from '../../../../../../components/Form';
 import { CI_THEME_VARS, EFFECT_SIDE_LABEL } from '../../utils/constants';
 import type { EffectModalSide, EffectSide } from '../../utils/types';
 import { PANEL_SIDE } from '../../../../../../constants/battle';
+import EmptyStateIcon from './icons/EmptyStateIcon';
 import './EffectStackModal.scss';
 
 export interface EffectStackModalProps {
@@ -143,7 +144,26 @@ export default function EffectStackModal({
           />
         </div>
         <div className="effect-stack-modal__list">
-          {filteredGroups.map((grp) => (
+          {filteredGroups.length === 0 ? (
+            <div className="effect-stack-modal__empty" role="status">
+              <span className="effect-stack-modal__empty-icon" aria-hidden>
+                <EmptyStateIcon />
+              </span>
+              <p className="effect-stack-modal__empty-text">
+                {q ? 'No effects match your search.' : 'No effects available.'}
+              </p>
+              {q && (
+                <button
+                  type="button"
+                  className="effect-stack-modal__empty-clear-search"
+                  onClick={() => setSearchQuery('')}
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+          ) : (
+          filteredGroups.map((grp) => (
             <div key={grp.label} className="effect-stack-modal__group">
               <div className="effect-stack-modal__group-label">{grp.label}</div>
               <ul className="effect-stack-modal__options">
@@ -176,7 +196,8 @@ export default function EffectStackModal({
                 })}
               </ul>
             </div>
-          ))}
+          ))
+          )}
         </div>
       </div>
     </div>

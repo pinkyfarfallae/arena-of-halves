@@ -1,4 +1,5 @@
 import { DEITY_SVG, parseDeityNames, toDeityKey } from '../../../../data/deities';
+import Lightning from '../../../../icons/Lightning';
 import './DeityCard.scss';
 
 export default function DeityCard({ deity }: { deity: string }) {
@@ -10,12 +11,18 @@ export default function DeityCard({ deity }: { deity: string }) {
         {names.map(name => {
           const iconKey = toDeityKey(name);
           return (
-          <div key={name} className="dcard__deity">
-            <div className="dcard__icon">
-              {iconKey ? DEITY_SVG[iconKey] : <span className="dcard__fallback">⚡</span>}
+            <div key={name} className="dcard__deity">
+              <div className="dcard__icon">
+                {iconKey
+                  ? DEITY_SVG[iconKey]
+                  : (
+                    <span className="dcard__fallback">
+                      <Lightning width={12} height={12} />
+                    </span>
+                  )}
+              </div>
+              <span className="dcard__label">{name}</span>
             </div>
-            <span className="dcard__label">{name}</span>
-          </div>
           );
         })}
       </div>
