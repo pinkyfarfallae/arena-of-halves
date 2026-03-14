@@ -1533,9 +1533,87 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Spirit form — ethereal ghost wisps + badge (target only, overlays frame) */}
+      {/* Spirit form — all effects (b&w/ethereal): tris, canvas, seeds, lights, rises, drops, deco, glow/oath + wisps */}
       {isSpiritForm && battleLive && (
         <>
+          <div className="mchip__spirit-tris-wrap" aria-hidden="true">
+            {Array.from({ length: 200 }, (_, i) => (
+              <div key={i} className="mchip__spirit-tri" />
+            ))}
+          </div>
+          <div className="mchip__spirit-canvas" aria-hidden="true">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <div key={`ninth-${n}`} className="mchip__spirit-ninth">
+                {n !== 5 && (
+                  <div className="mchip__spirit-corners-wrapper">
+                    <div className="mchip__spirit-corner mchip__spirit-corner--large" />
+                    <div className="mchip__spirit-corner mchip__spirit-corner--medium" />
+                    <div className="mchip__spirit-corner mchip__spirit-corner--small" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'].map((name) => (
+              <div key={`circle-${name}`} className={`mchip__spirit-circle mchip__spirit-circle--${name}`} />
+            ))}
+            <div className="mchip__spirit-meeting-point" />
+          </div>
+          <div className="mchip__spirit-seeds" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__spirit-seed" />
+            ))}
+          </div>
+          <div className="mchip__spirit-lights" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <span key={i} className="mchip__spirit-light" />
+            ))}
+          </div>
+          <div className="mchip__spirit-glow-rise" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className="mchip__spirit-glow-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__spirit-white-rise" aria-hidden="true">
+            {Array.from({ length: 16 }, (_, i) => (
+              <span key={i} className="mchip__spirit-white-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__spirit-drops" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={`rain-${i}`} className="mchip__spirit-drop" />
+            ))}
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <span key={`bolt-${n}`} className={`mchip__spirit-bolt mchip__spirit-bolt--${n}`} />
+            ))}
+          </div>
+          <div className="mchip__spirit-rise" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className="mchip__spirit-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__spirit-deco" aria-hidden="true">
+            {[1, 2, 3, 4].map((n) => (
+              <span key={`corner-${n}`} className={`mchip__spirit-deco-corner mchip__spirit-deco-corner--${n}`} />
+            ))}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <span key={`edge-${n}`} className={`mchip__spirit-deco-edge mchip__spirit-deco-edge--${n}`} />
+            ))}
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={`float-${i}`} className="mchip__spirit-deco-float" />
+            ))}
+          </div>
+          <div className="mchip__spirit-caster" aria-hidden="true">
+            <div className="mchip__spirit-glow-dots" aria-hidden="true">
+              {Array.from({ length: 24 }, (_, i) => (
+                <span key={i} className="mchip__spirit-glow-dot" />
+              ))}
+            </div>
+            <div className="mchip__spirit-oath-particles">
+              {Array.from({ length: 8 }, (_, i) => (
+                <span key={i} className="mchip__spirit-oath-particle" />
+              ))}
+            </div>
+          </div>
           <div className="mchip__spirit-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__spirit-wisp" />
