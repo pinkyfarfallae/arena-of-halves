@@ -175,8 +175,128 @@
   }
 }
 
-/* Compact: fragrance border, accents, wave */
+/* Floral Fragrance — splash-out petal emission (same VFX as Efflorescence Muse); only when target has no Efflorescence Muse in effect pips at heal time */
+$fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+
+.mchip__fragrance-petal-emission {
+  position: absolute;
+  width: 200%;
+  height: 175%;
+  left: 52%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: hidden;
+  filter: brightness(1.1);
+  opacity: 0.6;
+  z-index: 1;
+  mask-image:
+    $fragrance-petal-clip,
+    linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+  -webkit-mask-image:
+    $fragrance-petal-clip,
+    linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-composite: intersect;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+}
+
+.mchip__fragrance-petal-emission-flower {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  filter: drop-shadow(0 0 5px rgba(#f48fb1, 0.5));
+  animation: fragrance-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.mchip__fragrance-petal-emission-flower svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mchip__fragrance-petal-emission-leaf {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 16px;
+  margin-left: -5px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: rgba(#81c784, 0.8);
+  box-shadow:
+    0 0 6px rgba(#a5d6a7, 0.6),
+    0 0 12px rgba(#66bb6a, 0.25);
+  transform-origin: center center;
+  animation: fragrance-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.mchip__fragrance-petal-emission-dust {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--size, 3px);
+  height: var(--size, 3px);
+  margin-left: calc(-0.5 * var(--size, 3px));
+  margin-top: calc(-0.5 * var(--size, 3px));
+  border-radius: 50%;
+  background: var(--dust-color, rgba(#fff9c4, 0.9));
+  box-shadow:
+    0 0 6px var(--dust-color),
+    0 0 12px rgba(255, 255, 255, 0.4);
+  transform-origin: center center;
+  animation: fragrance-petal-emission-burst-drift var(--duration, 4.5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes fragrance-petal-emission-burst-drift {
+  0% {
+    transform: rotate(var(--angle, 0deg)) translateY(0) rotate(0deg) scale(0);
+    opacity: 0;
+  }
+  12% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1 * var(--distance, 110px))) rotate(15deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.95;
+  }
+  40% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.06 * var(--distance, 110px))) rotate(80deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.85;
+  }
+  75% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.12 * var(--distance, 110px))) rotate(160deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0.45;
+  }
+  100% {
+    transform: rotate(var(--angle, 0deg)) translateY(calc(-1.18 * var(--distance, 110px))) rotate(220deg) scale(var(--scale, var(--size, 1)));
+    opacity: 0;
+  }
+}
+
+/* Compact: fragrance border, accents, wave, petal emission */
 @media (max-width: v.$bp-compact) {
+  .mchip__fragrance-petal-emission {
+    width: 100%;
+    mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+    mask-size: 100% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+
   .mchip__fragrance-border {
     inset: -2px;
     padding: 1.5px;

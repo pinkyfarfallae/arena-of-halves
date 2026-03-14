@@ -165,7 +165,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isSpiritForm: true },
   },
   { 
-    id: 'floral-fragrance', 
+    id: EFFECT_TAGS.FLORAL_FRAGRANCE, 
     label: 'Floral Fragrance (affected)', 
     side: EFFECT_SIDE_LABEL.TARGET, 
     group: DEITY.PERSEPHONE, 

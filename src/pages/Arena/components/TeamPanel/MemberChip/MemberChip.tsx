@@ -22,6 +22,7 @@ import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
 import { EFFECT_TAGS } from '../../../../../constants/effectTags';
 import { CHARACTER } from '../../../../../constants/characters';
+import { POWER_NAMES } from '../../../../../constants/powers';
 
 import './MemberChip.scss';
 
@@ -173,6 +174,8 @@ interface Props {
   floralHealResultCardVisible?: boolean;
   /** True when this chip is the Floral Fragrance heal target (allyTargetId); used with floralHealResultCardVisible to hide wave after heal. */
   isFloralHealTarget?: boolean;
+  /** True when the caster of Floral Fragrance (for this heal) is Rosabella — use Rose icon in petal emission instead of Flower. */
+  floralFragranceCasterIsRosabella?: boolean;
   /** In demo mode, when this key changes (effect selection changed), hide the fragrance wave. Not tied to Replay so Replay can re-trigger hit/shock without breaking fragrance. */
   demoFragranceSessionKey?: string;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
@@ -184,7 +187,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -588,6 +591,9 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide
   const showFragranceVisual = showFragranceWave && isFragranceWaved && !hideFragranceAfterHeal && !demoSessionMismatch;
+
+  // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
+  const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
 
   // If the fighter's HP increases (heal applied), clear the fragrance wave visual
   // immediately to avoid leaving the +HP text stuck after the heal — unless the
@@ -996,6 +1002,88 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
       {/* Fragrance Wave — falling flower/leaf particles for Floral Fragrance buff */}
       {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+
+      {/* Fragrance petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
+      {showFragranceVisual && battleLive && !hasEfflorescenceMuseInPips && (() => {
+        const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
+          angle: (i / 12) * 360 + 8,
+          delay: i * 0.18,
+          duration: 5 + (i % 3) * 0.8,
+          distance: 80 + (i % 3) * 24,
+        }));
+        const leafParticles = Array.from({ length: 12 }, (_, i) => ({
+          angle: (i / 12) * 360 + 7,
+          delay: 0.1 + (i % 4) * 0.15,
+          duration: 5.5 + (i % 5) * 0.5,
+          distance: 92 + (i % 4) * 24,
+          size: 0.8 + (i % 3) * 0.2,
+        }));
+        const dustParticles = Array.from({ length: 24 }, (_, i) => ({
+          angle: (i / 24) * 360 + (i % 7) * 5,
+          delay: (i % 6) * 0.12,
+          duration: 4.5 + (i % 4) * 0.6,
+          distance: 82 + (i % 5) * 20,
+          size: 2.5 + (i % 4) * 0.8,
+          scale: 0.9 + (i % 4) * 0.1,
+          color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
+        }));
+        return (
+          <div className="mchip__fragrance-petal-emission" aria-hidden="true">
+            {flowerParticles.map((p, i) => (
+              <div
+                key={`f-${i}`}
+                className="mchip__fragrance-petal-emission-flower"
+                style={
+                  {
+                    '--angle': `${p.angle}deg`,
+                    '--delay': `${p.delay}s`,
+                    '--duration': `${p.duration}s`,
+                    '--distance': `${p.distance}px`,
+                  } as React.CSSProperties
+                }
+              >
+                {floralFragranceCasterIsRosabella ? (
+                  <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                ) : (
+                  <Flower width={14} height={14} />
+                )}
+              </div>
+            ))}
+            {leafParticles.map((p, i) => (
+              <span
+                key={`l-${i}`}
+                className="mchip__fragrance-petal-emission-leaf"
+                style={
+                  {
+                    '--angle': `${p.angle}deg`,
+                    '--delay': `${p.delay}s`,
+                    '--duration': `${p.duration}s`,
+                    '--distance': `${p.distance}px`,
+                    '--size': p.size,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+            {dustParticles.map((p, i) => (
+              <span
+                key={`d-${i}`}
+                className="mchip__fragrance-petal-emission-dust"
+                style={
+                  {
+                    '--angle': `${p.angle}deg`,
+                    '--delay': `${p.delay}s`,
+                    '--duration': `${p.duration}s`,
+                    '--distance': `${p.distance}px`,
+                    '--size': `${p.size}px`,
+                    '--scale': p.scale,
+                    '--dust-color': p.color,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Keraunos Voltage — ultimate Zeus strike: rain + lightning drops (like Nimbus), multiple bolts, corona, sparks, rings */}
       {isKeraunosVoltageHit && battleLive && (
