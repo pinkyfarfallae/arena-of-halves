@@ -14,6 +14,7 @@ import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
 import { REFILL_DICE_VIEW_MS } from '../BattleHUD/components/RefillSPDiceModal/RefillSPDiceModal';
 import './TeamPanel.scss';
 import { SKILL_UNLOCK } from '../../../../constants/character';
+import { CHARACTER } from '../../../../constants/characters';
 
 interface Props {
   members: FighterState[];
@@ -455,6 +456,22 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
             floralHealResultCardVisible={floralHealResultCardVisible}
             isFloralHealTarget={!!serverFragranceOnTarget}
+            floralFragranceCasterIsRosabella={
+              (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim() &&
+                turn?.attackerId
+                ? (fighterMap.get(turn.attackerId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
+                : isDemo && isFragranceWaved
+                  ? (() => {
+                      const floralEffect = activeEffects.find(
+                        (e) => (e as { tag?: string }).tag === EFFECT_TAGS.FLORAL_FRAGRANCE && e.targetId === m.characterId
+                      );
+                      const casterId = floralEffect?.sourceId;
+                      return casterId
+                        ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
+                        : undefined;
+                    })()
+                  : undefined)
+            }
             demoFragranceSessionKey={isDemo ? (battle as { _demoVfxKey?: string })?._demoVfxKey ?? '' : undefined}
             floralFragranceHeal={
               floralLogIndex >= 0
