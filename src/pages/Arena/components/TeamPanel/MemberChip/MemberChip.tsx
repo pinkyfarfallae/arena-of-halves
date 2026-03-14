@@ -8,6 +8,7 @@ import { lightenColor } from '../../../../../utils/color';
 import FloralMaiden from './icons/FloralMaiden';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
+import PomPearls from './icons/PomPearls';
 import Rose from './icons/Rose';
 import VoltageFrame from './icons/VoltageFrame';
 import WavyLines from './icons/WavyLines';
@@ -1300,6 +1301,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             </>
           );
         })()}
+        {/* Pomegranate caster — red pearls around frame */}
+        {/* Pomegranate caster = red pearls; Spirit = black; caster+spirit = red-black alternating */}
+        {(hasPomegranateEffect || isSpiritForm) && battleLive && (
+          <div className="mchip__pom-pearls" aria-hidden="true">
+            <PomPearls
+              className="mchip__pom-pearls-svg"
+              pearlColor={hasPomegranateEffect ? '#8b0000' : '#1a1a1a'}
+              alternateColor={hasPomegranateEffect && isSpiritForm ? '#1a1a1a' : undefined}
+              highlightColor={hasPomegranateEffect ? '#c62828' : '#444'}
+            />
+          </div>
+        )}
         <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
           {fighter.image ? (
             <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
@@ -1310,8 +1323,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           )}
 
           <div className="mchip__inner-border" />
-
-          {/* Soul Devourer — frame-only effect (separate from soul-float): soft soul overlay inside frame */}
 
           {/* Shock sparks — electric dots (separate div to avoid ::before conflicts) */}
           {battleLive && (
@@ -1432,9 +1443,33 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
       </div>
 
-      {/* Pomegranate effect — ruby seeds + red/black lights + black mist (overlays frame) */}
+      {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
       {hasPomegranateEffect && battleLive && (
         <>
+          {/* Triangle tunnel background (red/pink/white, 3D) */}
+          <div className="mchip__pom-tris-wrap" aria-hidden="true">
+            {Array.from({ length: 200 }, (_, i) => (
+              <div key={i} className="mchip__pom-tri" />
+            ))}
+          </div>
+          {/* Red/pink corner + circles animation background */}
+          <div className="mchip__pom-canvas" aria-hidden="true">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <div key={`ninth-${n}`} className="mchip__pom-ninth">
+                {n !== 5 && (
+                  <div className="mchip__pom-corners-wrapper">
+                    <div className="mchip__pom-corner mchip__pom-corner--large" />
+                    <div className="mchip__pom-corner mchip__pom-corner--medium" />
+                    <div className="mchip__pom-corner mchip__pom-corner--small" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'].map((name) => (
+              <div key={`circle-${name}`} className={`mchip__pom-circle mchip__pom-circle--${name}`} />
+            ))}
+            <div className="mchip__pom-meeting-point" />
+          </div>
           <div className="mchip__pom-seeds" aria-hidden="true">
             {Array.from({ length: 14 }, (_, i) => (
               <span key={i} className="mchip__pom-seed" />
@@ -1445,9 +1480,41 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               <span key={i} className="mchip__pom-light" />
             ))}
           </div>
+          <div className="mchip__pom-glow-rise" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className="mchip__pom-glow-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__pom-white-rise" aria-hidden="true">
+            {Array.from({ length: 16 }, (_, i) => (
+              <span key={i} className="mchip__pom-white-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__pom-drops" aria-hidden="true">
+            {/* Rain-style drops (like nimbus) — black and pink/red */}
+            {Array.from({ length: 18 }, (_, i) => (
+              <span key={`rain-${i}`} className="mchip__pom-drop" />
+            ))}
+            {/* Bolt-style drops (like nimbus) — black and pink/red */}
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <span key={`bolt-${n}`} className={`mchip__pom-bolt mchip__pom-bolt--${n}`} />
+            ))}
+          </div>
           <div className="mchip__pom-rise" aria-hidden="true">
             {Array.from({ length: 10 }, (_, i) => (
               <span key={i} className="mchip__pom-rise-particle" />
+            ))}
+          </div>
+          {/* Decorative: corner sparkles + edge sparkles + floating particles (no overlay) */}
+          <div className="mchip__pom-deco" aria-hidden="true">
+            {[1, 2, 3, 4].map((n) => (
+              <span key={`corner-${n}`} className={`mchip__pom-deco-corner mchip__pom-deco-corner--${n}`} />
+            ))}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <span key={`edge-${n}`} className={`mchip__pom-deco-edge mchip__pom-deco-edge--${n}`} />
+            ))}
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={`float-${i}`} className="mchip__pom-deco-float" />
             ))}
           </div>
           {/* Pomegranate's Oath caster-only: glow dots, oath particles */}
