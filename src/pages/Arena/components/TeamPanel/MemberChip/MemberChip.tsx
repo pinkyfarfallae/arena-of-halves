@@ -491,10 +491,28 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const fragranceSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fragranceWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fragranceDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const springWaveActiveRef = useRef(false);
+  const springShownKeyRef = useRef<string | null>(null);
+  const [showSpringHealVfx, setShowSpringHealVfx] = useState(false);
+
+  // Spring heal: โชว์ VFX แบบ Floral โดยใช้ state แยก ไม่มี effect อื่นมาเคลียร์
+  useEffect(() => {
+    const isSpring = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_') && floralFragranceHeal != null && floralFragranceHeal > 0;
+    if (!isSpring) return;
+    if (springShownKeyRef.current === floralLogKey) return;
+    springShownKeyRef.current = floralLogKey;
+    setShowSpringHealVfx(true);
+    const t = setTimeout(() => {
+      setShowSpringHealVfx(false);
+      springShownKeyRef.current = null;
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [floralLogKey ?? '', floralFragranceHeal]);
 
   useEffect(() => {
     if (!isFragranceWaved) {
       prevFragranceRef.current = false;
+      if (springWaveActiveRef.current) return;
       if (fragranceDelayTimerRef.current) {
         clearTimeout(fragranceDelayTimerRef.current);
         fragranceDelayTimerRef.current = null;
@@ -506,11 +524,13 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       setShowFragranceWave(false);
       return;
     }
-    if (prevFragranceRef.current) return;
+    const isSpringKey = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_');
+    if (!isSpringKey && prevFragranceRef.current) return;
 
     // If this fragrance originates from a persistent log entry, check localStorage
     // so we only show it once per client (prevents showing again after reload).
-    if (floralLogKey) {
+    // Spring (Ephemeral Season) heal: never skip so VFX always shows.
+    if (floralLogKey && !isSpringKey) {
       try {
         const seen = window.localStorage.getItem(floralLogKey);
         if (seen) {
@@ -522,8 +542,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
     // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit)
     const showWave = () => {
+      if (isSpringKey) springWaveActiveRef.current = true;
       setShowFragranceWave(true);
       fragranceWaveTimerRef.current = setTimeout(() => {
+        if (isSpringKey) springWaveActiveRef.current = false;
         setShowFragranceWave(false);
         fragranceWaveTimerRef.current = null;
         if (floralLogKey) {
@@ -589,15 +611,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
   }, [demoSessionMismatch]);
 
-  // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide
-  const showFragranceVisual = showFragranceWave && isFragranceWaved && !hideFragranceAfterHeal && !demoSessionMismatch;
+  // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal ใช้ state แยก showSpringHealVfx
+  const showFragranceVisual = (showFragranceWave && (isFragranceWaved || springWaveActiveRef.current) && !hideFragranceAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
 
   // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
   const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
 
   // If the fighter's HP increases (heal applied), clear the fragrance wave visual
-  // immediately to avoid leaving the +HP text stuck after the heal — unless the
-  // increase is the Floral Fragrance heal we are about to show (same update as log).
+  // immediately to avoid leaving the +HP text stuck — unless the increase is the
+  // heal we are showing (Floral Fragrance or Ephemeral Season: Spring; same VFX, same prop).
   const prevHpRef = useRef<number>(fighter.currentHp);
   const [displayHp, setDisplayHp] = useState(fighter.currentHp);
   useEffect(() => {
@@ -1000,7 +1022,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </div>
       )}
 
-      {/* Fragrance Wave — falling flower/leaf particles for Floral Fragrance buff */}
+      {/* Fragrance Wave — falling flower/leaf particles (Floral Fragrance or Ephemeral Season: Spring heal, same VFX) */}
       {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
 
       {/* Fragrance petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
@@ -1532,7 +1554,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
-      {hasPomegranateEffect && battleLive && (
+      {hasPomegranateEffect && !isSpiritForm && battleLive && (
         <>
           {/* Triangle tunnel background (red/pink/white, 3D) */}
           <div className="mchip__pom-tris-wrap" aria-hidden="true">

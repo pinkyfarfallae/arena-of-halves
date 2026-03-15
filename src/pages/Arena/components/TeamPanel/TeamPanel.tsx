@@ -163,11 +163,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // use lastHitTargetId (the defender who was hit) — never lastHitMinionId (skeleton/attacker).
         const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === PHASE.RESOLVING || resolveShown) ? (battle as any)?.lastHitTargetId : undefined));
         const isAttacker = turn?.attackerId === m.characterId;
-        
+
         // Check if this master has any minions (skeletons)
         const masterMinions = minionsMap.get(m.characterId) || [];
         const hasMasterMinions = masterMinions.length > 0;
-        
+
         // Show defender badge on the master ONLY if they don't have minions (otherwise minion shows it)
         const isDefender = !hasMasterMinions && (turn?.defenderId === m.characterId);
         // Defer eliminated state for current defender while minion/skeleton hit effects are still playing
@@ -327,7 +327,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Floral Fragrance: brief trigger when just applied (real battle + demo)
         // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
-        const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-8) : [];
+        const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-24) : [];
         const recentLog = rawRecent.filter((le) => le.round === battle?.roundNumber);
         const floralSearchLog = rawRecent;
         const floralLogIndex = (() => {
@@ -344,18 +344,26 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const logHasFloral = floralLogIndex !== -1;
 
-        // Ephemeral Season Spring: heal log (same VFX as Floral Fragrance — rose for Rosabella)
+        // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
           const charId = String(m.characterId);
           for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx] as { defenderId?: string; springHeal?: number };
+            const le = floralSearchLog[idx] as { defenderId?: string; springHeal?: number; heal?: number; powerUsed?: string };
             if (String(le.defenderId) !== charId) continue;
-            if (le.springHeal == null) continue;
+            const isSpringEntry = le.springHeal != null || (typeof le.powerUsed === 'string' && le.powerUsed.includes('Spring') && (le.heal != null || le.springHeal != null));
+            if (!isSpringEntry && le.springHeal == null && (le.heal == null || !String(le.powerUsed || '').includes('Spring'))) continue;
             return idx;
           }
           return -1;
         })();
         const logHasSpring = springLogIndex >= 0;
+        const battleSpringHeal1 = battle != null ? (battle as { springHeal1?: number }).springHeal1 : undefined;
+        const isSpringCasterInPhase = turn?.phase === PHASE.ROLLING_SPRING_HEAL && String(turn.attackerId) === String(m.characterId);
+        const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null;
+        // Spring โชว์เฉพาะเมื่อ heal เป็น entry ล่าสุดใน log หรืออยู่ phase D4 — ไม่โชว์ซ้ำตอนเริ่มเทิร์นถัดไป (เทิร์นสุดท้ายก่อน Spring หมด)
+        const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
+        const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex);
+        const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         const soulDevourerHealFromLog = (() => {
@@ -380,13 +388,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
         // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack; heal is done, hide fragrance wave
         const postHealFollowUp = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.allyTargetId);
-        // Show fragrance: (1) client selected ally (non–Floral only), (2) server turn (phaseOk) but not after heal, (3) after D4 roll result, (4) log but not after heal, (5) Spring heal log, (6) demo/tag
+
         const isFragranceWaved =
           (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
           || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp)
           || !!floralHealRollDone
           || (!!logHasFloral && !postHealFollowUp)
-          || !!logHasSpring
+          || !!(springHealIsLatestEntry || springFromPhase)
           || !!tagBasedProps.isFragranceWaved;
 
         // Stat modifiers from active buffs/debuffs
@@ -464,11 +472,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             }
             minionPulseMap={minionPulseMap}
             floralLogKey={
-              (logHasFloral && battle?.roundNumber != null && floralLogIndex >= 0)
-                ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
-                : (logHasSpring && battle?.roundNumber != null && springLogIndex >= 0)
-                  ? `spring_shown_${battle.roundNumber}_${springLogIndex}_${m.characterId}`
-                  : undefined
+              battle != null && battle.roundNumber != null
+                ? (useFloralForThisMember && floralLogIndex >= 0)
+                  ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
+                  : (useSpringForThisMember && springLogIndex >= 0)
+                    ? `spring_shown_${battle.roundNumber}_${springLogIndex}_${m.characterId}`
+                    : (springFromPhase ? `spring_phase_${battle.roundNumber}_caster_${m.characterId}` : undefined)
+                : undefined
             }
             floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
             floralHealResultCardVisible={floralHealResultCardVisible}
@@ -477,37 +487,39 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim() &&
                 turn?.attackerId
                 ? (fighterMap.get(turn.attackerId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
-                : (logHasSpring && springLogIndex >= 0) || (logHasFloral && floralLogIndex >= 0)
+                : (useSpringForThisMember && springLogIndex >= 0) || (useFloralForThisMember && floralLogIndex >= 0)
                   ? (() => {
-                      const useSpring = springLogIndex > floralLogIndex;
-                      const entry = floralSearchLog[useSpring ? springLogIndex : floralLogIndex] as { attackerId?: string };
-                      const casterId = entry?.attackerId;
+                    const useSpring = springLogIndex > floralLogIndex;
+                    const entry = floralSearchLog[useSpring ? springLogIndex : floralLogIndex] as { attackerId?: string };
+                    const casterId = entry?.attackerId;
+                    return casterId
+                      ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
+                      : undefined;
+                  })()
+                  : isDemo && isFragranceWaved
+                    ? (() => {
+                      const floralEffect = activeEffects.find(
+                        (e) => (e as { tag?: string }).tag === EFFECT_TAGS.FLORAL_FRAGRANCE && e.targetId === m.characterId
+                      );
+                      const casterId = floralEffect?.sourceId;
                       return casterId
                         ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
                         : undefined;
                     })()
-                  : isDemo && isFragranceWaved
-                    ? (() => {
-                        const floralEffect = activeEffects.find(
-                          (e) => (e as { tag?: string }).tag === EFFECT_TAGS.FLORAL_FRAGRANCE && e.targetId === m.characterId
-                        );
-                        const casterId = floralEffect?.sourceId;
-                        return casterId
-                          ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
-                          : undefined;
-                      })()
                     : undefined)
             }
             demoFragranceSessionKey={isDemo ? (battle as { _demoVfxKey?: string })?._demoVfxKey ?? '' : undefined}
             floralFragranceHeal={
-              (springLogIndex >= 0 || floralLogIndex >= 0)
-                ? (springLogIndex > floralLogIndex
-                    ? (floralSearchLog[springLogIndex] as { springHeal?: number })?.springHeal
-                    : (floralSearchLog[floralLogIndex] as { heal?: number })?.heal)
-                : isDemo && isFragranceWaved
-                    ? 2
-                    : (clientFragrance || floralHealRollDone) && turn?.attackerId && allMembers?.length
-                      ? (() => {
+              springFromPhase
+                ? battleSpringHeal1
+                : useSpringForThisMember && springLogIndex >= 0
+                  ? (floralSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (floralSearchLog[springLogIndex] as { heal?: number })?.heal
+                  : useFloralForThisMember && floralLogIndex >= 0
+                    ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
+                    : isDemo && isFragranceWaved
+                      ? 2
+                      : (clientFragrance || floralHealRollDone) && turn?.attackerId && allMembers?.length
+                        ? (() => {
                           const caster = allMembers.find((a) => a.characterId === turn.attackerId);
                           if (!caster) return undefined;
                           const baseHeal = Math.ceil(0.2 * caster.maxHp);
@@ -520,7 +532,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                           }
                           return baseHeal;
                         })()
-                      : undefined
+                        : undefined
             }
             soulDevourerHealAmount={soulDevourerHealFromLog?.amount}
             soulDevourerHealKey={soulDevourerHealFromLog?.key}

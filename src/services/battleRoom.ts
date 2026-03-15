@@ -12,7 +12,7 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageChain, applyKeraunosVoltageShock,
+  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageShock,
   applySecretOfDryadPassive, onFloralMaidenTurnStart, applyFloralFragranced, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
