@@ -351,24 +351,7 @@ export function tickEffects(
   }
 
 
-  // Spring heal: heal fighters with season-spring tag
-  for (const e of effects) {
-    if (e.tag === EFFECT_TAGS.SEASON_SPRING && e.turnsRemaining > 0 && e.value > 0) {
-      const target = findFighter(room, e.targetId);
-      if (target && target.currentHp > 0) {
-        const path = findFighterPath(room, e.targetId);
-        if (path) {
-          const hpKey = `${path}/currentHp`;
-          const currentHp = (hpKey in updates)
-            ? updates[hpKey] as number
-            : (priorUpdates && hpKey in priorUpdates)
-              ? priorUpdates[hpKey] as number
-              : target.currentHp;
-          updates[hpKey] = Math.min(target.maxHp, currentHp + e.value);
-        }
-      }
-    }
-  }
+  // (Spring heal is applied in resolveTurn after each ally's attack via springHeal1/springHeal2)
 
   // Decrement durations, remove expired (skip turnsRemaining 999 = permanent passives)
   const remaining = effects
@@ -924,13 +907,14 @@ export function applySeasonEffects(
       }
 
       case SEASON_KEYS.SPRING: {
+        // Spring heal is applied in resolveTurn; add effect so pip/SeasonalEffects show Spring
         effects.push({
           id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
           powerName: POWER_NAMES.EPHEMERAL_SEASON,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
-          value: 1,
+          value: 0,
           turnsRemaining: duration,
           tag: EFFECT_TAGS.SEASON_SPRING,
         });
