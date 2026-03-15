@@ -50,6 +50,139 @@
   min-width: calc(#{$frame-size-large} + 72px);
 }
 
+/* Voltage effect around frame (blue + gold) — avstorm-style animated border + dots */
+.mchip__nimbus-voltage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.5;
+  width: calc($frame-size-large + 10px);
+  height: calc($frame-size-large + 35px);
+  z-index: 0;
+  pointer-events: none;
+
+  /* Wrapper for subtle-low only — full opacity so the line is visible */
+  &--subtle-low {
+    opacity: 1;
+    z-index: 1;
+    width: calc($frame-size-large + 10px);
+    height: calc($frame-size-large + 35px);
+  }
+
+  .mchip__nimbus-voltage-svg {
+    display: block;
+    position: absolute;
+    top: -0.75em;
+    left: -0.25em;
+    width: calc(100% + 0.5em);
+    height: calc(100% + 1.5em);
+    pointer-events: none;
+
+    path {
+      stroke-dasharray: 100;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+
+      &.mchip__nimbus-voltage-line--1 {
+        stroke-dashoffset: 0;
+        animation: nimbus-spark-1 3s linear infinite;
+      }
+
+      &.mchip__nimbus-voltage-line--2 {
+        stroke-dashoffset: 500;
+        animation: nimbus-spark-2 3s linear infinite;
+      }
+    }
+
+    /* Single thin line, subtle — does not stand out */
+    &.mchip__nimbus-voltage-svg--subtle {
+      opacity: 0.45;
+
+      path {
+        stroke-dasharray: 80;
+        stroke-width: 0.65;
+        stroke-dashoffset: 0;
+        animation: nimbus-spark-1 4s linear infinite;
+      }
+    }
+
+    /* Single subtle with different class + lower amplitude (gentler motion) */
+    &.mchip__voltage-subtle-low {
+      opacity: 1;
+      height: $frame-size-large;
+      width: $frame-size-large;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+
+      path {
+        stroke-dasharray: 100;
+        stroke-width: 1.35;
+        stroke-dashoffset: 0;
+        animation: nimbus-spark-subtle-low 3.5s linear infinite;
+        filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+      }
+    }
+  }
+
+  .mchip__nimbus-voltage-dots {
+    .mchip__nimbus-voltage-dot {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 100%;
+      position: absolute;
+      opacity: 0;
+    }
+
+    .mchip__nimbus-voltage-dot--1 {
+      top: 0;
+      left: 20%;
+      background: #f6de8d;
+      box-shadow: 0 0 6px rgba(246, 222, 141, 0.9);
+      animation: nimbus-fly-up 3s linear infinite;
+    }
+
+    .mchip__nimbus-voltage-dot--2 {
+      top: 0;
+      left: 55%;
+      background: #6bfeff;
+      box-shadow: 0 0 6px rgba(107, 254, 255, 0.9);
+      animation: nimbus-fly-up 3s linear infinite;
+      animation-delay: 0.5s;
+    }
+
+    .mchip__nimbus-voltage-dot--3 {
+      top: 0;
+      left: 80%;
+      background: #f6de8d;
+      box-shadow: 0 0 6px rgba(246, 222, 141, 0.9);
+      animation: nimbus-fly-up 3s linear infinite;
+      animation-delay: 1s;
+    }
+
+    .mchip__nimbus-voltage-dot--4 {
+      bottom: 0;
+      left: 30%;
+      background: #6bfeff;
+      box-shadow: 0 0 6px rgba(107, 254, 255, 0.9);
+      animation: nimbus-fly-down 3s linear infinite;
+      animation-delay: 2.5s;
+    }
+
+    .mchip__nimbus-voltage-dot--5 {
+      bottom: 0;
+      left: 65%;
+      background: #f6de8d;
+      box-shadow: 0 0 6px rgba(246, 222, 141, 0.9);
+      animation: nimbus-fly-down 3s linear infinite;
+      animation-delay: 1.5s;
+    }
+  }
+}
+
 .mchip__nimbus-storm {
   position: absolute;
   inset: 0.15rem -0.25rem 1.2rem -0.25rem;
@@ -123,13 +256,47 @@
   animation: nimbus-bolt-drop 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
 
-.mchip__nimbus-bolt--1 { left: 10%; height: 54%; animation-delay: 0.16s; }
-.mchip__nimbus-bolt--2 { left: 24%; height: 68%; animation-delay: 0.48s; }
-.mchip__nimbus-bolt--3 { left: 38%; height: 58%; animation-delay: 0.96s; }
-.mchip__nimbus-bolt--4 { left: 50%; height: 74%; animation-delay: 1.44s; }
-.mchip__nimbus-bolt--5 { left: 62%; height: 60%; animation-delay: 1.92s; }
-.mchip__nimbus-bolt--6 { left: 76%; height: 70%; animation-delay: 2.4s; }
-.mchip__nimbus-bolt--7 { left: 88%; height: 52%; animation-delay: 2.88s; }
+.mchip__nimbus-bolt--1 {
+  left: 10%;
+  height: 54%;
+  animation-delay: 0.16s;
+}
+
+.mchip__nimbus-bolt--2 {
+  left: 24%;
+  height: 68%;
+  animation-delay: 0.48s;
+}
+
+.mchip__nimbus-bolt--3 {
+  left: 38%;
+  height: 58%;
+  animation-delay: 0.96s;
+}
+
+.mchip__nimbus-bolt--4 {
+  left: 50%;
+  height: 74%;
+  animation-delay: 1.44s;
+}
+
+.mchip__nimbus-bolt--5 {
+  left: 62%;
+  height: 60%;
+  animation-delay: 1.92s;
+}
+
+.mchip__nimbus-bolt--6 {
+  left: 76%;
+  height: 70%;
+  animation-delay: 2.4s;
+}
+
+.mchip__nimbus-bolt--7 {
+  left: 88%;
+  height: 52%;
+  animation-delay: 2.88s;
+}
 
 .mchip__nimbus-overlay {
   position: absolute;
@@ -275,16 +442,22 @@
       animation-duration: #{3.5 + ($i % 5) * 0.4}s;
       animation-delay: #{($i - 1) * 0.18}s;
 
-      @if $i % 4 == 1 {
+      @if $i % 4==1 {
         background: rgba(#f7df00, 0.95);
         box-shadow: 0 0 5px rgba(#ffeb3b, 0.95);
-      } @else if $i % 4 == 2 {
+      }
+
+      @else if $i % 4==2 {
         background: rgba(#0d1117, 0.35);
         box-shadow: 0 0 4px rgba(#0d1117, 0.4);
-      } @else if $i % 4 == 3 {
+      }
+
+      @else if $i % 4==3 {
         background: rgba(#4baeff, 0.95);
         box-shadow: 0 0 5px rgba(#64b5f6, 0.95);
-      } @else {
+      }
+
+      @else {
         background: rgba(#ffffff, 0.95);
         box-shadow: 0 0 5px rgba(#e3f2fd, 0.95);
       }
@@ -313,15 +486,74 @@
   animation: nimbus-spark-flicker-spotlight 2s ease-in-out infinite;
 }
 
+/* Voltage line + dot keyframes */
+@keyframes nimbus-spark-1 {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes nimbus-spark-2 {
+  to {
+    stroke-dashoffset: -500;
+  }
+}
+
+/* Lower amplitude for subtle-low variant (gentler dash travel) */
+@keyframes nimbus-spark-subtle-low {
+  to {
+    stroke-dashoffset: -520;
+  }
+}
+
+@keyframes nimbus-fly-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.2);
+  }
+
+  5% {
+    opacity: 1;
+    transform: translateY(-1.5rem) scale(0.4);
+  }
+
+  10%,
+  100% {
+    opacity: 0;
+    transform: translateY(-3rem) scale(0.2);
+  }
+}
+
+@keyframes nimbus-fly-down {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.2);
+  }
+
+  5% {
+    opacity: 1;
+    transform: translateY(1.5rem) scale(0.4);
+  }
+
+  10%,
+  100% {
+    opacity: 0;
+    transform: translateY(3rem) scale(0.2);
+  }
+}
+
 /* Keyframes */
 @keyframes nimbus-frame-blink {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow:
       0 0 0 1px rgba(#fff, 0.7),
       0 0 12px rgba(#fff, 0.45),
       0 0 24px rgba(#e8f4fc, 0.35);
     opacity: 1;
   }
+
   50% {
     box-shadow:
       0 0 0 1.5px rgba(#fff, 0.9),
@@ -332,12 +564,15 @@
 }
 
 @keyframes nimbus-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow:
       0 0 0 1.5px rgba(#455a64, 0.7),
       0 0 12px rgba(#90caf9, 0.5),
       0 0 24px rgba(#fff59d, 0.2);
   }
+
   50% {
     box-shadow:
       0 0 0 2px rgba(#37474f, 0.85),
@@ -347,70 +582,189 @@
 }
 
 @keyframes nimbus-lightning-flash {
-  0%, 100% { opacity: 0; }
-  8% { opacity: 0; }
-  10% { opacity: 0.98; }
-  14% { opacity: 0.22; }
-  20%, 56% { opacity: 0.84; }
-  60% { opacity: 0.98; }
-  64% { opacity: 0.26; }
-  84% { opacity: 0.08; }
+
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.98;
+  }
+
+  14% {
+    opacity: 0.22;
+  }
+
+  20%,
+  56% {
+    opacity: 0.84;
+  }
+
+  60% {
+    opacity: 0.98;
+  }
+
+  64% {
+    opacity: 0.26;
+  }
+
+  84% {
+    opacity: 0.08;
+  }
 }
 
 @keyframes nimbus-rain-fall {
-  0% { transform: translateY(-12%) scaleY(0.7); opacity: 0; }
-  12% { opacity: 1; }
-  100% { transform: translateY(138%) scaleY(1.05); opacity: 0; }
+  0% {
+    transform: translateY(-12%) scaleY(0.7);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(138%) scaleY(1.05);
+    opacity: 0;
+  }
 }
 
 @keyframes nimbus-bolt-drop {
-  0%, 100% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
-  10% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
-  14% { opacity: 1; transform: translateY(-4%) scaleY(1); }
-  34% { opacity: 0.92; transform: translateY(38%) scaleY(1.03); }
-  62% { opacity: 0; transform: translateY(112%) scaleY(1.06); }
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(-24%) scaleY(0.7);
+  }
+
+  10% {
+    opacity: 0;
+    transform: translateY(-24%) scaleY(0.7);
+  }
+
+  14% {
+    opacity: 1;
+    transform: translateY(-4%) scaleY(1);
+  }
+
+  34% {
+    opacity: 0.92;
+    transform: translateY(38%) scaleY(1.03);
+  }
+
+  62% {
+    opacity: 0;
+    transform: translateY(112%) scaleY(1.06);
+  }
 }
 
 @keyframes nimbus-overlay-boom {
-  0% { opacity: 0; }
-  4% { opacity: 1; }
-  14% { opacity: 0; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+
+  4% {
+    opacity: 1;
+  }
+
+  14% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes nimbus-overlay-boom-lower {
-  0%, 100% { opacity: 0; }
-  18% { opacity: 0.2; }
-  32% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 0.2;
+  }
+
+  32% {
+    opacity: 0;
+  }
 }
 
 @keyframes nimbus-cloud-drift-left {
-  from { transform: translateX(-3px); }
-  to { transform: translateX(3px); }
+  from {
+    transform: translateX(-3px);
+  }
+
+  to {
+    transform: translateX(3px);
+  }
 }
 
 @keyframes nimbus-cloud-drift-right {
-  from { transform: translateX(3px); }
-  to { transform: translateX(-3px); }
+  from {
+    transform: translateX(3px);
+  }
+
+  to {
+    transform: translateX(-3px);
+  }
 }
 
 @keyframes nimbus-rise {
-  0% { opacity: 0; transform: translateY(0) translateX(0); }
-  12% { opacity: 0.65; }
-  85% { opacity: 0.25; }
-  100% { opacity: 0; transform: translateY(-130px) translateX(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0);
+  }
+
+  12% {
+    opacity: 0.65;
+  }
+
+  85% {
+    opacity: 0.25;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-130px) translateX(0);
+  }
 }
 
 @keyframes nimbus-spark-flicker {
-  0% { opacity: 1; }
-  25% { opacity: 0; }
-  50% { opacity: 0.8; }
-  75% { opacity: 0.2; }
+  0% {
+    opacity: 1;
+  }
+
+  25% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+
+  75% {
+    opacity: 0.2;
+  }
 }
 
 @keyframes nimbus-spark-flicker-spotlight {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: $bp-compact) {
@@ -449,6 +803,16 @@
   .mchip__frame-wrap--nimbus {
     width: calc(#{$frame-size-small} + 48px);
     min-width: calc(#{$frame-size-small} + 48px);
+  }
+
+  .mchip__nimbus-voltage {
+    width: $frame-size-small;
+    height: $frame-size-small;
+  }
+
+  .mchip__nimbus-voltage-dots .mchip__nimbus-voltage-dot {
+    width: 0.6rem;
+    height: 0.6rem;
   }
 
   .mchip__nimbus-lightning {
@@ -492,14 +856,17 @@
           background: rgba(#f7df00, 0.95);
           box-shadow: 0 0 5px rgba(#ffeb3b, 0.95);
         }
+
         @else if $i % 4==2 {
           background: rgba(#0d1117, 0.35);
           box-shadow: 0 0 4px rgba(#0d1117, 0.4);
         }
+
         @else if $i % 4==3 {
           background: rgba(#4baeff, 0.95);
           box-shadow: 0 0 5px rgba(#64b5f6, 0.95);
         }
+
         @else {
           background: rgba(#ffffff, 0.95);
           box-shadow: 0 0 5px rgba(#e3f2fd, 0.95);

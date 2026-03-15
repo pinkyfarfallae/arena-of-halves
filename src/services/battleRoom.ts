@@ -12,8 +12,8 @@ import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageChain, applyKeraunosVoltageShock,
-  applySecretOfDryadPassive, applyFloralFragranced, applySeasonEffects,
+  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageShock,
+  applySecretOfDryadPassive, onFloralMaidenTurnStart, applyFloralFragranced, applySeasonEffects,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
@@ -22,6 +22,7 @@ import { POWER_NAMES } from '../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { SKILL_UNLOCK } from '../constants/character';
+import { SEASON_KEYS, SeasonKey } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -656,6 +657,12 @@ export async function startBattle(arenaId: string): Promise<void> {
     log: [],
     activeEffects: passiveEffects,
   };
+  // Secret of Dryad: apply Efflorescence Muse for the first attacker before select action
+  const dryadFirst = applySecretOfDryadPassive(room, first.characterId, battle, 0);
+  const initialEffects = dryadFirst[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined;
+  if (initialEffects) {
+    battle.activeEffects = initialEffects;
+  }
 
   await update(roomRef(arenaId), {
     status: ROOM_STATUS.BATTLING,
@@ -1234,23 +1241,57 @@ export async function selectAction(
         updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
         if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+        const battleForDryadS1 = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+        const d1 = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadS1, 0);
+        if (d1[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, d1);
       } else {
         updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
         updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
         const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
         if (selfRes1) turnData.resurrectTargetId = nextEntry.characterId;
         updates[ARENA_PATH.BATTLE_TURN] = turnData;
+        const battleForDryadN1 = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+        const d2 = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryadN1, 0);
+        if (d2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, d2);
       }
 
       await update(roomRef(arenaId), updates);
       return;
     }
 
-    // ── Floral Fragrance (and other ally powers): apply buff, then follow-up normal attack ──
+    // ── Floral Fragrance: if target has Efflorescence Muse, roll D4 for heal crit first ──
+    const ally = findFighter(room, allyTargetId);
+    const attacker = findFighter(room, attackerId);
+    const allyHasEfflorescenceMuse = (battle.activeEffects || []).some(
+      (e) => e.targetId === allyTargetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
+    );
+
+    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasEfflorescenceMuse && ally && attacker) {
+      // Heal crit rate = target's critical rate (same as attack crit)
+      const baseCritRate = typeof ally.criticalRate === 'number' ? ally.criticalRate : 25;
+      const critMod = getStatModifier(battle.activeEffects || [], allyTargetId, MOD_STAT.CRITICAL_RATE);
+      const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
+      const winFaces = getWinningFaces(healCritRate);
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        phase: PHASE.ROLLING_FLORAL_HEAL,
+        action: TURN_ACTION.POWER,
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+        allyTargetId,
+        floralHealWinFaces: winFaces,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+
+    // ── Floral Fragrance (no Muse) or other ally powers: apply heal/buff, then follow-up normal attack ──
     const floralUpdates = applyFloralFragranced(room, attackerId, allyTargetId, battle, power);
     Object.assign(updates, floralUpdates);
 
-    const ally = findFighter(room, allyTargetId);
+    const floralHeal = attacker ? Math.ceil(0.2 * attacker.maxHp) : 0;
+    const defenderHpAfterFloral = ally ? Math.min(ally.currentHp + floralHeal, ally.maxHp) : 0;
     const logEntry = {
       round: battle.roundNumber,
       attackerId,
@@ -1258,19 +1299,19 @@ export async function selectAction(
       attackRoll: 0,
       defendRoll: 0,
       damage: 0,
-      defenderHpAfter: ally ? Math.min(ally.currentHp + power.value, ally.maxHp) : 0,
+      heal: floralHeal,
+      defenderHpAfter: defenderHpAfterFloral,
       eliminated: false,
       missed: false,
       powerUsed: power.name,
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-    
 
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
       phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.ATTACK,       // follow-up as normal attack
+      action: TURN_ACTION.ATTACK,
       usedPowerIndex: powerIndex,
       usedPowerName: power.name,
       allyTargetId,
@@ -1584,7 +1625,7 @@ export async function selectAction(
 
 export async function selectSeason(
   arenaId: string,
-  season: string, // 'summer' | 'autumn' | 'winter' | 'spring'
+  season: SeasonKey,
 ): Promise<void> {
   /* eslint-disable @typescript-eslint/no-unused-vars */
   const snap = await get(roomRef(arenaId));
@@ -1901,6 +1942,137 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
   await update(roomRef(arenaId), updates);
 }
 
+/* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
+
+export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !turn?.floralHealWinFaces?.length || turn.floralHealRoll == null) return;
+
+  const attackerId = turn.attackerId;
+  const allyTargetId = turn.allyTargetId;
+  if (!attackerId || !allyTargetId || !battle) return;
+  const attacker = findFighter(room, attackerId);
+  const ally = findFighter(room, allyTargetId);
+  if (!attacker || !ally) return;
+
+  const winFaces = (turn.floralHealWinFaces ?? []).map((f: unknown) => Number(f));
+  const roll = Number(turn.floralHealRoll);
+  const isHealCrit = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
+  const baseHeal = Math.ceil(0.2 * attacker.maxHp);
+  const actualHeal = isHealCrit ? baseHeal * 2 : baseHeal;
+  const allyPath = findFighterPath(room, allyTargetId);
+  const newHp = Math.min(ally.currentHp + actualHeal, ally.maxHp);
+  const updates: Record<string, unknown> = {};
+  if (allyPath) updates[`${allyPath}/currentHp`] = newHp;
+
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId: allyTargetId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    heal: actualHeal,
+    defenderHpAfter: newHp,
+    eliminated: false,
+    missed: false,
+    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
+    floralHealCrit: isHealCrit,
+  };
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle!.log || []), logEntry]);
+  updates[ARENA_PATH.BATTLE_TURN] = {
+    attackerId,
+    attackerTeam: turn.attackerTeam,
+    phase: PHASE.SELECT_TARGET,
+    action: TURN_ACTION.ATTACK,
+    usedPowerIndex: turn.usedPowerIndex,
+    usedPowerName: turn.usedPowerName,
+    allyTargetId,
+  };
+  await update(roomRef(arenaId), updates);
+}
+
+/* ── advance after Spring (Ephemeral Season) D4 heal roll ─── */
+
+export async function advanceAfterSpringHealD4(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL || !(turn as any).springHealWinFaces?.length || (turn as any).springHealRoll == null) return;
+
+  const attackerId = turn.attackerId;
+  if (!attackerId || !battle) return;
+
+  const winFaces = ((turn as any).springHealWinFaces ?? []).map((f: unknown) => Number(f));
+  const roll = Number((turn as any).springHealRoll);
+  const isHealCrit = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
+  const amount = isHealCrit ? 2 : 1;
+  const springRound = (turn as any).springRound as 1 | 2 | undefined;
+
+  const updates: Record<string, unknown> = {};
+  updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = null;
+
+  const updatedQueue = battle.turnQueue || [];
+  const currentAttackerIdx = updatedQueue.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+  const latestEffects = battle.activeEffects || [];
+  const updatedRoom = room;
+
+  if (springRound === 1) {
+    // ตอน confirm ทอย heal1 ได้ amount → เก็บ heal1 แล้ว advance ไปคนถัดไป (คนนั้นตีก่อนค่อยฮีลใน resolveTurn)
+    updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = amount;
+    updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [];
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId: attackerId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: 0,
+      defenderHpAfter: (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId)?.currentHp ?? 0,
+      eliminated: false,
+      missed: false,
+      powerUsed: 'Ephemeral Season: Spring',
+    };
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
+  } else {
+    // springRound === 2: stored heal2; caster will get it after their next attack (in resolveTurn). Just advance.
+    updates[ARENA_PATH.BATTLE_SPRING_HEAL2] = amount;
+  }
+
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
+  const nextEntry = updatedQueue[nextIdx];
+  const selfRes2 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  let finalEntry = nextEntry;
+  if (nextFighter && !selfRes2 && isStunned(latestEffects, nextEntry.characterId)) {
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
+    finalEntry = updatedQueue[skipIdx];
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
+  } else {
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+  }
+  const nextTurnOnly: Record<string, unknown> = {
+    attackerId: finalEntry.characterId,
+    attackerTeam: finalEntry.team,
+    phase: PHASE.SELECT_ACTION,
+  };
+  if (selfRes2 && finalEntry.characterId === nextEntry.characterId) nextTurnOnly.resurrectTargetId = nextEntry.characterId;
+  await set(ref(db, `arenas/${arenaId}/battle/turn`), nextTurnOnly);
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── confirm season: apply effects + end turn (no dice) ─── */
 
 export async function confirmSeason(arenaId: string): Promise<void> {
@@ -1919,7 +2091,29 @@ export async function confirmSeason(arenaId: string): Promise<void> {
 
   const updates: Record<string, unknown> = {};
 
-  // Apply season effects to all alive teammates
+  // Spring: ตอน confirm ต้องทอย D4 ได้ heal1 ก่อน → หลังทอย advance ไปคนถัดไป (คนนั้นตีก่อนค่อยฮีล). ใส่ effect SEASON_SPRING เพื่อให้ pip/SeasonalEffects แสดง Spring.
+  if (selectedSeason === SEASON_KEYS.SPRING) {
+    updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = attackerId;
+    const seasonUpdates = applySeasonEffects(room, attackerId, SEASON_KEYS.SPRING, battle);
+    Object.assign(updates, seasonUpdates);
+    updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
+    const baseCritRate = typeof attacker.criticalRate === 'number' ? attacker.criticalRate : 25;
+    const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);
+    const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
+    const winFaces = getWinningFaces(healCritRate);
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      attackerId,
+      attackerTeam,
+      phase: PHASE.ROLLING_SPRING_HEAL,
+      selectedSeason,
+      springHealWinFaces: winFaces,
+      springRound: 1,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // Apply season effects to all alive teammates (summer, autumn, winter)
   const seasonUpdates = applySeasonEffects(room, attackerId, selectedSeason, battle);
   Object.assign(updates, seasonUpdates);
 
@@ -2279,8 +2473,63 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const skeletonsForAttackSk = minions.filter((m: any) => m.masterId === attackerId);
     const skIndex = resolvingHitIndex - 1;
 
-    // Past last skeleton: client already saw last hit card and called resolve again → advance to next attacker
+    // Past last skeleton: client already saw last hit card and called resolve again → check Spring (D4 heal2) then advance
     if (skIndex >= skeletonsForAttackSk.length) {
+      const springCasterIdSk = (battle as { springCasterId?: string }).springCasterId;
+      const springHeal1Sk = (battle as { springHeal1?: number }).springHeal1;
+      const springHeal1ReceivedSk = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
+      const springHeal2Sk = (battle as { springHeal2?: number | null }).springHeal2;
+      const isCasterTeamSk = springCasterIdSk && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterIdSk) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
+      if (springCasterIdSk && isCasterTeamSk && springHeal2Sk == null && springHeal1Sk != null && !springHeal1ReceivedSk.includes(attackerId)) {
+        const pathSk = findFighterPath(room, attackerId);
+        if (pathSk) {
+          const hpKeySk = `${pathSk}/currentHp`;
+          const fighterSk = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+          const currentHpSk = (fighterSk?.currentHp ?? 0) as number;
+          const newHpSk = Math.min(fighterSk?.maxHp ?? 999, currentHpSk + springHeal1Sk);
+          const springUpd: Record<string, unknown> = { [hpKeySk]: newHpSk };
+          const logArrSk = [...(battle.log || [])];
+          logArrSk.push({
+            round: battle.roundNumber,
+            attackerId: springCasterIdSk,
+            defenderId: attackerId,
+            attackRoll: 0,
+            defendRoll: 0,
+            damage: 0,
+            heal: springHeal1Sk,
+            defenderHpAfter: newHpSk,
+            eliminated: false,
+            missed: false,
+            powerUsed: 'Ephemeral Season: Spring',
+            springHeal: springHeal1Sk,
+            springHealCrit: springHeal1Sk === 2,
+          });
+          springUpd[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArrSk);
+          springUpd[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [...springHeal1ReceivedSk, attackerId];
+          if (attackerId === springCasterIdSk) {
+            const casterSk = findFighter(room, attackerId);
+            const baseCritSk = casterSk ? (typeof casterSk.criticalRate === 'number' ? casterSk.criticalRate : 25) : 25;
+            const latestEffSk = battle.activeEffects || [];
+            const healCritRateSk = Math.min(100, Math.max(0, baseCritSk + getStatModifier(latestEffSk, attackerId, MOD_STAT.CRITICAL_RATE)));
+            const winFacesSk = getWinningFaces(healCritRateSk);
+            springUpd[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
+            springUpd[ARENA_PATH.BATTLE_TURN] = {
+              attackerId,
+              attackerTeam: turn.attackerTeam,
+              phase: PHASE.ROLLING_SPRING_HEAL,
+              springHealWinFaces: winFacesSk,
+              springRound: 2,
+              playbackStep: null,
+              resolvingHitIndex: null,
+            };
+            springUpd[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+            springUpd[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+            springUpd[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+            await update(roomRef(arenaId), springUpd);
+            return;
+          }
+        }
+      }
       const updatesAdvance: Record<string, unknown> = {};
       const effectUpdatesAdv = tickEffects(room, battle, updatesAdvance);
       Object.assign(updatesAdvance, effectUpdatesAdv);
@@ -2326,7 +2575,55 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       const defPath = findFighterPath(room, defenderId);
       const currentDefHp = defender.currentHp;
       if (currentDefHp <= 0) {
-        // Defender already dead (e.g. race); advance turn and clear resolvingHitIndex
+        // Defender already dead (e.g. race); check Spring (D4 heal2) then advance turn and clear resolvingHitIndex
+        const springCasterIdAdv = (battle as { springCasterId?: string }).springCasterId;
+        const springHeal1Adv = (battle as { springHeal1?: number }).springHeal1;
+        const springHeal1ReceivedAdv = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
+        const isCasterTeamAdv = springCasterIdAdv && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterIdAdv) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
+        if (springCasterIdAdv && isCasterTeamAdv && (battle as { springHeal2?: number | null }).springHeal2 == null && springHeal1Adv != null && !springHeal1ReceivedAdv.includes(attackerId) && attackerId === springCasterIdAdv) {
+          const pathAdv = findFighterPath(room, attackerId);
+          if (pathAdv) {
+            const hpKeyAdv = `${pathAdv}/currentHp`;
+            const fighterAdv = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+            const currentHpAdv = (fighterAdv?.currentHp ?? 0) as number;
+            const newHpAdv = Math.min(fighterAdv?.maxHp ?? 999, currentHpAdv + springHeal1Adv);
+            const springUpdAdv: Record<string, unknown> = { [hpKeyAdv]: newHpAdv };
+            const logArrAdv = [...(battle.log || [])];
+            logArrAdv.push({
+              round: battle.roundNumber,
+              attackerId: springCasterIdAdv,
+              defenderId: attackerId,
+              attackRoll: 0,
+              defendRoll: 0,
+              damage: 0,
+              heal: springHeal1Adv,
+              defenderHpAfter: newHpAdv,
+              eliminated: false,
+              missed: false,
+              powerUsed: 'Ephemeral Season: Spring',
+              springHeal: springHeal1Adv,
+              springHealCrit: springHeal1Adv === 2,
+            });
+            springUpdAdv[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArrAdv);
+            springUpdAdv[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [...springHeal1ReceivedAdv, attackerId];
+            const casterAdv = findFighter(room, attackerId);
+            const baseCritAdv = casterAdv ? (typeof casterAdv.criticalRate === 'number' ? casterAdv.criticalRate : 25) : 25;
+            const healCritRateAdv = Math.min(100, Math.max(0, baseCritAdv + getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE)));
+            const winFacesAdv = getWinningFaces(healCritRateAdv);
+            springUpdAdv[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
+            springUpdAdv[ARENA_PATH.BATTLE_TURN] = {
+              attackerId,
+              attackerTeam: turn.attackerTeam,
+              phase: PHASE.ROLLING_SPRING_HEAL,
+              springHealWinFaces: winFacesAdv,
+              springRound: 2,
+              playbackStep: null,
+              resolvingHitIndex: null,
+            };
+            await update(roomRef(arenaId), springUpdAdv);
+            return;
+          }
+        }
         const updatesAdv: Record<string, unknown> = {};
         const effectUpdatesAdv = tickEffects(room, battle, updatesAdv);
         Object.assign(updatesAdv, effectUpdatesAdv);
@@ -2845,7 +3142,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         shieldsModified = true;
       }
       if (shieldsModified) {
-        // Remove depleted shields, persist remaining values (keep tagged shields like petal-shield)
+        // Remove depleted shields, persist remaining values (keep tagged shields like Efflorescence Muse)
         const cleaned = activeEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
         updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
       }
@@ -2960,12 +3257,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     Object.assign(updates, keraunosShockUpdates);
   }
 
-  // Secret of Dryad passive: grant petal-shield if atkTotal > 10
-  const dryadUpdates = applySecretOfDryadPassive(room, attackerId, battle, atkTotal);
-  if (dryadUpdates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
-    Object.assign(updates, dryadUpdates);
-  }
-
   // Pomegranate's Oath co-attack: when oath-bearer attacks + hits, caster co-attacks
   // Self-target (caster === oath-bearer): no co-attack
   if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
@@ -3031,11 +3322,120 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
     return m.currentHp;
   };
-  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  let teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  let teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
   // Rebuild turn queue with effective speeds (base + active buff/debuff modifiers)
-  const latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+  let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+
+  // ── Spring (Ephemeral Season): ตีก่อนค่อยฮีล — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
+  const springCasterId = (battle as { springCasterId?: string }).springCasterId;
+  const springHeal1 = (battle as { springHeal1?: number }).springHeal1;
+  const springHeal1Received = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
+  const springHeal2 = (battle as { springHeal2?: number | null }).springHeal2;
+
+  const isCasterTeam = springCasterId && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterId) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
+  if (springCasterId && isCasterTeam) {
+    // Caster already has heal2: apply it after this attack, then clear Spring.
+    if (springHeal2 != null && attackerId === springCasterId) {
+      const path = findFighterPath(room, attackerId);
+      if (path) {
+        const hpKey = `${path}/currentHp`;
+        const currentHp = (hpKey in updates ? updates[hpKey] : (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId)?.currentHp) as number ?? 0;
+        const newHp = Math.min((room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId)?.maxHp ?? 999, currentHp + springHeal2);
+        updates[hpKey] = newHp;
+        const logArr = [...(battle.log || [])];
+        logArr.push({
+          round: battle.roundNumber,
+          attackerId,
+          defenderId: attackerId,
+          attackRoll: 0,
+          defendRoll: 0,
+          damage: 0,
+          heal: springHeal2,
+          defenderHpAfter: newHp,
+          eliminated: false,
+          missed: false,
+          powerUsed: 'Ephemeral Season: Spring',
+          springHeal: springHeal2,
+          springHealCrit: springHeal2 === 2,
+        });
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
+      }
+      updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL2] = null;
+      const currentEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+      const withoutSpring = currentEffects.filter(e => e.tag !== EFFECT_TAGS.SEASON_SPRING);
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutSpring;
+      latestEffects = withoutSpring;
+    } else if (springHeal1 != null && !springHeal1Received.includes(attackerId)) {
+      // This attacker hasn't received heal1 yet: heal them (ตีก่อนค่อยฮีล = attack already done).
+      const path = findFighterPath(room, attackerId);
+      if (path) {
+        const hpKey = `${path}/currentHp`;
+        const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+        const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
+        const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + springHeal1);
+        updates[hpKey] = newHp;
+        const logArr = [...(battle.log || [])];
+        logArr.push({
+          round: battle.roundNumber,
+          attackerId: springCasterId,
+          defenderId: attackerId,
+          attackRoll: 0,
+          defendRoll: 0,
+          damage: 0,
+          heal: springHeal1,
+          defenderHpAfter: newHp,
+          eliminated: false,
+          missed: false,
+          powerUsed: 'Ephemeral Season: Spring',
+          springHeal: springHeal1,
+          springHealCrit: springHeal1 === 2,
+        });
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
+      }
+      const nextReceived = [...springHeal1Received, attackerId];
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = nextReceived;
+
+      if (attackerId === springCasterId) {
+        // Caster got heal1; now roll for heal2.
+        const caster = findFighter(room, attackerId);
+        const baseCritRate = caster ? (typeof caster.criticalRate === 'number' ? caster.criticalRate : 25) : 25;
+        const healCritRate = Math.min(100, Math.max(0, baseCritRate + getStatModifier(latestEffects, attackerId, MOD_STAT.CRITICAL_RATE)));
+        const winFaces = getWinningFaces(healCritRate);
+        updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          attackerId,
+          attackerTeam: turn.attackerTeam,
+          phase: PHASE.ROLLING_SPRING_HEAL,
+          springHealWinFaces: winFaces,
+          springRound: 2,
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+      latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffects;
+    }
+  }
+
+  // Recompute HP for win check when we applied Spring heal
+  if (springCasterId && (updates[ARENA_PATH.BATTLE_LOG] || updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED])) {
+    teamAMembers = (room.teamA?.members || []).map((m: FighterState) => {
+      const p = findFighterPath(room, m.characterId);
+      const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
+      return { ...m, currentHp: hp };
+    });
+    teamBMembers = (room.teamB?.members || []).map((m: FighterState) => {
+      const p = findFighterPath(room, m.characterId);
+      const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
+      return { ...m, currentHp: hp };
+    });
+  }
 
   // Delay setting winner so all hit effects can play before end arena
   const END_ARENA_HIT_EFFECTS_DELAY_MS = 3500;
@@ -3091,68 +3491,64 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   // Death Keeper: self-resurrect if next fighter is dead with death-keeper
   const selfRes3 = applySelfResurrect(nextEntry.characterId, updatedRoom as BattleRoom, latestEffects, updates, battle);
 
-  // Skip stunned fighters
+  // Skip stunned fighters — build next turn (SELECT_ACTION only, so caster always attacks before heal-crit roll)
   const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  let nextTurnOnly: Record<string, unknown>;
   if (nextFighter && !selfRes3 && isStunned(updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as typeof activeEffects || activeEffects, nextEntry.characterId)) {
-    // Stunned: consume the stun turn and advance again
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-
     const afterStunRoom = { ...updatedRoom };
     const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom, latestEffects);
     const skipEntry = updatedQueue[skipIdx];
     updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
     if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      attackerId: skipEntry.characterId,
-      attackerTeam: skipEntry.team,
-      phase: PHASE.SELECT_ACTION,
-    };
+    nextTurnOnly = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+    const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
+    if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
+    const battleForFloralSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const floralSkipUpdates = onFloralMaidenTurnStart(room, battleForFloralSkip, skipEntry.characterId);
+    if (floralSkipUpdates) Object.assign(updates, floralSkipUpdates);
   } else {
     updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
     updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-    const turnData: Record<string, unknown> = {
-      attackerId: nextEntry.characterId,
-      attackerTeam: nextEntry.team,
-      phase: PHASE.SELECT_ACTION,
-    };
-    if (selfRes3) turnData.resurrectTargetId = nextEntry.characterId;
-    updates[ARENA_PATH.BATTLE_TURN] = turnData;
+    nextTurnOnly = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
+    if (selfRes3) nextTurnOnly.resurrectTargetId = nextEntry.characterId;
+    const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
+    if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
+    const battleForFloral = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const floralUpdates = onFloralMaidenTurnStart(room, battleForFloral, nextEntry.characterId);
+    if (floralUpdates) Object.assign(updates, floralUpdates);
   }
 
   // Clear transient minion-hit markers so next turn doesn't show stale hit state.
-  // Leave lastSkeletonHits for the client to play back; client clears it after playback.
   updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
 
-  // When there are skeleton hits, delay advancing to next attacker so the client can show
-  // all skeleton damage cards + shakes (2500+50 ms per hit in BattleHUD). Soul Devourer
-  // waits 4500ms (master + soul float + heal) before first skeleton card.
   const skeletonHitsArr = updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[] | undefined;
   const hasSkeletonHits = Array.isArray(skeletonHitsArr) && skeletonHitsArr.length > 0;
   const skeletonCount = hasSkeletonHits ? skeletonHitsArr.length : 0;
-  const SKELETON_MS_PER_HIT = 150; // 150ms per skeleton so damage card stays visible
-  const SOUL_DEVOURER_CHAIN_START_MS = 800; // match BattleHUD SOUL_DEVOURER_MASTER_AND_HEAL_MS
+  const SKELETON_MS_PER_HIT = 150;
+  const SOUL_DEVOURER_CHAIN_START_MS = 800;
   const isSoulDevourerDrain = !!(battle.turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
   const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
-  let advancePayload: Record<string, unknown> | null = null;
+  const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
+
   if (hasSkeletonHits && SKELETON_PLAYBACK_DELAY_MS > 0) {
-    advancePayload = {
-      [ARENA_PATH.BATTLE_TURN]: updates[ARENA_PATH.BATTLE_TURN],
+    const advancePayload = {
       [ARENA_PATH.BATTLE_CURRENT_TURN_INDEX]: updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX],
       [ARENA_PATH.BATTLE_ROUND_NUMBER]: updates[ARENA_PATH.BATTLE_ROUND_NUMBER],
       [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
     };
-    delete updates[ARENA_PATH.BATTLE_TURN];
     delete updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX];
     delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
-  }
-
-  await update(roomRef(arenaId), updates);
-
-  if (advancePayload) {
+    await update(roomRef(arenaId), updates);
     setTimeout(() => {
-      update(roomRef(arenaId), advancePayload as Record<string, unknown>).catch(() => {});
+      set(turnRef, nextTurnOnly).catch(() => {});
+      update(roomRef(arenaId), advancePayload).catch(() => {});
     }, SKELETON_PLAYBACK_DELAY_MS);
+  } else {
+    await set(turnRef, nextTurnOnly);
+    await update(roomRef(arenaId), updates);
   }
 }

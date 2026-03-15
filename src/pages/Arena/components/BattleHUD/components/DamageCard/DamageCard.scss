@@ -111,6 +111,15 @@ $crimson-bright: #c41e3a;
   background: rgba(#4fc3f7, 0.12);
   border: 1px solid rgba(#4fc3f7, 0.25);
   border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.dmg-card__shock-icon {
+  width: 0.85em;
+  height: 0.85em;
+  flex-shrink: 0;
 }
 
 .dmg-card__eq {

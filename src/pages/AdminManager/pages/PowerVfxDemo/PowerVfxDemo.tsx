@@ -20,20 +20,18 @@ import {
   ALLOWED_GROUPS_HADES_AND_PERSEPHONE,
   EFFECT_GROUP_OTHER,
   FIGHTER_OPTION_GROUP,
-  SIDE_LABEL,
   PLACEHOLDER,
   MODAL_TITLE,
   STATE_MESSAGE,
   BUTTON_LABEL,
+  EFFECT_SIDE_LABEL,
 } from './utils/constants';
-import type { FighterOption } from './utils/types';
+import type { EffectSide, FighterOption } from './utils/types';
 import './PowerVfxDemo.scss';
 import { PANEL_SIDE } from '../../../../constants/battle';
 
 /** Effect-only preview: reuses <Arena isDemo />; effect stack chosen via modal (power-select style). */
 
-/** Effects that can be applied to the target/defender (side === 'target'). */
-const TARGET_TYPE_EFFECTS = POWER_VFX_EFFECTS.filter((e) => e.side === 'target');
 
 /** Map Theme25 to CSS vars so modal theme source has fighter theme. Indices: 0 primary, 2 light, 3 accent, 4 bg, 5 fg, 6 surface, 7 muted, 8 border, 9 primaryHover, 11 surfaceHover. */
 function themeToCiStyle(theme: Theme25): CSSProperties {
@@ -141,13 +139,18 @@ export default function PowerVfxDemo() {
 
   const syntheticBattle = useMemo(() => {
     if (!casterFighter || !targetFighter) return undefined;
-    return buildSyntheticBattleFromChoices(
+    const battle = buildSyntheticBattleFromChoices(
       casterEffectIds,
       targetEffectIds,
       casterFighter.characterId,
       targetFighter.characterId
     );
-  }, [casterFighter, targetFighter, casterEffectIds, targetEffectIds]);
+    return {
+      ...battle,
+      _demoReplayTargetKey: replayTargetKey,
+      _demoShockHitReplayKey: replayTargetKey,
+    };
+  }, [casterFighter, targetFighter, casterEffectIds, targetEffectIds, replayTargetKey]);
 
   const syntheticRoom = useMemo(() => {
     if (!casterFighter || !targetFighter || !syntheticBattle) return null;
@@ -180,8 +183,8 @@ export default function PowerVfxDemo() {
           ? [deity]
           : [];
     const effects = POWER_VFX_EFFECTS.filter((e) => {
-      if (e.side === 'target') return true;
-      if (e.side === 'caster') return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
+      if (e.side === EFFECT_SIDE_LABEL.TARGET) return true;
+      if (e.side === EFFECT_SIDE_LABEL.CASTER) return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
       return false;
     });
     const byGroup = effects.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
@@ -192,19 +195,38 @@ export default function PowerVfxDemo() {
     }, {});
     return Object.entries(byGroup).map(([label, options]) => ({ label, options }));
   }, [casterFighter?.deityBlood]);
+  /** Right side: same as left — both caster-type (by right fighter deity) and target-type effects. */
   const targetEffectOptions = useMemo((): OptionGroup[] => {
-    const byGroup = TARGET_TYPE_EFFECTS.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
+    const deity = targetFighter?.deityBlood;
+    const allowedGroups =
+      deity === DEITY_HADES_AND_PERSEPHONE
+        ? [...ALLOWED_GROUPS_HADES_AND_PERSEPHONE]
+        : deity
+          ? [deity]
+          : [];
+    const effects = POWER_VFX_EFFECTS.filter((e) => {
+      if (e.side === EFFECT_SIDE_LABEL.TARGET) return true;
+      if (e.side === EFFECT_SIDE_LABEL.CASTER) return allowedGroups.length > 0 && !!e.group && allowedGroups.includes(e.group);
+      return false;
+    });
+    const byGroup = effects.reduce<Record<string, { value: string; label: string }[]>>((acc, e) => {
       const g = e.group ?? EFFECT_GROUP_OTHER;
       if (!acc[g]) acc[g] = [];
       acc[g].push({ value: e.id, label: e.label });
       return acc;
     }, {});
     return Object.entries(byGroup).map(([label, options]) => ({ label, options }));
-  }, []);
+  }, [targetFighter?.deityBlood]);
 
-  /** Map effect id -> 'caster' | 'target' for badge (effect type, not modal side) */
+  /** Map effect id -> EffectSide for badge (effect type, not modal side) */
   const effectSideByValue = useMemo(
-    () => Object.fromEntries(POWER_VFX_EFFECTS.map((e) => [e.id, e.side])) as Record<string, 'caster' | 'target'>,
+    (): Record<string, EffectSide> =>
+      Object.fromEntries(
+        POWER_VFX_EFFECTS.map((e) => [
+          e.id,
+          e.side === EFFECT_SIDE_LABEL.CASTER ? EFFECT_SIDE_LABEL.CASTER : EFFECT_SIDE_LABEL.TARGET,
+        ])
+      ),
     []
   );
 
@@ -281,7 +303,7 @@ export default function PowerVfxDemo() {
         </div>
 
         <div className="power-vfx-demo__arena">
-          <div key={`arena-${replayCasterKey}-${replayTargetKey}`} className="power-vfx-demo__arena-inner">
+          <div key={`arena-${replayCasterKey}`} className="power-vfx-demo__arena-inner">
             <Arena
               isDemo
               demoRoom={syntheticRoom ?? undefined}
@@ -302,9 +324,9 @@ export default function PowerVfxDemo() {
           />
         </div>
 
-        {/* Bottom bar: half Caster, half Target */}
+        {/* Bottom bar: left half, right half */}
         <div className="power-vfx-demo__bar power-vfx-demo__bar--bottom">
-          <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--caster">
+          <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--left">
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={casterFighterId}
@@ -327,7 +349,7 @@ export default function PowerVfxDemo() {
             </div>
           </div>
           <div className="power-vfx-demo__bar-divider" aria-hidden />
-          <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--target">
+          <div className="power-vfx-demo__bar-half power-vfx-demo__bar-half--right">
             <div className="power-vfx-demo__bar-controls">
               <Dropdown
                 value={targetFighterId}
@@ -353,9 +375,9 @@ export default function PowerVfxDemo() {
       </div>
 
       <EffectStackModal
-        key="caster-effects"
+        key="left-effects"
         open={casterEffectModalOpen}
-        title={MODAL_TITLE.CASTER_EFFECTS}
+        title={MODAL_TITLE.LEFT_EFFECTS}
         groups={casterEffectOptions}
         selectedIds={casterEffectIds}
         onApply={(ids) => setCasterEffectIds(ids)}
@@ -366,9 +388,9 @@ export default function PowerVfxDemo() {
         side={PANEL_SIDE.LEFT}
       />
       <EffectStackModal
-        key="target-effects"
+        key="right-effects"
         open={targetEffectModalOpen}
-        title={MODAL_TITLE.TARGET_EFFECTS}
+        title={MODAL_TITLE.RIGHT_EFFECTS}
         groups={targetEffectOptions}
         selectedIds={targetEffectIds}
         onApply={(ids) => setTargetEffectIds(ids)}
