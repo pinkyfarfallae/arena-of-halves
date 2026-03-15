@@ -783,19 +783,19 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       type: POWER_TYPES.PASSIVE,
       name: DEITY_POWER_NAMES.SECRET_OF_DRYAD,
       description:
-        'ในเทิร์นโจมตี เมื่อได้แต้มจากการทอยเต๋ามากกว่า 10 ร่างกายของทายาทแห่งเพอร์เซโฟนีจะถูกปกคลุมด้วยกลีบดอกไม้โปรยปราบ ส่งผลให้จะไม่รับสถานะผิดปกติจากสกิลอื่น ๆ เป็นระยะเวลา 1 รอบ',
+        'เมื่อเริ่มต้นเทิร์นโจมตีของตนเอง ทายาทแห่งเพอร์เซโฟนีจะเข้าสู่สถานะ “นางบุปผา” ซึ่งมีอภิสิทธิ์ในการปฏิเสธสถานะผิดปกติที่ได้รับมาโดยสิ้นเชิง ทั้งนี้ เมื่อทำการปฏิเสธสถานะผิดปกติใด ๆ แล้วนั้น สถานะความเป็นนางบุปผาจะหายไปทันที ทั้งนี้ การฟื้นฟู HP ของนางบุปผาจะสามารถติดคริติคอลได้ และเมื่อทายาทแห่งเพอร์เซโฟนีอยู่ในสถานะนางบุปผา ทายาทแห่งเพอร์เซโฟนีจะได้รับอัตราคริติคอลเพิ่มเติม 25%',
       available: true,
       effect: EFFECT_TYPES.SHIELD,
       target: TARGET_TYPES.SELF,
       value: 0,
-      duration: 999,
+      duration: 1,
     },
     {
       deity: DEITY.PERSEPHONE,
       type: POWER_TYPES.FIRST_SKILL,
       name: DEITY_POWER_NAMES.FLORAL_FRAGRANCE,
       description:
-        'ชโลมกลิ่นดอกไม้ให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 2 หน่วยจากนั้นทำการโจมตีตามปกติ',
+        'ทายาทแห่งเพอร์เซโฟนีชโลมกลิ่นดอกไม้ให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อฟื้นฟู HP 20% ของ Max HP ของตนให้เป้าหมายจากนั้นทำการโจมตีตามปกติ',
       available: true,
       effect: EFFECT_TYPES.HEAL,
       target: TARGET_TYPES.ALLY,
@@ -835,9 +835,13 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
 
 /** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
 export const NO_STACK_POWER_NAMES: Set<string> = new Set([
+  // Zeus
   POWER_NAMES.BEYOND_THE_NIMBUS,
+  // Hades
   POWER_NAMES.SHADOW_CAMOUFLAGING,
   POWER_NAMES.SOUL_DEVOURER,
+  // Persephone
+  POWER_NAMES.SECRET_OF_DRYAD,
 ]);
 
 /** Synchronous power lookup by deity name (case-insensitive). */

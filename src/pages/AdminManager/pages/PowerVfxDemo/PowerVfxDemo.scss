@@ -99,6 +99,17 @@
     }
   }
 
+  &--secondary {
+    color: var(--ci-fg, #1a1a2e);
+    background: color-mix(in srgb, var(--ci-primary, #c0a062) 18%, transparent);
+    border-color: color-mix(in srgb, var(--ci-border, #d4c9a8) 80%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--ci-primary, #c0a062) 28%, transparent);
+      border-color: var(--ci-primary, #c0a062);
+    }
+  }
+
   &--effects {
     color: var(--ci-fg, #1a1a2e);
     background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 80%, white);
@@ -223,7 +234,7 @@
   min-width: 0;
 }
 
-/* ── Bars: top (season + fighters per side) & bottom (caster | target) ── */
+/* ── Bars: top (season + fighters per side) & bottom (left | right) ── */
 .power-vfx-demo__bar {
   flex-shrink: 0;
   height: $topbar-height;
@@ -320,7 +331,7 @@
   text-align: center;
 }
 
-/* Bottom bar: two equal halves with divider (Caster | Target) */
+/* Bottom bar: two equal halves with divider (Left | Right) */
 .power-vfx-demo__bar--bottom {
   display: flex;
   flex-direction: row;
@@ -337,11 +348,11 @@
   max-height: 26px;
 }
 
-.power-vfx-demo__bar-half--caster {
+.power-vfx-demo__bar-half--left {
   border-right: none;
 }
 
-.power-vfx-demo__bar-half--target {
+.power-vfx-demo__bar-half--right {
   justify-content: flex-end;
 }
 
@@ -370,7 +381,7 @@
   }
 }
 
-.power-vfx-demo__bar-half--target .power-vfx-demo__bar-controls {
+.power-vfx-demo__bar-half--right .power-vfx-demo__bar-controls {
   justify-content: flex-end;
 }
 
@@ -522,7 +533,7 @@
     justify-content: flex-start;
   }
 
-  .power-vfx-demo__bar-half--target .power-vfx-demo__bar-controls {
+  .power-vfx-demo__bar-half--right .power-vfx-demo__bar-controls {
     flex-direction: row;
     justify-content: flex-start;
   }

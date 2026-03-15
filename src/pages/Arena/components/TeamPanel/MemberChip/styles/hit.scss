@@ -54,6 +54,91 @@
   }
 }
 
+/* ── Every effect + hit / shock-hit (same as .mchip--shocked.mchip--hit) ── */
+$effects-with-hit: (
+  'jolt-arc-deceleration': 'hit-shake 0.5s ease-out, jolt-decel-pulse 2s ease-in-out infinite',
+  'keraunos-voltage': 'hit-shake 0.5s ease-out, keraunos-shake 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, keraunos-frame-glow 12s ease-out forwards !important',
+  'efflorescence-muse': 'hit-shake 0.5s ease-out',
+  'pomegranate': 'hit-shake 0.5s ease-out',
+  'spirit-form': 'hit-shake 0.5s ease-out',
+  'shadow-camouflaged': 'hit-shake 0.5s ease-out, shadow-glitch 8s ease-in-out infinite',
+  'soul-devourer': 'hit-shake 0.5s ease-out',
+  'death-keeper': 'hit-shake 0.5s ease-out',
+  'resurrecting': 'hit-shake 0.5s ease-out',
+  'resurrected': 'hit-shake 0.5s ease-out',
+  'fragrance-waved': 'hit-shake 0.5s ease-out',
+  'beyond-the-nimbus': 'hit-shake 0.5s ease-out, nimbus-frame-blink 0.3s ease-in-out infinite',
+  'jolt-arc-attack': 'hit-shake 0.5s ease-out',
+);
+
+@each $effect, $frame-anim in $effects-with-hit {
+  .mchip--#{$effect}.mchip--hit {
+    .mchip__frame {
+      animation: #{$frame-anim};
+    }
+    .mchip__frame::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba($crimson-bright, 0.45);
+      border-radius: inherit;
+      z-index: 10;
+      pointer-events: none;
+      animation: hit-flash 1.5s ease-out forwards;
+    }
+  }
+}
+
+$effects-with-shock-hit: (
+  'jolt-arc-deceleration': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, jolt-decel-pulse 2s ease-in-out infinite',
+  'keraunos-voltage': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, keraunos-shake 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, keraunos-frame-glow 12s ease-out forwards !important',
+  'efflorescence-muse': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'pomegranate': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'spirit-form': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'shadow-camouflaged': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, shadow-glitch 8s ease-in-out infinite',
+  'soul-devourer': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'death-keeper': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'resurrecting': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'resurrected': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'fragrance-waved': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'beyond-the-nimbus': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, nimbus-frame-blink 0.3s ease-in-out infinite',
+  'jolt-arc-attack': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+);
+
+@each $effect, $frame-anim in $effects-with-shock-hit {
+  .mchip--#{$effect}.mchip--shock-hit {
+    .mchip__frame {
+      animation: #{$frame-anim};
+    }
+    .mchip__frame::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(#4fc3f7, 0.5);
+      border-radius: inherit;
+      z-index: 10;
+      pointer-events: none;
+      animation: shock-flash 1.5s ease-out forwards;
+    }
+    .mchip__frame::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: inherit;
+      z-index: 12;
+      pointer-events: none;
+      background:
+        conic-gradient(from 0deg at 15% 10%, rgba(#4fc3f7, 0.9) 0deg, transparent 18deg),
+        conic-gradient(from 120deg at 85% 20%, rgba(#80d8ff, 0.8) 0deg, transparent 22deg),
+        conic-gradient(from 200deg at 90% 80%, rgba(#4fc3f7, 0.9) 0deg, transparent 16deg),
+        conic-gradient(from 300deg at 10% 75%, rgba(#80d8ff, 0.7) 0deg, transparent 20deg),
+        conic-gradient(from 60deg at 50% 5%, rgba(#e1f5fe, 0.9) 0deg, transparent 14deg),
+        conic-gradient(from 240deg at 50% 95%, rgba(#e1f5fe, 0.8) 0deg, transparent 14deg);
+      animation: shock-bolts 1.5s ease-out forwards;
+    }
+  }
+}
+
 /* Keyframes */
 @keyframes hit-shake {
   0%, 100% { transform: translate(0, 0); }

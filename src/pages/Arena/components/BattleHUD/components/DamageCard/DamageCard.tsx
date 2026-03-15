@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { PanelSide } from '../../../../../../constants/battle';
+import Lightning from '../../../../../../icons/Lightning';
 import './DamageCard.scss';
 
 interface ResolveData {
@@ -98,7 +99,10 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
                 {rc.shockBonus > 0 && (
                   <>
                     <span className="dmg-card__base">+</span>
-                    <span className="dmg-card__shock">{rc.shockBonus}⚡</span>
+                    <span className="dmg-card__shock">
+              {rc.shockBonus}
+              <Lightning width={12} height={12} />
+            </span>
                   </>
                 )}
                 <span className="dmg-card__eq">=</span>
