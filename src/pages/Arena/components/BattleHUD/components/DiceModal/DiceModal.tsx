@@ -46,23 +46,33 @@ interface Props {
   critWinFaces?: number[];
   critRollResult?: number;
   onCritRollResult?: (roll: number) => void;
+  /** Called when player clicks to roll — submit immediately so viewer dice start at same time */
+  onCritRollStart?: () => void;
+  /** When replay roller (viewer/NPC) finishes animating — wait for this before advancing */
+  onCritReplayEnd?: () => void;
   /* Keraunos Voltage chain D4 check */
   chainEligible?: boolean;
   chainReady?: boolean;
   chainWinFaces?: number[];
   chainRollResult?: number;
   onChainRollResult?: (roll: number) => void;
+  onChainRollStart?: () => void;
+  onChainReplayEnd?: () => void;
   /* Pomegranate's Oath dodge D4 check */
   dodgeEligible?: boolean;
   dodgeReady?: boolean;
   dodgeWinFaces?: number[];
   dodgeRollResult?: number;
   onDodgeRollResult?: (roll: number) => void;
+  onDodgeRollStart?: () => void;
+  onDodgeReplayEnd?: () => void;
   /* Pomegranate's Oath co-attack D12 */
   coAttackEligible?: boolean;
   coAttackReady?: boolean;
   coAttackRollResult?: number;
   onCoAttackRollResult?: (roll: number) => void;
+  onCoAttackRollStart?: () => void;
+  onCoAttackReplayEnd?: () => void;
   coAttackCaster?: FighterState;
   /* Active effect buff modifiers */
   atkBuffMod?: number;
@@ -81,10 +91,10 @@ export default function DiceModal({
   preRolledAttack, preRolledDefend,
   onAttackRoll, onDefendRoll, onAttackRollStart, onDefendRollStart, onAtkRollDone, onDefRollDone,
   atkRollDone, defRollDone, defendReady, resolveReady, isViewer = false,
-  critEligible, critReady, critWinFaces, critRollResult, onCritRollResult,
-  chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult,
-  dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult,
-  coAttackEligible, coAttackReady, coAttackRollResult, onCoAttackRollResult, coAttackCaster,
+  critEligible, critReady, critWinFaces, critRollResult, onCritRollResult, onCritRollStart, onCritReplayEnd,
+  chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult, onChainRollStart, onChainReplayEnd,
+  dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
+  coAttackEligible, coAttackReady, coAttackRollResult, onCoAttackRollResult, onCoAttackRollStart, onCoAttackReplayEnd, coAttackCaster,
   atkBuffMod = 0, defBuffMod = 0,
 }: Props) {
   const { phase } = turn;
@@ -342,16 +352,7 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Spirit Dodge</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng} — D4 (50%)</span>
-            {isMyDefend ? (
-              <DiceRoller
-                key="dodge-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollResult={onDodgeRollResult}
-                themeColors={dieColors(defender)}
-                hidePrompt
-              />
-            ) : (dodgeRollResult ?? 0) > 0 ? (
+            {isMyDefend ? ((dodgeRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`dodge-replay-${dodgeRollResult}`}
                 className="bhud__dice-roller"
@@ -360,6 +361,27 @@ export default function DiceModal({
                 autoRoll
                 hidePrompt
                 themeColors={dieColors(defender)}
+                onRollEnd={onDodgeReplayEnd}
+              />
+            ) : (
+              <DiceRoller
+                key="dodge-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollStart={onDodgeRollStart}
+                themeColors={dieColors(defender)}
+                hidePrompt
+              />
+            )) : (dodgeRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`dodge-replay-${dodgeRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={dodgeRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(defender)}
+                onRollEnd={onDodgeReplayEnd}
               />
             ) : (
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
@@ -377,16 +399,7 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Critical Check</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4</span>
-            {isMyTurn ? (
-              <DiceRoller
-                key="crit-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollResult={onCritRollResult}
-                themeColors={dieColors(attacker)}
-                hidePrompt
-              />
-            ) : (critRollResult ?? 0) > 0 ? (
+            {isMyTurn ? ((critRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`crit-replay-${critRollResult}`}
                 className="bhud__dice-roller"
@@ -395,6 +408,27 @@ export default function DiceModal({
                 autoRoll
                 hidePrompt
                 themeColors={dieColors(attacker)}
+                onRollEnd={onCritReplayEnd}
+              />
+            ) : (
+              <DiceRoller
+                key="crit-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollStart={onCritRollStart}
+                themeColors={dieColors(attacker)}
+                hidePrompt
+              />
+            )) : (critRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`crit-replay-${critRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={critRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(attacker)}
+                onRollEnd={onCritReplayEnd}
               />
             ) : (
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
@@ -412,16 +446,7 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Keraunos Voltage</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (50%)</span>
-            {isMyTurn ? (
-              <DiceRoller
-                key="chain-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollResult={onChainRollResult}
-                themeColors={dieColors(attacker)}
-                hidePrompt
-              />
-            ) : (chainRollResult ?? 0) > 0 ? (
+            {isMyTurn ? ((chainRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`chain-replay-${chainRollResult}`}
                 className="bhud__dice-roller"
@@ -430,6 +455,27 @@ export default function DiceModal({
                 autoRoll
                 hidePrompt
                 themeColors={dieColors(attacker)}
+                onRollEnd={onChainReplayEnd}
+              />
+            ) : (
+              <DiceRoller
+                key="chain-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={4}
+                onRollStart={onChainRollStart}
+                themeColors={dieColors(attacker)}
+                hidePrompt
+              />
+            )) : (chainRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`chain-replay-${chainRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={4}
+                fixedResult={chainRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(attacker)}
+                onRollEnd={onChainReplayEnd}
               />
             ) : (
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
@@ -449,16 +495,7 @@ export default function DiceModal({
             <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
             {coAttackCaster.characterId === attacker?.characterId ? (
               // Self-oath: caster is the attacker (isMyTurn controls)
-              isMyTurn ? (
-                <DiceRoller
-                  key="coatk-my-roll"
-                  className="bhud__dice-roller"
-                  lockedDie={12}
-                  onRollResult={onCoAttackRollResult}
-                  themeColors={dieColors(coAttackCaster)}
-                  hidePrompt
-                />
-              ) : (coAttackRollResult ?? 0) > 0 ? (
+              isMyTurn ? ((coAttackRollResult ?? 0) > 0 ? (
                 <DiceRoller
                   key={`coatk-replay-${coAttackRollResult}`}
                   className="bhud__dice-roller"
@@ -467,6 +504,27 @@ export default function DiceModal({
                   autoRoll
                   hidePrompt
                   themeColors={dieColors(coAttackCaster)}
+                  onRollEnd={onCoAttackReplayEnd}
+                />
+              ) : (
+                <DiceRoller
+                  key="coatk-my-roll"
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  onRollStart={onCoAttackRollStart}
+                  themeColors={dieColors(coAttackCaster)}
+                  hidePrompt
+                />
+              )) : (coAttackRollResult ?? 0) > 0 ? (
+                <DiceRoller
+                  key={`coatk-replay-${coAttackRollResult}`}
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  fixedResult={coAttackRollResult}
+                  autoRoll
+                  hidePrompt
+                  themeColors={dieColors(coAttackCaster)}
+                  onRollEnd={onCoAttackReplayEnd}
                 />
               ) : (
                 <div className="bhud__dice-roller bhud__dice-roller--waiting">
@@ -484,6 +542,7 @@ export default function DiceModal({
                   autoRoll
                   hidePrompt
                   themeColors={dieColors(coAttackCaster)}
+                  onRollEnd={onCoAttackReplayEnd}
                 />
               ) : (
                 <div className="bhud__dice-roller bhud__dice-roller--waiting">

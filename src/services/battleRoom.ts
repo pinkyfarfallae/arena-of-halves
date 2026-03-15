@@ -58,9 +58,13 @@ export function getWinningFaces(critRate: number): number[] {
   return winners;
 }
 
-/** Ensure no log entry has powerUsed === undefined (Firebase rejects undefined). */
+/** Ensure no log entry has powerUsed === undefined (Firebase rejects undefined). Preserve hitTargetId so client gets it. */
 function sanitizeBattleLog(log: unknown[]): unknown[] {
-  return log.map((e: any) => ({ ...e, powerUsed: e.powerUsed ?? '' }));
+  return log.map((e: any) => {
+    const out: Record<string, unknown> = { ...e, powerUsed: e.powerUsed ?? '' };
+    if (e.hitTargetId != null && e.hitTargetId !== '') out.hitTargetId = e.hitTargetId;
+    return out;
+  });
 }
 
 /** Generate a 6-char uppercase room code */
@@ -377,6 +381,64 @@ function findFighterTeam(room: BattleRoom, characterId: string): BattleTeamKey |
   if ((room.teamA?.members || []).some(m => m.characterId === characterId)) return BATTLE_TEAM.A;
   if ((room.teamB?.members || []).some(m => m.characterId === characterId)) return BATTLE_TEAM.B;
   return null;
+}
+
+/**
+ * Resolve one hit at defender: if defender has a skeleton, skeleton takes the hit and is destroyed (0 damage to master);
+ * otherwise the given damage goes to master. 1 attack = 1 skeleton.
+ * When skeleton blocks: sets lastHitTargetId = blocker, writes blocker to updates for next call in same turn, but
+ * actual minion removal is delayed (setTimeout) so client can show hit VFX on skeleton first.
+ * Caller MUST delete result.skippedMinionsPath from updates before writing to Firebase so client keeps minion for 1100ms.
+ */
+async function resolveHitAtDefender(
+  arenaId: string,
+  room: BattleRoom,
+  defenderId: string,
+  incomingDamage: number,
+  updates: Record<string, unknown>,
+  defender: FighterState,
+): Promise<{ damageToMaster: number; hitTargetId: string; skippedMinionsPath?: string }> {
+  const defenderTeam = findFighterTeam(room, defenderId);
+  if (!defenderTeam) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
+  const currentMinions = (updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []);
+  const defenderSkeletons = currentMinions.filter((m: any) => m.masterId === defenderId);
+  if (defenderSkeletons.length === 0) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
+
+  const blocker = defenderSkeletons[0];
+  const remainingMinions = currentMinions.filter((m: any) => m.characterId !== blocker.characterId);
+  const defPath = findFighterPath(room, defenderId);
+  if (defPath) {
+    const currentCount = (updates[`${defPath}/skeletonCount`] as number | undefined) ?? defender.skeletonCount ?? 0;
+    updates[`${defPath}/skeletonCount`] = Math.max(0, currentCount - 1);
+  }
+  // So next call in same turn (e.g. co-attack) sees updated list; actual removal is in setTimeout so client can show hit VFX
+  const minionsPath = teamPath(defenderTeam, 'minions');
+  updates[minionsPath] = remainingMinions;
+
+  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = blocker.characterId;
+
+  const hitMarkerKey = ARENA_PATH.BATTLE_LAST_HIT_MINION_ID;
+  const immediateMinions = currentMinions.map((m: any) => (
+    m.characterId === blocker.characterId ? { ...m, __isHit: true } : m
+  ));
+  try {
+    await update(ref(db, `arenas/${arenaId}`), {
+      [hitMarkerKey]: blocker.characterId,
+      [minionsPath]: immediateMinions,
+    });
+  } catch (err) {
+  }
+  setTimeout(async () => {
+    try {
+      await update(ref(db, `arenas/${arenaId}`), {
+        [hitMarkerKey]: null,
+        [minionsPath]: remainingMinions,
+      });
+    } catch (err) {
+    }
+  }, 1100);
+
+  return { damageToMaster: 0, hitTargetId: blocker.characterId, skippedMinionsPath: minionsPath };
 }
 
 function buildMasterPlaybackStep(
@@ -2704,7 +2766,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           const cleaned = mutableEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
           updatesSk[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
         }
-        const dmgToApply = Math.max(0, shieldRemaining);
+        let dmgToApply = Math.max(0, shieldRemaining);
+        const skResolve = await resolveHitAtDefender(arenaId, room, defenderId, dmgToApply, updatesSk, defender);
+        dmgToApply = skResolve.damageToMaster;
+        if (skResolve.skippedMinionsPath) delete updatesSk[skResolve.skippedMinionsPath];
+
         const reflectPct = getReflectPercent((updatesSk[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || mutableEffects, defenderId);
         if (reflectPct > 0 && dmgToApply > 0) {
           const reflectDmg = Math.floor(dmgToApply * reflectPct / 100);
@@ -2734,9 +2800,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           missed: false,
         };
         if (isCritSk) skHit.isCrit = true;
+        skHit.hitTargetId = skResolve.hitTargetId;
+        console.log('[skeleton] minion hit skHit.hitTargetId=', skResolve.hitTargetId, 'defenderId=', defenderId, 'dmgToMaster=', dmgToApply);
         updatesSk[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = [skHit];
         updatesSk[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = sk.characterId;
-        updatesSk[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = defenderId;
+        updatesSk[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = skResolve.hitTargetId;
         const existingLog = [...(battle.log || [])];
         existingLog.push(Object.assign({}, skHit, { isMinionHit: true }) as any);
         updatesSk[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(existingLog);
@@ -2827,6 +2895,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   let defenderHpAfter = defender.currentHp;
   // Collected skeletons to resolve after the main attack (separate logs)
   let skeletonsForAttack: any[] = [];
+  /** When skeleton blocks main attack, used so log entry has hitTargetId and client does not show hit VFX on master */
+  let mainResolve: { damageToMaster: number; hitTargetId: string; skippedMinionsPath?: string } | null = null;
   // Capture the main attack log entry so we can guarantee it appears before minion entries
   let mainAttackLogEntry: Record<string, unknown> | null = null;
   // Crit / shock bookkeeping (may be set during attack resolution)
@@ -3074,61 +3144,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         skeletonsForAttack = minions.filter(m => m.masterId === attackerId);
       }
 
-      // Skeleton protection: when master is attacked, lowest-index skeleton blocks damage and dies
-      const defenderTeam = findFighterTeam(room, defenderId);
-      if (defenderTeam) {
-        const defenderMinions = room[defenderTeam]?.minions || [];
-        const defenderSkeletons = defenderMinions.filter(m => m.masterId === defenderId);
-        if (defenderSkeletons.length > 0) {
-          // Choose the lowest-index skeleton (first in array) as blocker
-          const blocker = defenderSkeletons[0];
-          const remainingMinions = defenderMinions.filter(m => m.characterId !== blocker.characterId);
-
-          // Prepare an immediate visual update: mark the minion as hit (transient) and publish
-          // a `battle/lastHitMinionId` so UIs can retarget visuals to the skeleton and play hit effects.
-          const hitMarkerKey = ARENA_PATH.BATTLE_LAST_HIT_MINION_ID;
-          const immediateMinions = defenderMinions.map(m => (
-            m.characterId === blocker.characterId ? { ...m, __isHit: true } : m
-          ));
-
-          // Decrement skeleton count immediately (so counts stay consistent)
-          const defPath = findFighterPath(room, defenderId);
-          if (defPath) {
-            const currentCount = defender.skeletonCount || 0;
-            updates[`${defPath}/skeletonCount`] = Math.max(0, currentCount - 1);
-          }
-
-          // Apply the immediate visual update right away so clients can animate the hit
-          // while we schedule the actual removal a short time later.
-          // NOTE: we call update() directly here to flush the visual marker early.
-          try {
-            await update(ref(db, `arenas/${arenaId}`), {
-              [hitMarkerKey]: blocker.characterId,
-              [teamPath(defenderTeam, 'minions')]: immediateMinions,
-            });
-          } catch (err) {
-          }
-
-          // Schedule removal after a short display interval so clients can show the hit animation
-          // Keep the minion visible long enough for the full dust/despawn animation to play
-          // Dust animation is 1000ms in CSS, add small buffer so it completes before removal.
-          const HIT_DISPLAY_MS = 1100;
-          setTimeout(async () => {
-            try {
-              await update(ref(db, `arenas/${arenaId}`), {
-                // remove the blocker minion
-                [teamPath(defenderTeam, 'minions')]: remainingMinions,
-                // clear transient hit marker
-                [hitMarkerKey]: null,
-              });
-            } catch (err) {
-            }
-          }, HIT_DISPLAY_MS);
-
-          // Damage is completely blocked
-          rawDmg = 0;
-        }
-      }
+      // Resolve hit at defender: skeleton receives and dies, or damage goes to master (1 attack = 1 skeleton)
+      mainResolve = await resolveHitAtDefender(arenaId, room, defenderId, rawDmg, updates, defender);
+      rawDmg = mainResolve.damageToMaster;
+      if (mainResolve.skippedMinionsPath) delete updates[mainResolve.skippedMinionsPath];
 
       // Shield absorption — persist reduced/depleted shields to Firebase
       let shieldRemaining = rawDmg;
@@ -3203,6 +3222,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (isSelfBuffPower && battle.turn.usedPowerName && battle.turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS) {
       logEntry.powerUsed = battle.turn.usedPowerName;
     }
+    // When skeleton blocked: so client sets lastHitTargetId = blocker and does not show hit VFX on master
+    if (hit && dmg === 0 && mainResolve?.hitTargetId && mainResolve.hitTargetId !== defenderId) {
+      logEntry.hitTargetId = mainResolve.hitTargetId;
+      console.log('[skeleton] main attack blocked, logEntry.hitTargetId=', mainResolve.hitTargetId, 'defenderId=', defenderId);
+    }
 
     // Capture and write the main attack log entry; update the "after choose target" entry from selectTarget if present
     mainAttackLogEntry = logEntry;
@@ -3219,7 +3243,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (attackerHasBeyondTheNimbus) {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
     } else if (canUpdateNorm) {
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), { ...lastPrevNorm, ...logEntry }]);
+      const merged: Record<string, unknown> = { ...lastPrevNorm, ...logEntry };
+      if (logEntry.hitTargetId != null) merged.hitTargetId = logEntry.hitTargetId;
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), merged]);
     } else {
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
     }
@@ -3257,8 +3283,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     Object.assign(updates, keraunosShockUpdates);
   }
 
-  // Pomegranate's Oath co-attack: when oath-bearer attacks + hits, caster co-attacks
-  // Self-target (caster === oath-bearer): no co-attack
+  // Pomegranate's Oath co-attack: resolve at defender (skeleton blocks or master takes damage)
   if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
     const spiritEffect = activeEffects.find(
       e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
@@ -3273,16 +3298,22 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (coHit) {
           const coDmgBuff = getStatModifier(activeEffects, casterId, MOD_STAT.DAMAGE);
           const coDmg = Math.max(0, caster.damage + coDmgBuff);
+          const coResolve = await resolveHitAtDefender(arenaId, room, defenderId, coDmg, updates, defender);
+          const coDmgToMaster = coResolve.damageToMaster;
+          if (coResolve.skippedMinionsPath) delete updates[coResolve.skippedMinionsPath];
           const defPath = findFighterPath(room, defenderId);
-          if (defPath) {
+          if (defPath && coDmgToMaster > 0) {
             const currentDefHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
-            updates[`${defPath}/currentHp`] = Math.max(0, currentDefHp - coDmg);
+            updates[`${defPath}/currentHp`] = Math.max(0, currentDefHp - coDmgToMaster);
           }
-          // Append co-attack info to the last log entry
           const logArr = (updates[ARENA_PATH.BATTLE_LOG] as typeof battle.log) || [...(battle.log || [])];
           if (logArr.length > 0) {
-            logArr[logArr.length - 1].coAttackDamage = coDmg;
+            logArr[logArr.length - 1].coAttackDamage = coDmgToMaster;
             logArr[logArr.length - 1].coAttackerId = casterId;
+            if (coDmgToMaster === 0 && coResolve.hitTargetId && coResolve.hitTargetId !== defenderId) {
+              (logArr[logArr.length - 1] as unknown as Record<string, unknown>).hitTargetId = coResolve.hitTargetId;
+              console.log('[skeleton] co-attack blocked, lastEntry.hitTargetId=', coResolve.hitTargetId, 'defenderId=', defenderId);
+            }
             updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
           }
         }
