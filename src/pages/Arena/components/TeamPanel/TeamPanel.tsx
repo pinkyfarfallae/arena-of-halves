@@ -33,8 +33,11 @@ interface Props {
   casterFrameRef?: RefObject<HTMLDivElement | null>;
   /** Ref to attach to defender's frame so soul float starts from target center (Soul Devourer) */
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
-  /** Optional map of transient minion pulse ids keyed by defenderId (from Arena) */
+  /** Optional map of transient minion pulse ids keyed by defenderId (from Arena) — used for log playback (main/co-attack hit) */
   minionPulseMap?: Record<string, number>;
+  /** Skeleton buffer (pre-demo): current hit target from skeleton card; drives master hit VFX without pulse map */
+  currentSkeletonHitTargetId?: string | null;
+  currentSkeletonPulseKey?: number;
   onSelectTarget?: (defenderId: string) => void;
   /** Optional client-side visual override for NPC target selection */
   clientVisualDefenderId?: string | null;
@@ -62,7 +65,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -222,20 +225,22 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase !== PHASE.SELECT_ACTION &&
           turn?.phase !== PHASE.ROLLING_ATTACK &&
           turn?.phase !== PHASE.ROLLING_DEFEND
-        ) && !suppressHitAfterSelect && !suppressHitAfterBack;
+        ) && (m.skeletonCount ?? 0) <= 0
+        && !suppressHitAfterSelect && !suppressHitAfterBack;
         const playbackHit = !!playbackStepActive && playbackStep?.defenderId === m.characterId;
         const playbackHitEventKey = (playbackHit && !playbackStep?.isMinionHit && playbackStep?.isHit !== false)
           ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep)
           : undefined;
         const playbackMainHit = !!playbackStepActive && !playbackStep?.isMinionHit && playbackStep?.defenderId === m.characterId && playbackStep?.isHit !== false;
+        // Skeleton buffer (pre-demo): hit target from card drives master hit VFX; minion frame uses __isHit from server.
+        const isSkeletonCardHitTarget = currentSkeletonHitTargetId === m.characterId && turn?.phase === PHASE.RESOLVING;
+        // Log playback (main/co-attack): pulse map drives hit VFX.
+        const hasMinionHitPulse = minionPulseMap && minionPulseMap[m.characterId] != null;
+        const minionsForMember = minionsMap.get(m.characterId) || [];
+        const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[min.characterId] != null));
         const shouldAllowLegacyMinionPulse = !!(
-          minionPulseMap &&
-          minionPulseMap[m.characterId] != null &&
-          turn?.defenderId === m.characterId &&
-          (
-            (playbackStepActive && !!playbackStep?.isMinionHit) ||
-            hasBufferedMinionPlayback
-          )
+          (hasMinionHitPulse || isSkeletonCardHitTarget) &&
+          (turn?.phase === PHASE.RESOLVING || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback)
         );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
@@ -250,8 +255,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Tag-based chip props from shared registry (single source of truth for effect → props)
         const tagBasedProps = getTagBasedChipProps(activeEffects, m.characterId);
-        // Merge tag-based (e.g. demo-only hit VFX) so demo selection shows hit/shock/resurrecting etc.
-        const isHit = isHitFromTurn || !!tagBasedProps.isHit;
+        // When skeleton blocked: lastHitTargetId is the blocker (minion), so master must NOT show hit VFX
+        const lastHitTargetId = (battle as any)?.lastHitTargetId;
+        const hitLandedOnMyMinion = turn?.defenderId === m.characterId && lastHitTargetId &&
+          masterMinions.some((min: { characterId: string }) => min.characterId === lastHitTargetId);
+        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion;
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
@@ -441,8 +449,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            // Allow pulses when hit visuals allowed, or during RESOLVING with skeleton playback (n hits → n shakes), or in demo (VFX/replay keys)
-            allowTransientHits={allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number'}
+            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && turn?.phase === PHASE.RESOLVING) || (hasMinionPulseInChip && turn?.phase === PHASE.RESOLVING) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
             visualDefenderId={visualDefenderId}
             hitEventKey={
               (() => {
@@ -467,7 +474,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             playbackHitEventKey={playbackStepActive ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep) : undefined}
             minionHitPulseId={
               shouldAllowLegacyMinionPulse
-                ? Number(minionPulseMap[m.characterId])
+                ? (isSkeletonCardHitTarget && currentSkeletonPulseKey != null
+                    ? currentSkeletonPulseKey
+                    : (minionPulseMap && minionPulseMap[m.characterId] != null ? Number(minionPulseMap[m.characterId]) : undefined))
                 : undefined
             }
             minionPulseMap={minionPulseMap}

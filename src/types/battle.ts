@@ -242,6 +242,10 @@ export interface BattleLogEntry {
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;
+  /** When skeleton/minion blocked: actual hit target id (blocker). Client uses this so hit VFX shows on skeleton, not master. */
+  hitTargetId?: string;
+  /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
+  isMinionHit?: boolean;
 }
 
 /** Full battle state stored alongside the room */

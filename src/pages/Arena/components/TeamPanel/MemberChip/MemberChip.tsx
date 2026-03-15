@@ -315,7 +315,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
       hitPulseRestartRef.current = null;
       setIsHitActive(false);
-      // Use setTimeout so "false" is committed and painted before we add "true" again (restarts animation)
+      // Start shake immediately so it lines up with damage card (0ms; restart still works via false→true)
       hitPulseRestartRef.current = setTimeout(() => {
         hitPulseRestartRef.current = null;
         setIsHitActive(true);
@@ -323,7 +323,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           hitPulseTimerRef.current = null;
           setIsHitActive(false);
         }, 1500);
-      }, 50);
+      }, 0);
       return () => {
         if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
         hitPulseRestartRef.current = null;
@@ -334,7 +334,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   }, [minionHitPulseId, allowTransientHits]);
 
   // When a minion is the hit target (minionPulseMap[minion.characterId] set), show hit effect on that minion frame.
-  // Reset to false, then after 50ms set true so the animation restarts (n pulses → n shakes).
+  // Start shake immediately (0ms) so it lines up with damage card.
   const [minionHitActiveById, setMinionHitActiveById] = useState<Record<string, boolean>>({});
   const lastMinionPulseRef = useRef<Record<string, number>>({});
   const minionHitTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -358,7 +358,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             setMinionHitActiveById((prev) => ({ ...prev, [cid]: false }));
           }, 800);
           minionHitTimersRef.current[cid] = t;
-        }, 50);
+        }, 0);
       }
     }
     return () => {
@@ -1554,7 +1554,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
-      {hasPomegranateEffect && !isSpiritForm && battleLive && (
+      {hasPomegranateEffect && !isSpiritForm && !isEfflorescenceMuse && battleLive && (
         <>
           {/* Triangle tunnel background (red/pink/white, 3D) */}
           <div className="mchip__pom-tris-wrap" aria-hidden="true">
@@ -1644,7 +1644,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Spirit form — all effects (b&w/ethereal): tris, canvas, seeds, lights, rises, drops, deco, glow/oath + wisps */}
-      {isSpiritForm && battleLive && (
+      {isSpiritForm && !isEfflorescenceMuse && battleLive && (
         <>
           <div className="mchip__spirit-tris-wrap" aria-hidden="true">
             {Array.from({ length: 200 }, (_, i) => (
