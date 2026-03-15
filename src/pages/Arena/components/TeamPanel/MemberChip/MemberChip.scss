@@ -427,8 +427,7 @@
 /* ── Quota pips (below frame, inside chip) ── */
 .mchip__quota {
   width: $frame-size-medium;
-  height: $frame-size-medium;
-  min-height: $frame-size-medium;
+  height: fit-content;
 }
 
 .mchip__frame-wrap--nimbus {
@@ -749,7 +748,7 @@
   }
 
   .mchip__quota {
-    margin-bottom: 0.5rem;
+    margin-bottom: auto;
   }
 
   .mchip__quota-pip {
