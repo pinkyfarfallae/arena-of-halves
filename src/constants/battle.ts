@@ -10,6 +10,8 @@ export const PHASE = {
   ROLLING_DEFEND: 'rolling-defend',
   /** Floral Fragrance on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
   ROLLING_FLORAL_HEAL: 'rolling-floral-heal',
+  /** Spring (Ephemeral Season): roll D4 for heal crit (1 or 2 HP until next caster turn) */
+  ROLLING_SPRING_HEAL: 'rolling-spring-heal',
   RESOLVING: 'resolving',
   DONE: 'done',
 } as const;
@@ -80,6 +82,15 @@ export const ARENA_PATH = {
   BATTLE_TURN_PHASE: 'battle/turn/phase',
   BATTLE_TURN_PLAYBACK_STEP: 'battle/turn/playbackStep',
   BATTLE_TURN_SELECTED_SEASON: 'battle/turn/selectedSeason',
+  BATTLE_SPRING_CASTER_ID: 'battle/springCasterId',
+  /** First D4 result (1 or 2); each ally gets this after they attack, in turn order from next person */
+  BATTLE_SPRING_HEAL1: 'battle/springHeal1',
+  /** Character ids who have received heal1; when caster is in this list we roll for heal2 */
+  BATTLE_SPRING_HEAL1_RECEIVED: 'battle/springHeal1Received',
+  /** Second D4 result; only caster gets this after their next attack, then Spring ends */
+  BATTLE_SPRING_HEAL2: 'battle/springHeal2',
+  /** True only while Spring D4 modal should be shown; cleared when advancing from D4 */
+  BATTLE_SPRING_HEAL_ROLL_ACTIVE: 'battle/springHealRollActive',
 } as const;
 
 /** Build team path for Firebase (e.g. teamPath(BATTLE_TEAM.A, 'members') => 'teamA/members'). */
@@ -125,6 +136,8 @@ export function getPhaseLabel(
       return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
     case PHASE.ROLLING_FLORAL_HEAL:
       return 'heal crit';
+    case PHASE.ROLLING_SPRING_HEAL:
+      return 'Spring heal';
     case PHASE.DONE:
       return 'done';
     default:

@@ -1,4 +1,5 @@
 import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
+import { SeasonKey } from '../data/seasons';
 import { Theme25 } from './character';
 import { Deity } from './deity';
 import { Minion } from './minions';
@@ -171,7 +172,13 @@ export interface TurnState {
   floralHealRoll?: number;
 
   /* Persephone's Ephemeral Season selection */
-  selectedSeason?: string; // 'summer' | 'autumn' | 'winter' | 'spring'
+  selectedSeason?: SeasonKey;
+
+  /* Spring (Ephemeral Season): D4 roll for heal amount (crit = 2, else 1); same flow as Floral Fragrance */
+  springHealWinFaces?: number[];
+  springHealRoll?: number;
+  /** 1 = from confirm (store and advance), 2 = from after resolve (store second amount and advance) */
+  springRound?: 1 | 2;
 
   /* Death Keeper resurrection */
   resurrectTargetId?: string;
@@ -232,6 +239,9 @@ export interface BattleLogEntry {
   heal?: number;
   /** Floral Fragrance + Efflorescence Muse: D4 heal crit (2× heal) */
   floralHealCrit?: boolean;
+  /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
+  springHeal?: number;
+  springHealCrit?: boolean;
 }
 
 /** Full battle state stored alongside the room */
@@ -245,6 +255,12 @@ export interface BattleState {
   winner?: BattleTeamKey;
   /** Timestamp when winner will be set after delay (so hit effects can play before end arena) */
   winnerDelayedAt?: number;
+  /** Ephemeral Season Spring: attack first then heal; heal1 per ally in turn order, then caster gets heal1 and we roll heal2, then caster gets heal2 and end */
+  springCasterId?: string;
+  springHeal1?: number;
+  springHeal1Received?: string[];
+  springHeal2?: number | null;
+  springHealRollActive?: boolean | null;
 }
 
 /** The battle room stored in Firebase */

@@ -32,6 +32,7 @@ import {
   normalizeFighter,
   advanceAfterShadowCamouflageD4,
   advanceAfterFloralHealD4,
+  advanceAfterSpringHealD4,
   skipTurnNoValidTarget,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
@@ -456,6 +457,21 @@ function Arena(props?: ArenaDemoProps) {
         try {
           await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
           await advanceAfterFloralHealD4(arenaId);
+        } catch (e) {}
+      }, 2000);
+      return;
+    }
+
+    // NPC: Ephemeral Season Spring — roll D4 for heal amount (crit = 2, else 1), then advance after a short delay so server sees the roll
+    const springWinFaces = (turn as any)?.springHealWinFaces;
+    const springRoll = (turn as any)?.springHealRoll;
+    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && Array.isArray(springWinFaces) && springWinFaces.length > 0 && springRoll == null && teamBIds.has(turn.attackerId)) {
+      schedule(async () => {
+        const roll = Math.ceil(Math.random() * 4);
+        try {
+          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll });
+          await new Promise((r) => setTimeout(r, 800));
+          await advanceAfterSpringHealD4(arenaId);
         } catch (e) {}
       }, 2000);
       return;

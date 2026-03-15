@@ -3,7 +3,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4 } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4 } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -1794,6 +1794,36 @@ export default function BattleHUD({
               } catch (e) {}
             }}
             onResultCardVisible={onFloralHealResultCardVisible}
+          />
+        );
+      })()}
+
+      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL and turn has winFaces; use springHealRollActive or turn.springRound so sync delay doesn't hide modal. */}
+      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
+        const springWinFaces = (turn as any).springHealWinFaces ?? [];
+        const springRoll = (turn as any).springHealRoll;
+        const critPct = springWinFaces.length * 25;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            winFaces={springWinFaces}
+            roll={springRoll}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            title="Spring Heal"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
+            wonText="+2 HP"
+            lostText="+1 HP"
+            bonusLabel={`crit: ${[...springWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRoll={async (roll: number) => {
+              if (!arenaId) return;
+              try {
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll });
+                await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                await advanceAfterSpringHealD4(arenaId);
+              } catch (e) {}
+            }}
           />
         );
       })()}
