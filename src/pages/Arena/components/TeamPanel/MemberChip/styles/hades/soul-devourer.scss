@@ -1,21 +1,453 @@
 /* ── Soul Devourer (Hades Ultimate) — souls inhale, frame, border, wave, heal ─ */
+@use '../vars' as *;
+
+/* Same clip as efflorescence-muse: top visible, fade to transparent at bottom */
+$soul-devourer-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+
+@mixin soul-devourer-body-clip {
+  mask-image: $soul-devourer-clip-gradient;
+  -webkit-mask-image: $soul-devourer-clip-gradient;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
+@mixin soul-devourer-right-side-fade-mask {
+  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
+/* Animated black–white column grid (in front of soul-frame pattern) */
+.mchip__soul-devourer-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  height: 70%;
+  pointer-events: none;
+  overflow: hidden;
+  display: grid;
+  opacity: 0.3;
+  filter: blur(4px);
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  @include soul-devourer-body-clip;
+}
+
+.mchip__soul-devourer-bg-column {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg,
+      #0d0d0d 0%,
+      #0d0d0d 16.67%,
+      #2a2a2a 16.67%,
+      #2a2a2a 33.33%,
+      #474747 33.33%,
+      #474747 50%,
+      #666666 50%,
+      #666666 66.67%,
+      #858585 66.67%,
+      #858585 83.33%,
+      #b3b3b3 83.33%,
+      #b3b3b3 100%);
+  background-size: 100% 100px;
+  background-repeat: repeat-y;
+  animation: soul-devourer-bg-scroll 2.5s linear infinite;
+
+  /* Alternate scroll direction per column */
+  &--2,
+  &--4,
+  &--6,
+  &--8 {
+    animation-direction: reverse;
+  }
+}
+
+@keyframes soul-devourer-bg-scroll {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 0 100px;
+  }
+}
 
 /* Masked container for soul layers */
 .mchip__soul-float {
   position: absolute;
   inset: 0;
   z-index: 1;
-  opacity: 0.85;
+  opacity: 0.9;
   pointer-events: none;
   overflow: hidden;
+  filter: brightness(1.15) contrast(1.05);
   mask-image:
-    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46), transparent 100%);
+    linear-gradient(180deg, black 0%, black 100%),
+    linear-gradient(90deg, black 0%, black 100%);
   -webkit-mask-image:
-    linear-gradient(180deg, transparent 0%, rgb(46, 46, 46) 6%, rgb(46, 46, 46) 92%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, rgb(46, 46, 46) 5%, rgb(46, 46, 46) 95%, transparent 100%);
+    linear-gradient(180deg, black 0%, black 100%),
+    linear-gradient(90deg, black 0%, black 100%);
   mask-composite: intersect;
   -webkit-mask-composite: destination-in;
+}
+
+/* Violet and white overlay: smooth crossfade via two layers + opacity */
+.mchip__soul-devourer-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.75;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+  @include soul-devourer-body-clip;
+  mix-blend-mode: overlay;
+
+  /* Base layer: white gradient (visible when violet fades out) */
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.3) 25%,
+    rgba(0, 0, 0, 0.1) 50%,
+    transparent 100%
+  );
+
+  /* Top layer: violet gradient — animate opacity for smooth crossfade */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      180deg,
+      rgba(123, 31, 162, 0.48) 0%,
+      rgba(139, 90, 158, 0.32) 25%,
+      rgba(206, 147, 216, 0.12) 50%,
+      transparent 100%
+    );
+    animation: soul-devourer-overlay-violet 8s ease-in-out infinite;
+  }
+}
+
+@keyframes soul-devourer-overlay-violet {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Wisps at bottom of chip — scattered across full width */
+.mchip__soul-devourer-wisps {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 48%;
+  max-height: 70px;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mchip__soul-devourer-wisp {
+  position: absolute;
+  border-radius: 50% 50% 55% 45%;
+  opacity: 0;
+  animation: soul-devourer-wisp-rise ease-in-out infinite;
+  bottom: 0;
+  top: auto;
+  /* Smoke-like but standout: stronger gradient + soft glow */
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(235, 225, 245, 1) 0%, rgba(200, 180, 220, 0.8) 35%, rgba(170, 150, 195, 0.5) 60%, transparent 80%);
+  box-shadow: 0 0 30px rgba(#ffffff, 0.35), 0 0 35px rgba(#f9d6ff, 0.2);
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25)) blur(10px) contrast(1.05) brightness(1.15);
+
+  &:nth-child(1) {
+    width: 28px;
+    height: 40px;
+    left: 2%;
+    animation-duration: 5s;
+    animation-delay: 0s;
+  }
+  &:nth-child(2) {
+    width: 22px;
+    height: 32px;
+    left: 18%;
+    animation-duration: 5.5s;
+    animation-delay: 0.5s;
+  }
+  &:nth-child(3) {
+    width: 26px;
+    height: 38px;
+    left: 27%;
+    animation-duration: 4.5s;
+    animation-delay: 1s;
+  }
+  &:nth-child(4) {
+    width: 20px;
+    height: 30px;
+    left: 52%;
+    animation-duration: 6s;
+    animation-delay: 0.2s;
+  }
+  &:nth-child(5) {
+    width: 24px;
+    height: 36px;
+    left: 72%;
+    animation-duration: 5.2s;
+    animation-delay: 0.8s;
+  }
+  &:nth-child(6) {
+    width: 22px;
+    height: 34px;
+    left: 82%;
+    animation-duration: 4.8s;
+    animation-delay: 0.4s;
+  }
+  &:nth-child(7) {
+    width: 26px;
+    height: 36px;
+    left: 92%;
+    animation-duration: 5.8s;
+    animation-delay: 0.3s;
+  }
+  &:nth-child(8) {
+    width: 24px;
+    height: 38px;
+    left: 45%;
+    bottom: 12%;
+    animation-duration: 5s;
+    animation-delay: 0.6s;
+  }
+}
+
+@keyframes soul-devourer-wisp-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scaleY(0.7) scaleX(1.1);
+  }
+  18% {
+    opacity: 0.95;
+    transform: translateY(-10px) translateX(4px) scaleY(1) scaleX(0.95);
+  }
+  45% {
+    opacity: 0.8;
+    transform: translateY(-26px) translateX(-3px) scaleY(1.35) scaleX(0.78);
+  }
+  75% {
+    opacity: 0.5;
+    transform: translateY(-40px) translateX(5px) scaleY(1.65) scaleX(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-55px) translateX(-2px) scaleY(1.9) scaleX(0.4);
+  }
+}
+
+/* Black rising particles */
+.mchip__soul-devourer-particles {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 55%;
+  max-height: 85px;
+  z-index: 5;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mchip__soul-devourer-particle {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  opacity: 0;
+  animation: soul-devourer-particle-rise ease-out infinite;
+  background: radial-gradient(circle at 50% 50%, rgba(20, 15, 25, 0.95) 0%, rgba(40, 30, 50, 0.7) 50%, rgba(60, 50, 70, 0.35) 80%, transparent 100%);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  /* Per-particle X drift (used in keyframes) for non-linear scatter */
+  --dx0: 0px;
+  --dx15: 0px;
+  --dx50: 0px;
+  --dx85: 0px;
+  --dx100: 0px;
+
+  &:nth-child(1) {
+    width: 6px;
+    height: 6px;
+    left: 5%;
+    bottom: 2%;
+    --dx15: -6px;
+    --dx50: 10px;
+    --dx85: -4px;
+    --dx100: 8px;
+    animation-duration: 2.8s;
+    animation-delay: 0s;
+  }
+  &:nth-child(2) {
+    width: 5px;
+    height: 5px;
+    left: 24%;
+    bottom: 12%;
+    --dx15: 8px;
+    --dx50: -12px;
+    --dx85: 6px;
+    --dx100: -9px;
+    animation-duration: 3.2s;
+    animation-delay: 0.4s;
+  }
+  &:nth-child(3) {
+    width: 7px;
+    height: 7px;
+    left: 42%;
+    bottom: 0;
+    --dx15: -10px;
+    --dx50: 5px;
+    --dx85: -14px;
+    --dx100: 3px;
+    animation-duration: 2.5s;
+    animation-delay: 0.15s;
+  }
+  &:nth-child(4) {
+    width: 5px;
+    height: 5px;
+    left: 55%;
+    bottom: 18%;
+    --dx15: 12px;
+    --dx50: -8px;
+    --dx85: 10px;
+    --dx100: -5px;
+    animation-duration: 3s;
+    animation-delay: 0.6s;
+  }
+  &:nth-child(5) {
+    width: 6px;
+    height: 6px;
+    left: 68%;
+    bottom: 4%;
+    --dx15: -7px;
+    --dx50: 14px;
+    --dx85: -11px;
+    --dx100: 7px;
+    animation-duration: 2.9s;
+    animation-delay: 0.25s;
+  }
+  &:nth-child(6) {
+    width: 5px;
+    height: 5px;
+    left: 82%;
+    bottom: 14%;
+    --dx15: 9px;
+    --dx50: -11px;
+    --dx85: 5px;
+    --dx100: -12px;
+    animation-duration: 3.1s;
+    animation-delay: 0.5s;
+  }
+  &:nth-child(7) {
+    width: 6px;
+    height: 6px;
+    left: 12%;
+    bottom: 0;
+    --dx15: 11px;
+    --dx50: -6px;
+    --dx85: 13px;
+    --dx100: -8px;
+    animation-duration: 2.7s;
+    animation-delay: 0.1s;
+  }
+  &:nth-child(8) {
+    width: 5px;
+    height: 5px;
+    left: 35%;
+    bottom: 8%;
+    --dx15: -9px;
+    --dx50: 7px;
+    --dx85: -7px;
+    --dx100: 11px;
+    animation-duration: 3.3s;
+    animation-delay: 0.35s;
+  }
+  &:nth-child(9) {
+    width: 6px;
+    height: 6px;
+    left: 48%;
+    bottom: 6%;
+    --dx15: 5px;
+    --dx50: -14px;
+    --dx85: 8px;
+    --dx100: -6px;
+    animation-duration: 2.6s;
+    animation-delay: 0.7s;
+  }
+  &:nth-child(10) {
+    width: 5px;
+    height: 5px;
+    left: 62%;
+    bottom: 16%;
+    --dx15: -12px;
+    --dx50: 9px;
+    --dx85: -10px;
+    --dx100: 4px;
+    animation-duration: 3.4s;
+    animation-delay: 0.2s;
+  }
+  &:nth-child(11) {
+    width: 7px;
+    height: 7px;
+    left: 76%;
+    bottom: 3%;
+    --dx15: 7px;
+    --dx50: -9px;
+    --dx85: 12px;
+    --dx100: -10px;
+    animation-duration: 2.4s;
+    animation-delay: 0.55s;
+  }
+  &:nth-child(12) {
+    width: 5px;
+    height: 5px;
+    left: 88%;
+    bottom: 10%;
+    --dx15: -11px;
+    --dx50: 6px;
+    --dx85: -8px;
+    --dx100: 9px;
+    animation-duration: 3s;
+    animation-delay: 0.45s;
+  }
+}
+
+@keyframes soul-devourer-particle-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(var(--dx0)) scale(0.6);
+  }
+  15% {
+    opacity: 0.9;
+    transform: translateY(-12px) translateX(var(--dx15)) scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translateY(-32px) translateX(var(--dx50)) scale(0.9);
+  }
+  85% {
+    opacity: 0.25;
+    transform: translateY(-52px) translateX(var(--dx85)) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-65px) translateX(var(--dx100)) scale(0.5);
+  }
 }
 
 .mchip__soul-layer {
@@ -26,60 +458,183 @@
   backface-visibility: hidden;
   transform-origin: 50% 50%;
   background:
-    radial-gradient(ellipse 10px 14px at 12% 8%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
-    radial-gradient(ellipse 8px 12px at 72% 12%, rgba(#0d0512, 0.85) 0%, rgba(#6b2d7a, 0.45) 50%, transparent 100%),
-    radial-gradient(ellipse 11px 9px at 35% 22%, rgba(#2d1535, 0.88) 0%, rgba(#8b5a9e, 0.4) 45%, transparent 100%),
-    radial-gradient(ellipse 9px 13px at 88% 28%, rgba(#1a0a22, 0.9) 0%, rgba(#4a2060, 0.5) 40%, transparent 100%),
-    radial-gradient(ellipse 12px 8px at 18% 45%, rgba(#0d0512, 0.82) 0%, rgba(#6b2d7a, 0.48) 45%, transparent 100%),
-    radial-gradient(ellipse 10px 11px at 58% 52%, rgba(#2d1535, 0.85) 0%, rgba(#8b5a9e, 0.42) 50%, transparent 100%),
-    radial-gradient(ellipse 8px 10px at 82% 65%, rgba(#1a0a22, 0.88) 0%, rgba(#4a2060, 0.45) 40%, transparent 100%),
-    radial-gradient(ellipse 11px 12px at 8% 72%, rgba(#0d0512, 0.9) 0%, rgba(#6b2d7a, 0.4) 45%, transparent 100%),
-    radial-gradient(ellipse 9px 9px at 48% 78%, rgba(#2d1535, 0.86) 0%, rgba(#8b5a9e, 0.45) 48%, transparent 100%),
-    radial-gradient(ellipse 9px 11px at 28% 15%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%),
-    radial-gradient(ellipse 10px 8px at 65% 38%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.52) 45%, transparent 100%),
-    radial-gradient(ellipse 8px 12px at 15% 58%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.58) 48%, transparent 100%),
-    radial-gradient(ellipse 11px 9px at 82% 82%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
-    radial-gradient(ellipse 9px 10px at 42% 92%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.54) 45%, transparent 100%);
+    radial-gradient(ellipse 10px 14px at 12% 8%, rgba(#2a1535, 0.88) 0%, rgba(#5a3070, 0.55) 40%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 72% 12%, rgba(#1a0a22, 0.82) 0%, rgba(#7b3d8a, 0.5) 50%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 35% 22%, rgba(#3d2048, 0.85) 0%, rgba(#9b6aae, 0.45) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 13px at 88% 28%, rgba(#2a1535, 0.88) 0%, rgba(#5a3070, 0.55) 40%, transparent 100%),
+    radial-gradient(ellipse 12px 8px at 18% 45%, rgba(#1a0a22, 0.8) 0%, rgba(#7b3d8a, 0.52) 45%, transparent 100%),
+    radial-gradient(ellipse 10px 11px at 58% 52%, rgba(#3d2048, 0.82) 0%, rgba(#9b6aae, 0.48) 50%, transparent 100%),
+    radial-gradient(ellipse 8px 10px at 82% 65%, rgba(#2a1535, 0.85) 0%, rgba(#5a3070, 0.5) 40%, transparent 100%),
+    radial-gradient(ellipse 11px 12px at 8% 72%, rgba(#1a0a22, 0.88) 0%, rgba(#7b3d8a, 0.45) 45%, transparent 100%),
+    radial-gradient(ellipse 9px 9px at 48% 78%, rgba(#3d2048, 0.84) 0%, rgba(#9b6aae, 0.5) 48%, transparent 100%),
+    radial-gradient(ellipse 9px 11px at 28% 15%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%),
+    radial-gradient(ellipse 10px 8px at 65% 38%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.65) 45%, transparent 100%),
+    radial-gradient(ellipse 8px 12px at 15% 58%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.7) 48%, transparent 100%),
+    radial-gradient(ellipse 11px 9px at 82% 82%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.62) 50%, transparent 100%),
+    radial-gradient(ellipse 9px 10px at 42% 92%, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.66) 45%, transparent 100%);
   animation-duration: 5s;
   animation-timing-function: ease-in;
   animation-iteration-count: infinite;
   animation-fill-mode: both;
 }
 
-.mchip__soul-layer--tl { animation-name: soul-inhale-tl; animation-delay: 0s; }
-.mchip__soul-layer--tr { animation-name: soul-inhale-tr; animation-delay: -0.6s; }
-.mchip__soul-layer--br { animation-name: soul-inhale-br; animation-delay: -1.2s; }
-.mchip__soul-layer--bl { animation-name: soul-inhale-bl; animation-delay: -1.8s; }
-.mchip__soul-layer--t { animation-name: soul-inhale-t; animation-delay: -2.4s; }
-.mchip__soul-layer--r { animation-name: soul-inhale-r; animation-delay: -3s; }
-.mchip__soul-layer--b { animation-name: soul-inhale-b; animation-delay: -3.6s; }
-.mchip__soul-layer--l { animation-name: soul-inhale-l; animation-delay: -4.2s; }
+.mchip__soul-layer--tl {
+  animation-name: soul-inhale-tl;
+  animation-delay: 0s;
+}
 
-@keyframes soul-inhale-tl { 0% { transform: translate(-36%, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-tr { 0% { transform: translate(36%, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-br { 0% { transform: translate(36%, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-bl { 0% { transform: translate(-36%, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-t { 0% { transform: translate(0, -36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-r { 0% { transform: translate(36%, 0) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-b { 0% { transform: translate(0, 36%) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
-@keyframes soul-inhale-l { 0% { transform: translate(-36%, 0) scale(1); opacity: 0.9; } 100% { transform: translate(0, 0) scale(0.12); opacity: 0; } }
+.mchip__soul-layer--tr {
+  animation-name: soul-inhale-tr;
+  animation-delay: -0.6s;
+}
+
+.mchip__soul-layer--br {
+  animation-name: soul-inhale-br;
+  animation-delay: -1.2s;
+}
+
+.mchip__soul-layer--bl {
+  animation-name: soul-inhale-bl;
+  animation-delay: -1.8s;
+}
+
+.mchip__soul-layer--t {
+  animation-name: soul-inhale-t;
+  animation-delay: -2.4s;
+}
+
+.mchip__soul-layer--r {
+  animation-name: soul-inhale-r;
+  animation-delay: -3s;
+}
+
+.mchip__soul-layer--b {
+  animation-name: soul-inhale-b;
+  animation-delay: -3.6s;
+}
+
+.mchip__soul-layer--l {
+  animation-name: soul-inhale-l;
+  animation-delay: -4.2s;
+}
+
+@keyframes soul-inhale-tl {
+  0% {
+    transform: translate(-36%, -36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-tr {
+  0% {
+    transform: translate(36%, -36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-br {
+  0% {
+    transform: translate(36%, 36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-bl {
+  0% {
+    transform: translate(-36%, 36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-t {
+  0% {
+    transform: translate(0, -36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-r {
+  0% {
+    transform: translate(36%, 0) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-b {
+  0% {
+    transform: translate(0, 36%) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
+
+@keyframes soul-inhale-l {
+  0% {
+    transform: translate(-36%, 0) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.12);
+    opacity: 0;
+  }
+}
 
 .mchip--soul-devourer {
   .mchip__frame {
     position: relative;
     overflow: hidden;
-    box-shadow: inset 0 0 12px rgba(#1a0a1f, 0.35),
-      inset 0 0 24px rgba(#4a2060, 0.2),
-      0 0 10px rgba(#6b2d7a, 0.45),
-      0 0 20px rgba(#2d1535, 0.4);
+    box-shadow:
+      0 0 0 1.5px rgba(#8b5a9e, 0.85),
+      inset 0 0 16px rgba(#1a0a1f, 0.5),
+      inset 0 0 32px rgba(#4a2060, 0.28),
+      0 0 14px rgba(#6b2d7a, 0.6),
+      0 0 28px rgba(#7b1fa2, 0.45),
+      0 0 42px rgba(#2d1535, 0.35);
     animation: soul-devourer-pulse 2.5s ease-in-out infinite;
   }
 
   .mchip__inner-border {
-    border-color: rgba(#6b2d7a, 0.65);
-    box-shadow: inset 0 0 10px rgba(#2d1535, 0.6),
-      inset 0 0 20px rgba(#4a2060, 0.35),
-      0 0 5px rgba(#8b5a9e, 0.35);
+    border-color: rgba(#8b5a9e, 0.8);
+    box-shadow:
+      inset 0 0 12px rgba(#2d1535, 0.7),
+      inset 0 0 24px rgba(#4a2060, 0.4),
+      0 0 8px rgba(#8b5a9e, 0.5),
+      0 0 12px rgba(#ce93d8, 0.25);
   }
 
   .mchip__soul-frame {
@@ -101,8 +656,27 @@
 }
 
 @keyframes soul-devourer-pulse {
-  0%, 100% { filter: brightness(0.96) contrast(1.03); }
-  50% { filter: brightness(1.02) contrast(1.06); }
+  0%,
+  100% {
+    filter: brightness(0.94) contrast(1.05);
+    box-shadow:
+      0 0 0 1.5px rgba(#8b5a9e, 0.8),
+      inset 0 0 16px rgba(#1a0a1f, 0.5),
+      inset 0 0 32px rgba(#4a2060, 0.25),
+      0 0 12px rgba(#6b2d7a, 0.5),
+      0 0 24px rgba(#7b1fa2, 0.35),
+      0 0 36px rgba(#2d1535, 0.28);
+  }
+  50% {
+    filter: brightness(1.04) contrast(1.08);
+    box-shadow:
+      0 0 0 2px rgba(#ce93d8, 0.9),
+      inset 0 0 20px rgba(#1a0a1f, 0.45),
+      inset 0 0 36px rgba(#4a2060, 0.32),
+      0 0 18px rgba(#6b2d7a, 0.7),
+      0 0 34px rgba(#7b1fa2, 0.55),
+      0 0 50px rgba(#2d1535, 0.4);
+  }
 }
 
 /* ── Soul Devourer (Hades Ultimate) — border, accents, wave, heal text ────── */
@@ -127,11 +701,29 @@
 }
 
 @keyframes soul-devourer-heal-float {
-  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); }
-  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-  20% { transform: translate(-50%, -50%) scale(1); }
-  70% { opacity: 1; transform: translate(-50%, -50%); }
-  100% { opacity: 0; transform: translate(-50%, -80%); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+
+  20% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
 }
 
 .mchip__soul-devourer-wave {
@@ -307,5 +899,39 @@
         shadow-glitch 8s ease-in-out infinite,
         death-keeper-pulse 3s ease-in-out infinite;
     }
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .mchip__soul-devourer-bg {
+    height: 100%;
+    width: 80%;
+    opacity: 0.2;
+    @include soul-devourer-right-side-fade-mask;
+  }
+
+  .mchip__soul-devourer-wisps {
+    opacity: 0.5;
+    @include soul-devourer-right-side-fade-mask;
+
+    .mchip__soul-devourer-wisp {
+      width: 10px;
+      height: 10px;
+    }
+  }
+
+  .mchip__soul-devourer-particles {
+    opacity: 0.5;
+    @include soul-devourer-right-side-fade-mask;
+  }
+
+  .mchip__soul-devourer-overlay {
+    opacity: 0.5;
+    @include soul-devourer-right-side-fade-mask;
+  }
+
+  .mchip__soul-float {
+    opacity: 0.8;
+    @include soul-devourer-right-side-fade-mask;
   }
 }
