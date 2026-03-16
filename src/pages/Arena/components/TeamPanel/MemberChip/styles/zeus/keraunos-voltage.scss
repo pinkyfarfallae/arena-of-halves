@@ -803,34 +803,6 @@ $zeus-electric: #e3f2fd;
     animation: keraunos-ring-outer 12s ease-out 0.05s forwards;
   }
 
-  /* Legacy single bolt on frame (keep for fallback / extra layer) */
-  .mchip__frame::before {
-    content: '' !important;
-    position: absolute;
-    z-index: 21;
-    pointer-events: none;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 8px;
-    height: 240%;
-    top: -240%;
-    transform-origin: 50% 0%;
-    background: linear-gradient(180deg,
-        transparent 0%,
-        rgba($zeus-white, 0.3) 22%,
-        rgba($zeus-gold, 0.7) 48%,
-        rgba($zeus-amber, 0.95) 68%,
-        #fff 85%,
-        rgba($zeus-gold, 0.95) 95%,
-        rgba($zeus-amber, 0.85) 100%);
-    box-shadow:
-      0 0 14px 3px rgba(#fff, 0.9),
-      0 0 28px 6px rgba($zeus-gold, 0.75),
-      0 0 48px 8px rgba($zeus-amber, 0.45);
-    filter: brightness(1.25);
-    animation: keraunos-lightning-hit 12s ease-out forwards !important;
-  }
-
   /* Blur ring — outer aura */
   &::after {
     content: '';
