@@ -441,6 +441,32 @@ async function resolveHitAtDefender(
   return { damageToMaster: 0, hitTargetId: blocker.characterId, skippedMinionsPath: minionsPath };
 }
 
+/** Run tickEffects and apply any DOT damage via resolveHitAtDefender so Hades child's skeleton can block. */
+async function tickEffectsWithSkeletonBlock(
+  arenaId: string,
+  room: BattleRoom,
+  battle: BattleState,
+  priorUpdates: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const effectUpdates = tickEffects(room, battle, priorUpdates) as Record<string, unknown> & { __dotDamages?: Array<{ targetId: string; value: number }> };
+  const dotDamages = effectUpdates.__dotDamages;
+  delete effectUpdates.__dotDamages;
+  if (dotDamages?.length) {
+    for (const d of dotDamages) {
+      const defender = findFighter(room, d.targetId);
+      if (!defender) continue;
+      const resolve = await resolveHitAtDefender(arenaId, room, d.targetId, d.value, priorUpdates, defender);
+      if (resolve.skippedMinionsPath) delete priorUpdates[resolve.skippedMinionsPath];
+      const defPath = findFighterPath(room, d.targetId);
+      if (defPath && resolve.damageToMaster > 0) {
+        const cur = (priorUpdates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+        priorUpdates[`${defPath}/currentHp`] = Math.max(0, cur - resolve.damageToMaster);
+      }
+    }
+  }
+  return effectUpdates;
+}
+
 function buildMasterPlaybackStep(
   room: BattleRoom,
   battle: BattleState,
@@ -866,7 +892,23 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
         Object.assign(updates, joltUpdates);
 
+        // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not)
+        for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
+          const targetFighter = findFighter(room, targetId);
+          if (!targetFighter) continue;
+          const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
+          if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
+          const defPath = findFighterPath(room, targetId);
+          if (defPath && resolve.damageToMaster > 0) {
+            const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
+            updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
+          }
+        }
+
         const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
+        const primaryDefender = findFighter(room, defenderId);
+        const primaryDefPath = primaryDefender ? findFighterPath(room, defenderId) : null;
+        const defenderHpAfter = primaryDefPath ? (updates[`${primaryDefPath}/currentHp`] as number | undefined) ?? primaryDefender?.currentHp ?? 0 : 0;
         const logEntry = {
           round: battle.roundNumber,
           attackerId,
@@ -874,18 +916,8 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           attackRoll: 0,
           defendRoll: 0,
           damage: totalDmg,
-          defenderHpAfter: (() => {
-            const defender = findFighter(room, defenderId);
-            if (!defender) return 0;
-            const defDmg = aoeDamageMap[defenderId] || 0;
-            return Math.max(0, defender.currentHp - defDmg);
-          })(),
-          eliminated: (() => {
-            const defender = findFighter(room, defenderId);
-            if (!defender) return false;
-            const defDmg = aoeDamageMap[defenderId] || 0;
-            return defender.currentHp - defDmg <= 0;
-          })(),
+          defenderHpAfter,
+          eliminated: defenderHpAfter <= 0,
           missed: totalDmg === 0,
           powerUsed: power.name,
           ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
@@ -972,8 +1004,37 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
 
       // ── Generic skipDice power ──
       } else {
-        const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
-        Object.assign(updates, effectUpdates);
+        let damageDealt = 0;
+        let defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
+
+        if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
+          const defender = findFighter(room, defenderId);
+          if (defender) {
+            const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, power.value, updates, defender);
+            if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
+            const defPath = findFighterPath(room, defenderId);
+            if (defPath && powerResolve.damageToMaster > 0) {
+              const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+              updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
+            }
+            if (power.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
+              const atkPath = findFighterPath(room, attackerId);
+              if (atkPath) {
+                const att = findFighter(room, attackerId);
+                const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
+                updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
+              }
+            }
+            damageDealt = powerResolve.damageToMaster;
+            defenderHpAfterLog = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
+          }
+        } else {
+          const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
+          Object.assign(updates, effectUpdates);
+          defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
+          const defPath = findFighterPath(room, defenderId);
+          if (defPath && `${defPath}/currentHp` in updates) defenderHpAfterLog = updates[`${defPath}/currentHp`] as number;
+        }
 
         const logEntry = {
           round: battle.roundNumber,
@@ -981,23 +1042,9 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           defenderId,
           attackRoll: 0,
           defendRoll: 0,
-          damage: power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL ? power.value : 0,
-          defenderHpAfter: (() => {
-            const defender = findFighter(room, defenderId);
-            if (!defender) return 0;
-            if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
-              return Math.max(0, defender.currentHp - power.value);
-            }
-            return defender.currentHp;
-          })(),
-          eliminated: (() => {
-            const defender = findFighter(room, defenderId);
-            if (!defender) return false;
-            if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
-              return defender.currentHp - power.value <= 0;
-            }
-            return false;
-          })(),
+          damage: damageDealt,
+          defenderHpAfter: defenderHpAfterLog,
+          eliminated: defenderHpAfterLog <= 0,
           missed: false,
           powerUsed: power.name,
         };
@@ -1220,8 +1267,8 @@ export async function selectAction(
         ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
         : battle;
 
-      // Tick active effects (DOT, spring heal, decrement durations)
-      const effectUpdates = tickEffects(room, battleForTick, updates);
+      // Tick active effects (DOT, spring heal, decrement durations); DOT damage via resolveHitAtDefender
+      const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battleForTick, updates);
       Object.assign(updates, effectUpdates);
 
       const ally = findFighter(room, allyTargetId);
@@ -1531,8 +1578,8 @@ export async function selectAction(
       ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
       : battle;
 
-    // Tick active effects (DOT, spring heal, decrement durations)
-    const effectUpdates2 = tickEffects(room, battleForTick, updates);
+    // Tick active effects (DOT, spring heal, decrement durations); DOT damage via resolveHitAtDefender
+    const effectUpdates2 = await tickEffectsWithSkeletonBlock(arenaId, room, battleForTick, updates);
     Object.assign(updates, effectUpdates2);
 
     const logEntry = {
@@ -1630,10 +1677,27 @@ export async function selectAction(
     const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
     Object.assign(updates, joltUpdates);
 
+    // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not)
+    for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
+      const targetFighter = findFighter(room, targetId);
+      if (!targetFighter) continue;
+      const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
+      if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
+      const defPath = findFighterPath(room, targetId);
+      if (defPath && resolve.damageToMaster > 0) {
+        const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
+        updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
+      }
+    }
+
     const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
     const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
     const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
     const firstEnemy = enemies.find(e => e.currentHp > 0);
+    const firstEnemyDefPath = firstEnemy ? findFighterPath(room, firstEnemy.characterId) : null;
+    const defenderHpAfter = firstEnemyDefPath && firstEnemy
+      ? (updates[`${firstEnemyDefPath}/currentHp`] as number | undefined) ?? firstEnemy.currentHp
+      : 0;
 
     const logEntry = {
       round: battle.roundNumber,
@@ -1642,12 +1706,8 @@ export async function selectAction(
       attackRoll: 0,
       defendRoll: 0,
       damage: totalDmg,
-      defenderHpAfter: firstEnemy
-        ? Math.max(0, firstEnemy.currentHp - (aoeDamageMap[firstEnemy.characterId] || 0))
-        : 0,
-      eliminated: firstEnemy
-        ? (firstEnemy.currentHp - (aoeDamageMap[firstEnemy.characterId] || 0) <= 0)
-        : false,
+      defenderHpAfter,
+      eliminated: defenderHpAfter <= 0,
       missed: totalDmg === 0,
       powerUsed: power.name,
       ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
@@ -1821,8 +1881,8 @@ export async function skipTurnNoValidTarget(arenaId: string): Promise<void> {
   };
   updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
-  // Tick effects, win check, then advance to next attacker (same as soulDevourerEndTurnOnly)
-  const effectUpdates = tickEffects(room, battle, updates);
+  // Tick effects, win check, then advance to next attacker (same as soulDevourerEndTurnOnly); DOT via resolveHitAtDefender
+  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
   Object.assign(updates, effectUpdates);
   let battleAfterTick = battle;
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
@@ -2184,8 +2244,8 @@ export async function confirmSeason(arenaId: string): Promise<void> {
     battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
   }
 
-  // Tick active effects (DOT damage, spring heal, decrement durations)
-  const effectUpdates = tickEffects(room, battle, updates);
+  // Tick active effects (DOT damage, spring heal, decrement durations); DOT via resolveHitAtDefender
+  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
   Object.assign(updates, effectUpdates);
 
   // Battle log entry: "Ephemeral Season: {chosen season}" (logged only after season is chosen)
@@ -2384,7 +2444,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   if (battle.turn.soulDevourerEndTurnOnly) {
     const turn = battle.turn;
     const updates: Record<string, unknown> = {};
-    const effectUpdates = tickEffects(room, battle, updates);
+    const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
     Object.assign(updates, effectUpdates);
     if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
       battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
@@ -2482,7 +2542,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       }
 
       const updatesAdvance: Record<string, unknown> = {};
-      const effectUpdatesAdv = tickEffects(room, battle, updatesAdvance);
+      const effectUpdatesAdv = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updatesAdvance);
       Object.assign(updatesAdvance, effectUpdatesAdv);
       const battleAdv = updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] ? { ...battle, activeEffects: updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] } : battle;
       const getHpAdv = (m: FighterState) => {
@@ -2593,7 +2653,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         }
       }
       const updatesAdvance: Record<string, unknown> = {};
-      const effectUpdatesAdv = tickEffects(room, battle, updatesAdvance);
+      const effectUpdatesAdv = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updatesAdvance);
       Object.assign(updatesAdvance, effectUpdatesAdv);
       const battleAdv = updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] ? { ...battle, activeEffects: updatesAdvance[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] } : battle;
       const getHpAdv = (m: FighterState) => {
@@ -2687,7 +2747,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           }
         }
         const updatesAdv: Record<string, unknown> = {};
-        const effectUpdatesAdv = tickEffects(room, battle, updatesAdv);
+        const effectUpdatesAdv = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updatesAdv);
         Object.assign(updatesAdv, effectUpdatesAdv);
         const battleAdv = updatesAdv[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] ? { ...battle, activeEffects: updatesAdv[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] } : battle;
         const getHpAdv = (m: FighterState) => {
@@ -2812,7 +2872,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (updatesSk[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
           battleAfterSk = { ...battle, activeEffects: updatesSk[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
         }
-        const effectUpdatesSk = tickEffects(room, battleAfterSk, updatesSk);
+        const effectUpdatesSk = await tickEffectsWithSkeletonBlock(arenaId, room, battleAfterSk, updatesSk);
         Object.assign(updatesSk, effectUpdatesSk);
 
         const getHpSk = (m: FighterState) => {
@@ -2930,12 +2990,28 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
 
     if (hit) {
-      const effectUpdates = applyPowerEffect(room, attackerId, defenderId, usedPower, battle);
-      Object.assign(updates, effectUpdates);
-
       if (usedPower.effect === EFFECT_TYPES.DAMAGE || usedPower.effect === EFFECT_TYPES.LIFESTEAL) {
-        dmg = usedPower.value;
-        defenderHpAfter = Math.max(0, defender.currentHp - usedPower.value);
+        // Route damage through resolveHitAtDefender so Hades child's skeleton can block
+        const defPath = findFighterPath(room, defenderId);
+        const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, usedPower.value, updates, defender);
+        if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
+        if (defPath && powerResolve.damageToMaster > 0) {
+          const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+          updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
+        }
+        if (usedPower.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
+          const atkPath = findFighterPath(room, attackerId);
+          if (atkPath) {
+            const att = findFighter(room, attackerId);
+            const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
+            updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
+          }
+        }
+        dmg = powerResolve.damageToMaster;
+        defenderHpAfter = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
+      } else {
+        const effectUpdates = applyPowerEffect(room, attackerId, defenderId, usedPower, battle);
+        Object.assign(updates, effectUpdates);
       }
     }
 
@@ -2969,6 +3045,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
     // Keraunos Voltage: base main 3 / secondary 2 each; on crit ×2 (main 6 / secondary 4)
+    // Damage goes through resolveHitAtDefender so Hades child's skeleton can block (skeleton takes hit, master does not).
     const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
     const secondaryIds: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
     const isCritK = !!(turn as any).isCrit;
@@ -2979,19 +3056,27 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (mainId) {
       const mainFighter = findFighter(room, mainId);
       if (mainFighter && mainFighter.currentHp > 0) {
-        const newHp = Math.max(0, mainFighter.currentHp - dmgMain);
-        const path = findFighterPath(room, mainId);
-        if (path) updates[`${path}/currentHp`] = newHp;
+        const mainResolve = await resolveHitAtDefender(arenaId, room, mainId, dmgMain, updates, mainFighter);
+        if (mainResolve.skippedMinionsPath) delete updates[mainResolve.skippedMinionsPath];
         aoeDamageMapK[mainId] = dmgMain;
+        const mainPath = findFighterPath(room, mainId);
+        if (mainPath && mainResolve.damageToMaster > 0) {
+          const currentHp = (updates[`${mainPath}/currentHp`] as number | undefined) ?? mainFighter.currentHp;
+          updates[`${mainPath}/currentHp`] = Math.max(0, currentHp - mainResolve.damageToMaster);
+        }
       }
     }
     for (const sid of secondaryIds) {
       const sec = findFighter(room, sid);
       if (sec && sec.currentHp > 0) {
-        const newHp = Math.max(0, sec.currentHp - dmgSecondary);
-        const path = findFighterPath(room, sid);
-        if (path) updates[`${path}/currentHp`] = newHp;
+        const secResolve = await resolveHitAtDefender(arenaId, room, sid, dmgSecondary, updates, sec);
+        if (secResolve.skippedMinionsPath) delete updates[secResolve.skippedMinionsPath];
         aoeDamageMapK[sid] = dmgSecondary;
+        const secPath = findFighterPath(room, sid);
+        if (secPath && secResolve.damageToMaster > 0) {
+          const currentHp = (updates[`${secPath}/currentHp`] as number | undefined) ?? sec.currentHp;
+          updates[`${secPath}/currentHp`] = Math.max(0, currentHp - secResolve.damageToMaster);
+        }
       }
     }
     const mainPath = mainId ? findFighterPath(room, mainId) : null;
@@ -3111,7 +3196,17 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (isCrit) rawDmg *= 2;
       }
 
+      // If defender has a skeleton, the hit will land on the skeleton (resolveHitAtDefender). Do not apply shock
+      // to the child of Hades when damage doesn't hit them — shock only when the hit actually lands on the master.
+      const defenderTeamForBlock = findFighterTeam(room, defenderId);
+      const currentMinionsForBlock = defenderTeamForBlock
+        ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
+        : [];
+      const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
+      const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
+
       // Attack success → apply shock rule. If target has shock: bonus damage + remove shock. If not: add shock.
+      // Only apply shock to the defender when the hit actually lands on them (no skeleton block).
       // Run when: normal attack (Lightning Reflex) OR Nimbus attack (shock all enemies). Nimbus is self-buff so we must check attackerHasBeyondTheNimbus.
       if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
         if (attackerHasBeyondTheNimbus) {
@@ -3120,18 +3215,26 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
           };
           const prevEffects = (battleWithNimbusEffects.activeEffects || []) as ActiveEffect[];
-          const defenderHadShock = prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
-          const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(room, attackerId, battleWithNimbusEffects, baseDmg);
+          const defenderHadShock = !skeletonBlocksHit && prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
+          const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(
+            room,
+            attackerId,
+            battleWithNimbusEffects,
+            baseDmg,
+            skeletonBlocksHit ? defenderId : undefined,
+          );
           Object.assign(updates, nimbusShockUpdates);
           if (defenderHadShock) {
             rawDmg += baseDmg;
             shockBonusDamage = baseDmg;
           }
         } else {
-          const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
-          rawDmg += shockResult.bonusDamage;
-          shockBonusDamage = shockResult.bonusDamage;
-          Object.assign(updates, shockResult.updates);
+          if (!skeletonBlocksHit) {
+            const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+            rawDmg += shockResult.bonusDamage;
+            shockBonusDamage = shockResult.bonusDamage;
+            Object.assign(updates, shockResult.updates);
+          }
         }
       }
 
@@ -3340,8 +3443,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Tick active effects (DOT damage, decrement durations)
-  // Pass current updates so DOT processing reads latest HP (not stale snapshot)
-  const effectUpdates = tickEffects(room, battle, updates);
+  // Pass current updates so DOT processing reads latest HP; DOT damage via resolveHitAtDefender
+  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
   Object.assign(updates, effectUpdates);
 
   // Build updated HP map for win condition check
