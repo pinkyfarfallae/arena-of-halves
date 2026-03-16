@@ -20,8 +20,12 @@ export interface RefillSPDiceModalProps {
   roll: number | null | undefined;
   atkSide: PanelSide;
   onRoll: (roll: number) => void | Promise<void>;
+  /** Called when player clicks to roll — parent should write roll immediately so viewer dice start at same time. */
+  onRollStart?: () => void;
   /** Ms to show dice before showing refill card (fallback if onRollEnd not fired). */
   diceViewMs?: number;
+  /** Ms after roll animation ends before showing result card (same flow as attack/defend when e.g. 2000). */
+  resultViewMs?: number;
   /** Override labels for non-refill D4 (e.g. Floral Heal crit). */
   title?: string;
   subTitle?: string;
@@ -40,7 +44,9 @@ export default function RefillSPDiceModal({
   roll,
   atkSide,
   onRoll,
+  onRollStart,
   diceViewMs = REFILL_DICE_VIEW_MS,
+  resultViewMs = REFILL_RESULT_VIEW_MS,
   title,
   subTitle,
   wonText,
@@ -72,7 +78,7 @@ export default function RefillSPDiceModal({
     }
   }, []);
 
-  // When dice animation ends, wait briefly then show result card and notify parent (healing VFX shows at same time)
+  // When dice animation ends, wait resultViewMs then show result card and notify parent (same flow as attack/defend when resultViewMs === 2000)
   const handleRollEnd = useCallback(() => {
     clearTimers();
     resultTimerRef.current = setTimeout(() => {
@@ -80,8 +86,8 @@ export default function RefillSPDiceModal({
       setShowRefillCard(true);
       const r = rollRef.current;
       if (r != null) resultCardShownForRollRef.current = r;
-    }, REFILL_RESULT_VIEW_MS);
-  }, [clearTimers, onResultCardVisible]);
+    }, resultViewMs);
+  }, [clearTimers, onResultCardVisible, resultViewMs]);
 
   // When roll is set: show dice only; start fallback timer. Transition to result card only after onRollEnd or fallback. Do not reset to dice once result card was shown.
   useEffect(() => {
@@ -137,18 +143,27 @@ export default function RefillSPDiceModal({
       <div className="bhud__dice-modal" style={themeStyle}>
         <span className="bhud__dice-label">{effectiveTitle}</span>
         <span className="bhud__dice-sub">{effectiveSub}</span>
-        {isMyTurn ? (
+        {isMyTurn ? (roll != null ? (
+          <DiceRoller
+            key={`sc-refill-replay-${roll}`}
+            className="bhud__dice-roller"
+            lockedDie={4}
+            fixedResult={roll}
+            autoRoll
+            onRollEnd={handleRollEnd}
+            themeColors={themeColors}
+            hidePrompt
+          />
+        ) : (
           <DiceRoller
             key="sc-refill-my-roll"
             className="bhud__dice-roller"
             lockedDie={4}
-            fixedResult={roll ?? undefined}
-            onRollResult={roll == null ? onRoll : undefined}
-            onRollEnd={roll != null ? handleRollEnd : undefined}
+            onRollStart={onRollStart}
             themeColors={themeColors}
             hidePrompt
           />
-        ) : roll != null ? (
+        )) : roll != null ? (
           <DiceRoller
             key={`sc-refill-replay-${roll}`}
             className="bhud__dice-roller"

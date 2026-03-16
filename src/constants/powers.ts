@@ -107,3 +107,8 @@ export const POWER_NAMES = {
 } as const;
 
 export type PowerName = (typeof POWER_NAMES)[keyof typeof POWER_NAMES];
+
+/** Powers where defender cannot defend — skip ROLLING_DEFEND and go straight to RESOLVING with defendRoll: 0 (no defend modal). */
+export const POWERS_DEFENDER_CANNOT_DEFEND: readonly PowerName[] = [
+  POWER_NAMES.KERAUNOS_VOLTAGE,
+];

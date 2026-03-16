@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
@@ -142,6 +142,8 @@ interface Props {
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
   statMods?: Record<string, number>;
+  /** When set (e.g. Keraunos: caster crit + 25%), crit bar uses this instead of fighter.criticalRate + statMods.criticalRate */
+  displayCriticalRate?: number;
   battleLive?: boolean;
   onSelect?: () => void;
   /** Minions associated with this fighter */
@@ -150,6 +152,8 @@ interface Props {
   visualDefenderId?: string;
   /** Pulse id for transient minion hits — when this changes, play a hit flash */
   minionHitPulseId?: number | undefined;
+  /** Duration in ms for the hit shake when driven by minion pulse (skeleton hit uses longer default) */
+  minionHitPulseDurationMs?: number;
   /** Unique key for a master-hit playback step — when this changes, play one hit flash */
   hitEventKey?: string;
   /** When this key changes (e.g. demo replay), restart shock-hit effect. */
@@ -187,7 +191,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -291,81 +295,51 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     return () => clearTimeout(restart);
   }, [hitEventKey, allowTransientHits]);
 
-  // Trigger hit flash when a transient minion hit pulse occurs (even if
-  // `isHit` hasn't toggled). This ensures the defender frame shakes when a
-  // skeleton/minion DamageCard plays. Reset to false, then after a short
-  // delay set true so the DOM loses the class and the animation restarts (n pulses → n shakes).
-  const prevPulseRef = useRef<number | undefined>(undefined);
-  const hitPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hitPulseRestartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!allowTransientHits) {
-      if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
-      hitPulseRestartRef.current = null;
-      if (hitPulseTimerRef.current) clearTimeout(hitPulseTimerRef.current);
-      hitPulseTimerRef.current = null;
-      setIsHitActive(false);
+  // Skeleton/minion hit: VFX only while damage card is showing (minionHitPulseId from parent; parent clears when card hides — one duration).
+  useLayoutEffect(() => {
+    if (!allowTransientHits) setIsHitActive(false);
+  }, [allowTransientHits]);
+
+  // Re-trigger hit animation when minionHitPulseId changes (e.g. 2nd skeleton hit on same defender) by briefly toggling the hit class.
+  const [minionHitClassActive, setMinionHitClassActive] = useState(true);
+  const prevMinionHitPulseIdRef = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (minionHitPulseId == null) {
+      setMinionHitClassActive(true);
+      prevMinionHitPulseIdRef.current = undefined;
       return;
     }
-    if (minionHitPulseId == null) return;
-    if (minionHitPulseId !== prevPulseRef.current) {
-      prevPulseRef.current = minionHitPulseId;
-      if (hitPulseTimerRef.current) clearTimeout(hitPulseTimerRef.current);
-      hitPulseTimerRef.current = null;
-      if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
-      hitPulseRestartRef.current = null;
-      setIsHitActive(false);
-      // Use setTimeout so "false" is committed and painted before we add "true" again (restarts animation)
-      hitPulseRestartRef.current = setTimeout(() => {
-        hitPulseRestartRef.current = null;
-        setIsHitActive(true);
-        hitPulseTimerRef.current = setTimeout(() => {
-          hitPulseTimerRef.current = null;
-          setIsHitActive(false);
-        }, 1500);
-      }, 50);
-      return () => {
-        if (hitPulseRestartRef.current) clearTimeout(hitPulseRestartRef.current);
-        hitPulseRestartRef.current = null;
-        if (hitPulseTimerRef.current) clearTimeout(hitPulseTimerRef.current);
-        hitPulseTimerRef.current = null;
-      };
+    if (prevMinionHitPulseIdRef.current !== minionHitPulseId) {
+      prevMinionHitPulseIdRef.current = minionHitPulseId;
+      setMinionHitClassActive(false);
+      const raf = requestAnimationFrame(() => setMinionHitClassActive(true));
+      return () => cancelAnimationFrame(raf);
     }
-  }, [minionHitPulseId, allowTransientHits]);
+  }, [minionHitPulseId]);
 
   // When a minion is the hit target (minionPulseMap[minion.characterId] set), show hit effect on that minion frame.
-  // Reset to false, then after 50ms set true so the animation restarts (n pulses → n shakes).
+  // Start shake immediately (0ms) so it lines up with damage card.
   const [minionHitActiveById, setMinionHitActiveById] = useState<Record<string, boolean>>({});
   const lastMinionPulseRef = useRef<Record<string, number>>({});
   const minionHitTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const minionHitRestartRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   useEffect(() => {
     if (!minionPulseMap || !allowTransientHits) return;
     for (const [cid, pulseId] of Object.entries(minionPulseMap)) {
       if (pulseId == null) continue;
       if (pulseId !== lastMinionPulseRef.current[cid]) {
         if (minionHitTimersRef.current[cid]) clearTimeout(minionHitTimersRef.current[cid]);
-        if (minionHitRestartRef.current[cid]) clearTimeout(minionHitRestartRef.current[cid]);
         delete minionHitTimersRef.current[cid];
-        delete minionHitRestartRef.current[cid];
         lastMinionPulseRef.current[cid] = pulseId;
-        setMinionHitActiveById((prev) => ({ ...prev, [cid]: false }));
-        minionHitRestartRef.current[cid] = setTimeout(() => {
-          delete minionHitRestartRef.current[cid];
-          setMinionHitActiveById((prev) => ({ ...prev, [cid]: true }));
-          const t = setTimeout(() => {
-            delete minionHitTimersRef.current[cid];
-            setMinionHitActiveById((prev) => ({ ...prev, [cid]: false }));
-          }, 800);
-          minionHitTimersRef.current[cid] = t;
-        }, 50);
+        setMinionHitActiveById((prev) => ({ ...prev, [cid]: true }));
+        minionHitTimersRef.current[cid] = setTimeout(() => {
+          delete minionHitTimersRef.current[cid];
+          setMinionHitActiveById((prev) => ({ ...prev, [cid]: false }));
+        }, 800);
       }
     }
     return () => {
       Object.values(minionHitTimersRef.current).forEach((t) => clearTimeout(t));
-      Object.values(minionHitRestartRef.current).forEach((t) => clearTimeout(t));
       minionHitTimersRef.current = {};
-      minionHitRestartRef.current = {};
     };
   }, [minionPulseMap, allowTransientHits]);
 
@@ -647,7 +621,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       setDisplayHp(fighter.currentHp);
       return;
     }
-    const shouldDelayHpDrop = !!hitPulseRestartRef.current || !!hitPulseTimerRef.current;
+    const shouldDelayHpDrop = minionHitPulseId != null;
     if (!shouldDelayHpDrop) {
       setDisplayHp(fighter.currentHp);
       return;
@@ -655,7 +629,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     const HP_DROP_DELAY_MS = 800;
     const t = setTimeout(() => setDisplayHp(fighter.currentHp), HP_DROP_DELAY_MS);
     return () => clearTimeout(t);
-  }, [fighter.currentHp, displayHp]);
+  }, [fighter.currentHp, displayHp, minionHitPulseId]);
 
   useEffect(() => {
     return () => {
@@ -721,12 +695,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   useEffect(() => {
     if (!isEliminated) { setShowEliminated(false); return; }
-    if (battleLive && (isHitActive || isShockHitActive || isKeraunosVoltageHit)) {
+    if (battleLive && (isHitActive || minionHitPulseId != null || isShockHitActive || isKeraunosVoltageHit)) {
       setShowEliminated(false); // hide eliminated while damage effects play
     } else {
       setShowEliminated(true);  // show immediately when battle ended
     }
-  }, [isEliminated, isHitActive, isShockHitActive, isKeraunosVoltageHit, battleLive]);
+  }, [isEliminated, isHitActive, minionHitPulseId, isShockHitActive, isKeraunosVoltageHit, battleLive]);
 
   const handleEnter = useCallback(() => {
     clearTimeout(hoverTimer.current);
@@ -814,7 +788,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     showEliminated && 'mchip--eliminated',
     isTargetable && !isEliminated && 'mchip--targetable',
     isSpotlight && 'mchip--spotlight',
-    battleLive && isHitActive && 'mchip--hit',
+    battleLive && (isHitActive || (minionHitPulseId != null && minionHitClassActive)) && 'mchip--hit',
     battleLive && isShockHitActive && 'mchip--shock-hit',
     battleLive && isKeraunosVoltageHit && 'mchip--keraunos-voltage',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
@@ -1532,7 +1506,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             <div className="mchip__critical">
               <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
               <div className="mchip__crit-bar">
-                <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
+                <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, displayCriticalRate ?? (fighter.criticalRate + (statMods?.criticalRate ?? 0))))}%` }} />
               </div>
             </div>
 
@@ -1554,7 +1528,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
-      {hasPomegranateEffect && !isSpiritForm && battleLive && (
+      {hasPomegranateEffect && !isSpiritForm && !isEfflorescenceMuse && battleLive && (
         <>
           {/* Triangle tunnel background (red/pink/white, 3D) */}
           <div className="mchip__pom-tris-wrap" aria-hidden="true">
@@ -1644,7 +1618,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Spirit form — all effects (b&w/ethereal): tris, canvas, seeds, lights, rises, drops, deco, glow/oath + wisps */}
-      {isSpiritForm && battleLive && (
+      {isSpiritForm && !isEfflorescenceMuse && battleLive && (
         <>
           <div className="mchip__spirit-tris-wrap" aria-hidden="true">
             {Array.from({ length: 200 }, (_, i) => (
