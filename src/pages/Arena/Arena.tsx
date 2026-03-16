@@ -734,11 +734,16 @@ function Arena(props?: ArenaDemoProps) {
   const teamAMembers = (effectiveRoom.teamA?.members || []).map(m => normalizeFighter(m));
   const teamBMembers = (effectiveRoom.teamB?.members || []).map(m => normalizeFighter(m));
   const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
+  const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = effectiveRoom.battle;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
   const isNpcPlaybackDriver = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
   const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
+  /** When true, attacker is NPC (PvE test mode); D4 crit/chain must be simulated on this client. When false (PvP), wait for opponent's roll. */
+  const isAttackerNpc = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId));
+  /** When true, defender is NPC; dodge D4 must be simulated here. When false (PvP), wait for opponent's roll. */
+  const isDefenderNpc = !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId));
 
   /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
   const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
@@ -1073,6 +1078,8 @@ function Arena(props?: ArenaDemoProps) {
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER}
+            isAttackerNpc={isAttackerNpc}
+            isDefenderNpc={isDefenderNpc}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}

@@ -275,10 +275,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         ) || !!tagBasedProps.isKeraunosVoltageHit;
 
-        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration)
+        // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration).
+        // During effect phase (before log): show arc on shocked enemies so effect plays before skeleton destroy / damage.
         const isJoltArcAttackHit = !!(
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
-          (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC)
+          (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC) ||
+          (turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.JOLT_ARC && isOpposing && tagBasedProps.isShocked)
         ) || !!tagBasedProps.isJoltArcAttackHit;
 
         const isShocked = tagBasedProps.isShocked;

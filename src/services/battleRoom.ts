@@ -301,8 +301,8 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
-          .filter((r) => r.status !== ROOM_STATUS.CONFIGURING)
-          .sort((a, b) => b.createdAt - a.createdAt));
+        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING)
+        .sort((a, b) => b.createdAt - a.createdAt));
     setTimeout(() => callback(rooms), 0);
   });
 
@@ -439,6 +439,93 @@ async function resolveHitAtDefender(
   }, 1100);
 
   return { damageToMaster: 0, hitTargetId: blocker.characterId, skippedMinionsPath: minionsPath };
+}
+
+/** Delay before applying Jolt Arc damage/skeleton so client can play the arc effect first. */
+const JOLT_ARC_EFFECT_MS = 800;
+
+/**
+ * Apply Jolt Arc damage phase after effect has played: resolveHitAtDefender per target, HP, effects, log.
+ * Call after JOLT_ARC_EFFECT_MS so skeleton destroy and damage happen after the arc VFX.
+ */
+async function applyJoltArcDamagePhase(
+  arenaId: string,
+  attackerId: string,
+  aoeDamageMap: Record<string, number>,
+  joltUpdates: Record<string, unknown>,
+  attackerTeam: BattleTeamKey | undefined,
+  primaryDefenderId: string,
+  turnUsedPowerIndex: number | undefined,
+): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn || battle.turn.usedPowerName !== POWER_NAMES.JOLT_ARC) return;
+
+  const updates: Record<string, unknown> = { ...joltUpdates };
+  const joltDecelerationExclude: string[] = [];
+
+  for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
+    const targetFighter = findFighter(room, targetId);
+    if (!targetFighter) continue;
+    const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
+    if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
+    if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
+    // Master must not take damage if they have at least one skeleton (skeleton blocks Jolt Arc)
+    const defenderTeam = findFighterTeam(room, targetId);
+    const currentMinionsForTarget = defenderTeam
+      ? ((updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []))
+      : [];
+    const hasSkeleton = currentMinionsForTarget.filter((m: any) => m.masterId === targetId).length > 0;
+    const damageToMaster = hasSkeleton ? 0 : resolve.damageToMaster;
+    const defPath = findFighterPath(room, targetId);
+    if (defPath && damageToMaster > 0) {
+      const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
+      updates[`${defPath}/currentHp`] = Math.max(0, currentHp - damageToMaster);
+    }
+  }
+
+  if (joltDecelerationExclude.length > 0) {
+    const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
+    const excludeSet = new Set(joltDecelerationExclude);
+    const filtered = activeEff.filter(
+      (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
+    );
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
+  }
+
+  const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
+  const primaryDefender = findFighter(room, primaryDefenderId);
+  const primaryDefPath = primaryDefender ? findFighterPath(room, primaryDefenderId) : null;
+  const defenderHpAfter = primaryDefPath ? (updates[`${primaryDefPath}/currentHp`] as number | undefined) ?? primaryDefender?.currentHp ?? 0 : 0;
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId: primaryDefenderId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: totalDmg,
+    defenderHpAfter,
+    eliminated: defenderHpAfter <= 0,
+    missed: totalDmg === 0,
+    powerUsed: POWER_NAMES.JOLT_ARC,
+    ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
+  };
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
+  updates[ARENA_PATH.BATTLE_TURN] = {
+    attackerId,
+    attackerTeam,
+    defenderId: primaryDefenderId,
+    phase: PHASE.RESOLVING,
+    action: TURN_ACTION.POWER,
+    usedPowerIndex: turnUsedPowerIndex,
+    usedPowerName: POWER_NAMES.JOLT_ARC,
+  };
+  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+
+  await update(roomRef(arenaId), updates);
 }
 
 /** Run tickEffects and apply any DOT damage via resolveHitAtDefender so Hades child's skeleton can block. */
@@ -786,7 +873,7 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
   if (!turn.action || turn.action === TURN_ACTION.ATTACK) {
     // Don't log yet - will log in resolveTurn after both dice are rolled
     const updates: Record<string, unknown> = {};
-    
+
     // Soul Devourer: skip dice, go straight to RESOLVING as HP drain (client will call resolveTurn)
     const attacker = findFighter(room, attackerId);
     const activeEffects = battle.activeEffects || [];
@@ -808,14 +895,14 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
             turnUpdate.visualDefenderId = defenderSkeletons[0].characterId;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
       updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
       updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
       updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
       await update(ref(db, `arenas/${arenaId}`), updates);
       return;
     }
-    
+
     // If the chosen defender has skeleton minions, visually target the lowest-index skeleton
     // so the UI selection highlights the minion (but keep defenderId as the master for resolution).
     try {
@@ -887,54 +974,10 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
     // Only skipDice powers log immediately (below in skipDice branches)
 
     if (power.skipDice) {
-      // ── Jolt Arc: detonate all shocks on all enemies ──
+      // ── Jolt Arc: detonate all shocks on all enemies. Effect plays first, then damage/skeleton after delay. ──
       if (power.name === POWER_NAMES.JOLT_ARC) {
         const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
-        Object.assign(updates, joltUpdates);
-
-        // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not).
-        // Targets whose hit landed on skeleton get no Jolt Arc deceleration (same rule: no affliction on master when skeleton took the hit).
-        const joltDecelerationExclude: string[] = [];
-        for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
-          const targetFighter = findFighter(room, targetId);
-          if (!targetFighter) continue;
-          const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
-          if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
-          if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
-          const defPath = findFighterPath(room, targetId);
-          if (defPath && resolve.damageToMaster > 0) {
-            const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
-            updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
-          }
-        }
-        if (joltDecelerationExclude.length > 0) {
-          const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
-          const excludeSet = new Set(joltDecelerationExclude);
-          const filtered = activeEff.filter(
-            (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
-          );
-          updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
-        }
-
-        const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
-        const primaryDefender = findFighter(room, defenderId);
-        const primaryDefPath = primaryDefender ? findFighterPath(room, defenderId) : null;
-        const defenderHpAfter = primaryDefPath ? (updates[`${primaryDefPath}/currentHp`] as number | undefined) ?? primaryDefender?.currentHp ?? 0 : 0;
-        const logEntry = {
-          round: battle.roundNumber,
-          attackerId,
-          defenderId,
-          attackRoll: 0,
-          defendRoll: 0,
-          damage: totalDmg,
-          defenderHpAfter,
-          eliminated: defenderHpAfter <= 0,
-          missed: totalDmg === 0,
-          powerUsed: power.name,
-          ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
-        };
-        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
+        // Write only turn to RESOLVING so client can play the arc effect; do not apply damage/effects yet.
         updates[ARENA_PATH.BATTLE_TURN] = {
           attackerId,
           attackerTeam: turn.attackerTeam,
@@ -944,174 +987,154 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
           usedPowerIndex: turn.usedPowerIndex,
           usedPowerName: power.name,
         };
-
-      // ── Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = crit + 25%) ──
-      } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-        const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-        const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
-        const n = enemies.length;
-        const step = turn.keraunosTargetStep ?? 0;
-        const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
-        const secondaries = turn.keraunosSecondaryTargetIds ?? [];
-
-        if (step === 0) {
-          // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
-          const nextSecondaries: string[] = [];
-          const needMore = n >= 2;
-          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
-          const turnUpdate: Record<string, unknown> = {
-            ...turn,
+        await update(roomRef(arenaId), updates);
+        // After effect duration, apply damage and skeleton destruction so effect plays before skeleton destroy / damage to master.
+        setTimeout(() => {
+          applyJoltArcDamagePhase(
+            arenaId,
+            attackerId,
+            aoeDamageMap,
+            joltUpdates,
+            turn.attackerTeam,
             defenderId,
-            keraunosMainTargetId: defenderId,
-            keraunosSecondaryTargetIds: nextSecondaries,
-            keraunosTargetStep: needMore ? 2 : null, // null = remove key (Firebase rejects undefined)
-          };
-          if (!needMore) {
-            turnUpdate.phase = PHASE.RESOLVING;
-            turnUpdate.critWinFaces = getWinningFaces(critRate);
-            turnUpdate.attackRoll = 0;
-            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
-          } else {
-            turnUpdate.phase = PHASE.SELECT_TARGET;
-          }
-          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-        } else if (step === 2) {
-          // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
-          const nextSecondaries = [...secondaries, defenderId];
-          const needMore = n >= 3;
-          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
-          const turnUpdate: Record<string, unknown> = {
-            ...turn,
-            defenderId: mainId,
-            keraunosMainTargetId: mainId,
-            keraunosSecondaryTargetIds: nextSecondaries,
-            keraunosTargetStep: needMore ? 3 : null,
-          };
-          if (!needMore) {
-            turnUpdate.phase = PHASE.RESOLVING;
-            turnUpdate.critWinFaces = getWinningFaces(critRate);
-            turnUpdate.attackRoll = 0;
-            turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
-          } else {
-            turnUpdate.phase = PHASE.SELECT_TARGET;
-          }
-          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-        } else if (step === 3) {
-          // Third click: second 2-dmg target → done (3+ enemies)
-          const nextSecondaries = [...secondaries, defenderId];
-          const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
-          updates[ARENA_PATH.BATTLE_TURN] = {
-            ...turn,
-            defenderId: mainId,
-            keraunosMainTargetId: mainId,
-            keraunosSecondaryTargetIds: nextSecondaries,
-            keraunosTargetStep: null, // remove key when done
-            phase: PHASE.RESOLVING,
-            critWinFaces: getWinningFaces(critRate),
-            attackRoll: 0,
-            defendRoll: 0, // Keraunos: defender cannot defend
-          };
-        }
+            turn.usedPowerIndex,
+          ).catch(() => { });
+        }, JOLT_ARC_EFFECT_MS);
+        return;
+      } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
+        // Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = crit + 25%)
+        const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+      const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
+      const n = enemies.length;
+      const step = turn.keraunosTargetStep ?? 0;
+      const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
+      const secondaries = turn.keraunosSecondaryTargetIds ?? [];
 
-      // ── Generic skipDice power ──
-      } else {
-        let damageDealt = 0;
-        let defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
-
-        if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
-          const defender = findFighter(room, defenderId);
-          if (defender) {
-            const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, power.value, updates, defender);
-            if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
-            const defPath = findFighterPath(room, defenderId);
-            if (defPath && powerResolve.damageToMaster > 0) {
-              const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
-              updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
-            }
-            if (power.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
-              const atkPath = findFighterPath(room, attackerId);
-              if (atkPath) {
-                const att = findFighter(room, attackerId);
-                const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
-                updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
-              }
-            }
-            damageDealt = powerResolve.damageToMaster;
-            defenderHpAfterLog = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
-          }
-        } else {
-          const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
-          Object.assign(updates, effectUpdates);
-          defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
-          const defPath = findFighterPath(room, defenderId);
-          if (defPath && `${defPath}/currentHp` in updates) defenderHpAfterLog = updates[`${defPath}/currentHp`] as number;
-        }
-
-        const logEntry = {
-          round: battle.roundNumber,
-          attackerId,
+      if (step === 0) {
+        // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
+        const nextSecondaries: string[] = [];
+        const needMore = n >= 2;
+        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+        const turnUpdate: Record<string, unknown> = {
+          ...turn,
           defenderId,
-          attackRoll: 0,
-          defendRoll: 0,
-          damage: damageDealt,
-          defenderHpAfter: defenderHpAfterLog,
-          eliminated: defenderHpAfterLog <= 0,
-          missed: false,
-          powerUsed: power.name,
+          keraunosMainTargetId: defenderId,
+          keraunosSecondaryTargetIds: nextSecondaries,
+          keraunosTargetStep: needMore ? 2 : null, // null = remove key (Firebase rejects undefined)
         };
-        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
+        if (!needMore) {
+          turnUpdate.phase = PHASE.RESOLVING;
+          turnUpdate.critWinFaces = getWinningFaces(critRate);
+          turnUpdate.attackRoll = 0;
+          turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+        } else {
+          turnUpdate.phase = PHASE.SELECT_TARGET;
+        }
+        updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+      } else if (step === 2) {
+        // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
+        const nextSecondaries = [...secondaries, defenderId];
+        const needMore = n >= 3;
+        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
+        const turnUpdate: Record<string, unknown> = {
+          ...turn,
+          defenderId: mainId,
+          keraunosMainTargetId: mainId,
+          keraunosSecondaryTargetIds: nextSecondaries,
+          keraunosTargetStep: needMore ? 3 : null,
+        };
+        if (!needMore) {
+          turnUpdate.phase = PHASE.RESOLVING;
+          turnUpdate.critWinFaces = getWinningFaces(critRate);
+          turnUpdate.attackRoll = 0;
+          turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
+        } else {
+          turnUpdate.phase = PHASE.SELECT_TARGET;
+        }
+        updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+      } else if (step === 3) {
+        // Third click: second 2-dmg target → done (3+ enemies)
+        const nextSecondaries = [...secondaries, defenderId];
+        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
         updates[ARENA_PATH.BATTLE_TURN] = {
-          attackerId,
-          attackerTeam: turn.attackerTeam,
-          defenderId,
+          ...turn,
+          defenderId: mainId,
+          keraunosMainTargetId: mainId,
+          keraunosSecondaryTargetIds: nextSecondaries,
+          keraunosTargetStep: null, // remove key when done
           phase: PHASE.RESOLVING,
-          action: TURN_ACTION.POWER,
-          usedPowerIndex: turn.usedPowerIndex,
-          usedPowerName: power.name,
+          critWinFaces: getWinningFaces(critRate),
+          attackRoll: 0,
+          defendRoll: 0, // Keraunos: defender cannot defend
         };
       }
 
-      await update(roomRef(arenaId), updates);
-      return;
-    }
+      // ── Generic skipDice power ──
+    } else {
+      let damageDealt = 0;
+      let defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
 
-    // Non-skipDice enemy power — go through dice rolling, unless Soul Devourer drain
-    if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && powerCanAttack(power)) {
-      const defender = findFighter(room, defenderId);
-      const targetLogEntry = {
+      if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
+        const defender = findFighter(room, defenderId);
+        if (defender) {
+          const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, power.value, updates, defender);
+          if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
+          const defPath = findFighterPath(room, defenderId);
+          if (defPath && powerResolve.damageToMaster > 0) {
+            const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+            updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
+          }
+          if (power.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
+            const atkPath = findFighterPath(room, attackerId);
+            if (atkPath) {
+              const att = findFighter(room, attackerId);
+              const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
+              updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
+            }
+          }
+          damageDealt = powerResolve.damageToMaster;
+          defenderHpAfterLog = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
+        }
+      } else {
+        const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
+        Object.assign(updates, effectUpdates);
+        defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
+        const defPath = findFighterPath(room, defenderId);
+        if (defPath && `${defPath}/currentHp` in updates) defenderHpAfterLog = updates[`${defPath}/currentHp`] as number;
+      }
+
+      const logEntry = {
         round: battle.roundNumber,
         attackerId,
         defenderId,
         attackRoll: 0,
         defendRoll: 0,
-        damage: 0,
-        defenderHpAfter: defender?.currentHp ?? 0,
-        eliminated: false,
+        damage: damageDealt,
+        defenderHpAfter: defenderHpAfterLog,
+        eliminated: defenderHpAfterLog <= 0,
         missed: false,
         powerUsed: power.name,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
-      const turnUpdate: Record<string, unknown> = {
-        ...turn,
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
+
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        attackerId,
+        attackerTeam: turn.attackerTeam,
         defenderId,
         phase: PHASE.RESOLVING,
         action: TURN_ACTION.POWER,
         usedPowerIndex: turn.usedPowerIndex,
         usedPowerName: power.name,
-        attackRoll: 0,
-        defendRoll: 0,
-        soulDevourerDrain: true,
       };
-      updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-      updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-      updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-      await update(roomRef(arenaId), updates);
-      return;
     }
 
-    // Non-skipDice enemy power — log after target chosen, then go through dice rolling
-    const defenderForLog = findFighter(room, defenderId);
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // Non-skipDice enemy power — go through dice rolling, unless Soul Devourer drain
+  if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && powerCanAttack(power)) {
+    const defender = findFighter(room, defenderId);
     const targetLogEntry = {
       round: battle.roundNumber,
       attackerId,
@@ -1119,22 +1142,55 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
       attackRoll: 0,
       defendRoll: 0,
       damage: 0,
-      defenderHpAfter: defenderForLog?.currentHp ?? 0,
+      defenderHpAfter: defender?.currentHp ?? 0,
       eliminated: false,
       missed: false,
       powerUsed: power.name,
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
-    updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+    const turnUpdate: Record<string, unknown> = {
+      ...turn,
+      defenderId,
+      phase: PHASE.RESOLVING,
+      action: TURN_ACTION.POWER,
+      usedPowerIndex: turn.usedPowerIndex,
+      usedPowerName: power.name,
+      attackRoll: 0,
+      defendRoll: 0,
+      soulDevourerDrain: true,
+    };
+    updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
     await update(roomRef(arenaId), updates);
     return;
   }
 
-  // Fallback: no action set
-  await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
+  // Non-skipDice enemy power — log after target chosen, then go through dice rolling
+  const defenderForLog = findFighter(room, defenderId);
+  const targetLogEntry = {
+    round: battle.roundNumber,
+    attackerId,
     defenderId,
-    phase: PHASE.ROLLING_ATTACK,
-  });
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    defenderHpAfter: defenderForLog?.currentHp ?? 0,
+    eliminated: false,
+    missed: false,
+    powerUsed: power.name,
+  };
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
+  updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+  await update(roomRef(arenaId), updates);
+  return;
+}
+
+// Fallback: no action set
+await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
+  defenderId,
+  phase: PHASE.ROLLING_ATTACK,
+});
 }
 
 /* ── select action (attack or use power) ─────────────── */
@@ -1319,7 +1375,7 @@ export async function selectAction(
             [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
             [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
             [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-          }).catch(() => {});
+          }).catch(() => { });
         }, END_ARENA_DELAY_MS);
         return;
       }
@@ -1332,7 +1388,7 @@ export async function selectAction(
             [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
             [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
             [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-          }).catch(() => {});
+          }).catch(() => { });
         }, END_ARENA_DELAY_MS);
         return;
       }
@@ -1491,15 +1547,15 @@ export async function selectAction(
     const newEffects: ActiveEffect[] = existingSoulDevourer
       ? existing.map(e => e === existingSoulDevourer ? { ...e, turnsRemaining: soulDevourerTurns } : e)
       : [...existing, {
-          id: makeEffectId(attackerId, power.name),
-          powerName: power.name,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: attackerId,
-          value: 0,
-          turnsRemaining: soulDevourerTurns,
-          tag: EFFECT_TAGS.SOUL_DEVOURER,
-        }];
+        id: makeEffectId(attackerId, power.name),
+        powerName: power.name,
+        effectType: EFFECT_TYPES.BUFF,
+        sourceId: attackerId,
+        targetId: attackerId,
+        value: 0,
+        turnsRemaining: soulDevourerTurns,
+        tag: EFFECT_TAGS.SOUL_DEVOURER,
+      }];
     updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = newEffects;
 
     // Cast Undead Army immediately (summon skeleton; max 2)
@@ -1546,7 +1602,7 @@ export async function selectAction(
     (power.target === TARGET_TYPES.SELF || canonicalPower2?.target === TARGET_TYPES.SELF) &&
     (power.effect === EFFECT_TYPES.BUFF || power.effects || canonicalPower2?.effect === EFFECT_TYPES.BUFF || canonicalPower2?.effects)
   );
-  
+
   if (isSkipDiceSelfBuff) {
     // Use canonical power if available for latest definition
     const activePower = canonicalPower2 || power;
@@ -1629,7 +1685,7 @@ export async function selectAction(
           [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
           [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
           [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-        }).catch(() => {});
+        }).catch(() => { });
       }, END_ARENA_DELAY_MS);
       return;
     }
@@ -1642,7 +1698,7 @@ export async function selectAction(
           [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
           [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
           [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-        }).catch(() => {});
+        }).catch(() => { });
       }, END_ARENA_DELAY_MS);
       return;
     }
@@ -1686,68 +1742,33 @@ export async function selectAction(
   // ── Area power (no target selection; targets entire enemy team, e.g. Jolt Arc) ──
   if (power.target === TARGET_TYPES.AREA && power.name === POWER_NAMES.JOLT_ARC) {
     const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
-    Object.assign(updates, joltUpdates);
-
-    // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not).
-    // Targets whose hit landed on skeleton get no Jolt Arc deceleration (no affliction on master when skeleton took the hit).
-    const joltDecelerationExclude: string[] = [];
-    for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
-      const targetFighter = findFighter(room, targetId);
-      if (!targetFighter) continue;
-      const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
-      if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
-      if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
-      const defPath = findFighterPath(room, targetId);
-      if (defPath && resolve.damageToMaster > 0) {
-        const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
-        updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
-      }
-    }
-    if (joltDecelerationExclude.length > 0) {
-      const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
-      const excludeSet = new Set(joltDecelerationExclude);
-      const filtered = activeEff.filter(
-        (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
-      );
-      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
-    }
-
-    const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
     const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
     const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
     const firstEnemy = enemies.find(e => e.currentHp > 0);
-    const firstEnemyDefPath = firstEnemy ? findFighterPath(room, firstEnemy.characterId) : null;
-    const defenderHpAfter = firstEnemyDefPath && firstEnemy
-      ? (updates[`${firstEnemyDefPath}/currentHp`] as number | undefined) ?? firstEnemy.currentHp
-      : 0;
-
-    const logEntry = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId: firstEnemy?.characterId ?? '',
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: totalDmg,
-      defenderHpAfter,
-      eliminated: defenderHpAfter <= 0,
-      missed: totalDmg === 0,
-      powerUsed: power.name,
-      ...(Object.keys(aoeDamageMap).length > 0 ? { aoeDamageMap } : {}),
-    };
-    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
+    const primaryDefenderId = firstEnemy?.characterId ?? '';
+    // Write only turn to RESOLVING so client can play the arc effect; do not apply damage/effects yet.
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
-      defenderId: firstEnemy?.characterId,
+      defenderId: primaryDefenderId,
       phase: PHASE.RESOLVING,
       action: TURN_ACTION.POWER,
       usedPowerIndex: powerIndex,
       usedPowerName: power.name,
     };
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
     await update(roomRef(arenaId), updates);
+    // After effect duration, apply damage and skeleton destruction so effect plays before skeleton destroy / damage to master.
+    setTimeout(() => {
+      applyJoltArcDamagePhase(
+        arenaId,
+        attackerId,
+        aoeDamageMap,
+        joltUpdates,
+        battle.turn?.attackerTeam,
+        primaryDefenderId,
+        powerIndex,
+      ).catch(() => { });
+    }, JOLT_ARC_EFFECT_MS);
     return;
   }
 
@@ -1930,7 +1951,7 @@ export async function skipTurnNoValidTarget(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -1943,7 +1964,7 @@ export async function skipTurnNoValidTarget(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -2032,7 +2053,7 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -2045,7 +2066,7 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -2308,7 +2329,7 @@ export async function confirmSeason(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -2322,7 +2343,7 @@ export async function confirmSeason(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
         [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
         [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_DELAY_MS);
     return;
   }
@@ -2378,13 +2399,13 @@ export async function confirmSeason(arenaId: string): Promise<void> {
 export async function requestAttackRollStart(arenaId: string): Promise<void> {
   try {
     await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL_STARTED_AT]: Date.now() });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export async function requestDefendRollStart(arenaId: string): Promise<void> {
   try {
     await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL_STARTED_AT]: Date.now() });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 /* ── submit attack dice roll ─────────────────────────── */
@@ -2496,7 +2517,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
           [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
           [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-        }).catch(() => {});
+        }).catch(() => { });
       }, END_ARENA_DELAY_MS);
       return;
     }
@@ -2509,7 +2530,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
           [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
           [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-        }).catch(() => {});
+        }).catch(() => { });
       }, END_ARENA_DELAY_MS);
       return;
     }
@@ -2794,7 +2815,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
           updatesAdv[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
           await update(roomRef(arenaId), updatesAdv);
-          setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => {}); }, END_ARENA_DELAY_MS);
+          setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { }); }, END_ARENA_DELAY_MS);
           return;
         }
         if (isTeamEliminated(teamAMembersAdv, latestEffectsAdv)) {
@@ -2803,7 +2824,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
           updatesAdv[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
           await update(roomRef(arenaId), updatesAdv);
-          setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => {}); }, END_ARENA_DELAY_MS);
+          setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { }); }, END_ARENA_DELAY_MS);
           return;
         }
         const updatedRoomAdv = { ...room, teamA: { ...room.teamA, members: teamAMembersAdv }, teamB: { ...room.teamB, members: teamBMembersAdv } } as BattleRoom;
@@ -2929,7 +2950,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
                 [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
                 [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
                 [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-              }).catch(() => {});
+              }).catch(() => { });
             }, END_ARENA_DELAY_MS);
             return;
           }
@@ -2947,7 +2968,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
                 [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
                 [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
                 [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-              }).catch(() => {});
+              }).catch(() => { });
             }, END_ARENA_DELAY_MS);
             return;
           }
@@ -3183,203 +3204,203 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogSd, mainAttackLogEntry]);
       }
     } else {
-    // Normal attack: compare dice with active effect modifiers
-    const atkBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
-    atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
-    defTotal = defendRoll + defender.defendDiceUp + defBuff;
-    hit = atkTotal > defTotal;
+      // Normal attack: compare dice with active effect modifiers
+      const atkBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.ATTACK_DICE_UP);
+      const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
+      atkTotal = attackRoll + attacker.attackDiceUp + atkBuff;
+      defTotal = defendRoll + defender.defendDiceUp + defBuff;
+      hit = atkTotal > defTotal;
 
-    // Soul Devourer (Hades): attack is unavoidable
-    const attackerHasSoulDevourer = activeEffects.some(
-      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
-    );
-    if (attackerHasSoulDevourer) hit = true;
+      // Soul Devourer (Hades): attack is unavoidable
+      const attackerHasSoulDevourer = activeEffects.some(
+        e => e.targetId === attackerId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
+      );
+      if (attackerHasSoulDevourer) hit = true;
 
-    // Pomegranate's Oath dodge: defender with spirit may dodge
-    if (hit && battle.turn.isDodged) {
-      isDodged = true;
-      hit = false;
-    }
-
-    
-
-    if (hit) {
-      const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
-      baseDmg = Math.max(0, attacker.damage + dmgBuff);
-      let rawDmg = baseDmg;
-
-      // Critical hit: read from turn state (written by BattleHUD) or compute fallback
-      if (atkTotal >= 10) {
-        if (battle.turn.critRoll != null && battle.turn.critRoll > 0) {
-          isCrit = !!battle.turn.isCrit;
-          critRoll = battle.turn.critRoll;
-        } else if (battle.turn.isCrit) {
-          // 100% crit rate — auto crit with no roll
-          isCrit = true;
-          critRoll = 0;
-        } else {
-          // Fallback: compute crit if BattleHUD didn't write (e.g. stale client)
-          const critBuff = getStatModifier(activeEffects, attackerId, 'criticalRate');
-          const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
-          const crit = checkCritical(effectiveCrit);
-          isCrit = crit.isCrit;
-          critRoll = crit.critRoll;
-        }
-        if (isCrit) rawDmg *= 2;
+      // Pomegranate's Oath dodge: defender with spirit may dodge
+      if (hit && battle.turn.isDodged) {
+        isDodged = true;
+        hit = false;
       }
 
-      // Rule: hit on skeleton → no shock (or other affliction) on master. Applied for normal attack (Lightning Reflex), Nimbus, and Keraunos.
-      const defenderTeamForBlock = findFighterTeam(room, defenderId);
-      const currentMinionsForBlock = defenderTeamForBlock
-        ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
-        : [];
-      const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
-      const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
 
-      // Attack success → apply shock only when hit lands on master (not skeleton). Lightning Reflex + Nimbus below.
-      if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
-        if (attackerHasBeyondTheNimbus) {
-          const battleWithNimbusEffects = {
-            ...battle,
-            activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
-          };
-          const prevEffects = (battleWithNimbusEffects.activeEffects || []) as ActiveEffect[];
-          const defenderHadShock = !skeletonBlocksHit && prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
-          const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(
-            room,
-            attackerId,
-            battleWithNimbusEffects,
-            baseDmg,
-            skeletonBlocksHit ? defenderId : undefined,
-          );
-          Object.assign(updates, nimbusShockUpdates);
-          if (defenderHadShock) {
-            rawDmg += baseDmg;
-            shockBonusDamage = baseDmg;
+
+      if (hit) {
+        const dmgBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE);
+        baseDmg = Math.max(0, attacker.damage + dmgBuff);
+        let rawDmg = baseDmg;
+
+        // Critical hit: read from turn state (written by BattleHUD) or compute fallback
+        if (atkTotal >= 10) {
+          if (battle.turn.critRoll != null && battle.turn.critRoll > 0) {
+            isCrit = !!battle.turn.isCrit;
+            critRoll = battle.turn.critRoll;
+          } else if (battle.turn.isCrit) {
+            // 100% crit rate — auto crit with no roll
+            isCrit = true;
+            critRoll = 0;
+          } else {
+            // Fallback: compute crit if BattleHUD didn't write (e.g. stale client)
+            const critBuff = getStatModifier(activeEffects, attackerId, 'criticalRate');
+            const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
+            const crit = checkCritical(effectiveCrit);
+            isCrit = crit.isCrit;
+            critRoll = crit.critRoll;
           }
-        } else {
-          if (!skeletonBlocksHit) {
-            const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
-            rawDmg += shockResult.bonusDamage;
-            shockBonusDamage = shockResult.bonusDamage;
-            Object.assign(updates, shockResult.updates);
+          if (isCrit) rawDmg *= 2;
+        }
+
+        // Rule: hit on skeleton → no shock (or other affliction) on master. Applied for normal attack (Lightning Reflex), Nimbus, and Keraunos.
+        const defenderTeamForBlock = findFighterTeam(room, defenderId);
+        const currentMinionsForBlock = defenderTeamForBlock
+          ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
+          : [];
+        const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
+        const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
+
+        // Attack success → apply shock only when hit lands on master (not skeleton). Lightning Reflex + Nimbus below.
+        if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
+          if (attackerHasBeyondTheNimbus) {
+            const battleWithNimbusEffects = {
+              ...battle,
+              activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects,
+            };
+            const prevEffects = (battleWithNimbusEffects.activeEffects || []) as ActiveEffect[];
+            const defenderHadShock = !skeletonBlocksHit && prevEffects.some(e => e.targetId === defenderId && e.tag === EFFECT_TAGS.SHOCK);
+            const nimbusShockUpdates = applyBeyondTheNimbusTeamShock(
+              room,
+              attackerId,
+              battleWithNimbusEffects,
+              baseDmg,
+              skeletonBlocksHit ? defenderId : undefined,
+            );
+            Object.assign(updates, nimbusShockUpdates);
+            if (defenderHadShock) {
+              rawDmg += baseDmg;
+              shockBonusDamage = baseDmg;
+            }
+          } else {
+            if (!skeletonBlocksHit) {
+              const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+              rawDmg += shockResult.bonusDamage;
+              shockBonusDamage = shockResult.bonusDamage;
+              Object.assign(updates, shockResult.updates);
+            }
+          }
+        }
+
+        // Collect skeletons belonging to the attacker — we will resolve them
+        // separately (so their hits appear as distinct log entries).
+        const attackerTeam = findFighterTeam(room, attackerId);
+        if (attackerTeam) {
+          const minions = room[attackerTeam]?.minions || [];
+          skeletonsForAttack = minions.filter(m => m.masterId === attackerId);
+        }
+
+        // Resolve hit at defender: skeleton receives and dies, or damage goes to master (1 attack = 1 skeleton)
+        mainResolve = await resolveHitAtDefender(arenaId, room, defenderId, rawDmg, updates, defender);
+        rawDmg = mainResolve.damageToMaster;
+        if (mainResolve.skippedMinionsPath) delete updates[mainResolve.skippedMinionsPath];
+
+        // Shield absorption — persist reduced/depleted shields to Firebase
+        let shieldRemaining = rawDmg;
+        let shieldsModified = false;
+        for (const se of activeEffects) {
+          if (se.targetId !== defenderId || se.effectType !== 'shield') continue;
+          if (shieldRemaining <= 0) break;
+          const absorbed = Math.min(se.value, shieldRemaining);
+          se.value -= absorbed;
+          shieldRemaining -= absorbed;
+          shieldsModified = true;
+        }
+        if (shieldsModified) {
+          // Remove depleted shields, persist remaining values (keep tagged shields like Efflorescence Muse)
+          const cleaned = activeEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
+          updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
+        }
+        dmg = shieldRemaining;
+
+        // Reflect
+        const reflectPct = getReflectPercent(activeEffects, defenderId);
+        if (reflectPct > 0 && dmg > 0) {
+          const reflectDmg = Math.floor(dmg * reflectPct / 100);
+          const atkPath = findFighterPath(room, attackerId);
+          if (atkPath) {
+            updates[`${atkPath}/currentHp`] = Math.max(0, attacker.currentHp - reflectDmg);
+          }
+        }
+
+        defenderHpAfter = Math.max(0, defender.currentHp - dmg);
+        const defPath = findFighterPath(room, defenderId);
+        if (defPath) updates[`${defPath}/currentHp`] = defenderHpAfter;
+
+        // Soul Devourer: heal attacker by 50% of damage dealt
+        if (attackerHasSoulDevourer && dmg > 0) {
+          const lifestealHeal = Math.floor(dmg * 0.5);
+          const atkPath = findFighterPath(room, attackerId);
+          if (atkPath) {
+            const currentAttackerHp = (updates[`${atkPath}/currentHp`] as number | undefined) ?? attacker.currentHp;
+            updates[`${atkPath}/currentHp`] = Math.min(attacker.maxHp, currentAttackerHp + lifestealHeal);
           }
         }
       }
 
-      // Collect skeletons belonging to the attacker — we will resolve them
-      // separately (so their hits appear as distinct log entries).
-      const attackerTeam = findFighterTeam(room, attackerId);
-      if (attackerTeam) {
-        const minions = room[attackerTeam]?.minions || [];
-        skeletonsForAttack = minions.filter(m => m.masterId === attackerId);
+      // Log entry for normal attack (or self-buff power + attack)
+      const logEntry: Record<string, unknown> = {
+        round: battle.roundNumber,
+        attackerId,
+        defenderId,
+        attackRoll: safeAttackRoll,
+        defendRoll: safeDefendRoll,
+        damage: dmg,
+        defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
+        eliminated: hit && defenderHpAfter <= 0,
+        missed: !hit,
+      };
+      if (hit) {
+        logEntry.baseDmg = baseDmg;
+      }
+      if (critRoll > 0) {
+        logEntry.isCrit = isCrit;
+        logEntry.critRoll = critRoll;
+      }
+      if (shockBonusDamage > 0) {
+        logEntry.shockDamage = shockBonusDamage;
+      }
+      if (isDodged) {
+        logEntry.isDodged = true;
+        logEntry.dodgeRoll = battle.turn.dodgeRoll;
+      }
+      // Do not set powerUsed for self-buff + attack so log shows "Caster vs Defender — hit for X dmg" not "Caster Beyond the Nimbus X dmg"
+      if (isSelfBuffPower && battle.turn.usedPowerName && battle.turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS) {
+        logEntry.powerUsed = battle.turn.usedPowerName;
+      }
+      // When skeleton blocked: so client sets lastHitTargetId = blocker and does not show hit VFX on master
+      if (hit && dmg === 0 && mainResolve?.hitTargetId && mainResolve.hitTargetId !== defenderId) {
+        logEntry.hitTargetId = mainResolve.hitTargetId;
       }
 
-      // Resolve hit at defender: skeleton receives and dies, or damage goes to master (1 attack = 1 skeleton)
-      mainResolve = await resolveHitAtDefender(arenaId, room, defenderId, rawDmg, updates, defender);
-      rawDmg = mainResolve.damageToMaster;
-      if (mainResolve.skippedMinionsPath) delete updates[mainResolve.skippedMinionsPath];
+      // Capture and write the main attack log entry; update the "after choose target" entry from selectTarget if present
+      mainAttackLogEntry = logEntry;
+      const prevLogNorm = battle.log || [];
+      const lastPrevNorm = prevLogNorm.length > 0 ? prevLogNorm[prevLogNorm.length - 1] : null;
+      const canUpdateNorm =
+        lastPrevNorm &&
+        lastPrevNorm.attackerId === attackerId &&
+        lastPrevNorm.defenderId === defenderId &&
+        lastPrevNorm.damage === 0 &&
+        (lastPrevNorm.powerUsed === battle.turn.usedPowerName || (isSelfBuffPower && lastPrevNorm.powerUsed));
 
-      // Shield absorption — persist reduced/depleted shields to Firebase
-      let shieldRemaining = rawDmg;
-      let shieldsModified = false;
-      for (const se of activeEffects) {
-        if (se.targetId !== defenderId || se.effectType !== 'shield') continue;
-        if (shieldRemaining <= 0) break;
-        const absorbed = Math.min(se.value, shieldRemaining);
-        se.value -= absorbed;
-        shieldRemaining -= absorbed;
-        shieldsModified = true;
+      // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged at confirm (selectTarget); only append attack result with dice
+      if (attackerHasBeyondTheNimbus) {
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
+      } else if (canUpdateNorm) {
+        const merged: Record<string, unknown> = { ...lastPrevNorm, ...logEntry };
+        if (logEntry.hitTargetId != null) merged.hitTargetId = logEntry.hitTargetId;
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), merged]);
+      } else {
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
       }
-      if (shieldsModified) {
-        // Remove depleted shields, persist remaining values (keep tagged shields like Efflorescence Muse)
-        const cleaned = activeEffects.filter(e => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag));
-        updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
-      }
-      dmg = shieldRemaining;
-
-      // Reflect
-      const reflectPct = getReflectPercent(activeEffects, defenderId);
-      if (reflectPct > 0 && dmg > 0) {
-        const reflectDmg = Math.floor(dmg * reflectPct / 100);
-        const atkPath = findFighterPath(room, attackerId);
-        if (atkPath) {
-          updates[`${atkPath}/currentHp`] = Math.max(0, attacker.currentHp - reflectDmg);
-        }
-      }
-
-      defenderHpAfter = Math.max(0, defender.currentHp - dmg);
-      const defPath = findFighterPath(room, defenderId);
-      if (defPath) updates[`${defPath}/currentHp`] = defenderHpAfter;
-
-      // Soul Devourer: heal attacker by 50% of damage dealt
-      if (attackerHasSoulDevourer && dmg > 0) {
-        const lifestealHeal = Math.floor(dmg * 0.5);
-        const atkPath = findFighterPath(room, attackerId);
-        if (atkPath) {
-          const currentAttackerHp = (updates[`${atkPath}/currentHp`] as number | undefined) ?? attacker.currentHp;
-          updates[`${atkPath}/currentHp`] = Math.min(attacker.maxHp, currentAttackerHp + lifestealHeal);
-        }
-      }
-    }
-
-    // Log entry for normal attack (or self-buff power + attack)
-    const logEntry: Record<string, unknown> = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId,
-      attackRoll: safeAttackRoll,
-      defendRoll: safeDefendRoll,
-      damage: dmg,
-      defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
-      eliminated: hit && defenderHpAfter <= 0,
-      missed: !hit,
-    };
-    if (hit) {
-      logEntry.baseDmg = baseDmg;
-    }
-    if (critRoll > 0) {
-      logEntry.isCrit = isCrit;
-      logEntry.critRoll = critRoll;
-    }
-    if (shockBonusDamage > 0) {
-      logEntry.shockDamage = shockBonusDamage;
-    }
-    if (isDodged) {
-      logEntry.isDodged = true;
-      logEntry.dodgeRoll = battle.turn.dodgeRoll;
-    }
-    // Do not set powerUsed for self-buff + attack so log shows "Caster vs Defender — hit for X dmg" not "Caster Beyond the Nimbus X dmg"
-    if (isSelfBuffPower && battle.turn.usedPowerName && battle.turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS) {
-      logEntry.powerUsed = battle.turn.usedPowerName;
-    }
-    // When skeleton blocked: so client sets lastHitTargetId = blocker and does not show hit VFX on master
-    if (hit && dmg === 0 && mainResolve?.hitTargetId && mainResolve.hitTargetId !== defenderId) {
-      logEntry.hitTargetId = mainResolve.hitTargetId;
-    }
-
-    // Capture and write the main attack log entry; update the "after choose target" entry from selectTarget if present
-    mainAttackLogEntry = logEntry;
-    const prevLogNorm = battle.log || [];
-    const lastPrevNorm = prevLogNorm.length > 0 ? prevLogNorm[prevLogNorm.length - 1] : null;
-    const canUpdateNorm =
-      lastPrevNorm &&
-      lastPrevNorm.attackerId === attackerId &&
-      lastPrevNorm.defenderId === defenderId &&
-      lastPrevNorm.damage === 0 &&
-      (lastPrevNorm.powerUsed === battle.turn.usedPowerName || (isSelfBuffPower && lastPrevNorm.powerUsed));
-
-    // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged at confirm (selectTarget); only append attack result with dice
-    if (attackerHasBeyondTheNimbus) {
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
-    } else if (canUpdateNorm) {
-      const merged: Record<string, unknown> = { ...lastPrevNorm, ...logEntry };
-      if (logEntry.hitTargetId != null) merged.hitTargetId = logEntry.hitTargetId;
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm.slice(0, -1), merged]);
-    } else {
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
-    }
     }
   }
   // skipDice powers: effect + log already written in selectAction()
@@ -3452,20 +3473,20 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   }
 
   // Sync accumulated activeEffects changes so tickEffects sees them
-    // Per-hit resolve: after master (+ co-attack), write once so client sees HP; then client calls resolve again for each skeleton.
-    if (!isDodged && hit && skeletonsForAttack && skeletonsForAttack.length > 0) {
-      const defPath = findFighterPath(room, defenderId);
-      const defenderHpAfterMain = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
-      if (defenderHpAfterMain > 0) {
-        updates[ARENA_PATH.BATTLE_TURN] = {
-          ...turn,
-          resolvingHitIndex: 1,
-          playbackStep: buildMinionPlaybackStep(room, battle, attackerId, defenderId, 1),
-        };
-        await update(roomRef(arenaId), updates);
-        return;
-      }
+  // Per-hit resolve: after master (+ co-attack), write once so client sees HP; then client calls resolve again for each skeleton.
+  if (!isDodged && hit && skeletonsForAttack && skeletonsForAttack.length > 0) {
+    const defPath = findFighterPath(room, defenderId);
+    const defenderHpAfterMain = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
+    if (defenderHpAfterMain > 0) {
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...turn,
+        resolvingHitIndex: 1,
+        playbackStep: buildMinionPlaybackStep(room, battle, attackerId, defenderId, 1),
+      };
+      await update(roomRef(arenaId), updates);
+      return;
     }
+  }
   // (applyPowerEffect, applyLightningReflexPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
   //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
@@ -3613,7 +3634,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -3630,7 +3651,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -3705,8 +3726,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
-      set(turnRef, nextTurnOnly).catch(() => {});
-      update(roomRef(arenaId), advancePayload).catch(() => {});
+      set(turnRef, nextTurnOnly).catch(() => { });
+      update(roomRef(arenaId), advancePayload).catch(() => { });
     }, SKELETON_PLAYBACK_DELAY_MS);
   } else {
     await set(turnRef, nextTurnOnly);
