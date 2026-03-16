@@ -1052,13 +1052,19 @@ export default function BattleHUD({
       return;
     }
     const inSkeletonFollowup = resolvingHitIndex != null && resolvingHitIndex >= 1;
+    const isSkipDicePower = turn?.action === TURN_ACTION.POWER && turn?.attackRoll == null;
+    const lastLog = (battle.log || []).at(-1);
+    const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
+    // For skipDice (e.g. Keraunos 2 dmg), only show damage card once we have this turn's log so we don't flash 0 before the real damage
+    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn;
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
       !shadowCamouflageD4 &&
       !transientDamageActive &&
       !hadSkeletonHitsThisTurnRef.current &&
-      !inSkeletonFollowup
+      !inSkeletonFollowup &&
+      skipDiceReady
     );
     const turnKey = shouldShowMasterCard
       ? `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`
@@ -1071,7 +1077,7 @@ export default function BattleHUD({
       masterDamageCardTurnKeyRef.current = null;
       setShowMasterDamageCard(false);
     }
-  }, [battle.roundNumber, battle.currentTurnIndex, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
+  }, [battle.roundNumber, battle.currentTurnIndex, battle.log, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
   // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
   const baseWaitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
   // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
@@ -1381,19 +1387,23 @@ export default function BattleHUD({
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
-      // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log)
+      // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log).
+      // Only update cache when we have this turn's log entry so we never flash 0 before the real damage (e.g. 2).
       const lastLog = (battle.log || []).at(-1);
-      const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
-      resolveCache.current = {
-        atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
-        isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
-        isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
-        critEligible: false, isCrit: false, critRoll: 0,
-        isDodged: false, coAttackHit: false, coAttackDamage: 0,
-        attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
-        defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
-      };
+      const logMatchesTurn = lastLog?.attackerId === turn.attackerId && lastLog?.defenderId === turn.defenderId;
+      if (logMatchesTurn) {
+        const logDmg = (lastLog.damage ?? 0);
+        resolveCache.current = {
+          atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+          isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
+          isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
+          critEligible: false, isCrit: false, critRoll: 0,
+          isDodged: false, coAttackHit: false, coAttackDamage: 0,
+          attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+          defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+          side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        };
+      }
     } else if (soulDevourerDrainTurn) {
       const activeEffects = battle.activeEffects || [];
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
