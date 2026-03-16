@@ -916,13 +916,15 @@ export default function BattleHUD({
     setCoAttackRollResult(turn.coAttackRoll);
   }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage]);
 
-  /* ── Heal crit (Floral / Spring): local roll on click so viewer dice start at same time ── */
+  /* ── Heal crit (Floral / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
   const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
+  const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
-  }, [turn?.phase]);
+    if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
+  }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces]);
 
   /* ── Auto-resolve after showing result (only after all checks done) ── */
   // State-based count so the UI knows skeleton/minion playback is still running.
@@ -1957,15 +1959,21 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota) */}
+      {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
       {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
         <RefillSPDiceModal
           attacker={attacker}
           isMyTurn={!!isMyTurn}
           winFaces={(turn as any).shadowCamouflageRefillWinFaces ?? []}
-          roll={(turn as any).shadowCamouflageRefillRoll}
+          roll={(turn as any).shadowCamouflageRefillRoll ?? shadowCamouflageRefillRollLocal}
           atkSide={atkSide}
           diceViewMs={REFILL_DICE_VIEW_MS}
+          resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+          onRollStart={arenaId && isMyTurn ? () => {
+            const roll = Math.ceil(Math.random() * 4);
+            update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll }).catch(() => {});
+            setShadowCamouflageRefillRollLocal(roll);
+          } : undefined}
           onRoll={async (roll: number) => {
             if (!arenaId) return;
             try {
@@ -1974,6 +1982,9 @@ export default function BattleHUD({
               await advanceAfterShadowCamouflageD4(arenaId);
             } catch (e) { }
           }}
+          onResultCardVisible={arenaId ? () => {
+            window.setTimeout(() => advanceAfterShadowCamouflageD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+          } : undefined}
         />
       )}
 
