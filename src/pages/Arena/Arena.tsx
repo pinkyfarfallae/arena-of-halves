@@ -161,13 +161,16 @@ function Arena(props?: ArenaDemoProps) {
     prevPhaseRef.current = phase;
   }, [room?.battle?.turn?.phase, transientEffectsActive]);
 
+  // Debug log: deps array must have fixed length so it doesn't change between renders (e.g. before/after user loads).
+  const phase = room?.battle?.turn?.phase;
+  const characterId = user?.characterId ?? null;
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost';
-    const isRosabella = user?.characterId === CHARACTER.ROSABELLA;
+    const isRosabella = characterId === CHARACTER.ROSABELLA;
     if (isLocal && isRosabella) {
-      console.log({phase: room?.battle?.turn?.phase, transientSkeletonCard});
+      console.log({ phase, transientSkeletonCard });
     }
-  }, [room?.battle?.turn?.phase, transientSkeletonCard, user?.characterId]);
+  }, [phase, transientSkeletonCard, characterId]);
 
   // Clear pulse map and skeleton card when skeleton chain ends
   const prevTransientRef = useRef(false);
