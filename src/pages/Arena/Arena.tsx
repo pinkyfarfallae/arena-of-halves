@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
-import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
@@ -48,6 +47,7 @@ import LinkIcon from './icons/LinkIcon';
 import CheckIcon from './icons/CheckIcon';
 import Eye from '../../icons/Eye';
 import './Arena.scss';
+import { CHARACTER } from '../../constants/characters';
 
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
@@ -120,33 +120,62 @@ function Arena(props?: ArenaDemoProps) {
   const defenderFrameRef = useRef<HTMLDivElement | null>(null);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   const minionPulseCounterRef = useRef(0);
-  /** Skeleton buffer flow (pre-demo): current hit target from skeleton card; drives hit VFX without pulse map */
+  /** Skeleton card + hit target in one state so they paint together (same as player hit) */
+  const [transientSkeletonCard, setTransientSkeletonCard] = useState<Record<string, unknown> | null>(null);
+  const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
   const [currentSkeletonHitTargetId, setCurrentSkeletonHitTargetId] = useState<string | null>(null);
   const skeletonPulseKeyRef = useRef(0);
   const [currentSkeletonPulseKey, setCurrentSkeletonPulseKey] = useState(0);
-  const onSkeletonCardTarget = useCallback((hitTargetId: string | null) => {
-    setCurrentSkeletonHitTargetId(hitTargetId);
-    if (hitTargetId != null) {
+  const onSkeletonCardShow = useCallback((payload: { cardData: Record<string, unknown>; key: string; hitTargetId: string }) => {
+    setTransientSkeletonCard(payload.cardData);
+    setTransientSkeletonCardKey(payload.key);
+    const hitId = payload.hitTargetId?.trim() || null;
+    if (hitId) {
       skeletonPulseKeyRef.current += 1;
+      setCurrentSkeletonHitTargetId(hitId);
       setCurrentSkeletonPulseKey(skeletonPulseKeyRef.current);
+    } else {
+      setCurrentSkeletonHitTargetId(null);
     }
   }, []);
-  // Clear hit-pulse state when leaving RESOLVING so the next target selection doesn't show a stored shake
+  const onSkeletonCardClear = useCallback(() => {
+    setTransientSkeletonCard(null);
+    setTransientSkeletonCardKey('');
+    setCurrentSkeletonHitTargetId(null);
+  }, []);
+  const onSkeletonCardTarget = useCallback((hitTargetId: string | null) => {
+    if (hitTargetId == null) setCurrentSkeletonHitTargetId(null);
+  }, []);
+  // Clear hit-pulse state when leaving RESOLVING — but not while skeleton cards are still playing (same as player hit: don't let phase cut VFX)
   const prevPhaseRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const phase = room?.battle?.turn?.phase;
     if (prevPhaseRef.current === PHASE.RESOLVING && phase !== PHASE.RESOLVING) {
-      setMinionPulseMap({});
-      setCurrentSkeletonHitTargetId(null);
+      if (!transientEffectsActive) {
+        setMinionPulseMap({});
+        setTransientSkeletonCard(null);
+        setTransientSkeletonCardKey('');
+        setCurrentSkeletonHitTargetId(null);
+      }
     }
     prevPhaseRef.current = phase;
-  }, [room?.battle?.turn?.phase]);
+  }, [room?.battle?.turn?.phase, transientEffectsActive]);
 
-  // Clear pulse map and skeleton card target when skeleton chain ends
+  useEffect(() => {
+    const isLocal = window.location.hostname === 'localhost';
+    const isRosabella = user?.characterId === CHARACTER.ROSABELLA;
+    if (isLocal && isRosabella) {
+      console.log({phase: room?.battle?.turn?.phase, transientSkeletonCard});
+    }
+  }, [room?.battle?.turn?.phase, transientSkeletonCard, user?.characterId]);
+
+  // Clear pulse map and skeleton card when skeleton chain ends
   const prevTransientRef = useRef(false);
   useEffect(() => {
     if (prevTransientRef.current && !transientEffectsActive) {
       setMinionPulseMap({});
+      setTransientSkeletonCard(null);
+      setTransientSkeletonCardKey('');
       setCurrentSkeletonHitTargetId(null);
     }
     prevTransientRef.current = transientEffectsActive;
@@ -1044,11 +1073,17 @@ function Arena(props?: ArenaDemoProps) {
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}
+            transientSkeletonCard={transientSkeletonCard}
+            transientSkeletonCardKey={transientSkeletonCardKey}
+            onSkeletonCardShow={onSkeletonCardShow}
+            onSkeletonCardClear={onSkeletonCardClear}
             onSkeletonCardTarget={onSkeletonCardTarget}
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
               minionPulseCounterRef.current += 1;
               const pulseId = minionPulseCounterRef.current;
-              flushSync(() => setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId })));
+              const key = defenderId != null ? String(defenderId) : '';
+              if (!key) return;
+              queueMicrotask(() => setMinionPulseMap((m) => ({ ...m, [key]: pulseId })));
             }}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
             onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}

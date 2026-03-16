@@ -232,15 +232,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep)
           : undefined;
         const playbackMainHit = !!playbackStepActive && !playbackStep?.isMinionHit && playbackStep?.defenderId === m.characterId && playbackStep?.isHit !== false;
-        // Skeleton buffer (pre-demo): hit target from card drives master hit VFX; minion frame uses __isHit from server.
-        const isSkeletonCardHitTarget = currentSkeletonHitTargetId === m.characterId && turn?.phase === PHASE.RESOLVING;
-        // Log playback (main/co-attack): pulse map drives hit VFX.
-        const hasMinionHitPulse = minionPulseMap && minionPulseMap[m.characterId] != null;
+        // Skeleton buffer: hit target from card drives defender hit VFX. Allow when resolving, buffer playing, or still in transient window (so phase change doesn't cut VFX — same as player hit).
+        const isSkeletonCardHitTarget = currentSkeletonHitTargetId != null && String(currentSkeletonHitTargetId) === String(m.characterId) && (turn?.phase === PHASE.RESOLVING || hasBufferedMinionPlayback || !!transientEffectsActive);
+        // Log playback (main/co-attack): pulse map drives hit VFX. Use string key so we match BattleHUD/Arena keys.
+        const hasMinionHitPulse = minionPulseMap && minionPulseMap[String(m.characterId)] != null;
         const minionsForMember = minionsMap.get(m.characterId) || [];
-        const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[min.characterId] != null));
+        const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[String(min.characterId)] != null));
         const shouldAllowLegacyMinionPulse = !!(
           (hasMinionHitPulse || isSkeletonCardHitTarget) &&
-          (turn?.phase === PHASE.RESOLVING || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback)
+          (turn?.phase === PHASE.RESOLVING || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive)
         );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
@@ -476,9 +476,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               shouldAllowLegacyMinionPulse
                 ? (isSkeletonCardHitTarget && currentSkeletonPulseKey != null
                     ? currentSkeletonPulseKey
-                    : (minionPulseMap && minionPulseMap[m.characterId] != null ? Number(minionPulseMap[m.characterId]) : undefined))
+                    : (minionPulseMap && minionPulseMap[String(m.characterId)] != null ? Number(minionPulseMap[String(m.characterId)]) : undefined))
                 : undefined
             }
+            minionHitPulseDurationMs={isSkeletonCardHitTarget ? 2500 : 1500}
             minionPulseMap={minionPulseMap}
             floralLogKey={
               battle != null && battle.roundNumber != null
