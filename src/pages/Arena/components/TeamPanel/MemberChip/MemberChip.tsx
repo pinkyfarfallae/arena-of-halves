@@ -987,11 +987,33 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Soul Devourer — souls from every edge/corner inhaled to center (black, purple, white) */}
+      {/* Soul Devourer — animated black–white column grid background (clipped like petal), then souls inhaled to center */}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-bg" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={`mchip__soul-devourer-bg-column mchip__soul-devourer-bg-column--${i + 1}`} />
+          ))}
+        </div>
+      )}
       {hasSoulDevourer && battleLive && (
         <div className="mchip__soul-float" aria-hidden="true">
           {['tl', 'tr', 'br', 'bl', 't', 'r', 'b', 'l'].map((d) => (
             <span key={d} className={`mchip__soul-layer mchip__soul-layer--${d}`} />
+          ))}
+        </div>
+      )}
+      {hasSoulDevourer && battleLive && <div className="mchip__soul-devourer-overlay" aria-hidden="true" />}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-wisps" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <span key={i} className="mchip__soul-devourer-wisp" />
+          ))}
+        </div>
+      )}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-particles" aria-hidden="true">
+          {Array.from({ length: 12 }, (_, i) => (
+            <span key={i} className="mchip__soul-devourer-particle" />
           ))}
         </div>
       )}
