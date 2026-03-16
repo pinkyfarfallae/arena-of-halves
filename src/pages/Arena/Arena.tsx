@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
-import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
@@ -48,6 +47,7 @@ import LinkIcon from './icons/LinkIcon';
 import CheckIcon from './icons/CheckIcon';
 import Eye from '../../icons/Eye';
 import './Arena.scss';
+import { CHARACTER } from '../../constants/characters';
 
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
@@ -120,20 +120,67 @@ function Arena(props?: ArenaDemoProps) {
   const defenderFrameRef = useRef<HTMLDivElement | null>(null);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   const minionPulseCounterRef = useRef(0);
-  // Clear hit-pulse state when leaving RESOLVING so the next target selection doesn't show a stored shake
+  /** Skeleton card + hit target in one state so they paint together (same as player hit) */
+  const [transientSkeletonCard, setTransientSkeletonCard] = useState<Record<string, unknown> | null>(null);
+  const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
+  const [currentSkeletonHitTargetId, setCurrentSkeletonHitTargetId] = useState<string | null>(null);
+  const skeletonPulseKeyRef = useRef(0);
+  const [currentSkeletonPulseKey, setCurrentSkeletonPulseKey] = useState(0);
+  const onSkeletonCardShow = useCallback((payload: { cardData: Record<string, unknown>; key: string; hitTargetId: string }) => {
+    setTransientSkeletonCard(payload.cardData);
+    setTransientSkeletonCardKey(payload.key);
+    const hitId = payload.hitTargetId?.trim() || null;
+    if (hitId) {
+      skeletonPulseKeyRef.current += 1;
+      setCurrentSkeletonHitTargetId(hitId);
+      setCurrentSkeletonPulseKey(skeletonPulseKeyRef.current);
+    } else {
+      setCurrentSkeletonHitTargetId(null);
+    }
+  }, []);
+  const onSkeletonCardClear = useCallback(() => {
+    setTransientSkeletonCard(null);
+    setTransientSkeletonCardKey('');
+    setCurrentSkeletonHitTargetId(null);
+  }, []);
+  const onSkeletonCardTarget = useCallback((hitTargetId: string | null) => {
+    if (hitTargetId == null) setCurrentSkeletonHitTargetId(null);
+  }, []);
+  // Clear hit-pulse state when leaving RESOLVING — but not while skeleton cards are still playing (same as player hit: don't let phase cut VFX)
   const prevPhaseRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const phase = room?.battle?.turn?.phase;
     if (prevPhaseRef.current === PHASE.RESOLVING && phase !== PHASE.RESOLVING) {
-      setMinionPulseMap({});
+      if (!transientEffectsActive) {
+        setMinionPulseMap({});
+        setTransientSkeletonCard(null);
+        setTransientSkeletonCardKey('');
+        setCurrentSkeletonHitTargetId(null);
+      }
     }
     prevPhaseRef.current = phase;
-  }, [room?.battle?.turn?.phase]);
+  }, [room?.battle?.turn?.phase, transientEffectsActive]);
 
-  // Clear pulse map when skeleton chain ends (transientEffectsActive true → false) so next turn is fresh
+  // Debug log: deps array must have fixed length so it doesn't change between renders (e.g. before/after user loads).
+  const phase = room?.battle?.turn?.phase;
+  const characterId = user?.characterId ?? null;
+  useEffect(() => {
+    const isLocal = window.location.hostname === 'localhost';
+    const isRosabella = characterId === CHARACTER.ROSABELLA;
+    if (isLocal && isRosabella) {
+      console.log({ phase, transientSkeletonCard });
+    }
+  }, [phase, transientSkeletonCard, characterId]);
+
+  // Clear pulse map and skeleton card when skeleton chain ends
   const prevTransientRef = useRef(false);
   useEffect(() => {
-    if (prevTransientRef.current && !transientEffectsActive) setMinionPulseMap({});
+    if (prevTransientRef.current && !transientEffectsActive) {
+      setMinionPulseMap({});
+      setTransientSkeletonCard(null);
+      setTransientSkeletonCardKey('');
+      setCurrentSkeletonHitTargetId(null);
+    }
     prevTransientRef.current = transientEffectsActive;
   }, [transientEffectsActive]);
 
@@ -687,11 +734,16 @@ function Arena(props?: ArenaDemoProps) {
   const teamAMembers = (effectiveRoom.teamA?.members || []).map(m => normalizeFighter(m));
   const teamBMembers = (effectiveRoom.teamB?.members || []).map(m => normalizeFighter(m));
   const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
+  const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = effectiveRoom.battle;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
   const isNpcPlaybackDriver = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
   const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
+  /** When true, attacker is NPC (PvE test mode); D4 crit/chain must be simulated on this client. When false (PvP), wait for opponent's roll. */
+  const isAttackerNpc = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId));
+  /** When true, defender is NPC; dodge D4 must be simulated here. When false (PvP), wait for opponent's roll. */
+  const isDefenderNpc = !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId));
 
   /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
   const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
@@ -768,6 +820,8 @@ function Arena(props?: ArenaDemoProps) {
               casterFrameRef={casterFrameRef}
               defenderFrameRef={defenderFrameRef}
               minionPulseMap={minionPulseMap}
+              currentSkeletonHitTargetId={currentSkeletonHitTargetId}
+              currentSkeletonPulseKey={currentSkeletonPulseKey}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
@@ -798,6 +852,8 @@ function Arena(props?: ArenaDemoProps) {
                 casterFrameRef={casterFrameRef}
                 defenderFrameRef={defenderFrameRef}
                 minionPulseMap={minionPulseMap}
+                currentSkeletonHitTargetId={currentSkeletonHitTargetId}
+                currentSkeletonPulseKey={currentSkeletonPulseKey}
                 clientVisualDefenderId={npcVisualTarget}
                 clientVisualPowerName={npcVisualPowerName}
                 suppressHitAfterBack={suppressHitAfterBack}
@@ -912,6 +968,8 @@ function Arena(props?: ArenaDemoProps) {
             casterFrameRef={casterFrameRef}
             defenderFrameRef={defenderFrameRef}
             minionPulseMap={minionPulseMap}
+            currentSkeletonHitTargetId={currentSkeletonHitTargetId}
+            currentSkeletonPulseKey={currentSkeletonPulseKey}
             onSelectTarget={onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
@@ -947,6 +1005,8 @@ function Arena(props?: ArenaDemoProps) {
               casterFrameRef={casterFrameRef}
               defenderFrameRef={defenderFrameRef}
               minionPulseMap={minionPulseMap}
+              currentSkeletonHitTargetId={currentSkeletonHitTargetId}
+              currentSkeletonPulseKey={currentSkeletonPulseKey}
               onSelectTarget={onSelectTargetDeferred}
               floralHealResultCardVisible={floralHealResultCardVisible}
               clientVisualDefenderId={npcVisualTarget}
@@ -1018,14 +1078,22 @@ function Arena(props?: ArenaDemoProps) {
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER}
+            isAttackerNpc={isAttackerNpc}
+            isDefenderNpc={isDefenderNpc}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}
+            transientSkeletonCard={transientSkeletonCard}
+            transientSkeletonCardKey={transientSkeletonCardKey}
+            onSkeletonCardShow={onSkeletonCardShow}
+            onSkeletonCardClear={onSkeletonCardClear}
+            onSkeletonCardTarget={onSkeletonCardTarget}
             onMinionHitPulse={(attackerId: string, defenderId: string) => {
               minionPulseCounterRef.current += 1;
               const pulseId = minionPulseCounterRef.current;
-              flushSync(() => setMinionPulseMap((m) => ({ ...m, [defenderId]: pulseId })));
-              // Don't clear per-pulse: that removed pulse 1 before skeleton 2 (2.5s), so only 1 shake. Map cleared when chain ends (transientEffectsActive→false) and when leaving RESOLVING.
+              const key = defenderId != null ? String(defenderId) : '';
+              if (!key) return;
+              queueMicrotask(() => setMinionPulseMap((m) => ({ ...m, [key]: pulseId })));
             }}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
             onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}

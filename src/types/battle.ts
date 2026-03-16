@@ -145,12 +145,14 @@ export interface TurnState {
   chainSuccess?: boolean;
   chainWinFaces?: number[];
 
-  /* Keraunos Voltage: multi-step target selection then D4 crit (rate = crit + 25%) */
+  /* Keraunos Voltage: D4 crit before target selection, then multi-step targets (3 / 2 / 1, ×2 on crit) */
+  /** When true, show D4 crit roll before target modal; set false after roll is submitted. */
+  keraunosAwaitingCrit?: boolean;
   /** Main target (3 damage). Same as defenderId when power is Keraunos. */
   keraunosMainTargetId?: string;
-  /** Up to 2 targets for 2 damage each (1 if 2 enemies, 2 if 3+). */
+  /** Up to 2 targets (2 then 1 damage). */
   keraunosSecondaryTargetIds?: string[];
-  /** 1 = need main, 2 = need first secondary, 3 = need second secondary. */
+  /** 0 = need main, 2 = need first secondary, 3 = need second secondary. */
   keraunosTargetStep?: number;
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
@@ -242,6 +244,10 @@ export interface BattleLogEntry {
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;
+  /** When skeleton/minion blocked: actual hit target id (blocker). Client uses this so hit VFX shows on skeleton, not master. */
+  hitTargetId?: string;
+  /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
+  isMinionHit?: boolean;
 }
 
 /** Full battle state stored alongside the room */

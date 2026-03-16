@@ -12,6 +12,7 @@ import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal'
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
 import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
+import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './components/RefillSPDiceModal/RefillSPDiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
@@ -72,9 +73,19 @@ interface Props {
   onResolveVisible?: (visible: boolean) => void;
   /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
   isViewer?: boolean;
+  /** When true (PvE), attacker is NPC; this client simulates D4 crit/chain. When false (PvP), wait for opponent's roll. */
+  isAttackerNpc?: boolean;
+  /** When true (PvE), defender is NPC; this client simulates dodge D4. When false (PvP), wait for opponent's roll. */
+  isDefenderNpc?: boolean;
   onTransientEffectsActive?: (active: boolean) => void;
   /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
   onSoulDevourerHealReady?: (ready: boolean) => void;
+  /** Skeleton card + hit in one update (from Arena) so card and VFX start together */
+  transientSkeletonCard?: Record<string, unknown> | null;
+  transientSkeletonCardKey?: string;
+  onSkeletonCardShow?: (payload: { cardData: Record<string, unknown>; key: string; hitTargetId: string }) => void;
+  onSkeletonCardClear?: () => void;
+  onSkeletonCardTarget?: (hitTargetId: string | null) => void;
   onMinionHitPulse?: (attackerId: string, defenderId: string) => void;
   /** Power name just confirmed in action modal (e.g. "Soul Devourer") — used to disable Back on target select when needed */
   confirmedPowerName?: string | null;
@@ -127,8 +138,10 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady, onMinionHitPulse, confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
+  transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
+  confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -229,10 +242,18 @@ export default function BattleHUD({
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
   const [atkRollDone, setAtkRollDone] = useState(false);
   const [defRollDone, setDefRollDone] = useState(false);
-  /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends) */
+  /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends). Shorter for viewer so dice don't overlap damage card. */
   const PLAYER_ROLL_RESULT_VIEW_MS = 2000;
+  const VIEWER_ROLL_RESULT_VIEW_MS = 1100;
   const atkRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const defRollDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dodgeReplayDoneTimeoutRef = useRef<number | null>(null);
+  const critReplayDoneTimeoutRef = useRef<number | null>(null);
+  const chainReplayDoneTimeoutRef = useRef<number | null>(null);
+  const coAttackReplayDoneTimeoutRef = useRef<number | null>(null);
+  /** Viewer uses shorter delay so dice don't overlap damage card */
+  const replayResultViewMsRef = useRef(PLAYER_ROLL_RESULT_VIEW_MS);
+  replayResultViewMsRef.current = isViewer ? VIEWER_ROLL_RESULT_VIEW_MS : PLAYER_ROLL_RESULT_VIEW_MS;
 
   useEffect(() => {
     if (turn?.phase === PHASE.RESOLVING && isViewer) return;
@@ -251,6 +272,17 @@ export default function BattleHUD({
     }
     setDefRollDone(false);
   }, [turn?.phase, turn?.defenderId, myId]);
+  // Clear replay-dice timeouts on phase change (same as attack/defend)
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING) {
+      [dodgeReplayDoneTimeoutRef, critReplayDoneTimeoutRef, chainReplayDoneTimeoutRef, coAttackReplayDoneTimeoutRef].forEach(ref => {
+        if (ref.current) {
+          clearTimeout(ref.current);
+          ref.current = null;
+        }
+      });
+    }
+  }, [turn?.phase]);
 
   /* ── Sequencing: wait for opponent's dice to finish before next step ── */
   const [defendReady, setDefendReady] = useState(false);
@@ -273,23 +305,6 @@ export default function BattleHUD({
 
   // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
   const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
-
-  // Clear transient DamageCard and skip card state when turn/round changes (avoid overlap into next attacker).
-  // Intentionally omit battle?.log from deps: during skeleton playback the log updates and would run this
-  // effect and wipe the card early. We only want to clear when attacker/defender/round actually change.
-  // We still read battle?.log inside for the skipCard exception (latest log when effect runs).
-  useEffect(() => {
-    setTransientDamage(null);
-    setTransientDamageActive(false);
-    setTransientSkeletonCardKey('');
-    setPendingSkeletonCount(0);
-    const logArr = battle?.log || [];
-    const lastEntry = Array.isArray(logArr) && logArr.length > 0 ? logArr[logArr.length - 1] : null;
-    if (lastEntry && (lastEntry as any).skippedNoValidTarget && lastEntry.attackerId !== turn?.attackerId) {
-      return;
-    }
-    setSkipCard(null);
-  }, [turn?.attackerId, turn?.defenderId, roundNumber]);
 
   // No-target modal: track when shown so we can keep it visible at least 3s before skip
   const noTargetShownAtRef = useRef<number | null>(null);
@@ -407,20 +422,33 @@ export default function BattleHUD({
       dodgeRef.current = { winFaces, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
       setDodgeRollResult(turn.dodgeRoll);
       setDodgeEligible(true);
-      setTimeout(() => setDodgeReady(true), 3500);
+    } else if (isViewer || !isDefenderNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for defender's roll — do not compute; show waiting until turn.dodgeRoll arrives
+      dodgeRef.current = { winFaces, isDodged: false, roll: 0 };
+      setDodgeEligible(true);
     } else {
-      // NPC: compute dodge now
+      // NPC defender and I am playback driver: compute dodge now
       const roll = Math.ceil(Math.random() * 4);
       const dg = winFaces.includes(roll);
       dodgeRef.current = { winFaces, isDodged: dg, roll };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isDodged: dg, dodgeRoll: roll, dodgeWinFaces: winFaces });
       setDodgeRollResult(roll);
       setDodgeEligible(true);
-      setTimeout(() => setDodgeReady(true), 3500);
     }
-  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend]);
+  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend, isViewer, isDefenderNpc, isPlaybackDriver]);
 
-  // Player rolls dodge D4 manually (isMyDefend)
+  // Player clicks → generate roll, write immediately so viewer sees dice start at same time
+  const handleDodgeRollStart = useCallback(() => {
+    if (dodgeSubmitted.current) return;
+    dodgeSubmitted.current = true;
+    const roll = Math.ceil(Math.random() * 4);
+    const dr = dodgeRef.current;
+    const dg = dr.winFaces.includes(roll);
+    dodgeRef.current = { ...dr, isDodged: dg, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isDodged: dg, dodgeRoll: roll, dodgeWinFaces: dr.winFaces });
+    setDodgeRollResult(roll);
+  }, [arenaId]);
+
   const handleDodgeRollResult = useCallback((roll: number) => {
     if (dodgeSubmitted.current) return;
     dodgeSubmitted.current = true;
@@ -428,6 +456,7 @@ export default function BattleHUD({
     const dg = dr.winFaces.includes(roll);
     dodgeRef.current = { ...dr, isDodged: dg, roll };
     if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isDodged: dg, dodgeRoll: roll });
+    setDodgeRollResult(roll);
     setTimeout(() => setDodgeReady(true), 1500);
   }, [arenaId]);
 
@@ -439,8 +468,7 @@ export default function BattleHUD({
     if (turn?.dodgeRoll == null) return;
     dodgeRef.current = { ...dodgeRef.current, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
     setDodgeRollResult(turn.dodgeRoll);
-    const t = setTimeout(() => setDodgeReady(true), 3500);
-    return () => clearTimeout(t);
+    // Replay: wait for roller onRollEnd (onDodgeReplayEnd)
   }, [turn?.phase, resolveReady, dodgeReady, dodgeEligible, isMyDefend, dodgeRollResult, turn?.dodgeRoll, turn?.isDodged]);
 
   /* ── D4 critical hit check ── */
@@ -477,10 +505,19 @@ export default function BattleHUD({
       setCritReady(true);
       return;
     }
-    // Keraunos Voltage: D4 crit (rate = crit + 25%); server already set critWinFaces
+    // Keraunos Voltage: D4 was already rolled before target selection; skip crit UI in RESOLVING
     if (isKeraunos) {
-      const effectiveCritK = Math.min(100, Math.max(0, (attacker?.criticalRate ?? 0) + 25));
+      const critBuffK = getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.CRITICAL_RATE);
+      const effectiveCritBase = Math.max(attacker?.criticalRate ?? 0, (attacker?.criticalRate ?? 0) + critBuffK);
+      const effectiveCritK = Math.min(100, Math.max(0, effectiveCritBase + 25));
       const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+      if (turn.critRoll != null) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+        setCritRollResult(turn.critRoll);
+        setCritEligible(true);
+        setCritReady(true);
+        return;
+      }
       if (effectiveCritK >= 100) {
         critRef.current = { effectiveCrit: effectiveCritK, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
         if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
@@ -496,14 +533,17 @@ export default function BattleHUD({
         critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
         setCritRollResult(turn.critRoll);
         setCritEligible(true);
-        setTimeout(() => setCritReady(true), 3500);
+      } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+        // Viewer, PvP opponent, or ally (not roller): wait for roller's click / server result; never pre-roll or start animation
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces: turn.critWinFaces ?? [], isCrit: false, critRoll: 0 };
+        setCritEligible(true);
       } else {
+        // NPC attacker and I am playback driver: compute crit now so replay roller can run
         const crit = checkCritical(effectiveCritK, winFaces);
         critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
         if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
         setCritRollResult(crit.critRoll);
         setCritEligible(true);
-        setTimeout(() => setCritReady(true), 3500);
       }
       return;
     }
@@ -551,23 +591,37 @@ export default function BattleHUD({
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { critWinFaces: winFaces });
       setCritEligible(true);
     } else if (turn.critRoll != null && turn.critRoll > 0) {
-      // PvP: opponent already rolled before we got here
+      // PvP/viewer: player already rolled
       critRef.current = { effectiveCrit, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
       setCritRollResult(turn.critRoll);
       setCritEligible(true);
-      setTimeout(() => setCritReady(true), 3500);
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for roller's click / server result; never pre-roll
+      critRef.current = { effectiveCrit, winFaces: turn.critWinFaces ?? [], isCrit: false, critRoll: 0 };
+      setCritEligible(true);
     } else {
-      // NPC: compute crit now, show replay immediately (no waiting)
+      // NPC attacker and I am playback driver: compute crit now, replay roller will trigger onCritReplayEnd when done
       const crit = checkCritical(effectiveCrit, winFaces);
       critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
       setCritRollResult(crit.critRoll);
       setCritEligible(true);
-      setTimeout(() => setCritReady(true), 3500);
     }
-  }, [turn, resolveReady, dodgeReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn]);
+  }, [turn, resolveReady, dodgeReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn, isViewer, isAttackerNpc, isPlaybackDriver]);
 
-  // Player rolls D4 manually (isMyTurn)
+  // Player clicks → generate roll, write immediately so viewer sees dice start at same time; then show replay roller
+  const handleCritRollStart = useCallback(() => {
+    if (critSubmitted.current) return;
+    critSubmitted.current = true;
+    const roll = Math.ceil(Math.random() * 4);
+    const cd = critRef.current;
+    const isCrit = cd.winFaces.includes(roll);
+    critRef.current = { ...cd, isCrit, critRoll: roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit, critRoll: roll });
+    setCritRollResult(roll);
+  }, [arenaId]);
+
+  // Legacy: if roll result arrives from die (e.g. no onRollStart), still accept it once
   const handleCritRollResult = useCallback((roll: number) => {
     if (critSubmitted.current) return;
     critSubmitted.current = true;
@@ -575,8 +629,33 @@ export default function BattleHUD({
     const isCrit = cd.winFaces.includes(roll);
     critRef.current = { ...cd, isCrit, critRoll: roll };
     if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit, critRoll: roll });
+    setCritRollResult(roll);
     setTimeout(() => setCritReady(true), 1500);
   }, [arenaId]);
+
+  /* ── Keraunos Voltage: D4 crit before target selection ── */
+  const handleKeraunosPreTargetCritRoll = useCallback((roll: number) => {
+    const winFaces = turn?.critWinFaces?.length ? turn.critWinFaces : [];
+    const isCrit = winFaces.length > 0 && winFaces.includes(roll);
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit, critRoll: roll, keraunosAwaitingCrit: false });
+  }, [arenaId, turn?.critWinFaces]);
+
+  const keraunosPreCritDoneRef = useRef(false);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.SELECT_TARGET || turn?.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE || !turn.keraunosAwaitingCrit) {
+      keraunosPreCritDoneRef.current = false;
+      return;
+    }
+    if (isMyTurn || !isAttackerNpc || !isPlaybackDriver || !attacker) return;
+    if (keraunosPreCritDoneRef.current) return;
+    keraunosPreCritDoneRef.current = true;
+    const critBuffK = getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.CRITICAL_RATE);
+    const effectiveCritBase = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+    const effectiveCritK = Math.min(100, Math.max(0, effectiveCritBase + 25));
+    const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+    const crit = checkCritical(effectiveCritK, winFaces);
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, keraunosAwaitingCrit: false });
+  }, [turn?.phase, turn?.usedPowerName, turn?.keraunosAwaitingCrit, turn?.critWinFaces, turn?.attackerId, isMyTurn, isAttackerNpc, isPlaybackDriver, attacker, arenaId, battle?.activeEffects]);
 
   // PvP watcher: opponent rolled D4 after we entered resolving
   useEffect(() => {
@@ -586,8 +665,6 @@ export default function BattleHUD({
     if (turn?.critRoll == null) return;
     critRef.current = { ...critRef.current, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
     setCritRollResult(turn.critRoll);
-    const t = setTimeout(() => setCritReady(true), 3500);
-    return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, critEligible, isMyTurn, critRollResult, turn?.critRoll, turn?.isCrit]);
 
   /* ── Keraunos Voltage chain D4 check (legacy) ── */
@@ -627,24 +704,36 @@ export default function BattleHUD({
       // Player: manual D4 roll
       setChainEligible(true);
     } else if (turn.chainRoll != null && turn.chainRoll > 0) {
-      // PvP: opponent already rolled
+      // PvP/viewer: player already rolled
       chainRef.current = { winFaces, success: !!turn.chainSuccess, roll: turn.chainRoll };
       setChainRollResult(turn.chainRoll);
       setChainEligible(true);
-      setTimeout(() => setChainReady(true), 3500);
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for player's roll — do not compute; show waiting until turn.chainRoll arrives
+      setChainEligible(true);
     } else {
-      // NPC: compute chain now
+      // NPC attacker and I am playback driver: compute chain now, replay roller will trigger onChainReplayEnd when done
       const roll = Math.ceil(Math.random() * 4);
       const success = winFaces.includes(roll);
       chainRef.current = { winFaces, success, roll };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { chainRoll: roll, chainSuccess: success });
       setChainRollResult(roll);
       setChainEligible(true);
-      setTimeout(() => setChainReady(true), 3500);
     }
-  }, [turn?.phase, resolveReady, critReady, turn?.usedPowerName, turn?.chainWinFaces, turn?.chainRoll, turn?.chainSuccess, arenaId, isMyTurn]);
+  }, [turn?.phase, resolveReady, critReady, turn?.usedPowerName, turn?.chainWinFaces, turn?.chainRoll, turn?.chainSuccess, arenaId, isMyTurn, isViewer, isAttackerNpc, isPlaybackDriver]);
 
-  // Player rolls chain D4 manually
+  // Player clicks → generate roll, write immediately so viewer sees dice start at same time
+  const handleChainRollStart = useCallback(() => {
+    if (chainSubmitted.current) return;
+    chainSubmitted.current = true;
+    const roll = Math.ceil(Math.random() * 4);
+    const cr = chainRef.current;
+    const success = cr.winFaces.includes(roll);
+    chainRef.current = { ...cr, success, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { chainRoll: roll, chainSuccess: success });
+    setChainRollResult(roll);
+  }, [arenaId]);
+
   const handleChainRollResult = useCallback((roll: number) => {
     if (chainSubmitted.current) return;
     chainSubmitted.current = true;
@@ -652,6 +741,7 @@ export default function BattleHUD({
     const success = cr.winFaces.includes(roll);
     chainRef.current = { ...cr, success, roll };
     if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { chainRoll: roll, chainSuccess: success });
+    setChainRollResult(roll);
     setTimeout(() => setChainReady(true), 1500);
   }, [arenaId]);
 
@@ -663,8 +753,6 @@ export default function BattleHUD({
     if (turn?.chainRoll == null) return;
     chainRef.current = { ...chainRef.current, success: !!turn.chainSuccess, roll: turn.chainRoll };
     setChainRollResult(turn.chainRoll);
-    const t = setTimeout(() => setChainReady(true), 3500);
-    return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, chainReady, chainEligible, isMyTurn, chainRollResult, turn?.chainRoll, turn?.chainSuccess]);
 
   /* ── Pomegranate's Oath: Co-attack D12 ── */
@@ -721,13 +809,15 @@ export default function BattleHUD({
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackerId: casterId });
       setCoAttackEligible(true);
     } else if (turn.coAttackRoll != null && turn.coAttackRoll > 0) {
-      // PvP: opponent already rolled
+      // PvP/viewer: caster already rolled
       coAttackRef.current = { casterId, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
       setCoAttackRollResult(turn.coAttackRoll);
       setCoAttackEligible(true);
-      setTimeout(() => setCoAttackReady(true), 3500);
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for caster's roll — do not compute; show waiting until turn.coAttackRoll arrives
+      setCoAttackEligible(true);
     } else {
-      // NPC: compute co-attack now
+      // NPC (caster on attacker side) and I am playback driver: compute co-attack now, replay roller will trigger onCoAttackReplayEnd when done
       const roll = Math.ceil(Math.random() * 12);
       const coBuff = getStatModifier(ae, casterId, MOD_STAT.ATTACK_DICE_UP);
       const coTotal = roll + caster.attackDiceUp + coBuff;
@@ -738,11 +828,30 @@ export default function BattleHUD({
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
       setCoAttackRollResult(roll);
       setCoAttackEligible(true);
-      setTimeout(() => setCoAttackReady(true), 3500);
     }
-  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId]);
+  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer, isAttackerNpc, isPlaybackDriver]);
 
-  // Player rolls co-attack D12 manually (isMyCaster)
+  // Player clicks → generate roll, write immediately so viewer sees dice start at same time
+  const handleCoAttackRollStart = useCallback(() => {
+    if (coAttackSubmitted.current) return;
+    coAttackSubmitted.current = true;
+    const cr = coAttackRef.current;
+    const ae = battle.activeEffects || [];
+    const caster = find(teamA, teamB, cr.casterId);
+    if (!caster || !turn?.defenderId || !defender) return;
+    const roll = Math.ceil(Math.random() * 12);
+    const coBuff = getStatModifier(ae, cr.casterId, MOD_STAT.ATTACK_DICE_UP);
+    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
+    const coTotal = roll + caster.attackDiceUp + coBuff;
+    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+    const coHit = coTotal > dt;
+    const coDmgBuff = getStatModifier(ae, cr.casterId, MOD_STAT.DAMAGE);
+    const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
+    coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
+    setCoAttackRollResult(roll);
+  }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
+
   const handleCoAttackRollResult = useCallback((roll: number) => {
     if (coAttackSubmitted.current) return;
     coAttackSubmitted.current = true;
@@ -759,8 +868,43 @@ export default function BattleHUD({
     const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
     coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
     if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
+    setCoAttackRollResult(roll);
     setTimeout(() => setCoAttackReady(true), 1500);
   }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
+
+  /** When replay roller (viewer/NPC) finishes — delay then advance. Viewer uses shorter delay so dice don't overlap damage card. */
+  const onDodgeReplayEnd = useCallback(() => {
+    if (dodgeReplayDoneTimeoutRef.current) clearTimeout(dodgeReplayDoneTimeoutRef.current);
+    const ms = replayResultViewMsRef.current;
+    dodgeReplayDoneTimeoutRef.current = window.setTimeout(() => {
+      dodgeReplayDoneTimeoutRef.current = null;
+      setDodgeReady(true);
+    }, ms);
+  }, []);
+  const onCritReplayEnd = useCallback(() => {
+    if (critReplayDoneTimeoutRef.current) clearTimeout(critReplayDoneTimeoutRef.current);
+    const ms = replayResultViewMsRef.current;
+    critReplayDoneTimeoutRef.current = window.setTimeout(() => {
+      critReplayDoneTimeoutRef.current = null;
+      setCritReady(true);
+    }, ms);
+  }, []);
+  const onChainReplayEnd = useCallback(() => {
+    if (chainReplayDoneTimeoutRef.current) clearTimeout(chainReplayDoneTimeoutRef.current);
+    const ms = replayResultViewMsRef.current;
+    chainReplayDoneTimeoutRef.current = window.setTimeout(() => {
+      chainReplayDoneTimeoutRef.current = null;
+      setChainReady(true);
+    }, ms);
+  }, []);
+  const onCoAttackReplayEnd = useCallback(() => {
+    if (coAttackReplayDoneTimeoutRef.current) clearTimeout(coAttackReplayDoneTimeoutRef.current);
+    const ms = replayResultViewMsRef.current;
+    coAttackReplayDoneTimeoutRef.current = window.setTimeout(() => {
+      coAttackReplayDoneTimeoutRef.current = null;
+      setCoAttackReady(true);
+    }, ms);
+  }, []);
 
   // PvP watcher: caster rolled co-attack after we entered resolving
   useEffect(() => {
@@ -770,18 +914,36 @@ export default function BattleHUD({
     if (turn?.coAttackRoll == null) return;
     coAttackRef.current = { ...coAttackRef.current, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
     setCoAttackRollResult(turn.coAttackRoll);
-    const t = setTimeout(() => setCoAttackReady(true), 3500);
-    return () => clearTimeout(t);
   }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage]);
 
+  /* ── Heal crit (Floral / Spring): local roll on click so viewer dice start at same time ── */
+  const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
+  const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
+    if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
+  }, [turn?.phase]);
+
   /* ── Auto-resolve after showing result (only after all checks done) ── */
-  // Transient DamageCard state (declare early so effects can reference)
-  const [transientDamageActive, setTransientDamageActive] = useState(false);
-  const [transientDamage, setTransientDamage] = useState<ResolveCacheType | null>(null);
-  /** Unique key per skeleton hit so each damage card shows distinctly (no flicker between hits) */
-  const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
   // State-based count so the UI knows skeleton/minion playback is still running.
   const [pendingSkeletonCount, setPendingSkeletonCount] = useState(0);
+  // Skeleton card lives in Arena so card + hit target update in one setState and start together
+  const transientDamageActive = !!transientSkeletonCard || pendingSkeletonCount > 0;
+
+  // Clear transient DamageCard and skip card state when turn/round changes (avoid overlap into next attacker).
+  // Don't clear while skeleton chain is playing (would wipe card + VFX immediately).
+  useEffect(() => {
+    if (pendingSkeletonCount > 0) return;
+    try { onSkeletonCardClear?.(); } catch (e) { }
+    setPendingSkeletonCount(0);
+    const logArr = battle?.log || [];
+    const lastEntry = Array.isArray(logArr) && logArr.length > 0 ? logArr[logArr.length - 1] : null;
+    if (lastEntry && (lastEntry as any).skippedNoValidTarget && lastEntry.attackerId !== turn?.attackerId) {
+      return;
+    }
+    setSkipCard(null);
+  }, [turn?.attackerId, turn?.defenderId, roundNumber, pendingSkeletonCount, onSkeletonCardClear, battle?.log]);
+
   const attackerTeamMinionsForPlayback = turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB;
   const attackerSkeletonCountForPlayback = Array.isArray(attackerTeamMinionsForPlayback)
     ? (attackerTeamMinionsForPlayback as any[]).filter((m: any) => m?.masterId === turn?.attackerId).length
@@ -789,7 +951,8 @@ export default function BattleHUD({
   const masterHasSkeletonPlayback = attackerSkeletonCountForPlayback > 0;
   const SOUL_DEVOURER_MASTER_AND_HEAL_MS = 4500;
   const CHAINED_MASTER_RESOLVE_DISPLAY_MS = 2400;
-  const MINION_RESOLVE_DISPLAY_MS = 2200;
+  const MINION_RESOLVE_DISPLAY_MS = 3200;
+  const WAITING_AFTER_SKELETON_DELAY_MS = 1000;
   const KERAUNOS_VOLTAGE_RESOLVE_MS = 10000;
   const masterResolveDisplayMs = (turn as any)?.soulDevourerDrain
     ? SOUL_DEVOURER_MASTER_AND_HEAL_MS
@@ -833,37 +996,9 @@ export default function BattleHUD({
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
   const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
-  // Viewer: same 2s delay as player after defend dice so damage card appears in sync. Guard by turn key so we don't set for wrong turn when round advances.
-  const [viewerCriticalDiceDelayDone, setViewerCriticalDiceDelayDone] = useState(false);
-  const viewerDelayTurnKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isViewer || turn?.phase !== PHASE.RESOLVING) {
-      viewerDelayTurnKeyRef.current = null;
-      setViewerCriticalDiceDelayDone(false);
-      return;
-    }
-    if ((turn as any)?.soulDevourerDrain || (turn?.action === TURN_ACTION.POWER && !turn?.attackRoll)) {
-      viewerDelayTurnKeyRef.current = null;
-      setViewerCriticalDiceDelayDone(true);
-      return;
-    }
-    if (turn?.defendRoll == null) return;
-    if (!defRollDone) return;
-    const turnKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`;
-    viewerDelayTurnKeyRef.current = turnKey;
-    const t = window.setTimeout(() => {
-      if (viewerDelayTurnKeyRef.current === turnKey) setViewerCriticalDiceDelayDone(true);
-      viewerDelayTurnKeyRef.current = null;
-    }, 2000);
-    return () => {
-      clearTimeout(t);
-      viewerDelayTurnKeyRef.current = null;
-    };
-  }, [isViewer, turn?.phase, turn?.defendRoll, turn?.action, turn?.attackRoll, turn?.attackerId, turn?.defenderId, (turn as any)?.soulDevourerDrain, defRollDone, battle.roundNumber, battle.currentTurnIndex]);
+  // Same for player and viewer: show damage card only when all resolve dice are done (no overlap; viewer sees same result and timing as player).
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
-    (!!attacker && !!defender && (
-      allResolveChecksDone && (!isViewer || viewerCriticalDiceDelayDone)
-    )) ||
+    (!!attacker && !!defender && allResolveChecksDone) ||
     (shadowCamouflageD4 && !!attacker)
   );
   const playbackRequestKeyRef = useRef<string | null>(null);
@@ -889,6 +1024,10 @@ export default function BattleHUD({
       }
       return;
     }
+    // Minion/skeleton hit: never show card from playbackStep (that path has no hit VFX = "card only"). Only buffer path shows card+hit together.
+    if (playbackStep.isMinionHit) return;
+    // Viewer: don't show damage card until dice are hidden (resolveVisible) so they never overlap
+    if (isViewer && !resolveVisible) return;
     const stepKey = buildBattlePlaybackEventKey(battle.roundNumber, battle.currentTurnIndex, playbackStep);
     if (completedPlaybackStepKeyRef.current === stepKey) return;
     if (activePlaybackStepKeyRef.current === stepKey) return;
@@ -902,17 +1041,33 @@ export default function BattleHUD({
       __side: playbackSide,
       __displayMs: playbackMs,
     });
-  }, [playbackStep, turn?.phase, battle.roundNumber, battle.currentTurnIndex]);
+  }, [playbackStep, turn?.phase, battle.roundNumber, battle.currentTurnIndex, isViewer, resolveVisible]);
+
+  // Minion hit: we don't set activePlaybackStep (card+hit come from buffer only). If buffer never runs (no lastSkeletonHits), call onResolve() after display time so turn doesn't get stuck.
+  const lastSkeletonHitsForFallback = (battle as any)?.lastSkeletonHits as any[] | undefined;
+  useEffect(() => {
+    if (!playbackStep?.isMinionHit || !isPlaybackDriver || turn?.phase !== PHASE.RESOLVING) return;
+    if (Array.isArray(lastSkeletonHitsForFallback) && lastSkeletonHitsForFallback.length > 0) return; // buffer will run and call onResolve() when done
+    const t = setTimeout(() => {
+      if (turn?.phase !== PHASE.RESOLVING) return;
+      onResolve();
+    }, MINION_RESOLVE_DISPLAY_MS + 100);
+    return () => clearTimeout(t);
+  }, [playbackStep?.isMinionHit, isPlaybackDriver, turn?.phase, onResolve, lastSkeletonHitsForFallback]);
+
+  // Don't advance to SELECT_ACTION while skeleton resolve is pending or playing — treat skeleton as part of resolve phase.
+  const skeletonBufferPending = Array.isArray((battle as any)?.lastSkeletonHits) && (battle as any).lastSkeletonHits.length > 0;
   useEffect(() => {
     if (!isPlaybackDriver || turn?.phase !== PHASE.RESOLVING || shadowCamouflageD4) return;
     if (activePlaybackStep || playbackPendingAck) return;
     if (playbackStep) return;
+    if (transientDamageActive || pendingSkeletonCount > 0 || skeletonBufferPending) return;
     if (!allResolveChecksDone) return;
     const requestKey = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn.attackerId}|${turn.defenderId ?? ''}|${resolvingHitIndex ?? 0}`;
     if (playbackRequestKeyRef.current === requestKey) return;
     playbackRequestKeyRef.current = requestKey;
     onResolve();
-  }, [isPlaybackDriver, turn, activePlaybackStep, playbackPendingAck, playbackStep, shadowCamouflageD4, allResolveChecksDone, battle.roundNumber, battle.currentTurnIndex, onResolve, resolvingHitIndex]);
+  }, [isPlaybackDriver, turn, activePlaybackStep, playbackPendingAck, playbackStep, shadowCamouflageD4, allResolveChecksDone, battle.roundNumber, battle.currentTurnIndex, onResolve, resolvingHitIndex, transientDamageActive, pendingSkeletonCount, skeletonBufferPending]);
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING) playbackRequestKeyRef.current = null;
   }, [turn?.phase]);
@@ -931,13 +1086,19 @@ export default function BattleHUD({
       return;
     }
     const inSkeletonFollowup = resolvingHitIndex != null && resolvingHitIndex >= 1;
+    const isSkipDicePower = turn?.action === TURN_ACTION.POWER && (turn?.attackRoll == null || turn?.attackRoll === 0);
+    const lastLog = (battle.log || []).at(-1);
+    const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
+    // Keraunos: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
+    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
       !shadowCamouflageD4 &&
       !transientDamageActive &&
       !hadSkeletonHitsThisTurnRef.current &&
-      !inSkeletonFollowup
+      !inSkeletonFollowup &&
+      skipDiceReady
     );
     const turnKey = shouldShowMasterCard
       ? `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`
@@ -950,9 +1111,9 @@ export default function BattleHUD({
       masterDamageCardTurnKeyRef.current = null;
       setShowMasterDamageCard(false);
     }
-  }, [battle.roundNumber, battle.currentTurnIndex, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
+  }, [battle.roundNumber, battle.currentTurnIndex, battle.log, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
   // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
-  const waitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
+  const baseWaitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
   // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
   const lastResolveVisibleRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -981,7 +1142,6 @@ export default function BattleHUD({
     !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
     ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
-  const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
   // (Firebase may update unrelated fields, causing `battle` to change refs).
   const lastSkeletonHitsKeyRef = useRef<string | null>(null);
@@ -991,6 +1151,19 @@ export default function BattleHUD({
   const lastSkeletonPlaybackTurnKeyRef = useRef<string | null>(null);
   // When true, this turn had skeleton/minion hits — never show main (caster) DamageCard to avoid flash before turn change.
   const hadSkeletonHitsThisTurnRef = useRef(false);
+  const [waitingAfterSkeletonDelayElapsed, setWaitingAfterSkeletonDelayElapsed] = useState(true);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.SELECT_TARGET) {
+      setWaitingAfterSkeletonDelayElapsed(true);
+      return;
+    }
+    if (!baseWaitingVisible || !hadSkeletonHitsThisTurnRef.current) return;
+    setWaitingAfterSkeletonDelayElapsed(false);
+    const t = setTimeout(() => setWaitingAfterSkeletonDelayElapsed(true), WAITING_AFTER_SKELETON_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [turn?.phase, baseWaitingVisible]);
+  const waitingVisible = baseWaitingVisible && (waitingAfterSkeletonDelayElapsed || !hadSkeletonHitsThisTurnRef.current);
+  const [showWaiting, waitingExiting] = useFadeTransition(waitingVisible, 250);
   // Throttle DB writes for last-hit markers to avoid hitting rate limits
   // when many skeletons play in quick succession. We batch the latest
   // payload and write it at most once per `WRITE_THROTTLE_MS` window.
@@ -1026,10 +1199,12 @@ export default function BattleHUD({
     };
   }, []);
 
+  // Skeleton chain: card complete callback (same as player hit — card's onDisplayComplete drives next)
+  const skeletonCardCompleteRef = useRef<() => void>(() => {});
+
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
   useEffect(() => {
-    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) return;
     const skHits = lastSkeletonHits;
     if (!Array.isArray(skHits) || skHits.length === 0) {
       lastSkeletonHitsKeyRef.current = null;
@@ -1037,24 +1212,25 @@ export default function BattleHUD({
       skeletonChainTimeoutsRef.current = [];
       return;
     }
+    const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
+    if (lastSkeletonPlaybackTurnKeyRef.current !== null && lastSkeletonPlaybackTurnKeyRef.current !== turnKey) {
+      lastSkeletonHitsKeyRef.current = null;
+    }
+    lastSkeletonPlaybackTurnKeyRef.current = turnKey;
 
-    // Build a stable key for this buffer so we don't reprocess the same data
-    // multiple times if unrelated parts of `battle` change.
     const skKey = skHits.map((e: any) => `${String(e.attackerId)}|${String(e.defenderId)}|${String(e.isMinionHit)}|${String(e.damage ?? 0)}`).join(',');
     if (lastSkeletonHitsKeyRef.current === skKey) return;
 
-    // New chain: stop any previous chain, then start this one (each hit shows one-by-one).
     skeletonChainTimeoutsRef.current.forEach((id) => clearTimeout(id));
     skeletonChainTimeoutsRef.current = [];
     lastSkeletonHitsKeyRef.current = skKey;
-    const HIT_DISPLAY_MS = MINION_RESOLVE_DISPLAY_MS; // keep skeleton/minion card visible long enough for readable VFX
+    const HIT_DISPLAY_MS = MINION_RESOLVE_DISPLAY_MS;
     setPendingSkeletonCount((c) => c + skHits.length);
 
     const timeoutsRef = skeletonChainTimeoutsRef;
     let index = 0;
     const showNext = () => {
       if (index >= skHits.length) {
-        // Clear at arena root (same path as server) so skeleton hits don't replay.
         try { update(ref(db, `arenas/${arenaId}`), { [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null }); } catch (e) { }
         return;
       }
@@ -1067,7 +1243,6 @@ export default function BattleHUD({
         const allMinions = [...(teamMinionsA || []), ...(teamMinionsB || [])];
         transientMinion = allMinions.find((mn: any) => mn && mn.characterId === entry.attackerId);
       }
-      // Skeleton/minion hit: always show minion name on card, never caster. Fallback to "skeleton" when minion not in list.
       const isMinionAttacker = !atk && (transientMinion || /skeleton|_skeleton_/i.test(String(entry.attackerId)));
       const attackerDisplayName = isMinionAttacker
         ? (transientMinion?.nicknameEng?.toLowerCase() || 'skeleton')
@@ -1093,58 +1268,41 @@ export default function BattleHUD({
         side: defenderSideForMinion,
       } as any;
 
+      const hitTargetIdRaw = (entry as any).hitTargetId ?? entry.defenderId ?? turn?.defenderId;
+      const hitTargetId = hitTargetIdRaw != null ? String(hitTargetIdRaw) : undefined;
+
+      // One setState in Arena: card + hit target so they paint together (same as player hit)
       onResolveVisible?.(true);
-      setTransientSkeletonCardKey(`skeleton-${index}-${entry.attackerId}-${entry.damage ?? 0}`);
-      setTransientDamage(rc as any);
-      setTransientDamageActive(true);
+      if (onSkeletonCardShow) {
+        try {
+          onSkeletonCardShow({
+            cardData: rc as Record<string, unknown>,
+            key: `skeleton-${index}-${entry.attackerId}-${entry.damage ?? 0}`,
+            hitTargetId: hitTargetId ?? String(entry.defenderId ?? ''),
+          });
+        } catch (e) { }
+      }
+      if (hitTargetId) try { onMinionHitPulse?.(String(entry.attackerId), hitTargetId); } catch (e) { }
+      try { scheduleLastHitUpdate({ lastHitMinionId: entry.attackerId, lastHitTargetId: hitTargetId ?? hitTargetIdRaw }); } catch (e) { }
 
-      try {
-        scheduleLastHitUpdate({ lastHitMinionId: entry.attackerId, lastHitTargetId: entry.defenderId });
-      } catch (e) { }
-      // Defer pulse to next macrotask so card state is committed first; then pulse triggers shake (n hits → n shakes)
-      const pulseAtk = entry.attackerId;
-      const pulseDef = entry.defenderId;
-      window.setTimeout(() => {
-        try { onMinionHitPulse?.(pulseAtk, pulseDef); } catch (e) { }
-      }, 0);
-
-      const t = window.setTimeout(() => {
-        setTransientDamage(null);
-        setTransientDamageActive(false);
-        setTransientSkeletonCardKey('');
+      skeletonCardCompleteRef.current = () => {
         setPendingSkeletonCount((c) => Math.max(0, c - 1));
         index++;
         const finishedBuffer = index >= skHits.length;
-        showNext();
         if (finishedBuffer && isPlaybackDriver) {
+          try { onSkeletonCardClear?.(); } catch (e) { }
           onResolveVisible?.(false);
           try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
           onResolve();
+        } else if (!finishedBuffer) {
+          showNext();
         }
-      }, HIT_DISPLAY_MS + 50);
-      timeoutsRef.current.push(t);
+      };
     };
 
-    const turnKey = `${(battle as any).roundNumber}-${(battle as any).currentTurnIndex}`;
-    lastSkeletonPlaybackTurnKeyRef.current = turnKey;
-
-    const chainStartDelayMs = 0;
-    const totalDisplayMs = chainStartDelayMs + skHits.length * (HIT_DISPLAY_MS + 50);
-    const tEnd = window.setTimeout(() => {
-      onResolveVisible?.(false);
-      try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
-    }, totalDisplayMs);
-    timeoutsRef.current.push(tEnd);
-
-    if (chainStartDelayMs > 0) {
-      const tStart = window.setTimeout(() => showNext(), chainStartDelayMs);
-      timeoutsRef.current.push(tStart);
-    } else {
-      showNext();
-    }
-    // No cleanup here: effect re-runs (e.g. battle ref change) must not cancel the chain. Timeouts are cleared only when starting a new chain or on unmount.
+    showNext();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate is ref-stable; including it retriggers every render
-  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn, isPlaybackDriver, onResolve]);
+  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, lastSkeletonHits, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onSkeletonCardShow, onSkeletonCardClear, onMinionHitPulse, turn, isPlaybackDriver, onResolve]);
 
   // Notify parent when transient effects (transientDamageActive or skeleton buffer) are active.
   // Use primitive deps and only call when value changes to avoid update loops from parent re-renders.
@@ -1157,7 +1315,7 @@ export default function BattleHUD({
     onTransientEffectsActive?.(hasPendingPlayback);
   }, [transientDamageActive, skBufferLength, pendingSkeletonCount, onTransientEffectsActive]);
 
-  // When phase advances to next turn, clear transient minion card and "had skeleton hits" only after all skeleton cards have finished (so modal stays visible for full 2.5s per skeleton)
+  // When phase advances and no skeleton cards left, clear "had skeleton hits" (card lives in Arena)
   const prevPhaseRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const prev = prevPhaseRef.current;
@@ -1166,11 +1324,9 @@ export default function BattleHUD({
     const skeletonChainDone = turn?.phase === PHASE.SELECT_ACTION && pendingSkeletonCount === 0;
     if ((phaseJustAdvanced || skeletonChainDone) && pendingSkeletonCount === 0) {
       hadSkeletonHitsThisTurnRef.current = false;
-      setTransientDamage(null);
-      setTransientDamageActive(false);
-      setTransientSkeletonCardKey('');
+      try { onSkeletonCardClear?.(); } catch (e) { }
     }
-  }, [turn?.phase, pendingSkeletonCount]);
+  }, [turn?.phase, pendingSkeletonCount, onSkeletonCardClear]);
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
@@ -1261,24 +1417,47 @@ export default function BattleHUD({
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
-  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn)) {
+  const isKeraunosTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || defender);
+  if (canFillCache) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
-      // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log)
-      const lastLog = (battle.log || []).at(-1);
-      const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
-      resolveCache.current = {
-        atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
-        isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
-        isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
-        critEligible: false, isCrit: false, critRoll: 0,
-        isDodged: false, coAttackHit: false, coAttackDamage: 0,
-        attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
-        defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
-        side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
-      };
-    } else if (soulDevourerDrainTurn) {
+      if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
+        const isCritK = !!(turn as any).isCrit;
+        const keraunosMainDmg = 3 * (isCritK ? 2 : 1);
+        const mainTargetId = (turn as any).keraunosMainTargetId ?? turn.defenderId;
+        const defenderForKeraunos = mainTargetId ? find(teamA, teamB, mainTargetId) : defender;
+        resolveCache.current = {
+          atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+          isHit: true, damage: keraunosMainDmg, baseDmg: 3, shockBonus: 0,
+          isPower: true, powerName: POWER_NAMES.KERAUNOS_VOLTAGE,
+          critEligible: false, isCrit: isCritK, isCritForKeraunos: isCritK, critRoll: (turn as any).critRoll ?? 0,
+          keraunosDamageTier: 0,
+          isDodged: false, coAttackHit: false, coAttackDamage: 0,
+          attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+          defenderName: defenderForKeraunos?.nicknameEng ?? defender?.nicknameEng ?? '',
+          defenderTheme: defenderForKeraunos?.theme?.[0] ?? defender?.theme?.[0] ?? '',
+          side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        };
+      } else if (defender) {
+        const lastLog = (battle.log || []).at(-1);
+        const logMatchesTurn = lastLog?.attackerId === turn.attackerId && lastLog?.defenderId === turn.defenderId;
+        if (logMatchesTurn) {
+          const logDmg = (lastLog.damage ?? 0);
+          resolveCache.current = {
+            atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+            isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
+            isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
+            critEligible: false, isCrit: false, critRoll: 0,
+            isDodged: false, coAttackHit: false, coAttackDamage: 0,
+            attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+            defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+            side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+          };
+        }
+      }
+    } else if (soulDevourerDrainTurn && defender) {
       const activeEffects = battle.activeEffects || [];
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
       const drainDmg = Math.max(0, attacker.damage + dmgBuff);
@@ -1293,7 +1472,7 @@ export default function BattleHUD({
         side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         soulDevourerDrain: true,
       };
-    } else {
+    } else if (defender) {
       const activeEffects = battle.activeEffects || [];
       const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
       const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
@@ -1457,12 +1636,20 @@ export default function BattleHUD({
         // Minion hit: show card on defender side (opposite of master). Use turn.attackerTeam.
         const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
+        const isKeraunosEntry = (entry as any).powerUsed === POWER_NAMES.KERAUNOS_VOLTAGE;
+        const mainIdK = turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (turn as any).keraunosMainTargetId : null;
+        const secondaryIdsK = (turn as any).keraunosSecondaryTargetIds as string[] | undefined;
+        const keraunosTierFromDefender =
+          isKeraunosEntry && mainIdK
+            ? (entry.defenderId === mainIdK ? 0 : secondaryIdsK?.[0] === entry.defenderId ? 1 : secondaryIdsK?.[1] === entry.defenderId ? 2 : 0)
+            : undefined;
         const rc = {
           isHit: !entry.missed,
           // Beyond the Nimbus attack (after confirm): show in resolve bar as normal attack (ATK vs DEF, damage)
           isPower: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? false : !!entry.powerUsed,
           powerName: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (entry.powerUsed || ''),
           isCrit: !!(entry.isCrit),
+          ...(isKeraunosEntry ? { isCritForKeraunos: !!(entry.isCrit), ...(keraunosTierFromDefender != null ? { keraunosDamageTier: keraunosTierFromDefender as 0 | 1 | 2 } : { keraunosDamageTier: 0 }) } : {}),
           baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
           shockBonus: (entry.shockDamage as number) || 0,
@@ -1503,29 +1690,33 @@ export default function BattleHUD({
           setResolveCacheMergeTick((t) => t + 1);
         }
         onResolveVisible?.(true);
-        if ((entry as any).isMinionHit) {
+        const hitTargetIdLog = (entry as any).hitTargetId ?? (battle as any)?.lastHitTargetId ?? entry.defenderId;
+        if ((entry as any).isMinionHit && onSkeletonCardShow && turn?.phase === PHASE.RESOLVING) {
           setPendingSkeletonCount((c) => c + 1);
-          setTransientDamage(rc as any);
-          setTransientDamageActive(true);
+          try {
+            onSkeletonCardShow({
+              cardData: rc as Record<string, unknown>,
+              key: `log-minion-${entry.attackerId}-${entry.defenderId}-${entry.damage ?? 0}`,
+              hitTargetId: String(hitTargetIdLog ?? ''),
+            });
+          } catch (_) { }
+          onMinionHitPulse?.(entry.attackerId, hitTargetIdLog);
           setTimeout(() => {
-            setTransientDamage(null);
-            setTransientDamageActive(false);
+            try { onSkeletonCardClear?.(); } catch (_) { }
             setPendingSkeletonCount((c) => Math.max(0, c - 1));
           }, HIT_DISPLAY_MS + 50);
         }
 
-        // Pulse transient hit markers (throttled to avoid rate limit)
         try {
           const lastHitPayload: Record<string, unknown> = {};
           if ((entry as any).isMinionHit) {
             lastHitPayload.lastHitMinionId = entry.attackerId;
-            lastHitPayload.lastHitTargetId = entry.defenderId;
+            lastHitPayload.lastHitTargetId = hitTargetIdLog;
           } else {
             lastHitPayload.lastHitMinionId = null;
-            lastHitPayload.lastHitTargetId = entry.defenderId;
+            lastHitPayload.lastHitTargetId = hitTargetIdLog;
           }
           scheduleLastHitUpdate(lastHitPayload);
-          if ((entry as any).isMinionHit) onMinionHitPulse?.(entry.attackerId, entry.defenderId);
         } catch (e) { }
 
         // Clear visuals after display time
@@ -1544,7 +1735,7 @@ export default function BattleHUD({
       } catch (e) { }
     }, delayAcc + HIT_DISPLAY_MS + 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
-  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onMinionHitPulse, turn]);
+  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onSkeletonCardShow, onSkeletonCardClear, onMinionHitPulse, turn]);
 
   /* ── Winner: show only after all minion/skeleton hit effects have played ── */
   if (winner) {
@@ -1638,10 +1829,30 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection (attacker only) — or "No valid target" on attacker side for everyone; only attacker sees Roger that */}
-      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && ((targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. */}
+      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          {targets.length > 0 ? (
+          {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
+            <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Critical check</span>
+              <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (Keraunos)</span>
+              {isMyTurn ? (
+                <DiceRoller
+                  key="keraunos-pretarget-crit"
+                  className="bhud__dice-roller"
+                  lockedDie={4}
+                  hidePrompt
+                  themeColors={{ primary: attacker?.theme?.[0] ?? '#333', primaryDark: attacker?.theme?.[18] ?? '#111' }}
+                  onRollResult={handleKeraunosPreTargetCritRoll}
+                />
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )}
+              <span className="bhud__dice-bonus">critical: {turn.critWinFaces?.slice().sort((a, b) => a - b).join(', ') || '—'}</span>
+            </div>
+          ) : targets.length > 0 ? (
             <TargetSelectModal
               attackerName={attacker?.nicknameEng ?? ''}
               targets={targets}
@@ -1761,69 +1972,92 @@ export default function BattleHUD({
               await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
               await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
               await advanceAfterShadowCamouflageD4(arenaId);
-            } catch (e) {}
+            } catch (e) { }
           }}
         />
       )}
 
-      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit (same rate as target's critical rate); crit = 2× heal */}
+      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit (same rate as target's critical rate); crit = 2× heal. Player click → write immediately so viewer dice start at same time. */}
       {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (() => {
         const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
         const floralRoll = (turn as any).floralHealRoll;
+        const floralRollDisplay = floralRoll ?? floralHealRollLocal;
         const critPct = floralWinFaces.length * 25;
         return (
           <RefillSPDiceModal
             attacker={attacker}
             isMyTurn={!!isMyTurn}
             winFaces={floralWinFaces}
-            roll={floralRoll}
+            roll={floralRollDisplay}
             atkSide={atkSide}
             diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
             title="Heal Crit"
             subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
             wonText="HEAL x2!"
             lostText="Normal Heal"
             bonusLabel={`crit: ${[...floralWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isMyTurn ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => {});
+              setFloralHealRollLocal(roll);
+            } : undefined}
             onRoll={async (roll: number) => {
               if (!arenaId) return;
               try {
                 await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
                 await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
-                onFloralHealResultCardHidden?.(); // hide fragrance wave immediately, don't wait for phase update
+                onFloralHealResultCardHidden?.();
                 await advanceAfterFloralHealD4(arenaId);
-              } catch (e) {}
+              } catch (e) { }
             }}
-            onResultCardVisible={onFloralHealResultCardVisible}
+            onResultCardVisible={arenaId ? () => {
+              onFloralHealResultCardVisible?.();
+              window.setTimeout(() => {
+                onFloralHealResultCardHidden?.();
+                advanceAfterFloralHealD4(arenaId).catch(() => {});
+              }, REFILL_CARD_VIEW_MS);
+            } : onFloralHealResultCardVisible}
           />
         );
       })()}
 
-      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL and turn has winFaces; use springHealRollActive or turn.springRound so sync delay doesn't hide modal. */}
+      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL. Player click → write immediately so viewer dice start at same time. */}
       {turn?.phase === PHASE.ROLLING_SPRING_HEAL && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
         const springWinFaces = (turn as any).springHealWinFaces ?? [];
         const springRoll = (turn as any).springHealRoll;
+        const springRollDisplay = springRoll ?? springHealRollLocal;
         const critPct = springWinFaces.length * 25;
         return (
           <RefillSPDiceModal
             attacker={attacker}
             isMyTurn={!!isMyTurn}
             winFaces={springWinFaces}
-            roll={springRoll}
+            roll={springRollDisplay}
             atkSide={atkSide}
             diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
             title="Spring Heal"
             subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
             wonText="+2 HP"
             lostText="+1 HP"
             bonusLabel={`crit: ${[...springWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isMyTurn ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll }).catch(() => {});
+              setSpringHealRollLocal(roll);
+            } : undefined}
             onRoll={async (roll: number) => {
               if (!arenaId) return;
               try {
                 await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll });
                 await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
                 await advanceAfterSpringHealD4(arenaId);
-              } catch (e) {}
+              } catch (e) { }
             }}
+            onResultCardVisible={arenaId ? () => {
+              window.setTimeout(() => advanceAfterSpringHealD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+            } : undefined}
           />
         );
       })()}
@@ -1846,17 +2080,19 @@ export default function BattleHUD({
           onDefendRollStart={handleDefendRollStart}
           onAtkRollDone={() => {
             if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
+            const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             atkRollDoneTimeoutRef.current = setTimeout(() => {
               atkRollDoneTimeoutRef.current = null;
               setAtkRollDone(true);
-            }, PLAYER_ROLL_RESULT_VIEW_MS);
+            }, delayMs);
           }}
           onDefRollDone={() => {
             if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
+            const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             defRollDoneTimeoutRef.current = setTimeout(() => {
               defRollDoneTimeoutRef.current = null;
               setDefRollDone(true);
-            }, PLAYER_ROLL_RESULT_VIEW_MS);
+            }, delayMs);
           }}
           atkRollDone={atkRollDone}
           defRollDone={defRollDone}
@@ -1865,23 +2101,31 @@ export default function BattleHUD({
           isViewer={isViewer}
           critEligible={critEligible}
           critReady={critReady}
-          critWinFaces={critRef.current.winFaces}
+          critWinFaces={turn?.critWinFaces?.length ? turn.critWinFaces : critRef.current.winFaces}
           critRollResult={critRollResult}
           onCritRollResult={handleCritRollResult}
+          onCritRollStart={handleCritRollStart}
+          onCritReplayEnd={onCritReplayEnd}
           chainEligible={chainEligible}
           chainReady={chainReady}
           chainWinFaces={chainRef.current.winFaces}
           chainRollResult={chainRollResult}
           onChainRollResult={handleChainRollResult}
+          onChainRollStart={handleChainRollStart}
+          onChainReplayEnd={onChainReplayEnd}
           dodgeEligible={dodgeEligible}
           dodgeReady={dodgeReady}
           dodgeWinFaces={dodgeRef.current.winFaces}
           dodgeRollResult={dodgeRollResult}
           onDodgeRollResult={handleDodgeRollResult}
+          onDodgeRollStart={handleDodgeRollStart}
+          onDodgeReplayEnd={onDodgeReplayEnd}
           coAttackEligible={coAttackEligible}
           coAttackReady={coAttackReady}
           coAttackRollResult={coAttackRollResult}
           onCoAttackRollResult={handleCoAttackRollResult}
+          onCoAttackRollStart={handleCoAttackRollStart}
+          onCoAttackReplayEnd={onCoAttackReplayEnd}
           coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
           atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
           defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
@@ -1890,6 +2134,17 @@ export default function BattleHUD({
 
       {/* Resolve bar (hidden for Shadow Camouflage D4 — we show D4 roll only) */}
       {showResolve && !shadowCamouflageD4 && (() => {
+        if (transientSkeletonCard && !activePlaybackStep) {
+          const sk = transientSkeletonCard as { attackerName?: string; damage?: number };
+          return (
+            <div className={`bhud__resolve bhud__resolve--power ${resolveExiting ? 'bhud__resolve--exit' : ''}`}>
+              <div className="bhud__resolve-info">
+                <span className="bhud__resolve-power-name">{sk.attackerName ?? 'Skeleton'}</span>
+                <span className="bhud__resolve-dmg">-{sk.damage ?? 0} DMG</span>
+              </div>
+            </div>
+          );
+        }
         const rc = activePlaybackStep
           ? { ...resolveCache.current, ...activePlaybackStep }
           : resolveCache.current;
@@ -1984,10 +2239,15 @@ export default function BattleHUD({
       })()}
 
       {activePlaybackStep && (() => {
+        const cardData = { ...activePlaybackStep, side: activePlaybackStep.__side } as any;
+        if (cardData.powerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
+          cardData.isCritForKeraunos = !!cardData.isCrit;
+          if (cardData.keraunosDamageTier == null) cardData.keraunosDamageTier = 0;
+        }
         return (
           <DamageCard
             key={activePlaybackStep.__cardKey}
-            data={{ ...activePlaybackStep, side: activePlaybackStep.__side } as any}
+            data={cardData}
             exiting={false}
             side={activePlaybackStep.__side}
             displayMs={activePlaybackStep.__displayMs}
@@ -2021,9 +2281,16 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Transient DamageCard for minion/skeleton hits — always defender side; unique key per hit so card always shows during each skeleton's hit effect */}
-      {!activePlaybackStep && !playbackStep && !playbackPendingAck && transientDamage && (
-        <DamageCard key={transientSkeletonCardKey || 'transient-minion-card'} data={transientDamage} exiting={false} side={transientDamage.side} />
+      {/* Transient DamageCard for minion/skeleton hits — show whenever we have skeleton card data during resolve (buffer drives card+hit) */}
+      {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && (
+        <DamageCard
+          key={transientSkeletonCardKey || 'transient-minion-card'}
+          data={transientSkeletonCard as any}
+          exiting={false}
+          side={(transientSkeletonCard as any).side}
+          displayMs={MINION_RESOLVE_DISPLAY_MS}
+          onDisplayComplete={() => skeletonCardCompleteRef.current?.()}
+        />
       )}
 
       {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
