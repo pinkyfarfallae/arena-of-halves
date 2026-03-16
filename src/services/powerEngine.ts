@@ -634,6 +634,7 @@ export function applyKeraunosVoltageChain(
  * Uses central applyShockedEffectToTarget: already shocked → 100% base damage + remove all shocks; else apply shock.
  * baseDamageByTarget: main = 3, secondaries = 2, everyone else = 0 (so only bolt targets get bonus damage when already shocked).
  * currentHpByTarget: optional map of targetId -> current HP after damage (for bonus damage HP).
+ * excludeTargetIds: targets that had skeleton block (hit landed on skeleton, not master) — do not apply shock or bonus damage to them.
  */
 export function applyKeraunosVoltageShock(
   room: BattleRoom,
@@ -643,8 +644,10 @@ export function applyKeraunosVoltageShock(
   baseDamage: number,
   currentHpByTarget?: Record<string, number>,
   baseDamageByTarget?: Record<string, number>,
+  excludeTargetIds?: string[],
 ): Record<string, unknown> {
   const updates: Record<string, unknown> = {};
+  const excludeSet = new Set(excludeTargetIds ?? []);
   const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
   const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
   const targets = baseDamageByTarget && Object.keys(baseDamageByTarget).length > 0
@@ -654,6 +657,7 @@ export function applyKeraunosVoltageShock(
 
   let effects = [...(battle.activeEffects || [])];
   for (const targetId of targets) {
+    if (excludeSet.has(targetId)) continue; // skeleton took the hit — no affliction on master
     const currentHp = currentHpByTarget?.[targetId];
     const baseDmg = baseDamageByTarget?.[targetId] ?? baseDamage;
     const result = applyShockedEffectToTarget(

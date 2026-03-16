@@ -18,7 +18,7 @@ import {
 } from './powerEngine';
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS } from '../constants/effectTags';
-import { POWER_NAMES } from '../constants/powers';
+import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { SKILL_UNLOCK } from '../constants/character';
@@ -2374,9 +2374,13 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
   const battle = room.battle;
   if (!battle?.turn) return;
 
+  const turn = battle.turn;
+  const powerNoDefend = turn.action === TURN_ACTION.POWER && turn.usedPowerName && (POWERS_DEFENDER_CANNOT_DEFEND as readonly string[]).includes(turn.usedPowerName);
+
   const updates: Record<string, unknown> = {
     [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL]: roll,
-    [ARENA_PATH.BATTLE_TURN_PHASE]: PHASE.ROLLING_DEFEND,
+    [ARENA_PATH.BATTLE_TURN_PHASE]: powerNoDefend ? PHASE.RESOLVING : PHASE.ROLLING_DEFEND,
+    ...(powerNoDefend ? { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: 0 } : {}),
   };
 
   // Quota gain: roll + attackDiceUp + buff modifiers >= 11
@@ -2439,6 +2443,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   if (Array.isArray(scWinFaces) && scWinFaces.length > 0 && scRoll == null) return;
 
   const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = battle.turn;
+
+  /** Keraunos Voltage: targets whose hit was blocked by skeleton get no shock (filled in Keraunos damage block, used in shock block). */
+  let keraunosShockExcludeTargetIds: string[] = [];
 
   // Soul Devourer: chose Use Power that cannot attack — only advance turn (no target, no damage)
   if (battle.turn.soulDevourerEndTurnOnly) {
@@ -3046,6 +3053,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
     // Keraunos Voltage: base main 3 / secondary 2 each; on crit ×2 (main 6 / secondary 4)
     // Damage goes through resolveHitAtDefender so Hades child's skeleton can block (skeleton takes hit, master does not).
+    // Targets whose hit was blocked by skeleton get no shock (see keraunosShockExcludeTargetIds below).
     const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
     const secondaryIds: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
     const isCritK = !!(turn as any).isCrit;
@@ -3053,11 +3061,13 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const dmgMain = 3 * mult;
     const dmgSecondary = 2 * mult;
     const aoeDamageMapK: Record<string, number> = {};
+    keraunosShockExcludeTargetIds = []; // reset and fill: master had skeleton block → no affliction
     if (mainId) {
       const mainFighter = findFighter(room, mainId);
       if (mainFighter && mainFighter.currentHp > 0) {
         const mainResolve = await resolveHitAtDefender(arenaId, room, mainId, dmgMain, updates, mainFighter);
         if (mainResolve.skippedMinionsPath) delete updates[mainResolve.skippedMinionsPath];
+        if (mainResolve.hitTargetId !== mainId) keraunosShockExcludeTargetIds.push(mainId);
         aoeDamageMapK[mainId] = dmgMain;
         const mainPath = findFighterPath(room, mainId);
         if (mainPath && mainResolve.damageToMaster > 0) {
@@ -3071,6 +3081,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       if (sec && sec.currentHp > 0) {
         const secResolve = await resolveHitAtDefender(arenaId, room, sid, dmgSecondary, updates, sec);
         if (secResolve.skippedMinionsPath) delete updates[secResolve.skippedMinionsPath];
+        if (secResolve.hitTargetId !== sid) keraunosShockExcludeTargetIds.push(sid);
         aoeDamageMapK[sid] = dmgSecondary;
         const secPath = findFighterPath(room, sid);
         if (secPath && secResolve.damageToMaster > 0) {
@@ -3196,8 +3207,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         if (isCrit) rawDmg *= 2;
       }
 
-      // If defender has a skeleton, the hit will land on the skeleton (resolveHitAtDefender). Do not apply shock
-      // to the child of Hades when damage doesn't hit them — shock only when the hit actually lands on the master.
+      // Rule: hit on skeleton → no shock (or other affliction) on master. Applied for normal attack (Lightning Reflex), Nimbus, and Keraunos.
       const defenderTeamForBlock = findFighterTeam(room, defenderId);
       const currentMinionsForBlock = defenderTeamForBlock
         ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
@@ -3205,9 +3215,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
       const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
 
-      // Attack success → apply shock rule. If target has shock: bonus damage + remove shock. If not: add shock.
-      // Only apply shock to the defender when the hit actually lands on them (no skeleton block).
-      // Run when: normal attack (Lightning Reflex) OR Nimbus attack (shock all enemies). Nimbus is self-buff so we must check attackerHasBeyondTheNimbus.
+      // Attack success → apply shock only when hit lands on master (not skeleton). Lightning Reflex + Nimbus below.
       if (!isSelfBuffPower || attackerHasBeyondTheNimbus) {
         if (attackerHasBeyondTheNimbus) {
           const battleWithNimbusEffects = {
@@ -3379,7 +3387,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
       : battle;
     const keraunosShockUpdates = applyKeraunosVoltageShock(
-      room, attackerId, mainIdK, battleForKeraunos, 0, currentHpByTarget, baseDamageByTarget,
+      room, attackerId, mainIdK, battleForKeraunos, 0, currentHpByTarget, baseDamageByTarget, keraunosShockExcludeTargetIds,
     );
     Object.assign(updates, keraunosShockUpdates);
   }
