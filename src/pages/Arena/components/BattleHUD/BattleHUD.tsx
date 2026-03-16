@@ -1984,17 +1984,19 @@ export default function BattleHUD({
           onDefendRollStart={handleDefendRollStart}
           onAtkRollDone={() => {
             if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
+            const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             atkRollDoneTimeoutRef.current = setTimeout(() => {
               atkRollDoneTimeoutRef.current = null;
               setAtkRollDone(true);
-            }, PLAYER_ROLL_RESULT_VIEW_MS);
+            }, delayMs);
           }}
           onDefRollDone={() => {
             if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
+            const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             defRollDoneTimeoutRef.current = setTimeout(() => {
               defRollDoneTimeoutRef.current = null;
               setDefRollDone(true);
-            }, PLAYER_ROLL_RESULT_VIEW_MS);
+            }, delayMs);
           }}
           atkRollDone={atkRollDone}
           defRollDone={defRollDone}
