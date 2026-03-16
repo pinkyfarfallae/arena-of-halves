@@ -659,6 +659,7 @@ export function applyKeraunosVoltageShock(
   for (const targetId of targets) {
     if (excludeSet.has(targetId)) continue; // skeleton took the hit — no affliction on master
     const currentHp = currentHpByTarget?.[targetId];
+    if (currentHp !== undefined && currentHp <= 0) continue; // KO'd by bolt — do not apply shock or overwrite HP
     const baseDmg = baseDamageByTarget?.[targetId] ?? baseDamage;
     const result = applyShockedEffectToTarget(
       room,

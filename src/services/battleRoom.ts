@@ -3424,8 +3424,11 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     for (const id of allAliveEnemyIds) {
       if (baseDamageByTarget[id] === undefined) baseDamageByTarget[id] = 0; // shock only, no bolt damage
     }
+    // Include all bolt targets (main + secondaries) so KO'd targets get post-bolt HP from updates, not room — avoids overwriting 0 with stale room HP
+    const allBoltTargetIds = [mainIdK, ...secondaryIdsK].filter(Boolean);
     const currentHpByTarget: Record<string, number> = {};
-    for (const id of allAliveEnemyIds) currentHpByTarget[id] = getHpForShock(id);
+    for (const id of allBoltTargetIds) currentHpByTarget[id] = getHpForShock(id);
+    for (const id of allAliveEnemyIds) if (currentHpByTarget[id] === undefined) currentHpByTarget[id] = getHpForShock(id);
     const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
       ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
       : battle;
