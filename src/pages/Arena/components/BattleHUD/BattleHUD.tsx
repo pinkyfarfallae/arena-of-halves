@@ -72,6 +72,10 @@ interface Props {
   onResolveVisible?: (visible: boolean) => void;
   /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
   isViewer?: boolean;
+  /** When true (PvE), attacker is NPC; this client simulates D4 crit/chain. When false (PvP), wait for opponent's roll. */
+  isAttackerNpc?: boolean;
+  /** When true (PvE), defender is NPC; this client simulates dodge D4. When false (PvP), wait for opponent's roll. */
+  isDefenderNpc?: boolean;
   onTransientEffectsActive?: (active: boolean) => void;
   /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
   onSoulDevourerHealReady?: (ready: boolean) => void;
@@ -133,7 +137,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, transientEffectsActive,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
   confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
@@ -417,12 +421,12 @@ export default function BattleHUD({
       dodgeRef.current = { winFaces, isDodged: !!turn.isDodged, roll: turn.dodgeRoll };
       setDodgeRollResult(turn.dodgeRoll);
       setDodgeEligible(true);
-    } else if (isViewer) {
-      // Viewer: wait for defender's roll — do not compute; show waiting until turn.dodgeRoll arrives
+    } else if (isViewer || !isDefenderNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for defender's roll — do not compute; show waiting until turn.dodgeRoll arrives
       dodgeRef.current = { winFaces, isDodged: false, roll: 0 };
       setDodgeEligible(true);
     } else {
-      // NPC: compute dodge now
+      // NPC defender and I am playback driver: compute dodge now
       const roll = Math.ceil(Math.random() * 4);
       const dg = winFaces.includes(roll);
       dodgeRef.current = { winFaces, isDodged: dg, roll };
@@ -430,7 +434,7 @@ export default function BattleHUD({
       setDodgeRollResult(roll);
       setDodgeEligible(true);
     }
-  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend, isViewer]);
+  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend, isViewer, isDefenderNpc, isPlaybackDriver]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time
   const handleDodgeRollStart = useCallback(() => {
@@ -519,11 +523,12 @@ export default function BattleHUD({
         critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
         setCritRollResult(turn.critRoll);
         setCritEligible(true);
-      } else if (isViewer) {
-        // Viewer: wait for player's roll; show only server critWinFaces so "critical: ____" matches player (never local getWinningFaces)
+      } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+        // Viewer, PvP opponent, or ally (not roller): wait for roller's click / server result; never pre-roll or start animation
         critRef.current = { effectiveCrit: effectiveCritK, winFaces: turn.critWinFaces ?? [], isCrit: false, critRoll: 0 };
         setCritEligible(true);
       } else {
+        // NPC attacker and I am playback driver: compute crit now so replay roller can run
         const crit = checkCritical(effectiveCritK, winFaces);
         critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
         if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
@@ -580,19 +585,19 @@ export default function BattleHUD({
       critRef.current = { effectiveCrit, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
       setCritRollResult(turn.critRoll);
       setCritEligible(true);
-    } else if (isViewer) {
-      // Viewer: wait for player's roll; show only server critWinFaces so "critical: ____" matches player
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for roller's click / server result; never pre-roll
       critRef.current = { effectiveCrit, winFaces: turn.critWinFaces ?? [], isCrit: false, critRoll: 0 };
       setCritEligible(true);
     } else {
-      // NPC: compute crit now, replay roller will trigger onCritReplayEnd when done
+      // NPC attacker and I am playback driver: compute crit now, replay roller will trigger onCritReplayEnd when done
       const crit = checkCritical(effectiveCrit, winFaces);
       critRef.current = { effectiveCrit, winFaces, isCrit: crit.isCrit, critRoll: crit.critRoll };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, critWinFaces: winFaces });
       setCritRollResult(crit.critRoll);
       setCritEligible(true);
     }
-  }, [turn, resolveReady, dodgeReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn, isViewer]);
+  }, [turn, resolveReady, dodgeReady, attacker, defender, battle.activeEffects, arenaId, isMyTurn, isViewer, isAttackerNpc, isPlaybackDriver]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time; then show replay roller
   const handleCritRollStart = useCallback(() => {
@@ -669,11 +674,11 @@ export default function BattleHUD({
       chainRef.current = { winFaces, success: !!turn.chainSuccess, roll: turn.chainRoll };
       setChainRollResult(turn.chainRoll);
       setChainEligible(true);
-    } else if (isViewer) {
-      // Viewer: wait for player's roll — do not compute; show waiting until turn.chainRoll arrives
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for player's roll — do not compute; show waiting until turn.chainRoll arrives
       setChainEligible(true);
     } else {
-      // NPC: compute chain now, replay roller will trigger onChainReplayEnd when done
+      // NPC attacker and I am playback driver: compute chain now, replay roller will trigger onChainReplayEnd when done
       const roll = Math.ceil(Math.random() * 4);
       const success = winFaces.includes(roll);
       chainRef.current = { winFaces, success, roll };
@@ -681,7 +686,7 @@ export default function BattleHUD({
       setChainRollResult(roll);
       setChainEligible(true);
     }
-  }, [turn?.phase, resolveReady, critReady, turn?.usedPowerName, turn?.chainWinFaces, turn?.chainRoll, turn?.chainSuccess, arenaId, isMyTurn, isViewer]);
+  }, [turn?.phase, resolveReady, critReady, turn?.usedPowerName, turn?.chainWinFaces, turn?.chainRoll, turn?.chainSuccess, arenaId, isMyTurn, isViewer, isAttackerNpc, isPlaybackDriver]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time
   const handleChainRollStart = useCallback(() => {
@@ -774,11 +779,11 @@ export default function BattleHUD({
       coAttackRef.current = { casterId, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
       setCoAttackRollResult(turn.coAttackRoll);
       setCoAttackEligible(true);
-    } else if (isViewer) {
-      // Viewer: wait for caster's roll — do not compute; show waiting until turn.coAttackRoll arrives
+    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
+      // Viewer, PvP opponent, or ally (not roller): wait for caster's roll — do not compute; show waiting until turn.coAttackRoll arrives
       setCoAttackEligible(true);
     } else {
-      // NPC: compute co-attack now, replay roller will trigger onCoAttackReplayEnd when done
+      // NPC (caster on attacker side) and I am playback driver: compute co-attack now, replay roller will trigger onCoAttackReplayEnd when done
       const roll = Math.ceil(Math.random() * 12);
       const coBuff = getStatModifier(ae, casterId, MOD_STAT.ATTACK_DICE_UP);
       const coTotal = roll + caster.attackDiceUp + coBuff;
@@ -790,7 +795,7 @@ export default function BattleHUD({
       setCoAttackRollResult(roll);
       setCoAttackEligible(true);
     }
-  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer]);
+  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer, isAttackerNpc, isPlaybackDriver]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time
   const handleCoAttackRollStart = useCallback(() => {
