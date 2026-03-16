@@ -352,27 +352,19 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Spirit Dodge</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng} — D4 (50%)</span>
-            {isMyDefend ? ((dodgeRollResult ?? 0) > 0 ? (
+            {isMyDefend ? (
               <DiceRoller
-                key={`dodge-replay-${dodgeRollResult}`}
+                key="dodge-d4"
                 className="bhud__dice-roller"
                 lockedDie={4}
-                fixedResult={dodgeRollResult}
-                autoRoll
+                fixedResult={(dodgeRollResult ?? 0) > 0 ? dodgeRollResult : undefined}
+                autoRoll={(dodgeRollResult ?? 0) > 0}
                 hidePrompt
                 themeColors={dieColors(defender)}
+                onRollStart={onDodgeRollStart}
                 onRollEnd={onDodgeReplayEnd}
               />
-            ) : (
-              <DiceRoller
-                key="dodge-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollStart={onDodgeRollStart}
-                themeColors={dieColors(defender)}
-                hidePrompt
-              />
-            )) : (dodgeRollResult ?? 0) > 0 ? (
+            ) : (dodgeRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`dodge-replay-${dodgeRollResult}`}
                 className="bhud__dice-roller"
@@ -393,33 +385,25 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar. Skip when Soul Devourer drain (no crit). ── */}
+      {/* ── D4 CRITICAL CHECK — after dodge, before resolve bar. Skip when Soul Devourer drain (no crit). One DiceRoller so click starts roll instead of remounting. ── */}
       {phase === PHASE.RESOLVING && !(turn as any).soulDevourerDrain && resolveReady && dodgeReady && !critReady && critEligible && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Critical Check</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4</span>
-            {isMyTurn ? ((critRollResult ?? 0) > 0 ? (
+            {isMyTurn ? (
               <DiceRoller
-                key={`crit-replay-${critRollResult}`}
+                key="crit-d4"
                 className="bhud__dice-roller"
                 lockedDie={4}
-                fixedResult={critRollResult}
-                autoRoll
+                fixedResult={(critRollResult ?? 0) > 0 ? critRollResult : undefined}
+                autoRoll={(critRollResult ?? 0) > 0}
                 hidePrompt
                 themeColors={dieColors(attacker)}
+                onRollStart={onCritRollStart}
                 onRollEnd={onCritReplayEnd}
               />
-            ) : (
-              <DiceRoller
-                key="crit-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollStart={onCritRollStart}
-                themeColors={dieColors(attacker)}
-                hidePrompt
-              />
-            )) : (critRollResult ?? 0) > 0 ? (
+            ) : (critRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`crit-replay-${critRollResult}`}
                 className="bhud__dice-roller"
@@ -446,27 +430,19 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Keraunos Voltage</span>
             <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (50%)</span>
-            {isMyTurn ? ((chainRollResult ?? 0) > 0 ? (
+            {isMyTurn ? (
               <DiceRoller
-                key={`chain-replay-${chainRollResult}`}
+                key="chain-d4"
                 className="bhud__dice-roller"
                 lockedDie={4}
-                fixedResult={chainRollResult}
-                autoRoll
+                fixedResult={(chainRollResult ?? 0) > 0 ? chainRollResult : undefined}
+                autoRoll={(chainRollResult ?? 0) > 0}
                 hidePrompt
                 themeColors={dieColors(attacker)}
+                onRollStart={onChainRollStart}
                 onRollEnd={onChainReplayEnd}
               />
-            ) : (
-              <DiceRoller
-                key="chain-my-roll"
-                className="bhud__dice-roller"
-                lockedDie={4}
-                onRollStart={onChainRollStart}
-                themeColors={dieColors(attacker)}
-                hidePrompt
-              />
-            )) : (chainRollResult ?? 0) > 0 ? (
+            ) : (chainRollResult ?? 0) > 0 ? (
               <DiceRoller
                 key={`chain-replay-${chainRollResult}`}
                 className="bhud__dice-roller"
@@ -495,27 +471,19 @@ export default function DiceModal({
             <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
             {coAttackCaster.characterId === attacker?.characterId ? (
               // Self-oath: caster is the attacker (isMyTurn controls)
-              isMyTurn ? ((coAttackRollResult ?? 0) > 0 ? (
+              isMyTurn ? (
                 <DiceRoller
-                  key={`coatk-replay-${coAttackRollResult}`}
+                  key="coatk-d12"
                   className="bhud__dice-roller"
                   lockedDie={12}
-                  fixedResult={coAttackRollResult}
-                  autoRoll
+                  fixedResult={(coAttackRollResult ?? 0) > 0 ? coAttackRollResult : undefined}
+                  autoRoll={(coAttackRollResult ?? 0) > 0}
                   hidePrompt
                   themeColors={dieColors(coAttackCaster)}
+                  onRollStart={onCoAttackRollStart}
                   onRollEnd={onCoAttackReplayEnd}
                 />
-              ) : (
-                <DiceRoller
-                  key="coatk-my-roll"
-                  className="bhud__dice-roller"
-                  lockedDie={12}
-                  onRollStart={onCoAttackRollStart}
-                  themeColors={dieColors(coAttackCaster)}
-                  hidePrompt
-                />
-              )) : (coAttackRollResult ?? 0) > 0 ? (
+              ) : (coAttackRollResult ?? 0) > 0 ? (
                 <DiceRoller
                   key={`coatk-replay-${coAttackRollResult}`}
                   className="bhud__dice-roller"

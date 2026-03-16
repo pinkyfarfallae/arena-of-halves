@@ -2801,7 +2801,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         };
         if (isCritSk) skHit.isCrit = true;
         skHit.hitTargetId = skResolve.hitTargetId;
-        console.log('[skeleton] minion hit skHit.hitTargetId=', skResolve.hitTargetId, 'defenderId=', defenderId, 'dmgToMaster=', dmgToApply);
         updatesSk[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = [skHit];
         updatesSk[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = sk.characterId;
         updatesSk[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = skResolve.hitTargetId;
@@ -3225,7 +3224,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     // When skeleton blocked: so client sets lastHitTargetId = blocker and does not show hit VFX on master
     if (hit && dmg === 0 && mainResolve?.hitTargetId && mainResolve.hitTargetId !== defenderId) {
       logEntry.hitTargetId = mainResolve.hitTargetId;
-      console.log('[skeleton] main attack blocked, logEntry.hitTargetId=', mainResolve.hitTargetId, 'defenderId=', defenderId);
     }
 
     // Capture and write the main attack log entry; update the "after choose target" entry from selectTarget if present
@@ -3312,7 +3310,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             logArr[logArr.length - 1].coAttackerId = casterId;
             if (coDmgToMaster === 0 && coResolve.hitTargetId && coResolve.hitTargetId !== defenderId) {
               (logArr[logArr.length - 1] as unknown as Record<string, unknown>).hitTargetId = coResolve.hitTargetId;
-              console.log('[skeleton] co-attack blocked, lastEntry.hitTargetId=', coResolve.hitTargetId, 'defenderId=', defenderId);
             }
             updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
           }
