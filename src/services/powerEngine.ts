@@ -330,24 +330,19 @@ export function tickEffects(
   const updates: Record<string, unknown> = {};
   const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
-  // Process DOT damage
-  // Read HP from: own updates (multiple DOTs) > priorUpdates (normal attack damage) > snapshot
+  // Process DOT damage: do NOT apply HP here — caller must apply via resolveHitAtDefender
+  // so Hades child's skeleton can block. Return list for caller to resolve per target.
+  const dotDamages: Array<{ targetId: string; value: number }> = [];
   for (const e of effects) {
     if (e.effectType === EFFECT_TYPES.DOT && e.turnsRemaining > 0 && e.value > 0) {
       const target = findFighter(room, e.targetId);
       if (target) {
-        const path = findFighterPath(room, e.targetId);
-        if (path) {
-          const hpKey = `${path}/currentHp`;
-          const currentHp = (hpKey in updates)
-            ? updates[hpKey] as number
-            : (priorUpdates && hpKey in priorUpdates)
-              ? priorUpdates[hpKey] as number
-              : target.currentHp;
-          updates[hpKey] = Math.max(0, currentHp - e.value);
-        }
+        dotDamages.push({ targetId: e.targetId, value: e.value });
       }
     }
+  }
+  if (dotDamages.length > 0) {
+    (updates as Record<string, unknown> & { __dotDamages?: Array<{ targetId: string; value: number }> }).__dotDamages = dotDamages;
   }
 
 
@@ -548,6 +543,8 @@ export function applyBeyondTheNimbusTeamShock(
 /**
  * All shocked enemies explode, dealing instant damage (attacker.damage per shock stack).
  * All shocks on hit targets are removed. All enemies hit receive -7 speed for 2 rounds.
+ * Does NOT apply HP damage here — caller must apply damage per target via resolveHitAtDefender
+ * so that a Hades child's skeleton can block the damage (skeleton takes it, master does not).
  */
 export function applyJoltArc(
   room: BattleRoom,
@@ -573,9 +570,6 @@ export function applyJoltArc(
 
     if (shockCount > 0) {
       const dmg = shockCount * attacker.damage;
-      const newHp = Math.max(0, enemy.currentHp - dmg);
-      const path = findFighterPath(room, enemy.characterId);
-      if (path) updates[`${path}/currentHp`] = newHp;
       aoeDamageMap[enemy.characterId] = dmg;
     }
   }
