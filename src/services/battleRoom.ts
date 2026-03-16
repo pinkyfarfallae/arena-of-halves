@@ -892,17 +892,28 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
         Object.assign(updates, joltUpdates);
 
-        // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not)
+        // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not).
+        // Targets whose hit landed on skeleton get no Jolt Arc deceleration (same rule: no affliction on master when skeleton took the hit).
+        const joltDecelerationExclude: string[] = [];
         for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
           const targetFighter = findFighter(room, targetId);
           if (!targetFighter) continue;
           const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
           if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
+          if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
           const defPath = findFighterPath(room, targetId);
           if (defPath && resolve.damageToMaster > 0) {
             const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
             updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
           }
+        }
+        if (joltDecelerationExclude.length > 0) {
+          const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
+          const excludeSet = new Set(joltDecelerationExclude);
+          const filtered = activeEff.filter(
+            (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
+          );
+          updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
         }
 
         const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
@@ -1677,17 +1688,28 @@ export async function selectAction(
     const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
     Object.assign(updates, joltUpdates);
 
-    // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not)
+    // Apply damage per target via resolveHitAtDefender so Hades child's skeleton can block (skeleton takes damage, master does not).
+    // Targets whose hit landed on skeleton get no Jolt Arc deceleration (no affliction on master when skeleton took the hit).
+    const joltDecelerationExclude: string[] = [];
     for (const [targetId, dmg] of Object.entries(aoeDamageMap)) {
       const targetFighter = findFighter(room, targetId);
       if (!targetFighter) continue;
       const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
       if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
+      if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
       const defPath = findFighterPath(room, targetId);
       if (defPath && resolve.damageToMaster > 0) {
         const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
         updates[`${defPath}/currentHp`] = Math.max(0, currentHp - resolve.damageToMaster);
       }
+    }
+    if (joltDecelerationExclude.length > 0) {
+      const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
+      const excludeSet = new Set(joltDecelerationExclude);
+      const filtered = activeEff.filter(
+        (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
+      );
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
     }
 
     const totalDmg = Object.values(aoeDamageMap).reduce((s, d) => s + d, 0);
