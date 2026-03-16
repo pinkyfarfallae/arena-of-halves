@@ -2,7 +2,7 @@
 
 /* ── Jolt Arc Attack — power VFX (blue/white; line lightning from top hitting mchip__frame like real thunder) ── */
 
-/* Jolt Arc Attack voltage frame — white theme (same layout as shocked) */
+/* Jolt Arc Attack voltage frame — white theme (same layout as shocked). Clip so SVG never bleeds a stray line. */
 .mchip__jolt-arc-voltage {
   position: absolute;
   top: 50%;
@@ -12,6 +12,8 @@
   height: calc(#{$frame-size-large} + 35px);
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
 
   .mchip__jolt-arc-voltage-svg {
     display: block;
@@ -67,6 +69,8 @@
       0 0 40px rgba(#d6edff, 0.8),
       0 0 80px rgba(#cfeaff, 0.4) !important;
     overflow: visible;
+    /* Clip so lightning bolt (::before) never paints below the frame — fixes stray long line */
+    clip-path: inset(-250% 0 0 0);
   }
 
   .mchip__frame::after {
