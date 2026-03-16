@@ -143,27 +143,20 @@ export default function RefillSPDiceModal({
       <div className="bhud__dice-modal" style={themeStyle}>
         <span className="bhud__dice-label">{effectiveTitle}</span>
         <span className="bhud__dice-sub">{effectiveSub}</span>
-        {isMyTurn ? (roll != null ? (
-          <DiceRoller
-            key={`sc-refill-replay-${roll}`}
-            className="bhud__dice-roller"
-            lockedDie={4}
-            fixedResult={roll}
-            autoRoll
-            onRollEnd={handleRollEnd}
-            themeColors={themeColors}
-            hidePrompt
-          />
-        ) : (
+        {isMyTurn ? (
           <DiceRoller
             key="sc-refill-my-roll"
             className="bhud__dice-roller"
             lockedDie={4}
+            fixedResult={roll ?? undefined}
+            autoRoll={roll != null}
             onRollStart={onRollStart}
+            onRollResult={roll == null ? (n) => onRoll(n) : undefined}
+            onRollEnd={handleRollEnd}
             themeColors={themeColors}
             hidePrompt
           />
-        )) : roll != null ? (
+        ) : roll != null ? (
           <DiceRoller
             key={`sc-refill-replay-${roll}`}
             className="bhud__dice-roller"
