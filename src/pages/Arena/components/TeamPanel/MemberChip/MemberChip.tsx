@@ -1242,28 +1242,28 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           const charId = fighter.characterId;
           const charIdLower = charId?.toLowerCase();
           const isRosabella = charIdLower === CHARACTER.ROSABELLA;
-                const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
-                  angle: (i / 12) * 360 + 8,
-                  delay: i * 0.18,
-                  duration: 5 + (i % 3) * 0.8,
-                  distance: 80 + (i % 3) * 24,
-                }));
-                const leafParticles = Array.from({ length: 12 }, (_, i) => ({
-                  angle: (i / 12) * 360 + 7,
-                  delay: 0.1 + (i % 4) * 0.15,
-                  duration: 5.5 + (i % 5) * 0.5,
-                  distance: 92 + (i % 4) * 24,
-                  size: 0.8 + (i % 3) * 0.2,
-                }));
-                const dustParticles = Array.from({ length: 24 }, (_, i) => ({
-                  angle: (i / 24) * 360 + (i % 7) * 5,
-                  delay: (i % 6) * 0.12,
-                  duration: 4.5 + (i % 4) * 0.6,
-                  distance: 82 + (i % 5) * 20,
-                  size: 2.5 + (i % 4) * 0.8,
-                  scale: 0.9 + (i % 4) * 0.1,
-                  color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
-                }));
+          const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
+            angle: (i / 12) * 360 + 8,
+            delay: i * 0.18,
+            duration: 5 + (i % 3) * 0.8,
+            distance: 80 + (i % 3) * 24,
+          }));
+          const leafParticles = Array.from({ length: 12 }, (_, i) => ({
+            angle: (i / 12) * 360 + 7,
+            delay: 0.1 + (i % 4) * 0.15,
+            duration: 5.5 + (i % 5) * 0.5,
+            distance: 92 + (i % 4) * 24,
+            size: 0.8 + (i % 3) * 0.2,
+          }));
+          const dustParticles = Array.from({ length: 24 }, (_, i) => ({
+            angle: (i / 24) * 360 + (i % 7) * 5,
+            delay: (i % 6) * 0.12,
+            duration: 4.5 + (i % 4) * 0.6,
+            distance: 82 + (i % 5) * 20,
+            size: 2.5 + (i % 4) * 0.8,
+            scale: 0.9 + (i % 4) * 0.1,
+            color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
+          }));
           return (
             <>
               <div className="mchip__petal-vines" aria-hidden="true">
@@ -1343,10 +1343,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                     }
                   >
                     {isRosabella ? (
-                          <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
-                        ) : (
-                          <Flower width={14} height={14} />
-                        )}
+                      <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                    ) : (
+                      <Flower width={14} height={14} />
+                    )}
                   </div>
                 ))}
                 {leafParticles.map((p, i) => (
@@ -1528,14 +1528,16 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
-      {hasPomegranateEffect && !isSpiritForm && !isEfflorescenceMuse && battleLive && (
+      {hasPomegranateEffect && battleLive && (
         <>
           {/* Triangle tunnel background (red/pink/white, 3D) */}
-          <div className="mchip__pom-tris-wrap" aria-hidden="true">
-            {Array.from({ length: 200 }, (_, i) => (
-              <div key={i} className="mchip__pom-tri" />
-            ))}
-          </div>
+          {!isEfflorescenceMuse && (
+            <div className="mchip__pom-tris-wrap" aria-hidden="true">
+              {Array.from({ length: 100 }, (_, i) => (
+                <div key={i} className="mchip__pom-tri" />
+              ))}
+            </div>
+          )}
           {/* Red/pink corner + circles animation background */}
           <div className="mchip__pom-canvas" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
@@ -1618,13 +1620,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Spirit form — all effects (b&w/ethereal): tris, canvas, seeds, lights, rises, drops, deco, glow/oath + wisps */}
-      {isSpiritForm && !isEfflorescenceMuse && battleLive && (
+      {isSpiritForm && battleLive && (
         <>
-          <div className="mchip__spirit-tris-wrap" aria-hidden="true">
-            {Array.from({ length: 200 }, (_, i) => (
-              <div key={i} className="mchip__spirit-tri" />
-            ))}
-          </div>
+          {!isEfflorescenceMuse && !hasPomegranateEffect && (
+            <div className="mchip__spirit-tris-wrap" aria-hidden="true">
+              {Array.from({ length: 100 }, (_, i) => (
+                <div key={i} className="mchip__spirit-tri" />
+              ))}
+            </div>
+          )}
           <div className="mchip__spirit-canvas" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
               <div key={`ninth-${n}`} className="mchip__spirit-ninth">
@@ -1642,11 +1646,13 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             ))}
             <div className="mchip__spirit-meeting-point" />
           </div>
-          <div className="mchip__spirit-seeds" aria-hidden="true">
-            {Array.from({ length: 14 }, (_, i) => (
-              <span key={i} className="mchip__spirit-seed" />
-            ))}
-          </div>
+          {!hasPomegranateEffect && (
+            <div className="mchip__spirit-seeds" aria-hidden="true">
+              {Array.from({ length: 14 }, (_, i) => (
+                <span key={i} className="mchip__spirit-seed" />
+              ))}
+            </div>
+          )}
           <div className="mchip__spirit-lights" aria-hidden="true">
             {Array.from({ length: 6 }, (_, i) => (
               <span key={i} className="mchip__spirit-light" />
@@ -1662,42 +1668,48 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               <span key={i} className="mchip__spirit-white-rise-particle" />
             ))}
           </div>
-          <div className="mchip__spirit-drops" aria-hidden="true">
-            {Array.from({ length: 18 }, (_, i) => (
-              <span key={`rain-${i}`} className="mchip__spirit-drop" />
-            ))}
-            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-              <span key={`bolt-${n}`} className={`mchip__spirit-bolt mchip__spirit-bolt--${n}`} />
-            ))}
-          </div>
-          <div className="mchip__spirit-rise" aria-hidden="true">
-            {Array.from({ length: 10 }, (_, i) => (
-              <span key={i} className="mchip__spirit-rise-particle" />
-            ))}
-          </div>
-          <div className="mchip__spirit-deco" aria-hidden="true">
-            {[1, 2, 3, 4].map((n) => (
-              <span key={`corner-${n}`} className={`mchip__spirit-deco-corner mchip__spirit-deco-corner--${n}`} />
-            ))}
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <span key={`edge-${n}`} className={`mchip__spirit-deco-edge mchip__spirit-deco-edge--${n}`} />
-            ))}
-            {Array.from({ length: 24 }, (_, i) => (
-              <span key={`float-${i}`} className="mchip__spirit-deco-float" />
-            ))}
-          </div>
-          <div className="mchip__spirit-caster" aria-hidden="true">
-            <div className="mchip__spirit-glow-dots" aria-hidden="true">
-              {Array.from({ length: 24 }, (_, i) => (
-                <span key={i} className="mchip__spirit-glow-dot" />
+          {!hasPomegranateEffect && (
+            <div className="mchip__spirit-drops" aria-hidden="true">
+              {Array.from({ length: 18 }, (_, i) => (
+                <span key={`rain-${i}`} className="mchip__spirit-drop" />
+              ))}
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <span key={`bolt-${n}`} className={`mchip__spirit-bolt mchip__spirit-bolt--${n}`} />
               ))}
             </div>
-            <div className="mchip__spirit-oath-particles">
-              {Array.from({ length: 8 }, (_, i) => (
-                <span key={i} className="mchip__spirit-oath-particle" />
-              ))}
-            </div>
-          </div>
+          )}
+          {!hasPomegranateEffect && (
+            <>
+              <div className="mchip__spirit-rise" aria-hidden="true">
+                {Array.from({ length: 10 }, (_, i) => (
+                  <span key={i} className="mchip__spirit-rise-particle" />
+                ))}
+              </div>
+              <div className="mchip__spirit-deco" aria-hidden="true">
+                {[1, 2, 3, 4].map((n) => (
+                  <span key={`corner-${n}`} className={`mchip__spirit-deco-corner mchip__spirit-deco-corner--${n}`} />
+                ))}
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <span key={`edge-${n}`} className={`mchip__spirit-deco-edge mchip__spirit-deco-edge--${n}`} />
+                ))}
+                {Array.from({ length: 24 }, (_, i) => (
+                  <span key={`float-${i}`} className="mchip__spirit-deco-float" />
+                ))}
+              </div>
+              <div className="mchip__spirit-caster" aria-hidden="true">
+                <div className="mchip__spirit-glow-dots" aria-hidden="true">
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <span key={i} className="mchip__spirit-glow-dot" />
+                  ))}
+                </div>
+                <div className="mchip__spirit-oath-particles">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <span key={i} className="mchip__spirit-oath-particle" />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           <div className="mchip__spirit-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__spirit-wisp" />
