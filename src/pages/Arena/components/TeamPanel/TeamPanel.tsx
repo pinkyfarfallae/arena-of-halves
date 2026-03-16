@@ -417,6 +417,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           maxHp: getStatModifier(activeEffects, m.characterId, MOD_STAT.MAX_HP),
         };
 
+        // Keraunos: crit bar shows caster's current crit + 25%
+        const displayCriticalRate =
+          turn?.attackerId === m.characterId && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
+            ? Math.min(100, Math.max(0, Math.max(m.criticalRate ?? 0, (m.criticalRate ?? 0) + (statMods.criticalRate ?? 0)) + 25))
+            : undefined;
+
         const minions = minionsMap.get(m.characterId) || [];
 
         return (
@@ -448,6 +454,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
+            displayCriticalRate={displayCriticalRate}
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}

@@ -142,6 +142,8 @@ interface Props {
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
   statMods?: Record<string, number>;
+  /** When set (e.g. Keraunos: caster crit + 25%), crit bar uses this instead of fighter.criticalRate + statMods.criticalRate */
+  displayCriticalRate?: number;
   battleLive?: boolean;
   onSelect?: () => void;
   /** Minions associated with this fighter */
@@ -189,7 +191,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -1504,7 +1506,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             <div className="mchip__critical">
               <div className={`mchip__crit-label${isCrit ? ' mchip__crit-label--active' : ''}`}>CRIT</div>
               <div className="mchip__crit-bar">
-                <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, fighter.criticalRate + (statMods?.criticalRate ?? 0)))}%` }} />
+                <div className="mchip__crit-fill" style={{ height: `${Math.min(100, Math.max(0, displayCriticalRate ?? (fighter.criticalRate + (statMods?.criticalRate ?? 0))))}%` }} />
               </div>
             </div>
 

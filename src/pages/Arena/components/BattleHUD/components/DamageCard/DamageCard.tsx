@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { PanelSide } from '../../../../../../constants/battle';
+import { POWER_NAMES } from '../../../../../../constants/powers';
 import Lightning from '../../../../../../icons/Lightning';
 import './DamageCard.scss';
 
@@ -8,6 +9,10 @@ interface ResolveData {
   isPower: boolean;
   powerName: string;
   isCrit: boolean;
+  /** Keraunos: explicit crit from D4 so card shows -6 and CRIT! when rolled crit (avoids -3 from overwrites). */
+  isCritForKeraunos?: boolean;
+  /** Keraunos: which target this card is for — 0 = main (3/6), 1 = 1st secondary (2/4), 2 = 2nd secondary (1/2). Used when damage is 0 or to show correct single value. */
+  keraunosDamageTier?: 0 | 1 | 2;
   baseDmg: number;
   damage: number;
   shockBonus: number;
@@ -55,6 +60,13 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
 
   // skipDice powers (Jolt Arc, Keraunos Voltage)
   if (rc.isPower && rc.atkRoll === 0) {
+    const isCritKeraunos = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (rc.isCritForKeraunos ?? rc.isCrit) : rc.isCrit;
+    // Keraunos: one card per target — show damage for this resolving fighter only (tier 0 = main 3/6, 1 = 2/4, 2 = 1/2)
+    const tier = (rc as { keraunosDamageTier?: 0 | 1 | 2 }).keraunosDamageTier ?? 0;
+    const keraunosDmgByTier = isCritKeraunos ? [6, 4, 2] : [3, 2, 1];
+    const dmgForThisTarget = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE
+      ? (rc.damage > 0 ? rc.damage : keraunosDmgByTier[tier])
+      : rc.damage;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
         <div className={`dmg-card dmg-card--power ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
@@ -64,8 +76,13 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
             <span className="dmg-card__defname" style={{ color: rc.defenderTheme }}>{rc.defenderName}</span>
           </div>
           <span className="dmg-card__power">{rc.powerName}</span>
-          {rc.damage > 0 ? (
-            <span className="dmg-card__total">-{rc.damage} DMG</span>
+          {dmgForThisTarget > 0 ? (
+            <span className="dmg-card__total">-{dmgForThisTarget} DMG</span>
+          ) : rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (
+            <>
+              {isCritKeraunos && <span className="dmg-card__crit-label">CRIT!</span>}
+              <span className="dmg-card__total">-{keraunosDmgByTier[tier]} DMG</span>
+            </>
           ) : (
             <span className="dmg-card__invoked">NO EFFECT</span>
           )}
@@ -100,9 +117,9 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
                   <>
                     <span className="dmg-card__base">+</span>
                     <span className="dmg-card__shock">
-              {rc.shockBonus}
-              <Lightning width={12} height={12} />
-            </span>
+                      {rc.shockBonus}
+                      <Lightning width={12} height={12} />
+                    </span>
                   </>
                 )}
                 <span className="dmg-card__eq">=</span>

@@ -568,6 +568,8 @@ function buildMasterPlaybackStep(
   if (isSkipDicePower) {
     const lastLog = (battle.log || []).at(-1);
     const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
+    const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+    const isCritK = isKeraunos && !!(turn as any).isCrit;
     return {
       kind: BATTLE_PLAYBACK_KIND.MASTER,
       hitIndex: 0,
@@ -576,7 +578,7 @@ function buildMasterPlaybackStep(
       isHit: true,
       isPower: true,
       powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
-      isCrit: false,
+      isCrit: isCritK,
       baseDmg: 0,
       damage: logDmg,
       shockBonus: 0,
@@ -858,6 +860,9 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
   const { attackerId } = turn;
   const activeEffects = battle.activeEffects || [];
 
+  // Keraunos Voltage: must complete D4 crit roll before target selection
+  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit) return;
+
   // Shadow Camouflage: defender is immune to single-target actions (attack or enemy-target power). Area attacks bypass this in selectAction (no target selection).
   const defenderHasShadowCamouflage = hasShadowCamouflage(activeEffects, defenderId);
   const isAreaAttack = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && (() => {
@@ -1002,19 +1007,22 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         }, JOLT_ARC_EFFECT_MS);
         return;
       } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-        // Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = crit + 25%)
+        // Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = current caster crit + 25%)
         const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
       const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
       const n = enemies.length;
       const step = turn.keraunosTargetStep ?? 0;
       const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
       const secondaries = turn.keraunosSecondaryTargetIds ?? [];
+      const activeEffectsK = battle.activeEffects || [];
+      const critBuffK = getStatModifier(activeEffectsK, attackerId, MOD_STAT.CRITICAL_RATE);
+      const effectiveCritK = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+      const critRate = Math.min(100, Math.max(0, effectiveCritK + 25));
 
       if (step === 0) {
         // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
         const nextSecondaries: string[] = [];
         const needMore = n >= 2;
-        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
         const turnUpdate: Record<string, unknown> = {
           ...turn,
           defenderId,
@@ -1035,7 +1043,6 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
         // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
         const nextSecondaries = [...secondaries, defenderId];
         const needMore = n >= 3;
-        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
         const turnUpdate: Record<string, unknown> = {
           ...turn,
           defenderId: mainId,
@@ -1055,7 +1062,6 @@ export async function selectTarget(arenaId: string, defenderId: string): Promise
       } else if (step === 3) {
         // Third click: second 2-dmg target → done (3+ enemies)
         const nextSecondaries = [...secondaries, defenderId];
-        const critRate = Math.min(100, Math.max(0, (attacker.criticalRate ?? 0) + 25));
         updates[ARENA_PATH.BATTLE_TURN] = {
           ...turn,
           defenderId: mainId,
@@ -1769,6 +1775,29 @@ export async function selectAction(
         powerIndex,
       ).catch(() => { });
     }, JOLT_ARC_EFFECT_MS);
+    return;
+  }
+
+  // ── Keraunos Voltage: D4 crit roll before target selection (rate = current caster crit + 25%) ──
+  if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
+    const activeEffects = battle.activeEffects || [];
+    const critBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.CRITICAL_RATE);
+    const effectiveCrit = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuff);
+    const critRate = Math.min(100, Math.max(0, effectiveCrit + 25));
+    const winFaces = getWinningFaces(critRate);
+    const autoCrit = critRate >= 100;
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      attackerId,
+      attackerTeam: battle.turn.attackerTeam,
+      phase: PHASE.SELECT_TARGET,
+      action: TURN_ACTION.POWER,
+      usedPowerIndex: powerIndex,
+      usedPowerName: power.name,
+      keraunosAwaitingCrit: !autoCrit,
+      critWinFaces: winFaces,
+      ...(autoCrit ? { isCrit: true, critRoll: 0 } : {}),
+    };
+    await update(roomRef(arenaId), updates);
     return;
   }
 
@@ -3094,7 +3123,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
 
   } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-    // Keraunos Voltage: base main 3 / secondary 2 each; on crit ×2 (main 6 / secondary 4)
+    // Keraunos Voltage: normal 3 / 2 / 1 (main, 1st secondary, 2nd secondary); isCrit = ×2 → 6 / 4 / 2
     // Damage goes through resolveHitAtDefender so Hades child's skeleton can block (skeleton takes hit, master does not).
     // Targets whose hit was blocked by skeleton get no shock (see keraunosShockExcludeTargetIds below).
     const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
@@ -3102,7 +3131,6 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const isCritK = !!(turn as any).isCrit;
     const mult = isCritK ? 2 : 1;
     const dmgMain = 3 * mult;
-    const dmgSecondary = 2 * mult;
     const aoeDamageMapK: Record<string, number> = {};
     keraunosShockExcludeTargetIds = []; // reset and fill: master had skeleton block → no affliction
     if (mainId) {
@@ -3119,13 +3147,16 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         }
       }
     }
-    for (const sid of secondaryIds) {
+    for (let idx = 0; idx < secondaryIds.length; idx++) {
+      const sid = secondaryIds[idx];
+      const baseSec = idx === 0 ? 2 : 1; // 1st secondary = 2, 2nd secondary = 1
+      const dmgSec = baseSec * mult;
       const sec = findFighter(room, sid);
       if (sec && sec.currentHp > 0) {
-        const secResolve = await resolveHitAtDefender(arenaId, room, sid, dmgSecondary, updates, sec);
+        const secResolve = await resolveHitAtDefender(arenaId, room, sid, dmgSec, updates, sec);
         if (secResolve.skippedMinionsPath) delete updates[secResolve.skippedMinionsPath];
         if (secResolve.hitTargetId !== sid) keraunosShockExcludeTargetIds.push(sid);
-        aoeDamageMapK[sid] = dmgSecondary;
+        aoeDamageMapK[sid] = dmgSec;
         const secPath = findFighterPath(room, sid);
         if (secPath && secResolve.damageToMaster > 0) {
           const currentHp = (updates[`${secPath}/currentHp`] as number | undefined) ?? sec.currentHp;
@@ -3420,7 +3451,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const allAliveEnemyIds = enemyTeam.filter(e => getHpForShock(e.characterId) > 0).map(e => e.characterId);
     const baseDamageByTarget: Record<string, number> = {};
     if (mainIdK) baseDamageByTarget[mainIdK] = 3;
-    for (const sid of secondaryIdsK) baseDamageByTarget[sid] = 2;
+    secondaryIdsK.forEach((sid, idx) => { baseDamageByTarget[sid] = idx === 0 ? 2 : 1; });
     for (const id of allAliveEnemyIds) {
       if (baseDamageByTarget[id] === undefined) baseDamageByTarget[id] = 0; // shock only, no bolt damage
     }

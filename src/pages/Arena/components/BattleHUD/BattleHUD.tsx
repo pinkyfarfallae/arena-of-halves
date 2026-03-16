@@ -12,6 +12,7 @@ import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal'
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
 import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
+import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './components/RefillSPDiceModal/RefillSPDiceModal';
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
@@ -504,10 +505,19 @@ export default function BattleHUD({
       setCritReady(true);
       return;
     }
-    // Keraunos Voltage: D4 crit (rate = crit + 25%); server already set critWinFaces
+    // Keraunos Voltage: D4 was already rolled before target selection; skip crit UI in RESOLVING
     if (isKeraunos) {
-      const effectiveCritK = Math.min(100, Math.max(0, (attacker?.criticalRate ?? 0) + 25));
+      const critBuffK = getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.CRITICAL_RATE);
+      const effectiveCritBase = Math.max(attacker?.criticalRate ?? 0, (attacker?.criticalRate ?? 0) + critBuffK);
+      const effectiveCritK = Math.min(100, Math.max(0, effectiveCritBase + 25));
       const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+      if (turn.critRoll != null) {
+        critRef.current = { effectiveCrit: effectiveCritK, winFaces, isCrit: !!turn.isCrit, critRoll: turn.critRoll };
+        setCritRollResult(turn.critRoll);
+        setCritEligible(true);
+        setCritReady(true);
+        return;
+      }
       if (effectiveCritK >= 100) {
         critRef.current = { effectiveCrit: effectiveCritK, winFaces: [1, 2, 3, 4], isCrit: true, critRoll: 0 };
         if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: true, critRoll: 0, critWinFaces: [1, 2, 3, 4] });
@@ -622,6 +632,30 @@ export default function BattleHUD({
     setCritRollResult(roll);
     setTimeout(() => setCritReady(true), 1500);
   }, [arenaId]);
+
+  /* ── Keraunos Voltage: D4 crit before target selection ── */
+  const handleKeraunosPreTargetCritRoll = useCallback((roll: number) => {
+    const winFaces = turn?.critWinFaces?.length ? turn.critWinFaces : [];
+    const isCrit = winFaces.length > 0 && winFaces.includes(roll);
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit, critRoll: roll, keraunosAwaitingCrit: false });
+  }, [arenaId, turn?.critWinFaces]);
+
+  const keraunosPreCritDoneRef = useRef(false);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.SELECT_TARGET || turn?.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE || !turn.keraunosAwaitingCrit) {
+      keraunosPreCritDoneRef.current = false;
+      return;
+    }
+    if (isMyTurn || !isAttackerNpc || !isPlaybackDriver || !attacker) return;
+    if (keraunosPreCritDoneRef.current) return;
+    keraunosPreCritDoneRef.current = true;
+    const critBuffK = getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.CRITICAL_RATE);
+    const effectiveCritBase = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+    const effectiveCritK = Math.min(100, Math.max(0, effectiveCritBase + 25));
+    const winFaces = turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK);
+    const crit = checkCritical(effectiveCritK, winFaces);
+    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { isCrit: crit.isCrit, critRoll: crit.critRoll, keraunosAwaitingCrit: false });
+  }, [turn?.phase, turn?.usedPowerName, turn?.keraunosAwaitingCrit, turn?.critWinFaces, turn?.attackerId, isMyTurn, isAttackerNpc, isPlaybackDriver, attacker, arenaId, battle?.activeEffects]);
 
   // PvP watcher: opponent rolled D4 after we entered resolving
   useEffect(() => {
@@ -1052,11 +1086,11 @@ export default function BattleHUD({
       return;
     }
     const inSkeletonFollowup = resolvingHitIndex != null && resolvingHitIndex >= 1;
-    const isSkipDicePower = turn?.action === TURN_ACTION.POWER && turn?.attackRoll == null;
+    const isSkipDicePower = turn?.action === TURN_ACTION.POWER && (turn?.attackRoll == null || turn?.attackRoll === 0);
     const lastLog = (battle.log || []).at(-1);
     const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
-    // For skipDice (e.g. Keraunos 2 dmg), only show damage card once we have this turn's log so we don't flash 0 before the real damage
-    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn;
+    // Keraunos: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
+    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
@@ -1383,28 +1417,47 @@ export default function BattleHUD({
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
-  if (resolveVisible && turn && attacker && defender && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn)) {
+  const isKeraunosTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || defender);
+  if (canFillCache) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
     if (isSkipDicePower) {
-      // Read actual damage from log entry (skipDice powers write damage/aoeDamageMap to log).
-      // Only update cache when we have this turn's log entry so we never flash 0 before the real damage (e.g. 2).
-      const lastLog = (battle.log || []).at(-1);
-      const logMatchesTurn = lastLog?.attackerId === turn.attackerId && lastLog?.defenderId === turn.defenderId;
-      if (logMatchesTurn) {
-        const logDmg = (lastLog.damage ?? 0);
+      if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
+        const isCritK = !!(turn as any).isCrit;
+        const keraunosMainDmg = 3 * (isCritK ? 2 : 1);
+        const mainTargetId = (turn as any).keraunosMainTargetId ?? turn.defenderId;
+        const defenderForKeraunos = mainTargetId ? find(teamA, teamB, mainTargetId) : defender;
         resolveCache.current = {
           atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
-          isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
-          isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
-          critEligible: false, isCrit: false, critRoll: 0,
+          isHit: true, damage: keraunosMainDmg, baseDmg: 3, shockBonus: 0,
+          isPower: true, powerName: POWER_NAMES.KERAUNOS_VOLTAGE,
+          critEligible: false, isCrit: isCritK, isCritForKeraunos: isCritK, critRoll: (turn as any).critRoll ?? 0,
+          keraunosDamageTier: 0,
           isDodged: false, coAttackHit: false, coAttackDamage: 0,
           attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
-          defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+          defenderName: defenderForKeraunos?.nicknameEng ?? defender?.nicknameEng ?? '',
+          defenderTheme: defenderForKeraunos?.theme?.[0] ?? defender?.theme?.[0] ?? '',
           side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         };
+      } else if (defender) {
+        const lastLog = (battle.log || []).at(-1);
+        const logMatchesTurn = lastLog?.attackerId === turn.attackerId && lastLog?.defenderId === turn.defenderId;
+        if (logMatchesTurn) {
+          const logDmg = (lastLog.damage ?? 0);
+          resolveCache.current = {
+            atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+            isHit: true, damage: logDmg, baseDmg: 0, shockBonus: 0,
+            isPower: true, powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
+            critEligible: false, isCrit: false, critRoll: 0,
+            isDodged: false, coAttackHit: false, coAttackDamage: 0,
+            attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+            defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
+            side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+          };
+        }
       }
-    } else if (soulDevourerDrainTurn) {
+    } else if (soulDevourerDrainTurn && defender) {
       const activeEffects = battle.activeEffects || [];
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, 'damage');
       const drainDmg = Math.max(0, attacker.damage + dmgBuff);
@@ -1419,7 +1472,7 @@ export default function BattleHUD({
         side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         soulDevourerDrain: true,
       };
-    } else {
+    } else if (defender) {
       const activeEffects = battle.activeEffects || [];
       const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
       const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
@@ -1583,12 +1636,20 @@ export default function BattleHUD({
         // Minion hit: show card on defender side (opposite of master). Use turn.attackerTeam.
         const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
+        const isKeraunosEntry = (entry as any).powerUsed === POWER_NAMES.KERAUNOS_VOLTAGE;
+        const mainIdK = turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (turn as any).keraunosMainTargetId : null;
+        const secondaryIdsK = (turn as any).keraunosSecondaryTargetIds as string[] | undefined;
+        const keraunosTierFromDefender =
+          isKeraunosEntry && mainIdK
+            ? (entry.defenderId === mainIdK ? 0 : secondaryIdsK?.[0] === entry.defenderId ? 1 : secondaryIdsK?.[1] === entry.defenderId ? 2 : 0)
+            : undefined;
         const rc = {
           isHit: !entry.missed,
           // Beyond the Nimbus attack (after confirm): show in resolve bar as normal attack (ATK vs DEF, damage)
           isPower: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? false : !!entry.powerUsed,
           powerName: (entry as any).powerUsed === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (entry.powerUsed || ''),
           isCrit: !!(entry.isCrit),
+          ...(isKeraunosEntry ? { isCritForKeraunos: !!(entry.isCrit), ...(keraunosTierFromDefender != null ? { keraunosDamageTier: keraunosTierFromDefender as 0 | 1 | 2 } : { keraunosDamageTier: 0 }) } : {}),
           baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
           shockBonus: (entry.shockDamage as number) || 0,
@@ -1768,10 +1829,30 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection (attacker only) — or "No valid target" on attacker side for everyone; only attacker sees Roger that */}
-      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && ((targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. */}
+      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          {targets.length > 0 ? (
+          {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
+            <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Critical check</span>
+              <span className="bhud__dice-sub">{attacker?.nicknameEng} — D4 (Keraunos)</span>
+              {isMyTurn ? (
+                <DiceRoller
+                  key="keraunos-pretarget-crit"
+                  className="bhud__dice-roller"
+                  lockedDie={4}
+                  hidePrompt
+                  themeColors={{ primary: attacker?.theme?.[0] ?? '#333', primaryDark: attacker?.theme?.[18] ?? '#111' }}
+                  onRollResult={handleKeraunosPreTargetCritRoll}
+                />
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )}
+              <span className="bhud__dice-bonus">critical: {turn.critWinFaces?.slice().sort((a, b) => a - b).join(', ') || '—'}</span>
+            </div>
+          ) : targets.length > 0 ? (
             <TargetSelectModal
               attackerName={attacker?.nicknameEng ?? ''}
               targets={targets}
@@ -2158,10 +2239,15 @@ export default function BattleHUD({
       })()}
 
       {activePlaybackStep && (() => {
+        const cardData = { ...activePlaybackStep, side: activePlaybackStep.__side } as any;
+        if (cardData.powerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
+          cardData.isCritForKeraunos = !!cardData.isCrit;
+          if (cardData.keraunosDamageTier == null) cardData.keraunosDamageTier = 0;
+        }
         return (
           <DamageCard
             key={activePlaybackStep.__cardKey}
-            data={{ ...activePlaybackStep, side: activePlaybackStep.__side } as any}
+            data={cardData}
             exiting={false}
             side={activePlaybackStep.__side}
             displayMs={activePlaybackStep.__displayMs}
