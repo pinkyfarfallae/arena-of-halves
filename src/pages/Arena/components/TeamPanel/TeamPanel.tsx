@@ -294,16 +294,24 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const isResurrected = tagBasedProps.isResurrected;
         const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
         const isImprecatedPoemCursed = tagBasedProps.isImprecatedPoemCursed;
-        const imprecatedPoemVerseTag =
-          activeEffects.find(
-            (e) => e.targetId === m.characterId && e.tag2 === EFFECT_TAGS.IMPRECATED_POEM
-          )?.tag ??
-          activeEffects.find(
-            (e) =>
-              e.targetId === m.characterId &&
-              e.tag != null &&
-              IMPRECATED_POEM_VERSE_TAGS.includes(e.tag as (typeof IMPRECATED_POEM_VERSE_TAGS)[number])
-          )?.tag;
+        const imprecatedPoemVerseTags = (() => {
+          const tags: string[] = [];
+          const seen = new Set<string>();
+          for (const e of activeEffects) {
+            if (e.targetId !== m.characterId) continue;
+            const verseTag =
+              e.tag2 === EFFECT_TAGS.IMPRECATED_POEM
+                ? e.tag
+                : e.tag != null && IMPRECATED_POEM_VERSE_TAGS.includes(e.tag as (typeof IMPRECATED_POEM_VERSE_TAGS)[number])
+                  ? e.tag
+                  : undefined;
+            if (verseTag != null && !seen.has(verseTag)) {
+              seen.add(verseTag);
+              tags.push(verseTag);
+            }
+          }
+          return tags;
+        })();
 
         // Active effect pips (deduplicate same power from same source; group by tag so Jolt Arc vs Jolt Arc Deceleration are separate)
         const effectPips: EffectPip[] = (() => {
@@ -482,7 +490,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isHymnWaved={isHymnWaved}
             isImprecatedPoemHealingNullified={isImprecatedPoemHealingNullified}
             isImprecatedPoemCursed={isImprecatedPoemCursed}
-            imprecatedPoemVerseTag={imprecatedPoemVerseTag}
+            imprecatedPoemVerseTags={imprecatedPoemVerseTags}
             hymnLogKey={battle != null && battle.roundNumber != null && logHasHymn ? `hymn_${battle.roundNumber}_${hymnLogIndex}_${m.characterId}` : undefined}
             hymnHeal={isHymnWaved ? 2 : undefined}
             turnOrder={turnOrderMap.get(m.characterId)}

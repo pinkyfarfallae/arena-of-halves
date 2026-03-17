@@ -145,8 +145,8 @@ interface Props {
   isImprecatedPoemHealingNullified?: boolean;
   /** Imprecated Poem: other verses — generic curse frame VFX. */
   isImprecatedPoemCursed?: boolean;
-  /** Imprecated Poem: verse effect tag on this target (HEALING_NULLIFIED / DISORIENTED / ETERNAL_AGONY) for poem text. */
-  imprecatedPoemVerseTag?: string;
+  /** Imprecated Poem: verse effect tags on this target (HEALING_NULLIFIED / DISORIENTED / ETERNAL_AGONY); one fighter can be cursed by more than one verse. */
+  imprecatedPoemVerseTags?: string[];
   /** Unique key for Apollo's Hymn heal so wave is shown once per event (e.g. round_logIdx_characterId). */
   hymnLogKey?: string;
   /** Heal amount to show as +n HP in hymn VFX. */
@@ -204,7 +204,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTag, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -1244,11 +1244,25 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Imprecated Poem: other verses (Disoriented / Eternal Agony) — generic curse frame + poem. */}
-      {isImprecatedPoemCursed && imprecatedPoemVerseTag && battleLive && (
-        <div className="mchip__imprecated-poem-cursed-overlay" aria-hidden="true">
-          {getImprecatedPoemCurse([imprecatedPoemVerseTag])}
-        </div>
+      {/* Imprecated Poem: curse frame + poem overlay + rising Apollo particles. */}
+      {isImprecatedPoemCursed && battleLive && (
+        <>
+          <div className="mchip__imprecated-poem-rise-particles" aria-hidden="true">
+            {Array.from({ length: 32 }, (_, i) => (
+              <span key={i} className="mchip__imprecated-poem-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__imprecated-poem-rise-particles mchip__imprecated-poem-rise-particles--white" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className="mchip__imprecated-poem-rise-particle-white" />
+            ))}
+          </div>
+          {imprecatedPoemVerseTags?.length ? (
+            <div className="mchip__imprecated-poem-cursed-overlay" aria-hidden="true">
+              {getImprecatedPoemCurse(imprecatedPoemVerseTags)}
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* Body — clips pattern, fades edges with gradient */}
@@ -1484,14 +1498,6 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             <div className="mchip__hymn-corona-rays" aria-hidden="true" />
             <div className="mchip__hymn-border" aria-hidden="true" />
             <div className="mchip__hymn-accents" aria-hidden="true" />
-          </>
-        )}
-        {/* Healing Nullified (Imprecated Poem) — scroll/letter + Apollo decoration around frame */}
-        {isImprecatedPoemHealingNullified && battleLive && (
-          <>
-            <div className="mchip__imprecated-poem-cursed" aria-hidden="true" />
-            <div className="mchip__hn-scroll" aria-hidden="true" />
-            <div className="mchip__hn-apollo" aria-hidden="true" />
           </>
         )}
         <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>

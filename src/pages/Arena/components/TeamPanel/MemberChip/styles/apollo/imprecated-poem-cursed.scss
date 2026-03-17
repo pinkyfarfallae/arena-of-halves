@@ -100,7 +100,7 @@ $curse-shadow: rgba(0, 0, 0, 0.22);
 }
 
 /* ── Poem overlay: handwriting + Apollo (gold/amber/parchment) ── */
-$overlay-ink: #5333004b;
+$overlay-ink: #3b240023;
 $overlay-ink-light: #5a5e54;
 $overlay-parchment: rgba(232, 228, 216, 0.92);
 $overlay-gold: #b8a55c;
@@ -111,7 +111,7 @@ $overlay-glow: rgba(212, 200, 140, 0.2);
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
   display: flex;
   font-family: 'Kalam', 'Segoe Script', 'Brush Script MT', cursive;
   font-size: 0.625rem;
@@ -138,5 +138,119 @@ $overlay-glow: rgba(212, 200, 140, 0.2);
   .mchip__imprecated-poem-cursed-overlay {
     font-size: 0.5rem;
     @include mask-right-side-fade;
+  }
+}
+
+/* ── Rising particles (Apollo: gold, amber, light motes) ── */
+$particle-gold: rgba(184, 165, 92, 0.85);
+$particle-amber: rgba(212, 200, 140, 0.7);
+$particle-light: rgba(255, 248, 230, 0.6);
+
+.mchip__imprecated-poem-rise-particles {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.mchip__imprecated-poem-rise-particle {
+  position: absolute;
+  bottom: -4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: imprecated-poem-particle-rise ease-out infinite;
+  background: radial-gradient(
+    circle at 50% 50%,
+    $particle-light 0%,
+    $particle-amber 40%,
+    $particle-gold 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 8px $particle-amber;
+
+  @for $i from 1 through 32 {
+    &:nth-child(#{$i}) {
+      $w: 4 + (($i * 17) % 5);
+      $left-pct: 0 + (($i * 13) % 100);
+      $delay: ($i * 0.08) + 0s;
+      $dur: 2 + (($i % 9) * 0.2) + 0s;
+      width: #{$w}px;
+      height: #{$w}px;
+      left: #{$left-pct}#{'%'};
+      filter: blur(2px) brightness(0.8);
+      animation-delay: $delay;
+      animation-duration: $dur;
+    }
+  }
+}
+
+/* Rise from bottom to top of chip (px: transform % would be relative to particle size, not container) */
+@keyframes imprecated-poem-particle-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-45px) scale(1);
+  }
+  70% {
+    opacity: 0.95;
+    transform: translateY(-85px) scale(0.95);
+  }
+  92% {
+    opacity: 0.35;
+    transform: translateY(-115px) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-130px) scale(0.4);
+  }
+}
+
+/* ── White rising particles (same motion, white glow) ── */
+$particle-white: rgba(255, 252, 245, 0.95);
+$particle-white-soft: rgba(255, 248, 220, 0.75);
+
+.mchip__imprecated-poem-rise-particles--white {
+  z-index: 1;
+}
+
+.mchip__imprecated-poem-rise-particle-white {
+  position: absolute;
+  bottom: -4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: imprecated-poem-particle-rise ease-out infinite;
+  background: radial-gradient(
+    circle at 50% 50%,
+    $particle-white 0%,
+    $particle-white-soft 45%,
+    rgba(255, 248, 220, 0.4) 75%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px $particle-white-soft,
+    0 0 20px rgba(255, 252, 240, 0.5);
+
+  @for $i from 1 through 20 {
+    &:nth-child(#{$i}) {
+      $w: 3 + (($i * 11) % 4);
+      $left-pct: 2 + (($i * 19) % 96);
+      $delay: ($i * 0.12) + 0.2s;
+      $dur: 2.2 + (($i % 7) * 0.25) + 0s;
+      width: #{$w}px;
+      height: #{$w}px;
+      left: #{$left-pct}#{'%'};
+      animation-delay: $delay;
+      animation-duration: $dur;
+    }
   }
 }
