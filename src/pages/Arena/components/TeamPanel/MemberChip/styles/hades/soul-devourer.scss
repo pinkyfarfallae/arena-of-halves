@@ -165,10 +165,10 @@ $soul-devourer-clip-gradient: linear-gradient(180deg, black 0%, black 50%, trans
   animation: soul-devourer-wisp-rise ease-in-out infinite;
   bottom: 0;
   top: auto;
-  /* Smoke-like but standout: stronger gradient + soft glow */
-  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(235, 225, 245, 1) 0%, rgba(200, 180, 220, 0.8) 35%, rgba(170, 150, 195, 0.5) 60%, transparent 80%);
-  box-shadow: 0 0 30px rgba(#ffffff, 0.35), 0 0 35px rgba(#f9d6ff, 0.2);
-  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25)) blur(10px) contrast(1.05) brightness(1.15);
+  /* Darker smoke wisps: deep violet gradient + soft dark glow */
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, rgba(255, 255, 255, 0.95) 0%, rgba(230, 214, 255, 0.85) 35%, rgba(50, 40, 70, 0.6) 60%, transparent 80%);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.4), 0 0 28px rgba(255, 255, 255, 0.5);
+  filter: drop-shadow(0 3px 8px rgba(255, 255, 255, 0.5)) drop-shadow(0 2px 5px rgba(255, 255, 255, 0.8)) blur(10px) contrast(1.05) brightness(0.92);
 
   &:nth-child(1) {
     width: 28px;
@@ -232,7 +232,7 @@ $soul-devourer-clip-gradient: linear-gradient(180deg, black 0%, black 50%, trans
 @keyframes soul-devourer-wisp-rise {
   0% {
     opacity: 0;
-    transform: translateY(0) translateX(0) scaleY(0.7) scaleX(1.1);
+    transform: translateY(0) translateX(0) scaleY(1.85) scaleX(0.05);
   }
   18% {
     opacity: 0.95;
@@ -911,13 +911,9 @@ $soul-devourer-clip-gradient: linear-gradient(180deg, black 0%, black 50%, trans
   }
 
   .mchip__soul-devourer-wisps {
-    opacity: 0.5;
+    height: 100%;
+    min-height: 100%;
     @include soul-devourer-right-side-fade-mask;
-
-    .mchip__soul-devourer-wisp {
-      width: 10px;
-      height: 10px;
-    }
   }
 
   .mchip__soul-devourer-particles {
