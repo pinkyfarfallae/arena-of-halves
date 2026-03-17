@@ -372,7 +372,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           }
           return -1;
         })();
-        const logHasFloral = floralLogIndex !== -1;
+        const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
+        const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
 
         // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
@@ -386,7 +387,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           }
           return -1;
         })();
-        const logHasSpring = springLogIndex >= 0;
+        const springHealFromLog = springLogIndex >= 0 ? (floralSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (floralSearchLog[springLogIndex] as { heal?: number })?.heal ?? 0 : 0;
+        const logHasSpring = springLogIndex >= 0 && springHealFromLog > 0;
         const battleSpringHeal1 = battle != null ? (battle as { springHeal1?: number }).springHeal1 : undefined;
         const isSpringCasterInPhase = turn?.phase === PHASE.ROLLING_SPRING_HEAL && String(turn.attackerId) === String(m.characterId);
         const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null;
@@ -410,9 +412,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const logHasHymn = hymnLogIndex >= 0;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
+        // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
         const soulDevourerHealFromLog = (() => {
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
           if (!turnDrain || !soulDevourerHealReady) return null;
+          if (isImprecatedPoemHealingNullified) return null;
           const dmgBuff = getStatModifier(activeEffects, m.characterId, MOD_STAT.DAMAGE);
           const mainDmg = Math.max(0, (m.damage ?? 0) + dmgBuff);
           const amount = Math.ceil(mainDmg * 0.5);
@@ -435,13 +439,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         const isFragranceWaved =
           (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
-          || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp)
-          || !!floralHealRollDone
+          || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp && !isImprecatedPoemHealingNullified)
+          || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
           || (!!logHasFloral && !postHealFollowUp)
-          || !!(springHealIsLatestEntry || springFromPhase)
+          || (!!(springHealIsLatestEntry || springFromPhase) && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
           || !!tagBasedProps.isFragranceWaved;
 
-        const isHymnWaved = !!logHasHymn || !!tagBasedProps.isHymnWaved;
+        const isHymnWaved = (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -492,7 +496,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isImprecatedPoemCursed={isImprecatedPoemCursed}
             imprecatedPoemVerseTags={imprecatedPoemVerseTags}
             hymnLogKey={battle != null && battle.roundNumber != null && logHasHymn ? `hymn_${battle.roundNumber}_${hymnLogIndex}_${m.characterId}` : undefined}
-            hymnHeal={isHymnWaved ? 2 : undefined}
+            hymnHeal={isHymnWaved && !isImprecatedPoemHealingNullified ? 2 : undefined}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}
