@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
-import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
 import { TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, type ArenaRole, type PanelSide } from '../../constants/battle';
@@ -24,6 +24,8 @@ import {
   selectSeason,
   confirmSeason,
   cancelSeasonSelection,
+  confirmPoem,
+  cancelPoemSelection,
   cancelTargetSelection,
   submitAttackRoll,
   submitDefendRoll,
@@ -663,6 +665,14 @@ function Arena(props?: ArenaDemoProps) {
       return;
     }
 
+    // NPC needs to select poem verse (Imprecated Poem)
+    if (turn.phase === PHASE.SELECT_POEM && teamBIds.has(turn.attackerId)) {
+      const verses = [...IMPRECATED_POEM_VERSE_TAGS];
+      const pick = verses[Math.floor(Math.random() * verses.length)];
+      schedule(() => handleSelectPoem(pick), 1500);
+      return;
+    }
+
     // NPC needs to roll attack dice (D12)
     if (turn.phase === PHASE.ROLLING_ATTACK && teamBIds.has(turn.attackerId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
@@ -769,6 +779,16 @@ function Arena(props?: ArenaDemoProps) {
     setActiveSeason(null);
     setReturnFromSeason(true);
     await cancelSeasonSelection(arenaId);
+  };
+
+  const handleSelectPoem = async (poemTag: string) => {
+    if (!arenaId) return;
+    await confirmPoem(arenaId, poemTag);
+  };
+
+  const handleCancelPoem = async () => {
+    if (!arenaId) return;
+    await cancelPoemSelection(arenaId);
   };
 
   const handleCancelTarget = async () => {
@@ -1070,6 +1090,8 @@ function Arena(props?: ArenaDemoProps) {
             onSelectSeason={handleSelectSeason}
             onPreviewSeason={handlePreviewSeason}
             onCancelSeason={handleCancelSeason}
+            onSelectPoem={handleSelectPoem}
+            onCancelPoem={handleCancelPoem}
             onCancelTarget={handleCancelTarget}
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
             initialShowPowers={returnFromSeason}

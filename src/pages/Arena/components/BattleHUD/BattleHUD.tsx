@@ -11,6 +11,7 @@ import LoseBadge from './icons/Loser';
 import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal';
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
 import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
+import PoemSelectModal from './components/PoemSelectModal/PoemSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './components/RefillSPDiceModal/RefillSPDiceModal';
@@ -65,6 +66,8 @@ interface Props {
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
   onCancelSeason?: () => void;
+  onSelectPoem?: (poemTag: string) => void;
+  onCancelPoem?: () => void;
   onCancelTarget?: () => void;
   initialShowPowers?: boolean;
   onSubmitAttackRoll: (roll: number) => void;
@@ -139,7 +142,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
   confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
@@ -1202,7 +1205,7 @@ export default function BattleHUD({
   }, []);
 
   // Skeleton chain: card complete callback (same as player hit — card's onDisplayComplete drives next)
-  const skeletonCardCompleteRef = useRef<() => void>(() => {});
+  const skeletonCardCompleteRef = useRef<() => void>(() => { });
 
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
@@ -1863,6 +1866,7 @@ export default function BattleHUD({
               onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
               onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
               backDisabled={backDisabled}
+              subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
             />
           ) : targets.length === 0 ? (
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -1959,6 +1963,22 @@ export default function BattleHUD({
         </div>
       )}
 
+      {/* Poem selection (Apollo's Imprecated Poem) */}
+      {turn.phase === PHASE.SELECT_POEM && attacker && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <PoemSelectModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            phase={turn.phase}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            side={atkSide}
+            onSelectPoem={(tag) => setTimeout(() => onSelectPoem?.(tag), 0)}
+            onBack={() => setTimeout(() => onCancelPoem?.(), 0)}
+          />
+        </div>
+      )}
+
       {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
       {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
         <RefillSPDiceModal
@@ -1971,7 +1991,7 @@ export default function BattleHUD({
           resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
           onRollStart={arenaId && isMyTurn ? () => {
             const roll = Math.ceil(Math.random() * 4);
-            update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll }).catch(() => {});
+            update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll }).catch(() => { });
             setShadowCamouflageRefillRollLocal(roll);
           } : undefined}
           onRoll={async (roll: number) => {
@@ -1983,7 +2003,7 @@ export default function BattleHUD({
             } catch (e) { }
           }}
           onResultCardVisible={arenaId ? () => {
-            window.setTimeout(() => advanceAfterShadowCamouflageD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+            window.setTimeout(() => advanceAfterShadowCamouflageD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
           } : undefined}
         />
       )}
@@ -2010,7 +2030,7 @@ export default function BattleHUD({
             bonusLabel={`crit: ${[...floralWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => {});
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => { });
               setFloralHealRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
@@ -2026,7 +2046,7 @@ export default function BattleHUD({
               onFloralHealResultCardVisible?.();
               window.setTimeout(() => {
                 onFloralHealResultCardHidden?.();
-                advanceAfterFloralHealD4(arenaId).catch(() => {});
+                advanceAfterFloralHealD4(arenaId).catch(() => { });
               }, REFILL_CARD_VIEW_MS);
             } : onFloralHealResultCardVisible}
           />
@@ -2055,7 +2075,7 @@ export default function BattleHUD({
             bonusLabel={`crit: ${[...springWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll }).catch(() => {});
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll }).catch(() => { });
               setSpringHealRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
@@ -2067,7 +2087,7 @@ export default function BattleHUD({
               } catch (e) { }
             }}
             onResultCardVisible={arenaId ? () => {
-              window.setTimeout(() => advanceAfterSpringHealD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+              window.setTimeout(() => advanceAfterSpringHealD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
             } : undefined}
           />
         );

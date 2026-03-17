@@ -329,7 +329,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.APOLLO,
       type: POWER_TYPES.SECOND_SKILL,
-      name: DEITY_POWER_NAMES.IMPLECATED_POEM,
+      name: DEITY_POWER_NAMES.IMPRECATED_POEM,
       description:
         'ทายาทแห่งเทพอพอลโลเสียสละโอกาสในการโจมตีเพื่อเลือกกล่าว “กลอนคำสาป” 1 บท ใส่ศัตรู 1 เป้าหมาย เป็นเวลา 2 รอบ โดยมีบทกลอนดังนี้ /* สูญสิ้นเยียวยา: ผลการฟื้นฟู HP ที่ผู้ต้องสาปได้รับจะไม่มีผลใด ๆ /* ดวงเนตรเลือนพร่า: ผู้ต้องสาปจะไม่สามารถเลือกเป้าหมายในการโจมตีหรือใช้พลังใด ๆ ได้ รวมทั้งยังทำให้โอกาสที่การกระทำของผู้ต้องสาปจะไร้ผลในอัตรา 25% /* ทุกขาอนันต์: ระยะเวลาของสถานะผิดปกติที่ต้องสาปมีทั้งหมดจะขยายออกไปอีก 2 รอบ จากนั้นฤทธิ์ของบทกลอนจะสิ้นลงทันที',
       available: true,
@@ -338,6 +338,8 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       value: 0,
       duration: 2,
       skipDice: true,
+      requiresPoemSelection: true,
+      afflictions: [EFFECT_TAGS.HEALING_NULLIFIED, EFFECT_TAGS.DISORIENTED, EFFECT_TAGS.ETERNAL_AGONY],
     },
     {
       deity: DEITY.APOLLO,

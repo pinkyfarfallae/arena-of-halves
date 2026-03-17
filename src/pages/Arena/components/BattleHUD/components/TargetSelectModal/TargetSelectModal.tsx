@@ -11,9 +11,11 @@ interface Props {
   onBack?: () => void;
   /** When true, Back is hidden (e.g. Soul Devourer must pick target and cannot cancel). */
   backDisabled?: boolean;
+  /** Optional subtitle (e.g. "Choose target" after poem verse selection). */
+  subtitle?: string;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
@@ -22,7 +24,7 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
       style={{ '--modal-primary': themeColor, '--modal-dark': themeColorDark } as React.CSSProperties}
     >
       <span className="bhud__dice-label">Select Target</span>
-      <span className="bhud__dice-sub">{attackerName}'s turn</span>
+      <span className="bhud__dice-sub">{subtitle ?? `${attackerName}'s turn`}</span>
       <div className="bhud__targets-list">
         {targets.map((t) => (
           <button

@@ -176,6 +176,9 @@ export interface TurnState {
   /* Persephone's Ephemeral Season selection */
   selectedSeason?: SeasonKey;
 
+  /* Apollo's Imprecated Poem: chosen verse (effect tag) before selecting enemy */
+  selectedPoem?: string;
+
   /* Spring (Ephemeral Season): D4 roll for heal amount (crit = 2, else 1); same flow as Floral Fragrance */
   springHealWinFaces?: number[];
   springHealRoll?: number;
@@ -244,6 +247,8 @@ export interface BattleLogEntry {
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;
+  /** Imprecated Poem: which verse was applied (effect tag) */
+  imprecatedPoemVerse?: string;
   /** When skeleton/minion blocked: actual hit target id (blocker). Client uses this so hit VFX shows on skeleton, not master. */
   hitTargetId?: string;
   /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */

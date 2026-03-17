@@ -48,7 +48,7 @@ export const POWER_NAMES = {
   // Apollo
   SUNBORN_SOVEREIGN: 'Sunborn Sovereign',
   APOLLO_S_HYMN: "Apollo's Hymn",
-  IMPLECATED_POEM: 'Imprecated Poem',
+  IMPRECATED_POEM: 'Imprecated Poem',
   VOLLEY_ARROW: 'Volley Arrow',
 
   // Hephaestus
