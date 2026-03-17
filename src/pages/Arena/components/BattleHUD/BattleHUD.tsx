@@ -94,6 +94,8 @@ interface Props {
   confirmedPowerName?: string | null;
   /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
   onSkipTurnNoTarget?: () => void;
+  /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
+  onHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
@@ -144,7 +146,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -2008,8 +2010,39 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit (same rate as target's critical rate); crit = 2× heal. Player click → write immediately so viewer dice start at same time. */}
-      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (() => {
+      {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — show same modal for everyone; only caster sees "Roger that" button. */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+            <span className="bhud__dice-label">Heal skipped</span>
+            <p className="bhud__no-target-reason">
+              {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
+              <>
+                HP recovery has no effect
+                <br />
+                because the target has Healing Nullified.
+              </>
+            ) : 'HP recovery has no effect.'}
+            </p>
+            {isMyTurn && onHealSkippedAck ? (
+              <div className="bhud__target-actions">
+                <button
+                  type="button"
+                  className="bhud__target-confirm"
+                  onClick={() => onHealSkippedAck()}
+                >
+                  Roger that
+                </button>
+              </div>
+            ) : (
+              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}…</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit. Only show when not heal-skipped AND server set winFaces (so everyone sees heal-skip modal when applicable). */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && !(turn as any).floralHealSkipped && (turn as any).floralHealWinFaces?.length > 0 && (() => {
         const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
         const floralRoll = (turn as any).floralHealRoll;
         const floralRollDisplay = floralRoll ?? floralHealRollLocal;
@@ -2433,6 +2466,21 @@ export default function BattleHUD({
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="bhud__log-power">Beyond the Nimbus</span>
+              </div>
+            );
+          }
+
+          if (entry.powerUsed === POWER_NAMES.FLORAL_FRAGRANCE && entry.heal === 0 && (entry as any).healSkipReason) {
+            const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
+            return (
+              <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-power">{entry.powerUsed}</span>
+                <span className="bhud__log-sep">→</span>
+                <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                <span className="bhud__log-skip">Heal skipped</span>
+                <span className="bhud__log-skip-reason">({skipReasonLabel})</span>
               </div>
             );
           }

@@ -35,6 +35,7 @@ import {
   advanceAfterFloralHealD4,
   advanceAfterSpringHealD4,
   skipTurnNoValidTarget,
+  advanceAfterFloralHealSkippedAck,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
@@ -497,6 +498,13 @@ function Arena(props?: ArenaDemoProps) {
       }, delay);
     };
 
+    // NPC: Floral Fragrance heal skipped (e.g. target has Healing Nullified) — ack after delay, then advance
+    const floralHealSkipped = (turn as any)?.floralHealSkipped;
+    if (turn.phase === PHASE.ROLLING_FLORAL_HEAL && floralHealSkipped && teamBIds.has(turn.attackerId)) {
+      schedule(() => advanceAfterFloralHealSkippedAck(arenaId), 1500);
+      return;
+    }
+
     // NPC: Floral Fragrance + Efflorescence Muse — roll D4 for heal crit, then advance
     const floralWinFaces = (turn as any)?.floralHealWinFaces;
     const floralRoll = (turn as any)?.floralHealRoll;
@@ -701,6 +709,10 @@ function Arena(props?: ArenaDemoProps) {
 
   const handleSkipTurnNoTarget = useCallback(async () => {
     if (arenaId) await skipTurnNoValidTarget(arenaId);
+  }, [arenaId]);
+
+  const handleHealSkippedAck = useCallback(async () => {
+    if (arenaId) await advanceAfterFloralHealSkippedAck(arenaId);
   }, [arenaId]);
 
   /* ── Copy helpers ────────────────────────────── */
@@ -1094,6 +1106,7 @@ function Arena(props?: ArenaDemoProps) {
             onCancelPoem={handleCancelPoem}
             onCancelTarget={handleCancelTarget}
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
+            onHealSkippedAck={handleHealSkippedAck}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
