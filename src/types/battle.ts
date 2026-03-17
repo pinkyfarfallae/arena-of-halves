@@ -172,6 +172,10 @@ export interface TurnState {
   /* Floral Fragrance + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterFloralHealD4) */
   floralHealWinFaces?: number[];
   floralHealRoll?: number;
+  /** Floral Fragrance: heal skipped (e.g. target has Healing Nullified) — show modal, caster acks, then advanceAfterFloralHealSkippedAck */
+  floralHealSkipped?: boolean;
+  /** Reason tag for heal skip (e.g. HEALING_NULLIFIED) for modal text */
+  healSkipReason?: string;
 
   /* Persephone's Ephemeral Season selection */
   selectedSeason?: SeasonKey;
@@ -242,6 +246,8 @@ export interface BattleLogEntry {
   beyondTheNimbus?: boolean;
   /** Floral Fragrance (and similar) heal amount */
   heal?: number;
+  /** When heal was skipped (e.g. Healing Nullified); effect tag for display */
+  healSkipReason?: string;
   /** Floral Fragrance + Efflorescence Muse: D4 heal crit (2× heal) */
   floralHealCrit?: boolean;
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */

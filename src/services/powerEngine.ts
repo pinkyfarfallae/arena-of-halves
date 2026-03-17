@@ -900,6 +900,7 @@ const POEM_VERSE = {
 
 /**
  * Imprecated Poem: apply chosen verse to enemy for 2 rounds, or ETERNAL_AGONY extends all afflictions by 2 then ends.
+ * Efflorescence Muse: all Imprecated Poem verses are afflictions (see data/afflictions.ts), so Muse can deny and is consumed.
  * Returns Firebase update paths relative to arenas/{arenaId}.
  */
 export function applyImprecatedPoem(
@@ -913,6 +914,15 @@ export function applyImprecatedPoem(
   const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
   const queueLen = battle.turnQueue?.length || 1;
   const duration = 2 * queueLen; // 2 rounds
+
+  // Efflorescence Muse: block afflictions (all Imprecated Poem verses are in AFFLICTIONS_TAGS); consume Muse
+  if (isAffliction({ tag: poemTag }) && targetHasEfflorescenceMuse(effects, defenderId)) {
+    const withoutEfflorescenceMuse = effects.filter(
+      e => !(e.targetId === defenderId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
+    );
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutEfflorescenceMuse;
+    return updates; // blocked; Efflorescence Muse consumed; no poem effect applied
+  }
 
   if (poemTag === POEM_VERSE.ETERNAL_AGONY) {
     // Extend all afflictions on defender by 2 rounds, then poem ends (no effect added)

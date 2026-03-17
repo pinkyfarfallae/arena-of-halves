@@ -17,6 +17,7 @@ import {
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
   addSunbornSovereignRecoveryStack,
   getEffectiveHealForReceiver,
+  isHealingNullified,
 } from './powerEngine';
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../constants/effectTags';
@@ -1755,12 +1756,30 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Fragrance: if target has Efflorescence Muse, roll D4 for heal crit first ──
+    // ── Floral Fragrance: if target has Efflorescence Muse (and not Healing Nullified), roll D4 for heal crit first ──
     const ally = findFighter(room, allyTargetId);
     const attacker = findFighter(room, attackerId);
     const allyHasEfflorescenceMuse = (battle.activeEffects || []).some(
       (e) => e.targetId === allyTargetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
     );
+    const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
+
+    // Heal skipped (e.g. สูญสิ้นเยียวยา): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
+    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasHealingNullified && ally && attacker) {
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        phase: PHASE.ROLLING_FLORAL_HEAL,
+        action: TURN_ACTION.POWER,
+        usedPowerIndex: powerIndex,
+        usedPowerName: power.name,
+        allyTargetId,
+        floralHealSkipped: true,
+        healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
 
     if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasEfflorescenceMuse && ally && attacker) {
       // Heal crit rate = target's critical rate (same as attack crit)
@@ -2518,6 +2537,58 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
 
   updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+  await update(roomRef(arenaId), updates);
+}
+
+/** Skip reason tag when heal is skipped (e.g. Healing Nullified). Client shows modal "ข้ามเพราะ สูญสิ้นเยียวยา". */
+export const HEAL_SKIP_REASON_HEALING_NULLIFIED = EFFECT_TAGS.HEALING_NULLIFIED;
+
+/**
+ * Advance after caster acknowledges "heal skipped" (e.g. Floral Fragrance on target with Healing Nullified).
+ * Writes log entry with heal: 0, healSkipReason, then advances to SELECT_TARGET.
+ */
+export async function advanceAfterFloralHealSkippedAck(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !(turn as any).floralHealSkipped) return;
+
+  const attackerId = turn.attackerId;
+  const allyTargetId = turn.allyTargetId;
+  if (!attackerId || !allyTargetId || !battle) return;
+  const ally = findFighter(room, allyTargetId);
+  if (!ally) return;
+
+  const healSkipReason = (turn as any).healSkipReason as string | undefined;
+  const logEntry = {
+    round: battle.roundNumber,
+    attackerId,
+    defenderId: allyTargetId,
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: 0,
+    heal: 0,
+    defenderHpAfter: ally.currentHp,
+    eliminated: false,
+    missed: false,
+    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
+    healSkipReason: healSkipReason ?? HEAL_SKIP_REASON_HEALING_NULLIFIED,
+  };
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_LOG]: sanitizeBattleLog([...(battle.log || []), logEntry]),
+    [ARENA_PATH.BATTLE_TURN]: {
+      attackerId,
+      attackerTeam: turn.attackerTeam,
+      phase: PHASE.SELECT_TARGET,
+      action: TURN_ACTION.ATTACK,
+      usedPowerIndex: turn.usedPowerIndex,
+      usedPowerName: turn.usedPowerName,
+      allyTargetId,
+    },
+  };
   await update(roomRef(arenaId), updates);
 }
 
