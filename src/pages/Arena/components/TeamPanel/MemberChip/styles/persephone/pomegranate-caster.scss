@@ -1,28 +1,9 @@
 @use '../vars' as *;
+@use '../mixins' as *;
 @use 'sass:math';
 @use 'sass:list';
 
 /* ── Pomegranate's Oath (caster) — frame pulse, seeds, lights, mist, glow dots, oath particles ── */
-
-$pom-tri-mask-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
-
-@mixin pom-tri-gradient-clip {
-  mask-image: $pom-tri-mask-gradient;
-  -webkit-mask-image: $pom-tri-mask-gradient;
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
-
-@mixin pom-tri-right-side-fade-mask {
-  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
 
 .mchip--pomegranate {
   .mchip__frame {
@@ -64,7 +45,7 @@ $pom-tri-time: 10s;
   pointer-events: none;
   transform-style: preserve-3d;
   perspective: 800px;
-  @include pom-tri-gradient-clip;
+  @include mask-gradient-clip;
 }
 
 .mchip__pom-tri {
@@ -77,41 +58,43 @@ $pom-tri-time: 10s;
 @for $i from 1 through $pom-tri-total {
   $size: 2px + math.random(10);
   $rotate: math.random(360) * 1deg;
-  $rand-x: (math.random(400) - 200) * 1px;
-  $rand-y: (math.random(400) - 200) * 1px;
-  $is-white: math.random(5) == 1;
-  $hue: 335 + math.random(30);
-  $light-a: 55 + math.random(25);
-  $light-b: 35 + math.random(20);
-  $gradient: if(
-    $is-white,
-    linear-gradient(180deg, #fff 0%, rgba(#ffcdd2, 0.9) 50%, rgba(#f8bbd0, 0.7) 100%),
-    linear-gradient(180deg, hsl($hue, 100%, $light-a) 0%, hsl($hue, 90%, $light-b) 50%, hsl($hue, 100%, 25%) 100%)
+  $rand-x: (
+    math.random(400) - 200) * 1px;
+  $rand-y: (
+    math.random(400) - 200) * 1px;
+  $is-white: math.random(5)==1;
+  $hue: 335 + math.random(30
   );
+$light-a: 55 + math.random(25);
+$light-b: 35 + math.random(20);
+$gradient: if($is-white,
+    linear-gradient(180deg, #fff 0%, rgba(#ffcdd2, 0.9) 50%, rgba(#f8bbd0, 0.7) 100%),
+    linear-gradient(180deg, hsl($hue, 100%, $light-a) 0%, hsl($hue, 90%, $light-b) 50%, hsl($hue, 100%, 25%) 100%));
 
-  .mchip__pom-tri:nth-child(#{$i}) {
-    width: $size;
-    height: $size;
-    margin-left: -$size * 0.5;
-    margin-top: -$size * 0.5;
-    background: $gradient;
-    filter: grayscale(0.4);
-    transform: rotate($rotate) translate3d(0, 0, -1500px) scale(0);
-    animation: pom-tri-anim-#{$i} $pom-tri-time infinite linear;
-    animation-delay: $i * -($pom-tri-time / $pom-tri-total);
+.mchip__pom-tri:nth-child(#{$i}) {
+  width: $size;
+  height: $size;
+  margin-left: -$size * 0.5;
+  margin-top: -$size * 0.5;
+  background: $gradient;
+  filter: grayscale(0.4);
+  transform: rotate($rotate) translate3d(0, 0, -1500px) scale(0);
+  animation: pom-tri-anim-#{$i} $pom-tri-time infinite linear;
+  animation-delay: $i * -($pom-tri-time / $pom-tri-total);
+  opacity: 0;
+}
+
+@keyframes pom-tri-anim-#{$i} {
+  0% {
+    opacity: 1;
+    transform: rotate($rotate * 1.5) translate3d($rand-x, $rand-y, 1000px) scale(1);
+  }
+
+  100% {
     opacity: 0;
+    transform: rotate($rotate * 2) translate3d(0, 0, -1500px) scale(0);
   }
-
-  @keyframes pom-tri-anim-#{$i} {
-    0% {
-      opacity: 1;
-      transform: rotate($rotate * 1.5) translate3d($rand-x, $rand-y, 1000px) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: rotate($rotate * 2) translate3d(0, 0, -1500px) scale(0);
-    }
-  }
+}
 }
 
 /* Caster — red/pink corner + circles animation background */
@@ -150,7 +133,7 @@ $pom-tri-time: 10s;
     background: linear-gradient(to bottom, rgba(#2a0a0a, 0.5) 0%, transparent 50%);
     pointer-events: none;
     z-index: 3;
-    @include pom-tri-gradient-clip;
+    @include mask-gradient-clip;
   }
 }
 
@@ -670,13 +653,15 @@ $pom-tri-time: 10s;
       $size: 2px + math.random(4);
       width: $size;
       height: $size;
-      $leftRaw: ($i - 1) * 5 + math.random(20) - 6;
-      left: percentage(math.div(math.max(2, math.min(98, $leftRaw)), 100));
-      bottom: percentage(math.div(1 + math.random(5), 100));
-      animation-duration: #{3 + math.random(4) * 0.5}s;
-      animation-delay: #{math.div(math.random(45), 10)}s;
-    }
+      $leftRaw: (
+        $i - 1) * 5 + math.random(20) - 6;
+      left: percentage(math.div(math.max(2, math.min(98, $leftRaw)), 100)
+      );
+    bottom: percentage(math.div(1 + math.random(5), 100));
+    animation-duration: #{3 + math.random(4) * 0.5}s;
+    animation-delay: #{math.div(math.random(45), 10)}s;
   }
+}
 }
 
 /* Caster — falling drops (both types from nimbus: rain + bolt), black and pink/red */
@@ -1405,7 +1390,7 @@ $pom-tri-time: 10s;
     --pom-corner-small: 14px;
     --pom-meeting-size: 16px;
     opacity: 0.15;
-    @include pom-tri-right-side-fade-mask()
+    @include mask-right-side-fade
   }
 
   .mchip__pom-seeds {

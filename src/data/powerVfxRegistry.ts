@@ -32,6 +32,10 @@ export interface PowerVfxChipProps {
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
   isHymnWaved?: boolean;
+  /** Imprecated Poem: Healing Nullified verse — dedicated frame VFX. */
+  isImprecatedPoemHealingNullified?: boolean;
+  /** Imprecated Poem: other verses (Disoriented / Eternal Agony) — generic curse frame. */
+  isImprecatedPoemCursed?: boolean;
   isHit?: boolean;
   isShockHit?: boolean;
   isKeraunosVoltageHit?: boolean;
@@ -181,6 +185,34 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     tag: EFFECT_TAGS.APOLLO_S_HYMN,
     applyTo: 'both',
     props: { isHymnWaved: true },
+  },
+  // Imprecated Poem verses (target cursed by verse — frame VFX; display name = verse name)
+  {
+    id: 'imprecated-poem-healing-nullified',
+    label: 'Healing Nullified (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.HEALING_NULLIFIED,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true, isImprecatedPoemHealingNullified: true },
+  },
+  {
+    id: 'imprecated-poem-disoriented',
+    label: 'Disoriented (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.DISORIENTED,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true },
+  },
+  {
+    id: 'imprecated-poem-eternal-agony',
+    label: 'Eternal Agony (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.ETERNAL_AGONY,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true },
   },
   // —— Hades ——
   { 

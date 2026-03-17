@@ -13,6 +13,8 @@ export const EFFECT_TAGS = {
 
   // Apollo
   APOLLO_S_HYMN: 'apollo-s-hymn',
+  /** Marks any Imprecated Poem verse effect (use with verse tag: HEALING_NULLIFIED, DISORIENTED, ETERNAL_AGONY). */
+  IMPRECATED_POEM: 'imprecated-poem',
   HEALING_NULLIFIED: 'healing-nullified',
   DISORIENTED: 'disoriented',
   ETERNAL_AGONY: 'eternal-agony',

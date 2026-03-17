@@ -7,7 +7,7 @@ import { getStatModifier } from '../../../../services/powerEngine';
 import { getTagBasedChipProps, getEffectDisplayNameForTag } from '../../../../data/powerVfxRegistry';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
@@ -292,6 +292,18 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
         const hasDeathKeeper = tagBasedProps.hasDeathKeeper;
         const isResurrected = tagBasedProps.isResurrected;
+        const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
+        const isImprecatedPoemCursed = tagBasedProps.isImprecatedPoemCursed;
+        const imprecatedPoemVerseTag =
+          activeEffects.find(
+            (e) => e.targetId === m.characterId && e.tag2 === EFFECT_TAGS.IMPRECATED_POEM
+          )?.tag ??
+          activeEffects.find(
+            (e) =>
+              e.targetId === m.characterId &&
+              e.tag != null &&
+              IMPRECATED_POEM_VERSE_TAGS.includes(e.tag as (typeof IMPRECATED_POEM_VERSE_TAGS)[number])
+          )?.tag;
 
         // Active effect pips (deduplicate same power from same source; group by tag so Jolt Arc vs Jolt Arc Deceleration are separate)
         const effectPips: EffectPip[] = (() => {
@@ -468,6 +480,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isResurrecting={isResurrecting}
             isFragranceWaved={isFragranceWaved}
             isHymnWaved={isHymnWaved}
+            isImprecatedPoemHealingNullified={isImprecatedPoemHealingNullified}
+            isImprecatedPoemCursed={isImprecatedPoemCursed}
+            imprecatedPoemVerseTag={imprecatedPoemVerseTag}
             hymnLogKey={battle != null && battle.roundNumber != null && logHasHymn ? `hymn_${battle.roundNumber}_${hymnLogIndex}_${m.characterId}` : undefined}
             hymnHeal={isHymnWaved ? 2 : undefined}
             turnOrder={turnOrderMap.get(m.characterId)}
