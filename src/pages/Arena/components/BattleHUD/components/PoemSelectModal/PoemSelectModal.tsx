@@ -4,6 +4,7 @@ import type { FC } from 'react';
 import type { FighterState } from '../../../../../../types/battle';
 import { PANEL_SIDE, type PanelSide } from '../../../../../../constants/battle';
 import { EFFECT_TAGS } from '../../../../../../constants/effectTags';
+import { getImprecatedPoemCurse as getImprecatedPoemCurseShared } from '../../../../../../data/imprecatedPoemCurse';
 import HealingNullifiedIcon from './icons/HealingNullifiedIcon';
 import DisorientedIcon from './icons/DisorientedIcon';
 import EternalAgonyIcon from './icons/EternalAgonyIcon';
@@ -14,28 +15,36 @@ export interface PoemConfig {
   labelTh: string;
   effectTh: string;
   icon: FC<{ className?: string }>;
+  poem?: string;
 }
 
-const POEM_VERSE_INFO: Record<string, PoemConfig> = {
+export const POEM_VERSE_INFO: Record<string, PoemConfig> = {
   [EFFECT_TAGS.HEALING_NULLIFIED]: {
     labelEn: 'Healing Nullified',
     labelTh: 'สูญสิ้นเยียวยา',
     effectTh: 'ผลการฟื้นฟู HP ที่ผู้ต้องสาปได้รับจะไม่มีผลใด ๆ',
     icon: HealingNullifiedIcon,
+    poem: getImprecatedPoemCurseShared([EFFECT_TAGS.HEALING_NULLIFIED]),
   },
   [EFFECT_TAGS.DISORIENTED]: {
     labelEn: 'Disoriented',
     labelTh: 'ดวงเนตรเลือนพร่า',
     effectTh: 'ผู้ต้องสาปจะไม่สามารถเลือกเป้าหมายในการโจมตีหรือใช้พลังใด ๆ ได้ รวมทั้งยังทำให้โอกาสที่การกระทำของผู้ต้องสาปจะไร้ผลในอัตรา 25%',
     icon: DisorientedIcon,
+    poem: getImprecatedPoemCurseShared([EFFECT_TAGS.DISORIENTED]),
   },
   [EFFECT_TAGS.ETERNAL_AGONY]: {
     labelEn: 'Eternal Agony',
     labelTh: 'ทุกขาอนันต์',
     effectTh: 'ระยะเวลาของสถานะผิดปกติที่ต้องสาปมีทั้งหมดจะขยายออกไปอีก 2 รอบ จากนั้นฤทธิ์ของบทกลอนจะสิ้นลงทันที',
     icon: EternalAgonyIcon,
+    poem: getImprecatedPoemCurseShared([EFFECT_TAGS.ETERNAL_AGONY]),
   },
 };
+
+export function getImprecatedPoemCurse(poemTags: string[]): string {
+  return getImprecatedPoemCurseShared(poemTags);
+}
 
 const POEM_VERSE_ORDER = [EFFECT_TAGS.HEALING_NULLIFIED, EFFECT_TAGS.DISORIENTED, EFFECT_TAGS.ETERNAL_AGONY] as const;
 

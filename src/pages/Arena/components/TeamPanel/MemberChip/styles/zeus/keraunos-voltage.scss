@@ -1,4 +1,5 @@
 @use '../vars' as *;
+@use '../mixins' as *;
 @use 'sass:math';
 @use '../../../../../../../styles/variables' as glob;
 
@@ -12,15 +13,6 @@ $zeus-orange: #ff8f00;
 $zeus-white: #fffef8;
 $zeus-divine: #fffacd;
 $zeus-electric: #e3f2fd;
-
-@mixin keraunos-voltage-mask {
-  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
 
 /* Keraunos Voltage frame — gold theme (same layout as shocked) */
 .mchip__keraunos-voltage {
@@ -1700,6 +1692,6 @@ $zeus-electric: #e3f2fd;
 
 @media (max-width: $bp-compact) {
   .mchip__keraunos-overlay {
-    @include keraunos-voltage-mask;
+    @include mask-right-side-fade;
   }
 }

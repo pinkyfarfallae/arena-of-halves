@@ -1,0 +1,205 @@
+@use '../vars' as *;
+
+/* ── Imprecated Poem: Healing Nullified (สูญสิ้นเยียวยา) — rich frame VFX ───────────────────
+   Handwriting / letter theme + Apollo decoration (scroll, script, rays, laurel, gold) */
+
+/* Palette: parchment, sepia ink, muted Apollo gold */
+$hn-ink: #3d4038;
+$hn-ink-light: #5a5e54;
+$hn-parchment: #e8e4d8;
+$hn-parchment-shadow: #c9c4b4;
+$hn-gold: #b8a55c;
+$hn-gold-muted: rgba(184, 165, 92, 0.5);
+$hn-ray: rgba(212, 200, 140, 0.25);
+$hn-void: rgba(45, 48, 42, 0.6);
+
+/* ── Outer scroll / letter edge (frame-wrap level) ── */
+.mchip--imprecated-poem-healing-nullified .mchip__frame-wrap {
+  position: relative;
+  overflow: visible; /* so scroll/apollo/script layers extending outside frame are visible */
+}
+
+.mchip__hn-scroll {
+  position: absolute;
+  inset: -4px;
+  border-radius: 15px;
+  pointer-events: none;
+  z-index: 10;
+  /* Scroll edge: double line like rolled parchment + ink margin */
+  background:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(90deg,
+      $hn-parchment-shadow 0%,
+      $hn-parchment 8%,
+      $hn-parchment 92%,
+      $hn-parchment-shadow 100%
+    );
+  padding: 3px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  box-shadow:
+    inset 0 0 0 1px rgba($hn-ray, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: hn-scroll-breathe 3s ease-in-out infinite;
+}
+
+/* ── Apollo decoration: subtle rays + laurel-style corners ── */
+.mchip__hn-apollo {
+  position: absolute;
+  inset: -2px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 11;
+  /* Conic rays from corners (Apollo sun) — muted gold */
+  background: conic-gradient(
+    from 225deg at 0% 0%,
+    transparent 0deg 20deg,
+    $hn-ray 22deg 28deg,
+    transparent 30deg 90deg
+  ),
+  conic-gradient(
+    from 45deg at 100% 0%,
+    transparent 0deg 20deg,
+    $hn-ray 22deg 28deg,
+    transparent 30deg 90deg
+  ),
+  conic-gradient(
+    from 315deg at 100% 100%,
+    transparent 0deg 20deg,
+    $hn-ray 22deg 28deg,
+    transparent 30deg 90deg
+  ),
+  conic-gradient(
+    from 135deg at 0% 100%,
+    transparent 0deg 20deg,
+    $hn-ray 22deg 28deg,
+    transparent 30deg 90deg
+  );
+  opacity: 0.9;
+  mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 55%, black 75%, black 100%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 55%, black 75%, black 100%);
+  animation: hn-apollo-shimmer 4s ease-in-out infinite alternate;
+}
+
+/* ── Frame: parchment base + ink border + inner decoration ── */
+.mchip--imprecated-poem-healing-nullified {
+  .mchip__frame {
+    position: relative;
+    box-shadow:
+      0 0 0 2px $hn-ink,
+      0 0 0 3px $hn-parchment,
+      inset 0 0 0 1px rgba($hn-gold, 0.15),
+      inset 0 0 20px $hn-void,
+      0 0 16px $hn-gold-muted;
+    animation: hn-frame-pulse 2.8s ease-in-out infinite;
+
+    &::before {
+      /* Parchment texture + writing-paper lines (very subtle) */
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 3px,
+          rgba($hn-ink, 0.03) 3px,
+          rgba($hn-ink, 0.03) 4px
+        ),
+        linear-gradient(
+          180deg,
+          rgba($hn-parchment, 0.4) 0%,
+          transparent 30%,
+          transparent 70%,
+          rgba($hn-parchment-shadow, 0.3) 100%
+        );
+      pointer-events: none;
+    }
+
+    &::after {
+      /* Apollo gold accent: thin inner line (prophecy / divine script border) */
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 6px;
+      padding: 1px;
+      background: linear-gradient(
+        135deg,
+        transparent 0%,
+        $hn-gold-muted 25%,
+        rgba($hn-gold, 0.4) 50%,
+        $hn-gold-muted 75%,
+        transparent 100%
+      );
+      background-size: 200% 200%;
+      animation: hn-gold-sweep 5s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+  }
+
+  .mchip__inner-border {
+    border-color: rgba($hn-ink, 0.5);
+    box-shadow:
+      inset 0 0 12px $hn-void,
+      inset 0 0 0 1px rgba($hn-gold, 0.12);
+  }
+}
+
+@keyframes hn-scroll-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.92; }
+}
+
+@keyframes hn-apollo-shimmer {
+  0% { opacity: 0.75; }
+  100% { opacity: 0.95; }
+}
+
+@keyframes hn-script-flow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes hn-frame-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px $hn-ink,
+      0 0 0 3px $hn-parchment,
+      inset 0 0 0 1px rgba($hn-gold, 0.15),
+      inset 0 0 20px $hn-void,
+      0 0 16px $hn-gold-muted;
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px $hn-ink-light,
+      0 0 0 3px $hn-parchment,
+      inset 0 0 0 1px rgba($hn-gold, 0.22),
+      inset 0 0 24px $hn-void,
+      0 0 20px rgba($hn-gold, 0.35);
+  }
+}
+
+@keyframes hn-gold-sweep {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+@media (max-width: $bp-medium) {
+  .mchip__hn-scroll {
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .mchip__hn-scroll {
+    border-radius: 10px;
+  }
+}

@@ -1,31 +1,13 @@
 @use '../vars' as *;
+@use '../mixins' as *;
 @use 'sass:math';
 @use 'sass:list';
 
 /* ── Pomegranate's Oath Spirit (affected) — spirit form bg + ethereal ghost wisps ── */
 
 /* Spirit — triangle tunnel background (3D, black/white/gray, less red) */
-$spirit-tri-total: 200;
+$spirit-tri-total: 100;
 $spirit-tri-time: 10s;
-$spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
-
-@mixin pom-tri-gradient-clip {
-  mask-image: $spirit-tri-mask;
-  -webkit-mask-image: $spirit-tri-mask;
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
-
-@mixin pom-tri-right-side-fade-mask {
-  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
 
 .mchip__spirit-tris-wrap {
   position: absolute;
@@ -35,12 +17,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   pointer-events: none;
   transform-style: preserve-3d;
   perspective: 800px;
-  mask-image: $spirit-tri-mask;
-  -webkit-mask-image: $spirit-tri-mask;
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
+  @include mask-gradient-clip;
 }
 
 .mchip__spirit-tri {
@@ -53,49 +30,47 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
 @for $i from 1 through $spirit-tri-total {
   $size: 2px + math.random(10);
   $rotate: math.random(360) * 1deg;
-  $rand-x: (math.random(400) - 200) * 1px;
-  $rand-y: (math.random(400) - 200) * 1px;
-  $tone: math.random(4);
-  $light-a: 25 + math.random(50);
-  $light-b: 15 + math.random(35);
-  $hint-red: math.random(10) == 1;
-  $gradient: if(
-    $tone == 1,
-    linear-gradient(180deg, #fff 0%, rgba(#f5f5f5, 0.95) 50%, rgba(#e0e0e0, 0.85) 100%),
-    if(
-      $tone == 2,
-      linear-gradient(180deg, hsl(0, 0%, $light-a) 0%, hsl(0, 0%, $light-b) 50%, hsl(0, 0%, 10%) 100%),
-      if(
-        $hint-red,
-        linear-gradient(180deg, hsl(0, 0%, 75%) 0%, hsl(350, 20%, 40%) 50%, hsl(0, 0%, 15%) 100%),
-        linear-gradient(180deg, hsl(0, 0%, 60%) 0%, hsl(0, 0%, 25%) 50%, hsl(0, 0%, 8%) 100%)
-      )
-    )
+  $rand-x: (
+    math.random(400) - 200) * 1px;
+  $rand-y: (
+    math.random(400) - 200) * 1px;
+  $tone: math.random(4
   );
+$light-a: 25 + math.random(50);
+$light-b: 15 + math.random(35);
+$hint-red: math.random(10)==1;
+$gradient: if($tone ==1,
+    linear-gradient(180deg, #fff 0%, rgba(#f5f5f5, 0.95) 50%, rgba(#e0e0e0, 0.85) 100%),
+    if($tone ==2,
+      linear-gradient(180deg, hsl(0, 0%, $light-a) 0%, hsl(0, 0%, $light-b) 50%, hsl(0, 0%, 10%) 100%),
+      if($hint-red,
+        linear-gradient(180deg, hsl(0, 0%, 75%) 0%, hsl(350, 20%, 40%) 50%, hsl(0, 0%, 15%) 100%),
+        linear-gradient(180deg, hsl(0, 0%, 60%) 0%, hsl(0, 0%, 25%) 50%, hsl(0, 0%, 8%) 100%))));
 
-  .mchip__spirit-tri:nth-child(#{$i}) {
-    width: $size;
-    height: $size;
-    margin-left: -$size * 0.5;
-    margin-top: -$size * 0.5;
-    background: $gradient;
-    filter: grayscale(0.9);
-    transform: rotate($rotate) translate3d(0, 0, -1500px) scale(0);
-    animation: spirit-tri-anim-#{$i} $spirit-tri-time infinite linear;
-    animation-delay: $i * -($spirit-tri-time / $spirit-tri-total);
+.mchip__spirit-tri:nth-child(#{$i}) {
+  width: $size;
+  height: $size;
+  margin-left: -$size * 0.5;
+  margin-top: -$size * 0.5;
+  background: $gradient;
+  filter: grayscale(0.9);
+  transform: rotate($rotate) translate3d(0, 0, -1500px) scale(0);
+  animation: spirit-tri-anim-#{$i} $spirit-tri-time infinite linear;
+  animation-delay: $i * -($spirit-tri-time / $spirit-tri-total);
+  opacity: 0;
+}
+
+@keyframes spirit-tri-anim-#{$i} {
+  0% {
+    opacity: 1;
+    transform: rotate($rotate * 1.5) translate3d($rand-x, $rand-y, 1000px) scale(1);
+  }
+
+  100% {
     opacity: 0;
+    transform: rotate($rotate * 2) translate3d(0, 0, -1500px) scale(0);
   }
-
-  @keyframes spirit-tri-anim-#{$i} {
-    0% {
-      opacity: 1;
-      transform: rotate($rotate * 1.5) translate3d($rand-x, $rand-y, 1000px) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: rotate($rotate * 2) translate3d(0, 0, -1500px) scale(0);
-    }
-  }
+}
 }
 
 /* Spirit — corner + circles canvas (b&w) */
@@ -134,32 +109,113 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
     background: linear-gradient(to bottom, rgba(#111, 0.35) 0%, transparent 50%);
     pointer-events: none;
     z-index: 3;
-    @include pom-tri-gradient-clip;
+    @include mask-gradient-clip;
   }
 }
 
-.mchip__spirit-ninth { position: relative; overflow: hidden; }
+.mchip__spirit-ninth {
+  position: relative;
+  overflow: hidden;
+}
 
-.mchip__spirit-corners-wrapper { position: absolute; z-index: 1; mix-blend-mode: plus-lighter; }
+.mchip__spirit-corners-wrapper {
+  position: absolute;
+  z-index: 1;
+  mix-blend-mode: plus-lighter;
+}
 
-.mchip__spirit-ninth:nth-child(1) .mchip__spirit-corners-wrapper { bottom: 0; right: 0; }
-.mchip__spirit-ninth:nth-child(2) .mchip__spirit-corners-wrapper { bottom: 0; left: 50%; transform: translateX(-50%) rotate(45deg); }
-.mchip__spirit-ninth:nth-child(3) .mchip__spirit-corners-wrapper { bottom: 0; left: 0; transform: rotate(90deg); }
-.mchip__spirit-ninth:nth-child(4) .mchip__spirit-corners-wrapper { top: 50%; right: 0; transform: translateY(-50%) rotate(-45deg); }
-.mchip__spirit-ninth:nth-child(6) .mchip__spirit-corners-wrapper { top: 50%; left: 0; transform: translateY(-50%) rotate(135deg); }
-.mchip__spirit-ninth:nth-child(7) .mchip__spirit-corners-wrapper { top: 0; right: 0; transform: rotate(270deg); }
-.mchip__spirit-ninth:nth-child(8) .mchip__spirit-corners-wrapper { top: 0; left: 50%; transform: translateX(-50%) rotate(225deg); }
-.mchip__spirit-ninth:nth-child(9) .mchip__spirit-corners-wrapper { top: 0; left: 0; transform: rotate(180deg); }
+.mchip__spirit-ninth:nth-child(1) .mchip__spirit-corners-wrapper {
+  bottom: 0;
+  right: 0;
+}
+
+.mchip__spirit-ninth:nth-child(2) .mchip__spirit-corners-wrapper {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.mchip__spirit-ninth:nth-child(3) .mchip__spirit-corners-wrapper {
+  bottom: 0;
+  left: 0;
+  transform: rotate(90deg);
+}
+
+.mchip__spirit-ninth:nth-child(4) .mchip__spirit-corners-wrapper {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.mchip__spirit-ninth:nth-child(6) .mchip__spirit-corners-wrapper {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%) rotate(135deg);
+}
+
+.mchip__spirit-ninth:nth-child(7) .mchip__spirit-corners-wrapper {
+  top: 0;
+  right: 0;
+  transform: rotate(270deg);
+}
+
+.mchip__spirit-ninth:nth-child(8) .mchip__spirit-corners-wrapper {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(225deg);
+}
+
+.mchip__spirit-ninth:nth-child(9) .mchip__spirit-corners-wrapper {
+  top: 0;
+  left: 0;
+  transform: rotate(180deg);
+}
 
 .mchip__spirit-corner {
   position: absolute;
-  &::before, &::after { content: ''; position: absolute; background: linear-gradient(transparent, var(--spirit-main) 50%); }
-  &::before { width: var(--spirit-corner-side); height: 100%; right: 0; }
-  &::after { width: 100%; height: var(--spirit-corner-side); bottom: 0; background: linear-gradient(90deg, transparent, var(--spirit-main) 50%); }
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: linear-gradient(transparent, var(--spirit-main) 50%);
+  }
+
+  &::before {
+    width: var(--spirit-corner-side);
+    height: 100%;
+    right: 0;
+  }
+
+  &::after {
+    width: 100%;
+    height: var(--spirit-corner-side);
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, var(--spirit-main) 50%);
+  }
 }
-.mchip__spirit-corner--large { width: var(--spirit-corner-large); height: var(--spirit-corner-large); bottom: 0; right: 0; }
-.mchip__spirit-corner--medium { width: var(--spirit-corner-medium); height: var(--spirit-corner-medium); opacity: 0.4; bottom: 6px; right: 6px; }
-.mchip__spirit-corner--small { width: var(--spirit-corner-small); height: var(--spirit-corner-small); bottom: 14px; right: 14px; }
+
+.mchip__spirit-corner--large {
+  width: var(--spirit-corner-large);
+  height: var(--spirit-corner-large);
+  bottom: 0;
+  right: 0;
+}
+
+.mchip__spirit-corner--medium {
+  width: var(--spirit-corner-medium);
+  height: var(--spirit-corner-medium);
+  opacity: 0.4;
+  bottom: 6px;
+  right: 6px;
+}
+
+.mchip__spirit-corner--small {
+  width: var(--spirit-corner-small);
+  height: var(--spirit-corner-small);
+  bottom: 14px;
+  right: 14px;
+}
 
 .mchip__spirit-circle {
   position: absolute;
@@ -170,23 +226,277 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   box-shadow: 0 0 16px var(--spirit-main);
   opacity: 0;
 }
-.mchip__spirit-circle--first { top: 0; left: 0; animation: spirit-circle-first var(--spirit-duration) ease-in-out infinite; }
-.mchip__spirit-circle--second { top: 0; left: 50%; transform: translate(-50%, 0); animation: spirit-circle-second var(--spirit-duration) ease-in-out infinite; animation-delay: calc(var(--spirit-duration) * 0.4); }
-.mchip__spirit-circle--third { top: 0; right: 0; animation: spirit-circle-third var(--spirit-duration) ease-in-out infinite; }
-.mchip__spirit-circle--fourth { top: 50%; left: 0; transform: translate(0, -50%); animation: spirit-circle-fourth var(--spirit-duration) ease-in-out infinite; animation-delay: calc(var(--spirit-duration) * 0.4); }
-.mchip__spirit-circle--fifth { top: 50%; right: 0; transform: translate(0, -50%); animation: spirit-circle-fifth var(--spirit-duration) ease-in-out infinite; animation-delay: calc(var(--spirit-duration) * 0.4); }
-.mchip__spirit-circle--sixth { bottom: 0; left: 0; animation: spirit-circle-sixth var(--spirit-duration) ease-in-out infinite; }
-.mchip__spirit-circle--seventh { bottom: 0; left: 50%; transform: translate(-50%, 0); animation: spirit-circle-seventh var(--spirit-duration) ease-in-out infinite; animation-delay: calc(var(--spirit-duration) * 0.4); }
-.mchip__spirit-circle--eighth { bottom: 0; right: 0; animation: spirit-circle-eighth var(--spirit-duration) ease-in-out infinite; }
 
-@keyframes spirit-circle-first { 0%, 100% { transform: scale(0); opacity: 0; } 20% { transform: scale(1); opacity: 0.9; } 85% { top: 50%; left: 50%; transform: scale(1) translate(-50%, -50%); opacity: 0.7; } 95% { transform: scale(0) translate(-50%, -50%); opacity: 0; } }
-@keyframes spirit-circle-second { 0%, 100% { transform: translate(-50%, 0) scale(0); opacity: 0; } 20% { transform: translate(-50%, 0) scale(1); opacity: 0.9; } 85% { top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1); opacity: 0.7; } 95% { transform: translate(-50%, -50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-third { 0%, 100% { transform: scale(0); opacity: 0; } 20% { transform: scale(1); opacity: 0.9; } 85% { top: 50%; right: 50%; left: auto; transform: translate(50%, -50%) scale(1); opacity: 0.7; } 95% { transform: translate(50%, -50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-fourth { 0%, 100% { transform: translate(0, -50%) scale(0); opacity: 0; } 20% { transform: translate(0, -50%) scale(1); opacity: 0.9; } 85% { top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%) scale(1); opacity: 0.7; } 95% { transform: translate(-50%, -50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-fifth { 0%, 100% { transform: translate(0, -50%) scale(0); opacity: 0; } 20% { transform: translate(0, -50%) scale(1); opacity: 0.9; } 85% { top: 50%; right: 50%; left: auto; transform: translate(50%, -50%) scale(1); opacity: 0.7; } 95% { transform: translate(50%, -50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-sixth { 0%, 100% { transform: scale(0); opacity: 0; } 20% { transform: scale(1); opacity: 0.9; } 85% { bottom: 50%; left: 50%; top: auto; transform: translate(-50%, 50%) scale(1); opacity: 0.7; } 95% { transform: translate(-50%, 50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-seventh { 0%, 100% { transform: translate(-50%, 0) scale(0); opacity: 0; } 20% { transform: translate(-50%, 0) scale(1); opacity: 0.9; } 85% { bottom: 50%; left: 50%; top: auto; transform: translate(-50%, 50%) scale(1); opacity: 0.7; } 95% { transform: translate(-50%, 50%) scale(0); opacity: 0; } }
-@keyframes spirit-circle-eighth { 0%, 100% { transform: scale(0); opacity: 0; } 20% { transform: scale(1); opacity: 0.9; } 85% { bottom: 50%; right: 50%; left: auto; top: auto; transform: translate(50%, 50%) scale(1); opacity: 0.7; } 95% { transform: translate(50%, 50%) scale(0); opacity: 0; } }
+.mchip__spirit-circle--first {
+  top: 0;
+  left: 0;
+  animation: spirit-circle-first var(--spirit-duration) ease-in-out infinite;
+}
+
+.mchip__spirit-circle--second {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  animation: spirit-circle-second var(--spirit-duration) ease-in-out infinite;
+  animation-delay: calc(var(--spirit-duration) * 0.4);
+}
+
+.mchip__spirit-circle--third {
+  top: 0;
+  right: 0;
+  animation: spirit-circle-third var(--spirit-duration) ease-in-out infinite;
+}
+
+.mchip__spirit-circle--fourth {
+  top: 50%;
+  left: 0;
+  transform: translate(0, -50%);
+  animation: spirit-circle-fourth var(--spirit-duration) ease-in-out infinite;
+  animation-delay: calc(var(--spirit-duration) * 0.4);
+}
+
+.mchip__spirit-circle--fifth {
+  top: 50%;
+  right: 0;
+  transform: translate(0, -50%);
+  animation: spirit-circle-fifth var(--spirit-duration) ease-in-out infinite;
+  animation-delay: calc(var(--spirit-duration) * 0.4);
+}
+
+.mchip__spirit-circle--sixth {
+  bottom: 0;
+  left: 0;
+  animation: spirit-circle-sixth var(--spirit-duration) ease-in-out infinite;
+}
+
+.mchip__spirit-circle--seventh {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  animation: spirit-circle-seventh var(--spirit-duration) ease-in-out infinite;
+  animation-delay: calc(var(--spirit-duration) * 0.4);
+}
+
+.mchip__spirit-circle--eighth {
+  bottom: 0;
+  right: 0;
+  animation: spirit-circle-eighth var(--spirit-duration) ease-in-out infinite;
+}
+
+@keyframes spirit-circle-first {
+
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    top: 50%;
+    left: 50%;
+    transform: scale(1) translate(-50%, -50%);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: scale(0) translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-second {
+
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-third {
+
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    top: 50%;
+    right: 50%;
+    left: auto;
+    transform: translate(50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(50%, -50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-fourth {
+
+  0%,
+  100% {
+    transform: translate(0, -50%) scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: translate(0, -50%) scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-fifth {
+
+  0%,
+  100% {
+    transform: translate(0, -50%) scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: translate(0, -50%) scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    top: 50%;
+    right: 50%;
+    left: auto;
+    transform: translate(50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(50%, -50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-sixth {
+
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    bottom: 50%;
+    left: 50%;
+    top: auto;
+    transform: translate(-50%, 50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(-50%, 50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-seventh {
+
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    bottom: 50%;
+    left: 50%;
+    top: auto;
+    transform: translate(-50%, 50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(-50%, 50%) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes spirit-circle-eighth {
+
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  85% {
+    bottom: 50%;
+    right: 50%;
+    left: auto;
+    top: auto;
+    transform: translate(50%, 50%) scale(1);
+    opacity: 0.7;
+  }
+
+  95% {
+    transform: translate(50%, 50%) scale(0);
+    opacity: 0;
+  }
+}
 
 .mchip__spirit-meeting-point {
   width: var(--spirit-meeting-size);
@@ -219,6 +529,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 50%;
   opacity: 0;
   animation: spirit-seed-drift ease-in-out infinite alternate;
+
   @for $i from 1 through 14 {
     &:nth-child(#{$i}) {
       $size-w: 5px + math.random(3) * 1px;
@@ -229,9 +540,22 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
       box-shadow: 0 0 #{3 + math.random(4)}px rgba(#fff, 0.5);
       animation-duration: #{3 + math.random(4)}s;
       animation-delay: #{math.div(math.random(30), 10)}s;
-      @if $i <=5 { top: -3px; left: percentage(math.div(5 + ($i - 1) * 20, 100)); }
-      @else if $i <=10 { right: -3px; top: percentage(math.div(5 + ($i - 6) * 22, 100)); left: auto; }
-      @else { left: -3px; top: percentage(math.div(5 + ($i - 11) * 25, 100)); }
+
+      @if $i <=5 {
+        top: -3px;
+        left: percentage(math.div(5 + ($i - 1) * 20, 100));
+      }
+
+      @else if $i <=10 {
+        right: -3px;
+        top: percentage(math.div(5 + ($i - 6) * 22, 100));
+        left: auto;
+      }
+
+      @else {
+        left: -3px;
+        top: percentage(math.div(5 + ($i - 11) * 25, 100));
+      }
     }
   }
 }
@@ -252,6 +576,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 50%;
   opacity: 0;
   animation: spirit-light-float ease-in-out infinite;
+
   @for $i from 1 through 6 {
     &:nth-child(#{$i}) {
       $size: 2px + math.random(2) * 1px;
@@ -261,26 +586,71 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
       box-shadow: 0 0 #{3 + math.random(4)}px list.nth((rgba(#fff, 0.6) rgba(#ccc, 0.5) rgba(#000, 0.4) rgba(#e0e0e0, 0.5) rgba(#000, 0.4) rgba(#fff, 0.5)), $i);
       animation-duration: #{4 + math.random(4)}s;
       animation-delay: #{math.div(math.random(35), 10)}s;
-      @if $i <=2 { top: -2px; left: 30% + ($i - 1) * 35%; }
-      @else if $i <=4 { right: -3px; top: 25% + ($i - 3) * 40%; left: auto; }
-      @else { bottom: -2px; top: auto; left: 25% + ($i - 5) * 40%; }
+
+      @if $i <=2 {
+        top: -2px;
+        left: 30% + ($i - 1) * 35%;
+      }
+
+      @else if $i <=4 {
+        right: -3px;
+        top: 25% + ($i - 3) * 40%;
+        left: auto;
+      }
+
+      @else {
+        bottom: -2px;
+        top: auto;
+        left: 25% + ($i - 5) * 40%;
+      }
     }
   }
 }
 
 @keyframes spirit-seed-drift {
-  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
-  20% { opacity: 0.8; }
-  50% { opacity: 0.65; transform: translate(#{-3 + math.random(6)}px, #{-3 + math.random(6)}px) rotate(#{math.random(40)}deg); }
-  80% { opacity: 0.5; }
-  100% { opacity: 0; transform: translate(#{-5 + math.random(10)}px, #{-5 + math.random(10)}px) rotate(#{math.random(80)}deg); }
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: translate(#{-3 + math.random(6)}px, #{-3 + math.random(6)}px) rotate(#{math.random(40)}deg);
+  }
+
+  80% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(#{-5 + math.random(10)}px, #{-5 + math.random(10)}px) rotate(#{math.random(80)}deg);
+  }
 }
 
 @keyframes spirit-light-float {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
-  20% { opacity: 0.75; }
-  50% { opacity: 0.5; transform: translate(#{-4 + math.random(8)}px, #{-6 + math.random(12)}px) scale(1.2); }
-  100% { opacity: 0; transform: translate(#{-3 + math.random(6)}px, #{-8 + math.random(16)}px) scale(0.6); }
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.8);
+  }
+
+  20% {
+    opacity: 0.75;
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: translate(#{-4 + math.random(8)}px, #{-6 + math.random(12)}px) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(#{-3 + math.random(6)}px, #{-8 + math.random(16)}px) scale(0.6);
+  }
 }
 
 /* Spirit — glow rise + white rise (b&w) */
@@ -301,29 +671,50 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   opacity: 0;
   animation: spirit-glow-rise linear infinite;
   filter: blur(0.5px);
+
   @for $i from 1 through 24 {
     &:nth-child(#{$i}) {
       $size: 1px + math.random(6);
       width: $size;
       height: $size;
-      $leftRaw: ($i - 1) * 3.5 + math.random(14) - 5;
-      left: percentage(math.div(math.max(1, math.min(99, $leftRaw)), 100));
-      bottom: percentage(math.div(1 + math.random(4), 100));
-      $g: list.nth((#fff #e8e8e8 #f5f5f5 #333 #eee #222 #f0f0f0 #444 #fff #ddd #fafafa #555 #e0e0e0 #111 #f5f5f5 #666 #fff #ccc #f8f8f8 #222 #eee #777 #fff #444), $i);
-      background: rgba($g, 0.8);
-      color: $g;
-      box-shadow: 0 0 4px $g, 0 0 8px rgba($g, 0.4);
-      animation-duration: #{2.8 + math.random(5) * 0.4}s;
-      animation-delay: #{math.div(math.random(40), 10)}s;
-    }
+      $leftRaw: (
+        $i - 1) * 3.5 + math.random(14) - 5;
+      left: percentage(math.div(math.max(1, math.min(99, $leftRaw)), 100)
+      );
+    bottom: percentage(math.div(1 + math.random(4), 100));
+    $g: list.nth((#fff #e8e8e8 #f5f5f5 #333 #eee #222 #f0f0f0 #444 #fff #ddd #fafafa #555 #e0e0e0 #111 #f5f5f5 #666 #fff #ccc #f8f8f8 #222 #eee #777 #fff #444), $i);
+    background: rgba($g, 0.8);
+    color: $g;
+    box-shadow: 0 0 4px $g, 0 0 8px rgba($g, 0.4);
+    animation-duration: #{2.8 + math.random(5) * 0.4}s;
+    animation-delay: #{math.div(math.random(40), 10)}s;
   }
+}
 }
 
 @keyframes spirit-glow-rise {
-  0% { opacity: 0; transform: scale(0.6); }
-  10% { opacity: 0.85; bottom: 14%; transform: scale(1); }
-  85% { opacity: 0.25; bottom: 95%; transform: scale(0.85); }
-  100% { opacity: 0; bottom: 108%; transform: scale(0.5); }
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  10% {
+    opacity: 0.85;
+    bottom: 14%;
+    transform: scale(1);
+  }
+
+  85% {
+    opacity: 0.25;
+    bottom: 95%;
+    transform: scale(0.85);
+  }
+
+  100% {
+    opacity: 0;
+    bottom: 108%;
+    transform: scale(0.5);
+  }
 }
 
 .mchip__spirit-white-rise {
@@ -346,18 +737,21 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   color: #fff;
   box-shadow: 0 0 6px #fff, 0 0 14px rgba(#fff, 0.5);
   filter: blur(0.5px);
+
   @for $i from 1 through 16 {
     &:nth-child(#{$i}) {
       $size: 2px + math.random(4);
       width: $size;
       height: $size;
-      $leftRaw: ($i - 1) * 5 + math.random(20) - 6;
-      left: percentage(math.div(math.max(2, math.min(98, $leftRaw)), 100));
-      bottom: percentage(math.div(1 + math.random(5), 100));
-      animation-duration: #{3 + math.random(4) * 0.5}s;
-      animation-delay: #{math.div(math.random(45), 10)}s;
-    }
+      $leftRaw: (
+        $i - 1) * 5 + math.random(20) - 6;
+      left: percentage(math.div(math.max(2, math.min(98, $leftRaw)), 100)
+      );
+    bottom: percentage(math.div(1 + math.random(5), 100));
+    animation-duration: #{3 + math.random(4) * 0.5}s;
+    animation-delay: #{math.div(math.random(45), 10)}s;
   }
+}
 }
 
 /* Spirit — drops (b&w rain + bolt) */
@@ -379,6 +773,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 999px;
   filter: blur(2px);
   animation: spirit-rain-fall linear infinite;
+
   @for $i from 1 through 18 {
     &:nth-child(#{$i}) {
       left: 4% + (($i - 1) * 8.2%);
@@ -392,9 +787,19 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
 }
 
 @keyframes spirit-rain-fall {
-  0% { transform: translateY(-12%) scaleY(0.7); opacity: 0; }
-  12% { opacity: 1; }
-  100% { transform: translateY(138%) scaleY(1.05); opacity: 0; }
+  0% {
+    transform: translateY(-12%) scaleY(0.7);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(138%) scaleY(1.05);
+    opacity: 0;
+  }
 }
 
 .mchip__spirit-bolt {
@@ -410,20 +815,75 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   box-shadow: 0 0 4px rgba(#fff, 0.8), 0 0 10px rgba(#ddd, 0.4);
 }
 
-.mchip__spirit-bolt--1 { left: 10%; height: 54%; animation-delay: 0.16s; }
-.mchip__spirit-bolt--2 { left: 24%; height: 68%; animation-delay: 0.48s; }
-.mchip__spirit-bolt--3 { left: 38%; height: 58%; animation-delay: 0.96s; }
-.mchip__spirit-bolt--4 { left: 50%; height: 74%; animation-delay: 1.44s; }
-.mchip__spirit-bolt--5 { left: 62%; height: 60%; animation-delay: 1.92s; }
-.mchip__spirit-bolt--6 { left: 76%; height: 70%; animation-delay: 2.4s; }
-.mchip__spirit-bolt--7 { left: 88%; height: 52%; animation-delay: 2.88s; }
+.mchip__spirit-bolt--1 {
+  left: 10%;
+  height: 54%;
+  animation-delay: 0.16s;
+}
+
+.mchip__spirit-bolt--2 {
+  left: 24%;
+  height: 68%;
+  animation-delay: 0.48s;
+}
+
+.mchip__spirit-bolt--3 {
+  left: 38%;
+  height: 58%;
+  animation-delay: 0.96s;
+}
+
+.mchip__spirit-bolt--4 {
+  left: 50%;
+  height: 74%;
+  animation-delay: 1.44s;
+}
+
+.mchip__spirit-bolt--5 {
+  left: 62%;
+  height: 60%;
+  animation-delay: 1.92s;
+}
+
+.mchip__spirit-bolt--6 {
+  left: 76%;
+  height: 70%;
+  animation-delay: 2.4s;
+}
+
+.mchip__spirit-bolt--7 {
+  left: 88%;
+  height: 52%;
+  animation-delay: 2.88s;
+}
 
 @keyframes spirit-bolt-drop {
-  0%, 100% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
-  10% { opacity: 0; transform: translateY(-24%) scaleY(0.7); }
-  14% { opacity: 0.8; transform: translateY(-4%) scaleY(1); }
-  34% { opacity: 0.72; transform: translateY(38%) scaleY(1.03); }
-  62% { opacity: 0; transform: translateY(112%) scaleY(1.06); }
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(-24%) scaleY(0.7);
+  }
+
+  10% {
+    opacity: 0;
+    transform: translateY(-24%) scaleY(0.7);
+  }
+
+  14% {
+    opacity: 0.8;
+    transform: translateY(-4%) scaleY(1);
+  }
+
+  34% {
+    opacity: 0.72;
+    transform: translateY(38%) scaleY(1.03);
+  }
+
+  62% {
+    opacity: 0;
+    transform: translateY(112%) scaleY(1.06);
+  }
 }
 
 /* Spirit — rise (dark orbs b&w) */
@@ -443,6 +903,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 50%;
   opacity: 0;
   animation: spirit-rise ease-in-out infinite;
+
   @for $i from 1 through 10 {
     &:nth-child(#{$i}) {
       $w: 1px + math.random(5);
@@ -464,11 +925,33 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
 }
 
 @keyframes spirit-rise {
-  0% { opacity: 0; transform: scaleY(0.5) scaleX(1); }
-  15% { opacity: 0.6; bottom: 22%; transform: scaleY(0.7) scaleX(0.7); }
-  50% { opacity: 0.4; bottom: 55%; transform: scaleY(1) scaleX(0.6); }
-  85% { opacity: 0.1; bottom: 92%; }
-  100% { opacity: 0; bottom: 108%; transform: scaleY(1.1) scaleX(0.4); }
+  0% {
+    opacity: 0;
+    transform: scaleY(0.5) scaleX(1);
+  }
+
+  15% {
+    opacity: 0.6;
+    bottom: 22%;
+    transform: scaleY(0.7) scaleX(0.7);
+  }
+
+  50% {
+    opacity: 0.4;
+    bottom: 55%;
+    transform: scaleY(1) scaleX(0.6);
+  }
+
+  85% {
+    opacity: 0.1;
+    bottom: 92%;
+  }
+
+  100% {
+    opacity: 0;
+    bottom: 108%;
+    transform: scaleY(1.1) scaleX(0.4);
+  }
 }
 
 /* Spirit — deco (corner + edge + float, b&w) */
@@ -489,10 +972,40 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   animation: spirit-deco-twinkle 2.5s ease-in-out infinite;
   box-shadow: 0 0 10px currentColor, 0 0 18px currentColor;
   filter: drop-shadow(0 0 2px rgba(#fff, 0.6));
-  &--1 { top: 12%; left: 10%; background: rgba(#fff, 0.95); color: #f0f0f0; animation-delay: 0s; }
-  &--2 { top: 12%; right: 10%; left: auto; background: rgba(#e0e0e0, 0.9); color: #ddd; animation-delay: 0.4s; }
-  &--3 { bottom: 18%; right: 10%; left: auto; background: rgba(#f5f5f5, 0.95); color: #eee; animation-delay: 0.8s; }
-  &--4 { bottom: 18%; left: 10%; background: rgba(#fff, 0.95); color: #f0f0f0; animation-delay: 1.2s; }
+
+  &--1 {
+    top: 12%;
+    left: 10%;
+    background: rgba(#fff, 0.95);
+    color: #f0f0f0;
+    animation-delay: 0s;
+  }
+
+  &--2 {
+    top: 12%;
+    right: 10%;
+    left: auto;
+    background: rgba(#e0e0e0, 0.9);
+    color: #ddd;
+    animation-delay: 0.4s;
+  }
+
+  &--3 {
+    bottom: 18%;
+    right: 10%;
+    left: auto;
+    background: rgba(#f5f5f5, 0.95);
+    color: #eee;
+    animation-delay: 0.8s;
+  }
+
+  &--4 {
+    bottom: 18%;
+    left: 10%;
+    background: rgba(#fff, 0.95);
+    color: #f0f0f0;
+    animation-delay: 1.2s;
+  }
 }
 
 .mchip__spirit-deco-edge {
@@ -503,14 +1016,74 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   opacity: 0;
   animation: spirit-deco-twinkle 3s ease-in-out infinite;
   box-shadow: 0 0 8px currentColor, 0 0 14px currentColor;
-  &--1 { top: 28%; left: 4%; background: rgba(#eee, 0.95); color: #ddd; animation-delay: 0.2s; }
-  &--2 { top: 55%; left: 5%; background: rgba(#e0e0e0, 0.9); color: #ccc; animation-delay: 0.7s; }
-  &--3 { top: 28%; right: 4%; left: auto; background: rgba(#f0f0f0, 0.95); color: #eee; animation-delay: 0.5s; }
-  &--4 { top: 55%; right: 5%; left: auto; background: rgba(#e8e8e8, 0.9); color: #ddd; animation-delay: 1s; }
-  &--5 { bottom: 35%; left: 4%; background: rgba(#ddd, 0.9); color: #ccc; animation-delay: 0.3s; }
-  &--6 { bottom: 60%; left: 5%; background: rgba(#f5f5f5, 0.9); color: #eee; animation-delay: 0.9s; }
-  &--7 { bottom: 35%; right: 4%; left: auto; background: rgba(#e0e0e0, 0.85); color: #ccc; animation-delay: 0.6s; }
-  &--8 { bottom: 60%; right: 5%; left: auto; background: rgba(#eee, 0.9); color: #ddd; animation-delay: 1.1s; }
+
+  &--1 {
+    top: 28%;
+    left: 4%;
+    background: rgba(#eee, 0.95);
+    color: #ddd;
+    animation-delay: 0.2s;
+  }
+
+  &--2 {
+    top: 55%;
+    left: 5%;
+    background: rgba(#e0e0e0, 0.9);
+    color: #ccc;
+    animation-delay: 0.7s;
+  }
+
+  &--3 {
+    top: 28%;
+    right: 4%;
+    left: auto;
+    background: rgba(#f0f0f0, 0.95);
+    color: #eee;
+    animation-delay: 0.5s;
+  }
+
+  &--4 {
+    top: 55%;
+    right: 5%;
+    left: auto;
+    background: rgba(#e8e8e8, 0.9);
+    color: #ddd;
+    animation-delay: 1s;
+  }
+
+  &--5 {
+    bottom: 35%;
+    left: 4%;
+    background: rgba(#ddd, 0.9);
+    color: #ccc;
+    animation-delay: 0.3s;
+  }
+
+  &--6 {
+    bottom: 60%;
+    left: 5%;
+    background: rgba(#f5f5f5, 0.9);
+    color: #eee;
+    animation-delay: 0.9s;
+  }
+
+  &--7 {
+    bottom: 35%;
+    right: 4%;
+    left: auto;
+    background: rgba(#e0e0e0, 0.85);
+    color: #ccc;
+    animation-delay: 0.6s;
+  }
+
+  &--8 {
+    bottom: 60%;
+    right: 5%;
+    left: auto;
+    background: rgba(#eee, 0.9);
+    color: #ddd;
+    animation-delay: 1.1s;
+  }
 }
 
 .mchip__spirit-deco-float {
@@ -519,6 +1092,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   opacity: 0;
   animation: spirit-deco-float ease-in-out infinite;
   pointer-events: none;
+
   @for $i from 1 through 24 {
     &:nth-child(#{12 + $i}) {
       $size: 3px + math.random(4);
@@ -539,14 +1113,36 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
 }
 
 @keyframes spirit-deco-twinkle {
-  0%, 100% { opacity: 0.55; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.2); }
+
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 @keyframes spirit-deco-float {
-  0%, 100% { opacity: 0.45; transform: translate(0, 0) scale(1); }
-  33% { opacity: 0.9; transform: translate(3px, -4px) scale(1.2); }
-  66% { opacity: 0.6; transform: translate(-2px, 2px) scale(0.9); }
+
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    opacity: 0.9;
+    transform: translate(3px, -4px) scale(1.2);
+  }
+
+  66% {
+    opacity: 0.6;
+    transform: translate(-2px, 2px) scale(0.9);
+  }
 }
 
 /* Spirit — glow dots + oath particles (b&w) */
@@ -576,6 +1172,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 50%;
   opacity: 0;
   animation: spirit-oath-float ease-in-out infinite;
+
   @for $i from 1 through 24 {
     &:nth-child(#{$i}) {
       $size: 2px + math.random(2);
@@ -606,6 +1203,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
   border-radius: 50%;
   opacity: 0;
   animation: spirit-oath-float ease-in-out infinite;
+
   @for $i from 1 through 8 {
     &:nth-child(#{$i}) {
       $size: 3px + math.random(3) * 1px;
@@ -615,19 +1213,51 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
       box-shadow: 0 0 #{4 + math.random(4)}px list.nth((rgba(#fff, 0.5) rgba(#e0e0e0, 0.4) rgba(#f5f5f5, 0.45) rgba(#333, 0.35) rgba(#eee, 0.4) rgba(#222, 0.3) rgba(#f0f0f0, 0.35) rgba(#444, 0.45)), $i);
       animation-duration: #{6 + math.random(3)}s;
       animation-delay: #{math.div(math.random(40), 10)}s;
-      @if $i <=2 { top: 8% + ($i - 1) * 6%; left: 15% + ($i - 1) * 60%; }
-      @else if $i <=4 { top: 25% + ($i - 3) * 25%; right: 8%; left: auto; }
-      @else if $i <=6 { bottom: 20% + (6 - $i) * 15%; left: 10% + ($i - 5) * 50%; }
-      @else { bottom: 15%; right: 15% + ($i - 7) * 35%; left: auto; }
+
+      @if $i <=2 {
+        top: 8% + ($i - 1) * 6%;
+        left: 15% + ($i - 1) * 60%;
+      }
+
+      @else if $i <=4 {
+        top: 25% + ($i - 3) * 25%;
+        right: 8%;
+        left: auto;
+      }
+
+      @else if $i <=6 {
+        bottom: 20% + (6 - $i) * 15%;
+        left: 10% + ($i - 5) * 50%;
+      }
+
+      @else {
+        bottom: 15%;
+        right: 15% + ($i - 7) * 35%;
+        left: auto;
+      }
     }
   }
 }
 
 @keyframes spirit-oath-float {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
-  20% { opacity: 0.75; }
-  50% { opacity: 0.5; transform: translate(#{-4 + math.random(8)}px, #{-6 + math.random(12)}px) scale(1.2); }
-  100% { opacity: 0; transform: translate(#{-3 + math.random(6)}px, #{-8 + math.random(16)}px) scale(0.6); }
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.8);
+  }
+
+  20% {
+    opacity: 0.75;
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: translate(#{-4 + math.random(8)}px, #{-6 + math.random(12)}px) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(#{-3 + math.random(6)}px, #{-8 + math.random(16)}px) scale(0.6);
+  }
 }
 
 .mchip--spirit-form {
@@ -759,7 +1389,7 @@ $spirit-tri-mask: linear-gradient(180deg, black 0%, black 50%, transparent 100%)
     --spirit-corner-small: 14px;
     --spirit-meeting-size: 16px;
     opacity: 0.2;
-    @include pom-tri-right-side-fade-mask;
+    @include mask-right-side-fade;
   }
 
   .mchip__spirit-seeds {

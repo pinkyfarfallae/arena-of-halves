@@ -11,7 +11,7 @@ $apollo-ink-faint: #8a7d5c;
 $apollo-bg: #fdf9ed;
 $apollo-bg-warm: #f8f0dc;
 
-/* ── Poem modal: Apollo (sun / verse / light) ── */
+/* ── Poem modal: Apollo (sun / verse / light) — size pattern matches season select modal ── */
 .bhud__poem-modal,
 .bhud__action-modal--poem {
   gap: 0.5rem;
@@ -161,7 +161,68 @@ $apollo-bg-warm: #f8f0dc;
   opacity: 0.7;
 }
 
-/* ── Poem detail panel (hover): no icon, single-block redesign ── */
+/* ── Compact mode (same pattern as season select modal) ── */
+@media (max-width: $bp-compact) {
+  .bhud__poem-modal,
+  .bhud__action-modal--poem {
+    gap: 0.3rem;
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+  }
+
+  .bhud__poem-picker {
+    gap: 0.25rem;
+  }
+
+  .bhud__poem-btn {
+    padding: 0.3rem 0.2rem;
+    border-radius: 6px;
+  }
+
+  .bhud__poem-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.35rem;
+    border-radius: 4px;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  .bhud__poem-label-th {
+    font-size: 0.45rem;
+  }
+
+  .bhud__poem-label-en {
+    font-size: 0.36rem;
+  }
+
+  .poem-tip {
+    min-width: 120px;
+    max-width: 160px;
+  }
+
+  .poem-tip__inner {
+    padding: 0.4rem 0.5rem;
+    gap: 0.15rem;
+  }
+
+  .poem-tip__title {
+    font-size: 0.45rem;
+  }
+
+  .poem-tip__effect-th {
+    font-size: 0.42rem;
+  }
+
+  .poem-tip__scope {
+    font-size: 0.34rem;
+  }
+}
+
+/* ── Poem detail panel (hover): same size pattern as season-tip ── */
 .poem-tip {
   position: fixed;
   z-index: 9999;

@@ -67,8 +67,10 @@ export interface ActiveEffect {
   value: number;
   modStat?: ModStat;
   turnsRemaining: number;
-  /** Semantic tag for special mechanics (e.g. 'shock' for Lightning Reflex) */
+  /** Semantic tag for special mechanics (e.g. 'shock' for Lightning Reflex). For Imprecated Poem: verse tag (HEALING_NULLIFIED, etc.). */
   tag?: string;
+  /** Second tag (e.g. IMPRECATED_POEM for any verse effect). */
+  tag2?: string;
 }
 
 /** Quota cost by power type */

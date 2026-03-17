@@ -936,6 +936,7 @@ export function applyImprecatedPoem(
         value: 0,
         turnsRemaining: duration,
         tag: poemTag,
+        tag2: EFFECT_TAGS.IMPRECATED_POEM,
       });
     }
   }
