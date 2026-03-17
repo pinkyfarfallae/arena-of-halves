@@ -35,6 +35,7 @@ import {
   advanceAfterFloralHealD4,
   advanceAfterSpringHealD4,
   skipTurnNoValidTarget,
+  selectTargetDisoriented,
   advanceAfterFloralHealSkippedAck,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
@@ -715,6 +716,10 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await advanceAfterFloralHealSkippedAck(arenaId);
   }, [arenaId]);
 
+  const handleSelectTargetDisoriented = useCallback(async () => {
+    if (arenaId) await selectTargetDisoriented(arenaId);
+  }, [arenaId]);
+
   /* ── Copy helpers ────────────────────────────── */
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
@@ -1106,6 +1111,7 @@ function Arena(props?: ArenaDemoProps) {
             onCancelPoem={handleCancelPoem}
             onCancelTarget={handleCancelTarget}
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
+            onSelectTargetDisoriented={handleSelectTargetDisoriented}
             onHealSkippedAck={handleHealSkippedAck}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
