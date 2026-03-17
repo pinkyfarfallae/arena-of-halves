@@ -4,10 +4,31 @@
 
 /* ── SHADOW CAMOUFLAGE — dark wisps + particles (Hades) ──────────────────── */
 
+$shadow-camouflage-clip-gradient: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+
+@mixin shadow-camouflage-body-clip {
+  mask-image: $shadow-camouflage-clip-gradient;
+  -webkit-mask-image: $shadow-camouflage-clip-gradient;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
+@mixin shadow-camouflage-right-side-fade-mask {
+  mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
 .mchip--shadow-camouflaged {
   .mchip__frame {
-    opacity: 0.5;
-    filter: brightness(0.6) contrast(1.3);
+    opacity: 1;
+    filter: brightness(1.2) contrast(1.3) fade(0.5);
+    box-shadow: 0 0 30px 4px rgba(172, 56, 255, 0.35);
     animation: shadow-glitch 8s ease-in-out infinite;
     position: relative;
 
@@ -50,6 +71,53 @@
   }
 }
 
+/* CodePen-style conic + noise flicker — in mchip only, not in mchip__frame */
+.mchip__shadow-camo-conic-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  @include shadow-camouflage-body-clip;
+}
+
+.mchip__shadow-camo-conic {
+  --size: 12px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: conic-gradient(from 180deg at 50% 70%,
+      hsla(0, 0%, 98%, 1) 0deg,
+      #7b4d9e 72deg,
+      #5a3d7a 144deg,
+      #0d0d0d 216deg,
+      #9b7ab8 288deg,
+      hsla(0, 0%, 98%, 1) 1turn);
+  mask:
+    radial-gradient(circle at 50% 50%, white 2px, transparent 2.5px) 50% 50% / var(--size) var(--size),
+    url('https://assets.codepen.io/605876/noise-mask.png') 256px 50% / 256px 256px;
+  -webkit-mask:
+    radial-gradient(circle at 50% 50%, white 2px, transparent 2.5px) 50% 50% / var(--size) var(--size),
+    url('https://assets.codepen.io/605876/noise-mask.png') 256px 50% / 256px 256px;
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  mask-position: 50% 50%, 256px 50%;
+  -webkit-mask-position: 50% 50%, 256px 50%;
+  animation: shadow-camo-flicker 20s infinite linear;
+}
+
+@keyframes shadow-camo-flicker {
+  to {
+    mask-position: 50% 50%, 0 50%;
+    -webkit-mask-position: 50% 50%, 0 50%;
+  }
+}
+
 .mchip__shadow-wisps {
   position: absolute;
   top: 0.7rem;
@@ -88,14 +156,17 @@
         top: 10%;
         left: percentage(math.div(10 + ($i - 1) * 70, 100));
       }
+
       @else if $i <=4 {
         top: 35%;
         left: percentage(math.div(5 + ($i - 3) * 85, 100));
       }
+
       @else if $i <=6 {
         top: 60%;
         left: percentage(math.div(10 + ($i - 5) * 70, 100));
       }
+
       @else {
         top: 80%;
         left: percentage(math.div(20 + ($i - 7) * 50, 100));
@@ -140,38 +211,100 @@
 }
 
 @keyframes shadow-glitch {
-  0%, 50%, 100% {
+
+  0%,
+  50%,
+  100% {
     transform: translateX(0);
     filter: brightness(0.6) contrast(1.3);
   }
-  52% { transform: translateX(-1px); filter: brightness(0.9) contrast(1.2) saturate(0); }
-  54% { transform: translateX(1px); filter: brightness(0.4) contrast(1.6) saturate(0.3); }
-  56% { transform: translateX(-1px); filter: brightness(1) contrast(1) saturate(0); }
-  58% { transform: translateX(0); filter: brightness(0.5) contrast(1.5) saturate(0.2); }
-  60% { transform: translateX(1px); filter: brightness(0.8) contrast(1.1) saturate(0); }
-  62% { transform: translateX(-1px); filter: brightness(0.3) contrast(1.7) saturate(0.3); }
-  64% { transform: translateX(0); filter: brightness(0.7) contrast(1.2) saturate(0.1); }
-  66% { transform: translateX(1px); filter: brightness(0.95) contrast(1) saturate(0); }
-  68% { transform: translateX(0); filter: brightness(0.6) contrast(1.3); }
+
+  52% {
+    transform: translateX(-1px);
+    filter: brightness(0.9) contrast(1.2) saturate(0);
+  }
+
+  54% {
+    transform: translateX(1px);
+    filter: brightness(0.4) contrast(1.6) saturate(0.3);
+  }
+
+  56% {
+    transform: translateX(-1px);
+    filter: brightness(1) contrast(1) saturate(0);
+  }
+
+  58% {
+    transform: translateX(0);
+    filter: brightness(0.5) contrast(1.5) saturate(0.2);
+  }
+
+  60% {
+    transform: translateX(1px);
+    filter: brightness(0.8) contrast(1.1) saturate(0);
+  }
+
+  62% {
+    transform: translateX(-1px);
+    filter: brightness(0.3) contrast(1.7) saturate(0.3);
+  }
+
+  64% {
+    transform: translateX(0);
+    filter: brightness(0.7) contrast(1.2) saturate(0.1);
+  }
+
+  66% {
+    transform: translateX(1px);
+    filter: brightness(0.95) contrast(1) saturate(0);
+  }
+
+  68% {
+    transform: translateX(0);
+    filter: brightness(0.6) contrast(1.3);
+  }
 }
 
 @keyframes shadow-scan {
-  0% { transform: translateY(-100%); opacity: 0; }
-  10%, 90% { opacity: 1; }
-  100% { transform: translateY(200%); opacity: 0; }
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  10%,
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(200%);
+    opacity: 0;
+  }
 }
 
 @keyframes shadow-static {
-  0%, 100% { opacity: 0.8; transform: translateY(0); }
-  50% { opacity: 0.4; transform: translateY(1px); }
+
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: translateY(1px);
+  }
 }
 
 @keyframes shadow-border-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: inset 0 0 16px rgba(#381d4a, 0.9),
       inset 0 0 32px rgba(#6a4c7a, 0.7),
       0 0 8px rgba(#8860a0, 0.4);
   }
+
   50% {
     box-shadow: inset 0 0 20px rgba(#381d4a, 1),
       inset 0 0 40px rgba(#6a4c7a, 0.9),
@@ -180,25 +313,59 @@
 }
 
 @keyframes shadow-wisp-float {
-  0% { opacity: 0; transform: translateX(0) translateY(0) scale(1); }
-  15% { opacity: 0.8; transform: translateX(#{-3 + math.random(6)}px) translateY(#{-3 + math.random(6)}px) scale(1.1); }
-  50% { opacity: 0.6; transform: translateX(#{-5 + math.random(10)}px) translateY(#{-5 + math.random(10)}px) scale(0.9); }
-  85% { opacity: 0.3; }
-  100% { opacity: 0; transform: translateX(#{-8 + math.random(16)}px) translateY(#{-8 + math.random(16)}px) scale(0.7); }
+  0% {
+    opacity: 0;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+
+  15% {
+    opacity: 0.8;
+    transform: translateX(#{-3 + math.random(6)}px) translateY(#{-3 + math.random(6)}px) scale(1.1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateX(#{-5 + math.random(10)}px) translateY(#{-5 + math.random(10)}px) scale(0.9);
+  }
+
+  85% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(#{-8 + math.random(16)}px) translateY(#{-8 + math.random(16)}px) scale(0.7);
+  }
 }
 
 @keyframes shadow-particle-rise {
-  0% { opacity: 0; transform: translateY(0); }
-  10% { opacity: 0.6; }
-  90% { opacity: 0.3; }
-  100% { opacity: 0; transform: translateY(-140px) translateX(#{-10 + math.random(20)}px); }
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+
+  10% {
+    opacity: 0.6;
+  }
+
+  90% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-140px) translateX(#{-10 + math.random(20)}px);
+  }
 }
 
 @keyframes shadow-badge-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     filter: drop-shadow(0 2px 6px rgba(#381d4a, 0.6));
   }
+
   50% {
     transform: scale(1.08);
     filter: drop-shadow(0 2px 8px rgba(#8860a0, 0.8));
@@ -215,6 +382,7 @@
 
 /* Compact screen: shadow wisps/particles centered */
 @media (max-width: $bp-compact) {
+
   .mchip__shadow-wisps,
   .mchip__shadow-particles {
     top: calc(50% - 6px);
@@ -226,5 +394,10 @@
 
   .mchip__shadow-wisps {
     opacity: 0.6;
+  }
+
+  .mchip__shadow-camo-conic-wrapper {
+    opacity: 0.6;
+    @include shadow-camouflage-right-side-fade-mask;
   }
 }
