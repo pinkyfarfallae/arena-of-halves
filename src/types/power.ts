@@ -44,6 +44,9 @@ export interface PowerDefinition {
   /** If true, power requires season selection before targeting (e.g. Persephone's Ephemeral Season) */
   requiresSeasonSelection?: boolean;
 
+  /** If true, power requires poem verse selection before targeting (e.g. Apollo's Imprecated Poem) */
+  requiresPoemSelection?: boolean;
+
   /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
   requiresTargetHasEffect?: string;
 

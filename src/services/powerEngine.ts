@@ -8,6 +8,7 @@ import { SKILL_UNLOCK } from '../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { SEASON_KEYS } from '../data/seasons';
+import { isAffliction } from '../data/statusCategory';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -40,11 +41,19 @@ export function makeEffectId(sourceId: string, powerName: string): string {
 
 const SUNBORN_SOVEREIGN_RECOVERY_MAX = 2;
 
-/** Effective heal amount for a receiver (e.g. +1 when receiver has a passive that boosts received healing). */
+/** True if the receiver has Healing Nullified (Imprecated Poem) — heals do nothing. */
+export function isHealingNullified(activeEffects: ActiveEffect[], receiverId: string): boolean {
+  return activeEffects.some(e => e.targetId === receiverId && e.tag === EFFECT_TAGS.HEALING_NULLIFIED);
+}
+
+/** Effective heal amount for a receiver (e.g. +1 when receiver has a passive that boosts received healing). HEALING_NULLIFIED → 0. */
 export function getEffectiveHealForReceiver(
   baseHeal: number,
   receiver: { powers?: { name: string }[] } | null | undefined,
+  receiverId?: string,
+  activeEffects?: ActiveEffect[],
 ): number {
+  if (receiverId && activeEffects && isHealingNullified(activeEffects, receiverId)) return 0;
   var amount = baseHeal;
   if (receiver?.powers?.some(p => p.name === POWER_NAMES.SUNBORN_SOVEREIGN)) amount += 1;
   return amount;
@@ -210,7 +219,7 @@ export function applyPowerEffect(
         const healCritRoll = Math.ceil(Math.random() * 4); // d4
         if (healCritRoll === 4) healValue *= 2; // critical heal: HP doubled
       }
-      healValue = getEffectiveHealForReceiver(healValue, target);
+      healValue = getEffectiveHealForReceiver(healValue, target, targetId, effects);
       const newHp = Math.min(target.maxHp, target.currentHp + healValue);
       if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
       // Recovery stack only for fighters who have the passive (Apollo only)
@@ -223,7 +232,7 @@ export function applyPowerEffect(
     case EFFECT_TYPES.LIFESTEAL: {
       const newTargetHp = Math.max(0, target.currentHp - power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newTargetHp;
-      const healAmount = getEffectiveHealForReceiver(Math.ceil(power.value * 0.5), attacker);
+      const healAmount = getEffectiveHealForReceiver(Math.ceil(power.value * 0.5), attacker, attackerId, effects);
       const newAttackerHp = Math.min(attacker.maxHp, attacker.currentHp + healAmount);
       if (attackerPath) updates[`${attackerPath}/currentHp`] = newAttackerHp;
       addSunbornSovereignRecoveryStack(room, effects, attackerId);
@@ -837,7 +846,7 @@ export function applyApolloHymn(
 
   // Heal self
   const selfPath = findFighterPath(room, attackerId);
-  const selfHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, attacker);
+  const selfHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, attacker, attackerId, effects);
   if (selfPath) {
     const selfHp = (updates[`${selfPath}/currentHp`] as number | undefined) ?? attacker.currentHp;
     updates[`${selfPath}/currentHp`] = Math.min(attacker.maxHp, selfHp + selfHeal);
@@ -847,7 +856,7 @@ export function applyApolloHymn(
   // Heal ally (if different from self)
   if (allyTargetId !== attackerId) {
     const allyPath = findFighterPath(room, allyTargetId);
-    const allyHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, ally);
+    const allyHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, ally, allyTargetId, effects);
     if (allyPath) {
       const allyHp = (updates[`${allyPath}/currentHp`] as number | undefined) ?? ally.currentHp;
       updates[`${allyPath}/currentHp`] = Math.min(ally.maxHp, allyHp + allyHeal);
@@ -882,6 +891,59 @@ export function applyApolloHymn(
   return updates;
 }
 
+/** Imprecated Poem verse tags. */
+const POEM_VERSE = {
+  HEALING_NULLIFIED: EFFECT_TAGS.HEALING_NULLIFIED,
+  DISORIENTED: EFFECT_TAGS.DISORIENTED,
+  ETERNAL_AGONY: EFFECT_TAGS.ETERNAL_AGONY,
+} as const;
+
+/**
+ * Imprecated Poem: apply chosen verse to enemy for 2 rounds, or ETERNAL_AGONY extends all afflictions by 2 then ends.
+ * Returns Firebase update paths relative to arenas/{arenaId}.
+ */
+export function applyImprecatedPoem(
+  room: BattleRoom,
+  attackerId: string,
+  defenderId: string,
+  poemTag: string,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+  const queueLen = battle.turnQueue?.length || 1;
+  const duration = 2 * queueLen; // 2 rounds
+
+  if (poemTag === POEM_VERSE.ETERNAL_AGONY) {
+    // Extend all afflictions on defender by 2 rounds, then poem ends (no effect added)
+    for (const e of effects) {
+      if (e.targetId === defenderId && isAffliction(e)) {
+        e.turnsRemaining = (e.turnsRemaining ?? 0) + 2;
+      }
+    }
+  } else {
+    // HEALING_NULLIFIED or DISORIENTED: add effect for 2 rounds
+    const existing = effects.find(e => e.targetId === defenderId && e.tag === poemTag);
+    if (existing) {
+      existing.turnsRemaining = duration;
+    } else {
+      effects.push({
+        id: makeEffectId(attackerId, POWER_NAMES.IMPRECATED_POEM),
+        powerName: POWER_NAMES.IMPRECATED_POEM,
+        effectType: EFFECT_TYPES.DEBUFF,
+        sourceId: attackerId,
+        targetId: defenderId,
+        value: 0,
+        turnsRemaining: duration,
+        tag: poemTag,
+      });
+    }
+  }
+
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+  return updates;
+}
+
 export function applyFloralFragranced(
   room: BattleRoom,
   attackerId: string,
@@ -895,7 +957,8 @@ export function applyFloralFragranced(
   const allyPath = findFighterPath(room, allyTargetId);
   if (!caster || !ally || !allyPath) return {};
 
-  const healValue = Math.ceil(0.2 * caster.maxHp);
+  const baseHeal = Math.ceil(0.2 * caster.maxHp);
+  const healValue = getEffectiveHealForReceiver(baseHeal, ally, allyTargetId, battle.activeEffects || []);
   const newCurrentHp = Math.min(ally.currentHp + healValue, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
   return updates;

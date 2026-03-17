@@ -6,6 +6,8 @@ export const PHASE = {
   SELECT_ACTION: 'select-action',
   /** Persephone's Ephemeral Season selection */
   SELECT_SEASON: 'select-season',
+  /** Apollo's Imprecated Poem: choose verse then target enemy */
+  SELECT_POEM: 'select-poem',
   ROLLING_ATTACK: 'rolling-attack',
   ROLLING_DEFEND: 'rolling-defend',
   /** Floral Fragrance on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
@@ -123,6 +125,8 @@ export function getPhaseLabel(
       return 'choosing action...';
     case PHASE.SELECT_SEASON:
       return 'choosing season...';
+    case PHASE.SELECT_POEM:
+      return 'choosing verse...';
     case PHASE.ROLLING_ATTACK:
       return 'rolling...';
     case PHASE.ROLLING_DEFEND:

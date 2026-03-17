@@ -13,6 +13,9 @@ export const EFFECT_TAGS = {
 
   // Apollo
   APOLLO_S_HYMN: 'apollo-s-hymn',
+  HEALING_NULLIFIED: 'healing-nullified',
+  DISORIENTED: 'disoriented',
+  ETERNAL_AGONY: 'eternal-agony',
 
   // Hades
   RESURRECTED: 'resurrected',
@@ -55,3 +58,10 @@ export const SEASON_TAG_PREFIX = 'season-';
 export function isSeasonTag(tag: EffectTag | string): boolean {
   return typeof tag === 'string' && tag.startsWith(SEASON_TAG_PREFIX);
 }
+
+/** Imprecated Poem verse tags (choose one to apply to enemy). */
+export const IMPRECATED_POEM_VERSE_TAGS: readonly EffectTag[] = [
+  EFFECT_TAGS.HEALING_NULLIFIED,
+  EFFECT_TAGS.DISORIENTED,
+  EFFECT_TAGS.ETERNAL_AGONY,
+] as const;
