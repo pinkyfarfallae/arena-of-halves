@@ -11,9 +11,13 @@ export const EFFECT_TAGS = {
   // Poseidon
   STUN: 'stun',
 
+  // Apollo
+  APOLLO_S_HYMN: 'apollo-s-hymn',
+
   // Hades
   RESURRECTED: 'resurrected',
   DEATH_KEEPER: 'death-keeper',
+  SHADOW_CAMOUFLAGING: 'shadow-camouflaging',
   SOUL_DEVOURER: 'soul-devourer',
 
   // Persephone
@@ -27,6 +31,16 @@ export const EFFECT_TAGS = {
 } as const;
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];
+
+/** Status category for cleanse/strip mechanics (e.g. "ลบ Affliction" / "ลบ Blessing"). */
+export const STATUS_CATEGORY = {
+  AFFLICTION: 'affliction',
+  BLESSING: 'blessing',
+} as const;
+
+export type StatusCategory = (typeof STATUS_CATEGORY)[keyof typeof STATUS_CATEGORY];
+
+/** Tag lists live in data/afflictions.ts and data/blessings.ts. Use getEffectStatusCategory from data/statusCategory.ts. */
 
 /**
  * Map effect tag to MemberChip modifier class.

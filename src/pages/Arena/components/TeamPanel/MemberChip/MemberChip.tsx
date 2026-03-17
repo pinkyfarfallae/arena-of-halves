@@ -5,7 +5,7 @@ import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
-import FloralMaiden from './icons/FloralMaiden';
+import EfflorescenceMuse from './icons/EfflorescenceMuse';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
 import PomPearls from './icons/PomPearls';
@@ -138,6 +138,12 @@ interface Props {
   isResurrected?: boolean;
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
+  /** Apollo's Hymn: heal VFX (sun/corona wave). When true, show hymn wave for ~3s (keyed by hymnLogKey). */
+  isHymnWaved?: boolean;
+  /** Unique key for Apollo's Hymn heal so wave is shown once per event (e.g. round_logIdx_characterId). */
+  hymnLogKey?: string;
+  /** Heal amount to show as +n HP in hymn VFX. */
+  hymnHeal?: number;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
@@ -191,7 +197,7 @@ interface Props {
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -588,6 +594,37 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal ใช้ state แยก showSpringHealVfx
   const showFragranceVisual = (showFragranceWave && (isFragranceWaved || springWaveActiveRef.current) && !hideFragranceAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
 
+  /* ── Apollo's Hymn wave: sun/corona VFX for ~3s when hymn heal applied ── */
+  const [showHymnWave, setShowHymnWave] = useState(false);
+  const hymnShownKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isHymnWaved) {
+      hymnShownKeyRef.current = null;
+      setShowHymnWave(false);
+      return;
+    }
+    const key = hymnLogKey ?? `hymn_${fighter.characterId}`;
+    if (hymnShownKeyRef.current === key) return;
+    if (hymnLogKey) {
+      try {
+        if (window.localStorage.getItem(hymnLogKey)) {
+          hymnShownKeyRef.current = key;
+          return;
+        }
+      } catch (e) { }
+    }
+    hymnShownKeyRef.current = key;
+    setShowHymnWave(true);
+    const t = setTimeout(() => {
+      setShowHymnWave(false);
+      hymnShownKeyRef.current = null;
+      if (hymnLogKey) {
+        try { window.localStorage.setItem(hymnLogKey, '1'); } catch (e) { }
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [isHymnWaved, hymnLogKey ?? '', fighter.characterId]);
+
   // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
   const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
 
@@ -806,6 +843,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && showResGlow && 'mchip--res-glow',
     battleLive && isResurrected && 'mchip--resurrected',
     battleLive && showFragranceVisual && 'mchip--fragrance-waved',
+    battleLive && showHymnWave && isHymnWaved && 'mchip--hymn-waved',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -1020,6 +1058,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
       {/* Fragrance Wave — falling flower/leaf particles (Floral Fragrance or Ephemeral Season: Spring heal, same VFX) */}
       {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+
+      {/* Apollo's Hymn — sun / corona wave (border + accents + heal text are around/inside frame, see frame-wrap below) */}
+      {showHymnWave && isHymnWaved && battleLive && (
+        <div className="mchip__hymn-wave" aria-hidden="true" />
+      )}
 
       {/* Fragrance petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
       {showFragranceVisual && battleLive && !hasEfflorescenceMuseInPips && (() => {
@@ -1419,6 +1462,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             />
           </div>
         )}
+        {/* Apollo's Hymn — corona (border, accents, light rays) around mchip__frame only */}
+        {showHymnWave && isHymnWaved && battleLive && (
+          <>
+            <div className="mchip__hymn-corona-rays" aria-hidden="true" />
+            <div className="mchip__hymn-border" aria-hidden="true" />
+            <div className="mchip__hymn-accents" aria-hidden="true" />
+          </>
+        )}
         <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
           {fighter.image ? (
             <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
@@ -1466,6 +1517,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                   )}
                 </>
               )}
+              {/* Apollo's Hymn — floating heal text (same position as Floral: centered on frame) */}
+              {showHymnWave && isHymnWaved && battleLive && hymnHeal != null && hymnHeal > 0 && (
+                <div className="mchip__hymn-heal-boost" aria-hidden="true">+{hymnHeal} HP</div>
+              )}
 
               {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
               {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
@@ -1481,7 +1536,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {/* Efflorescence Muse badge — status immunity */}
               {isEfflorescenceMuse && (
                 <div className="mchip__petal-badge" aria-hidden="true">
-                  <FloralMaiden
+                  <EfflorescenceMuse
                     gradientId={`efflorescence-muse-grad-${fighter.characterId}`}
                     color1={lightenColor(fighter.theme[0], 0.5)}
                     color2="#d1ffd4"

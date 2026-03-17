@@ -11,6 +11,10 @@ import { SEASON_KEYS } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
+function targetHasEfflorescenceMuse(effects: ActiveEffect[], targetId: string): boolean {
+  return effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE);
+}
+
 function findFighter(room: BattleRoom, id: string): FighterState | undefined {
   const all = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
   return all.find(m => m.characterId === id);
@@ -32,6 +36,45 @@ function findFighterTeam(room: BattleRoom, id: string): BattleTeamKey | null {
 
 export function makeEffectId(sourceId: string, powerName: string): string {
   return `${sourceId}_${powerName}_${Date.now()}`;
+}
+
+const SUNBORN_SOVEREIGN_RECOVERY_MAX = 2;
+
+/** Effective heal amount for a receiver (e.g. +1 when receiver has a passive that boosts received healing). */
+export function getEffectiveHealForReceiver(
+  baseHeal: number,
+  receiver: { powers?: { name: string }[] } | null | undefined,
+): number {
+  var amount = baseHeal;
+  if (receiver?.powers?.some(p => p.name === POWER_NAMES.SUNBORN_SOVEREIGN)) amount += 1;
+  return amount;
+}
+
+/** Add or increment Sunborn Sovereign recovery stack. Only affects Apollo (fighter must have the passive). */
+export function addSunbornSovereignRecoveryStack(
+  room: BattleRoom,
+  effects: ActiveEffect[],
+  fighterId: string,
+): void {
+  const fighter = findFighter(room, fighterId);
+  if (!fighter || !fighter.powers?.some(p => p.name === POWER_NAMES.SUNBORN_SOVEREIGN)) return;
+  const existing = effects.find(
+    e => e.targetId === fighterId && e.powerName === POWER_NAMES.SUNBORN_SOVEREIGN && e.modStat === MOD_STAT.RECOVERY_DICE_UP,
+  );
+  if (existing) {
+    existing.value = Math.min(SUNBORN_SOVEREIGN_RECOVERY_MAX, existing.value + 1);
+  } else {
+    effects.push({
+      id: makeEffectId(fighterId, POWER_NAMES.SUNBORN_SOVEREIGN),
+      powerName: POWER_NAMES.SUNBORN_SOVEREIGN,
+      effectType: EFFECT_TYPES.BUFF,
+      sourceId: fighterId,
+      targetId: fighterId,
+      value: 1,
+      turnsRemaining: 999,
+      modStat: MOD_STAT.RECOVERY_DICE_UP,
+    });
+  }
 }
 
 /* ── stat modifiers from active effects ──────────────── */
@@ -144,10 +187,10 @@ export function applyPowerEffect(
     power.target !== 'self' &&
     effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE)
   ) {
-    const withoutFloralMaiden = effects.filter(
+    const withoutEfflorescenceMuse = effects.filter(
       e => !(e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
     );
-    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutFloralMaiden;
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutEfflorescenceMuse;
     return updates; // blocked; Efflorescence Muse consumed
   }
 
@@ -160,24 +203,31 @@ export function applyPowerEffect(
 
     case EFFECT_TYPES.HEAL: {
       let healValue = power.value;
-      const casterHasFloralMaiden = effects.some(
+      const casterHasEfflorescenceMuse = effects.some(
         e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
       );
-      if (casterHasFloralMaiden) {
+      if (casterHasEfflorescenceMuse) {
         const healCritRoll = Math.ceil(Math.random() * 4); // d4
         if (healCritRoll === 4) healValue *= 2; // critical heal: HP doubled
       }
+      healValue = getEffectiveHealForReceiver(healValue, target);
       const newHp = Math.min(target.maxHp, target.currentHp + healValue);
       if (targetPath) updates[`${targetPath}/currentHp`] = newHp;
+      // Recovery stack only for fighters who have the passive (Apollo only)
+      addSunbornSovereignRecoveryStack(room, effects, attackerId);
+      if (targetId !== attackerId) addSunbornSovereignRecoveryStack(room, effects, targetId);
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
       break;
     }
 
     case EFFECT_TYPES.LIFESTEAL: {
       const newTargetHp = Math.max(0, target.currentHp - power.value);
       if (targetPath) updates[`${targetPath}/currentHp`] = newTargetHp;
-      const healAmount = Math.ceil(power.value * 0.5);
+      const healAmount = getEffectiveHealForReceiver(Math.ceil(power.value * 0.5), attacker);
       const newAttackerHp = Math.min(attacker.maxHp, attacker.currentHp + healAmount);
       if (attackerPath) updates[`${attackerPath}/currentHp`] = newAttackerHp;
+      addSunbornSovereignRecoveryStack(room, effects, attackerId);
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
       break;
     }
 
@@ -218,6 +268,8 @@ export function applyPowerEffect(
         };
         if (power.modStat) eff.modStat = power.modStat;
         if (isBeyondTheNimbus) eff.tag = EFFECT_TAGS.BEYOND_THE_NIMBUS;
+        // Apollo's Hymn: +crit buff counts as blessing (สถานะเกื้อกูล)
+        if (power.name === POWER_NAMES.APOLLO_S_HYMN && power.modStat === MOD_STAT.CRITICAL_RATE) eff.tag = EFFECT_TAGS.APOLLO_S_HYMN;
         effects.push(eff);
       }
 
@@ -268,16 +320,18 @@ export function applyPowerEffect(
     }
 
     case EFFECT_TYPES.STUN: {
-      effects.push({
-        id: makeEffectId(attackerId, power.name),
-        powerName: power.name,
-        effectType: EFFECT_TYPES.STUN,
-        sourceId: attackerId,
-        targetId,
-        value: 0,
-        turnsRemaining: power.duration || 1,
-        tag: EFFECT_TAGS.STUN,
-      });
+      if (!targetHasEfflorescenceMuse(effects, targetId)) {
+        effects.push({
+          id: makeEffectId(attackerId, power.name),
+          powerName: power.name,
+          effectType: EFFECT_TYPES.STUN,
+          sourceId: attackerId,
+          targetId,
+          value: 0,
+          turnsRemaining: power.duration || 1,
+          tag: EFFECT_TAGS.STUN,
+        });
+      }
       break;
     }
 
@@ -389,7 +443,7 @@ export function tickEffects(
 
 export type ApplyShockedEffectOptions = {
   /** If true, do not apply shock to targets with Efflorescence Muse (default true). */
-  skipIfFloralMaiden?: boolean;
+  skipIfEfflorescenceMuse?: boolean;
   /** If set, use this as target's current HP for bonus-damage calculation (e.g. after other damage this turn). */
   currentHp?: number;
 };
@@ -413,20 +467,12 @@ export function applyShockedEffectToTarget(
   bonusDamage: number;
   hpUpdate: { path: string; value: number } | null;
 } {
-  const { skipIfFloralMaiden = true, currentHp: currentHpOverride } = options;
+  const { skipIfEfflorescenceMuse = true, currentHp: currentHpOverride } = options;
   const nextEffects = [...effects];
 
-  if (skipIfFloralMaiden) {
-    const isEfflorescenceMuse = nextEffects.some(
-      (e) => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
-    );
-    if (isEfflorescenceMuse) {
-      // Negate affliction (shock); consume Efflorescence Muse
-      const consumed = nextEffects.filter(
-        (e) => !(e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
-      );
-      return { effects: consumed, bonusDamage: 0, hpUpdate: null };
-    }
+  if (skipIfEfflorescenceMuse && targetHasEfflorescenceMuse(nextEffects, targetId)) {
+    // Prevent new affliction (shock); do not consume Efflorescence Muse
+    return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
   }
 
   const hasShock = nextEffects.some(
@@ -490,7 +536,7 @@ export function applyLightningReflexPassive(
     effects,
     baseDamage,
     POWER_NAMES.LIGHTNING_SPARK,
-    { skipIfFloralMaiden: true },
+    { skipIfEfflorescenceMuse: true },
   );
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = result.effects;
   if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -529,7 +575,7 @@ export function applyBeyondTheNimbusTeamShock(
       effects,
       baseDamage,
       POWER_NAMES.BEYOND_THE_NIMBUS,
-      { skipIfFloralMaiden: true },
+      { skipIfEfflorescenceMuse: true },
     );
     effects = result.effects;
     if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -577,10 +623,11 @@ export function applyJoltArc(
   // Remove ALL shock DOTs
   let cleaned = effects.filter(e => e.tag !== EFFECT_TAGS.SHOCK);
 
-  // Apply -7 speed for 2 rounds to all enemies hit
+  // Apply -7 speed for 2 rounds to all enemies hit (skip if target has Efflorescence Muse)
   const queueLen = battle.turnQueue?.length || 1;
   const speedDebuffDuration = queueLen * 2;
   for (const targetId of Object.keys(aoeDamageMap)) {
+    if (targetHasEfflorescenceMuse(cleaned, targetId)) continue;
     cleaned.push({
       id: makeEffectId(attackerId, POWER_NAMES.JOLT_ARC),
       powerName: POWER_NAMES.JOLT_ARC,
@@ -668,7 +715,7 @@ export function applyKeraunosVoltageShock(
       effects,
       baseDmg,
       POWER_NAMES.KERAUNOS_VOLTAGE,
-      { skipIfFloralMaiden: true, ...(currentHp !== undefined && { currentHp }) },
+      { skipIfEfflorescenceMuse: true, ...(currentHp !== undefined && { currentHp }) },
     );
     effects = result.effects;
     if (result.hpUpdate) updates[result.hpUpdate.path] = result.hpUpdate.value;
@@ -682,7 +729,7 @@ export function applyKeraunosVoltageShock(
 /**
  * When advancing to a fighter's turn (before select action): grant Efflorescence Muse (status immunity + 25% crit)
  * only if Secret of Dryad is unlocked and the fighter has Secret of Dryad in their powers list.
- * Lasts one full round. Does not stack; re-applied on turn start when still active (see onFloralMaidenTurnStart).
+ * Lasts one full round. Does not stack; re-applied on turn start when still active (see onEfflorescenceMuseTurnStart).
  */
 export function applySecretOfDryadPassive(
   room: BattleRoom,
@@ -735,37 +782,25 @@ export function applySecretOfDryadPassive(
   return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
 }
 
-/** Affliction tags/effects that Efflorescence Muse clears on turn start */
-const AFFLICTION_TAGS = [EFFECT_TAGS.SHOCK, EFFECT_TAGS.STUN, EFFECT_TAGS.JOLT_ARC_DECELERATION] as const;
-
 /**
- * When it's the fighter's turn again while still in Efflorescence Muse: clear previous turn's afflictions,
- * then refresh Efflorescence Muse (reset duration, no stack). Call when advancing to next attacker.
+ * When it's the fighter's turn again while still in Efflorescence Muse: refresh duration only.
+ * Does not remove afflictions; Efflorescence Muse prevents new afflictions from being applied instead.
  */
-export function onFloralMaidenTurnStart(
+export function onEfflorescenceMuseTurnStart(
   room: BattleRoom,
   battle: BattleState,
   nextAttackerId: string,
 ): Record<string, unknown> | null {
   const effects = [...(battle.activeEffects || [])];
-  const hasFloralMaiden = effects.some(
+  const hasEfflorescenceMuse = effects.some(
     e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
   );
-  if (!hasFloralMaiden) return null;
+  if (!hasEfflorescenceMuse) return null;
 
   const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen; // 1 round when refreshing
+  const duration = queueLen;
 
-  // Remove afflictions on this fighter (shock, stun, dot, debuff)
-  let next = effects.filter(e => {
-    if (e.targetId !== nextAttackerId) return true;
-    if (AFFLICTION_TAGS.includes(e.tag as any)) return false;
-    if (e.effectType === EFFECT_TYPES.DOT || e.effectType === EFFECT_TYPES.DEBUFF) return false;
-    return true;
-  });
-
-  // Refresh Efflorescence Muse duration (shield + crit buff)
-  next = next.map(e => {
+  const next = effects.map(e => {
     if (e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE) {
       return { ...e, turnsRemaining: duration };
     }
@@ -780,6 +815,73 @@ export function onFloralMaidenTurnStart(
 /**
  * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.
  */
+/**
+ * Apollo's Hymn: heal self and selected ally 2 HP each, grant +25% crit to both for 2 rounds (no stack), then end turn.
+ */
+export function applyApolloHymn(
+  room: BattleRoom,
+  attackerId: string,
+  allyTargetId: string,
+  battle: BattleState,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  const attacker = findFighter(room, attackerId);
+  const ally = findFighter(room, allyTargetId);
+  if (!attacker || !ally) return updates;
+
+  const effects: ActiveEffect[] = [...(battle.activeEffects || [])];
+  const queueLen = battle.turnQueue?.length || 1;
+  const hymnDuration = 2 * queueLen; // 2 rounds
+  const HEAL_AMOUNT = 2;
+  const CRIT_VALUE = 25;
+
+  // Heal self
+  const selfPath = findFighterPath(room, attackerId);
+  const selfHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, attacker);
+  if (selfPath) {
+    const selfHp = (updates[`${selfPath}/currentHp`] as number | undefined) ?? attacker.currentHp;
+    updates[`${selfPath}/currentHp`] = Math.min(attacker.maxHp, selfHp + selfHeal);
+  }
+  addSunbornSovereignRecoveryStack(room, effects, attackerId);
+
+  // Heal ally (if different from self)
+  if (allyTargetId !== attackerId) {
+    const allyPath = findFighterPath(room, allyTargetId);
+    const allyHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, ally);
+    if (allyPath) {
+      const allyHp = (updates[`${allyPath}/currentHp`] as number | undefined) ?? ally.currentHp;
+      updates[`${allyPath}/currentHp`] = Math.min(ally.maxHp, allyHp + allyHeal);
+    }
+    addSunbornSovereignRecoveryStack(room, effects, allyTargetId);
+  }
+
+  // Add or refresh +25% crit buff (no stack) on self and ally
+  const critTargets = Array.from(new Set([attackerId, allyTargetId]));
+  for (const targetId of critTargets) {
+    const existing = effects.find(
+      e => e.targetId === targetId && e.tag === EFFECT_TAGS.APOLLO_S_HYMN && e.modStat === MOD_STAT.CRITICAL_RATE,
+    );
+    if (existing) {
+      existing.turnsRemaining = hymnDuration;
+    } else {
+      effects.push({
+        id: makeEffectId(attackerId, POWER_NAMES.APOLLO_S_HYMN),
+        powerName: POWER_NAMES.APOLLO_S_HYMN,
+        effectType: EFFECT_TYPES.BUFF,
+        sourceId: attackerId,
+        targetId,
+        value: CRIT_VALUE,
+        turnsRemaining: hymnDuration,
+        modStat: MOD_STAT.CRITICAL_RATE,
+        tag: EFFECT_TAGS.APOLLO_S_HYMN,
+      });
+    }
+  }
+
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+  return updates;
+}
+
 export function applyFloralFragranced(
   room: BattleRoom,
   attackerId: string,

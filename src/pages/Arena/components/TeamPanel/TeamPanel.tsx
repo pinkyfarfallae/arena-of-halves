@@ -375,6 +375,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex);
         const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
+        // Apollo's Hymn: heal VFX (sun/corona wave) — show on both caster and ally when log has APOLLO_S_HYMN
+        const hymnLogIndex = (() => {
+          const powerName = (POWER_NAMES.APOLLO_S_HYMN as string).trim();
+          const charId = String(m.characterId);
+          for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
+            const le = floralSearchLog[idx] as { powerUsed?: string; attackerId?: string; defenderId?: string };
+            const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
+            if (pu !== powerName) continue;
+            if (String(le.defenderId) === charId || String(le.attackerId) === charId) return idx;
+          }
+          return -1;
+        })();
+        const logHasHymn = hymnLogIndex >= 0;
+
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         const soulDevourerHealFromLog = (() => {
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
@@ -406,6 +420,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           || (!!logHasFloral && !postHealFollowUp)
           || !!(springHealIsLatestEntry || springFromPhase)
           || !!tagBasedProps.isFragranceWaved;
+
+        const isHymnWaved = !!logHasHymn || !!tagBasedProps.isHymnWaved;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -451,6 +467,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}
             isFragranceWaved={isFragranceWaved}
+            isHymnWaved={isHymnWaved}
+            hymnLogKey={battle != null && battle.roundNumber != null && logHasHymn ? `hymn_${battle.roundNumber}_${hymnLogIndex}_${m.characterId}` : undefined}
+            hymnHeal={isHymnWaved ? 2 : undefined}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}
             statMods={statMods}

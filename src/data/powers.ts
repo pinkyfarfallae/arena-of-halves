@@ -320,14 +320,11 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
         'ทายาทแห่งเทพอพอลโลเสียสละโอกาสในการโจมตีเพื่อขับขานบทเพลงรักษาให้กับตนเองและเพื่อนร่วมทีม 1 คนอันจะช่วยฟื้นฟู HP 2 หน่วยและมอบอัตราคริติคอลให้กับทั้งคู่อีก 25% เป็นเวลา 2 รอบ',
       available: true,
       effect: EFFECT_TYPES.HEAL,
-      target: TARGET_TYPES.SELF,
+      target: TARGET_TYPES.ALLY,
       value: 2,
       duration: 2,
       skipDice: true,
-      effects: [
-        { effect: EFFECT_TYPES.HEAL, target: TARGET_TYPES.SELF, value: 2, duration: 0 },
-        { effect: EFFECT_TYPES.BUFF, target: TARGET_TYPES.SELF, value: 25, duration: 2, modStat: MOD_STAT.CRITICAL_RATE },
-      ],
+      blessings: [EFFECT_TAGS.APOLLO_S_HYMN],
     },
     {
       deity: DEITY.APOLLO,
@@ -595,6 +592,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       duration: 2,
       modStat: MOD_STAT.SHADOW_CAMOUFLAGED,
       skipDice: true,
+      blessings: [EFFECT_TAGS.SHADOW_CAMOUFLAGING],
     },
     {
       deity: DEITY.HADES,
