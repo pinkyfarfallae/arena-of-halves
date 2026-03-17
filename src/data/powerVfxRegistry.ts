@@ -31,6 +31,7 @@ export interface PowerVfxChipProps {
   isResurrected?: boolean;
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
+  isHymnWaved?: boolean;
   isHit?: boolean;
   isShockHit?: boolean;
   isKeraunosVoltageHit?: boolean;
@@ -170,6 +171,16 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     side: EFFECT_SIDE_LABEL.TARGET, 
     group: DEITY.PERSEPHONE, 
     props: { isFragranceWaved: true } 
+  },
+  // —— Apollo ——
+  {
+    id: EFFECT_TAGS.APOLLO_S_HYMN,
+    label: "Apollo's Hymn (heal VFX)",
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.APOLLO_S_HYMN,
+    applyTo: 'both',
+    props: { isHymnWaved: true },
   },
   // —— Hades ——
   { 

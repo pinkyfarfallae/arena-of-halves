@@ -145,6 +145,12 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     if (selectedPowerIdx == null) return;
     const power = attacker.powers[selectedPowerIdx];
     if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0) {
+      const otherAlive = teammates.filter(m => m.characterId !== attacker.characterId && m.currentHp > 0);
+      if (otherAlive.length === 0) {
+        setShowPowerPicker(false);
+        onSelectAction(TURN_ACTION.POWER, power?.name, attacker.characterId);
+        return;
+      }
       setAllyPowerIdx(selectedPowerIdx);
       setAllyStep(true);
       setShowPowerPicker(false);

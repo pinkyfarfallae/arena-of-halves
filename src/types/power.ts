@@ -49,6 +49,9 @@ export interface PowerDefinition {
 
   /** If set, the power will afflict the target with the given afflictions. */
   afflictions?: EffectTag[];
+
+  /** If set, the power grants the given blessings (for data/statusCategory and strip mechanics). */
+  blessings?: EffectTag[];
 }
 
 /** An active effect applied to a fighter during battle */

@@ -1,10 +1,12 @@
-import { EFFECT_TAGS } from "../constants/effectTags";
+import { EFFECT_TAGS, EffectTag } from "../constants/effectTags";
 
 /**
- * Afflictions.
+ * Afflictions (negative status). Powers that "ลบ Affliction" remove effects with these tags.
  */
-export const AFFLICTIONS_TAGS = [
+export const AFFLICTIONS_TAGS: readonly EffectTag[] = [
   // Zeus
   EFFECT_TAGS.SHOCK,
-  // Decrease speed by Jolt arc
-]
+  EFFECT_TAGS.JOLT_ARC_DECELERATION,
+  // Poseidon
+  EFFECT_TAGS.STUN,
+];
