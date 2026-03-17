@@ -282,8 +282,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit. Hide when power does not allow defend (e.g. Keraunos). */}
-      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && !(isMyDefend && defenderCannotDefend) && (
+      {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit. Hide when power does not allow defend (e.g. Keraunos) or Soul Devourer drain (no defense roll). */}
+      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && !(isMyDefend && defenderCannotDefend) && !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -314,8 +314,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone). Hide when power does not allow defend. */}
-      {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && !defenderCannotDefend && (
+      {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone). Hide when power does not allow defend or Soul Devourer drain. */}
+      {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && !defenderCannotDefend && !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
