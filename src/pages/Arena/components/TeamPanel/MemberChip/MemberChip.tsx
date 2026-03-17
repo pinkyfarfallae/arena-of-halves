@@ -1740,9 +1740,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Shadow Camouflage — dark wisps + shadow particles + badge (overlays frame) */}
+      {/* Shadow Camouflage — conic + noise flicker (in mchip, not in frame) + wisps + particles */}
       {isShadowCamouflaged && battleLive && (
         <>
+          <div className="mchip__shadow-camo-conic-wrapper" >
+            <div className="mchip__shadow-camo-conic" aria-hidden="true" />
+          </div>
           <div className="mchip__shadow-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__shadow-wisp" />
