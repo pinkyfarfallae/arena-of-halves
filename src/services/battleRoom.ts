@@ -188,6 +188,60 @@ function hasShadowCamouflage(activeEffects: ActiveEffect[], characterId: string)
   );
 }
 
+/**
+ * Returns valid target characterIds for the current turn (SELECT_TARGET).
+ * Used for Disoriented auto-target and for validating no valid targets (skip turn).
+ */
+function getValidTargetIds(
+  room: BattleRoom,
+  turn: BattleState['turn'],
+  activeEffects: ActiveEffect[],
+): string[] {
+  if (!turn?.attackerId) return [];
+  const attacker = findFighter(room, turn.attackerId);
+  const attackerTeam = turn.attackerTeam ?? findFighterTeam(room, turn.attackerId);
+  if (!attackerTeam) return [];
+  const opposingTeam = attackerTeam === BATTLE_TEAM.A ? (room.teamB?.members || []) : (room.teamA?.members || []);
+  const sameTeam = attackerTeam === BATTLE_TEAM.A ? (room.teamA?.members || []) : (room.teamB?.members || []);
+
+  if (turn.action === TURN_ACTION.ATTACK) {
+    const alive = opposingTeam.filter(m => m.currentHp > 0);
+    const isAreaAttack = false;
+    return alive.filter(m => !hasShadowCamouflage(activeEffects, m.characterId) || isAreaAttack).map(m => m.characterId);
+  }
+
+  if (turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && attacker) {
+    const power = attacker.powers?.[turn.usedPowerIndex];
+    if (!power) return [];
+    if (power.target === TARGET_TYPES.SELF) return [];
+    if (power.target === TARGET_TYPES.AREA) {
+      // Area powers that still use SELECT_TARGET (e.g. Keraunos) need one enemy as primary target
+      const alive = opposingTeam.filter(m => m.currentHp > 0);
+      const isAreaAttack = power.target === TARGET_TYPES.AREA;
+      let ids = alive.filter(m => !hasShadowCamouflage(activeEffects, m.characterId) || isAreaAttack).map(m => m.characterId);
+      if (power.requiresTargetHasEffect) {
+        ids = ids.filter(id => activeEffects.some(e => e.targetId === id && e.tag === power.requiresTargetHasEffect));
+      }
+      return ids;
+    }
+    if (power.target === TARGET_TYPES.ALLY) {
+      if (power.name === POWER_NAMES.DEATH_KEEPER) {
+        return sameTeam.filter(m => m.currentHp <= 0).map(m => m.characterId);
+      }
+      return sameTeam.filter(m => m.currentHp > 0).map(m => m.characterId);
+    }
+    // Enemy-target (single)
+    const alive = opposingTeam.filter(m => m.currentHp > 0);
+    const isAreaAttack = false;
+    let ids = alive.filter(m => !hasShadowCamouflage(activeEffects, m.characterId) || isAreaAttack).map(m => m.characterId);
+    if (power.requiresTargetHasEffect) {
+      ids = ids.filter(id => activeEffects.some(e => e.targetId === id && e.tag === power.requiresTargetHasEffect));
+    }
+    return ids;
+  }
+  return [];
+}
+
 /* ── room ref ────────────────────────────────────────── */
 
 function roomRef(arenaId: string) {
@@ -854,7 +908,11 @@ export async function startBattle(arenaId: string): Promise<void> {
 
 /* ── select target ───────────────────────────────────── */
 
-export async function selectTarget(arenaId: string, defenderId: string): Promise<void> {
+export async function selectTarget(
+  arenaId: string,
+  defenderId: string,
+  options?: { disorientedRoll?: number },
+): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
   const room = snap.val() as BattleRoom;
@@ -1404,7 +1462,39 @@ export async function selectAction(
   allyTargetId?: string,
 ): Promise<void> {
   if (action === TURN_ACTION.ATTACK) {
+    const snap = await get(roomRef(arenaId));
+    if (!snap.exists()) return;
+    const room = snap.val() as BattleRoom;
+    const battle = room.battle;
+    if (!battle?.turn) return;
+    const turn = battle.turn;
+    const { attackerId } = turn;
+    const activeEffects = battle.activeEffects || [];
+    const hasDisoriented = activeEffects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.DISORIENTED);
+    if (hasDisoriented) {
+      const validIds = getValidTargetIds(room, { ...turn, action: TURN_ACTION.ATTACK }, activeEffects);
+      if (validIds.length === 0) {
+        await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
+          ...turn,
+          action: TURN_ACTION.ATTACK,
+          phase: PHASE.SELECT_TARGET,
+        });
+        await skipTurnNoValidTarget(arenaId);
+        return;
+      }
+      const randomId = validIds[Math.floor(Math.random() * validIds.length)];
+      const disorientedRoll = Math.random();
+      await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
+        ...turn,
+        action: TURN_ACTION.ATTACK,
+        defenderId: randomId,
+        phase: PHASE.SELECT_TARGET,
+      });
+      await selectTarget(arenaId, randomId, { disorientedRoll });
+      return;
+    }
     await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
+      ...turn,
       action: TURN_ACTION.ATTACK,
       phase: PHASE.SELECT_TARGET,
     });
@@ -2137,7 +2227,7 @@ export async function selectAction(
   // ── Enemy-targeting power (skipDice or dice): store choice, go to target selection ──
   // Power effects will be applied in selectTarget(); log only after target is chosen
   // (Self-buff e.g. Beyond the Nimbus is handled above and returns earlier.)
-  updates[ARENA_PATH.BATTLE_TURN] = {
+  const turnForTargets = {
     attackerId,
     attackerTeam: battle.turn.attackerTeam,
     phase: PHASE.SELECT_TARGET,
@@ -2145,6 +2235,24 @@ export async function selectAction(
     usedPowerIndex: powerIndex,
     usedPowerName: power.name,
   };
+  const activeEffectsForDisoriented = battle.activeEffects || [];
+  const hasDisorientedPower = activeEffectsForDisoriented.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.DISORIENTED);
+  if (hasDisorientedPower) {
+    const validIds = getValidTargetIds(room, turnForTargets, activeEffectsForDisoriented);
+    if (validIds.length === 0) {
+      updates[ARENA_PATH.BATTLE_TURN] = { ...turnForTargets };
+      await update(roomRef(arenaId), updates);
+      await skipTurnNoValidTarget(arenaId);
+      return;
+    }
+    const randomId = validIds[Math.floor(Math.random() * validIds.length)];
+    const disorientedRoll = Math.random();
+    updates[ARENA_PATH.BATTLE_TURN] = { ...turnForTargets, defenderId: randomId };
+    await update(roomRef(arenaId), updates);
+    await selectTarget(arenaId, randomId, { disorientedRoll });
+    return;
+  }
+  updates[ARENA_PATH.BATTLE_TURN] = turnForTargets;
   await update(roomRef(arenaId), updates);
 }
 
@@ -2312,6 +2420,33 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
 
 /** Skip reason when turn is skipped for no valid target (for client modal). */
 export const SKIP_REASON_SHADOW_CAMOUFLAGE = POWER_NAMES.SHADOW_CAMOUFLAGING;
+
+/**
+ * Disoriented: server picks a random valid target and runs the 25% fail check.
+ * Call when phase is SELECT_TARGET, attacker has Disoriented, and target is not yet chosen (e.g. after Keraunos D4).
+ */
+export async function selectTargetDisoriented(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_TARGET) return;
+  const turn = battle.turn;
+  const { attackerId } = turn;
+  const activeEffects = battle.activeEffects || [];
+  if (!activeEffects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.DISORIENTED)) return;
+  if (turn.defenderId) return; // already chosen (e.g. by selectAction)
+
+  const validIds = getValidTargetIds(room, turn, activeEffects);
+  if (validIds.length === 0) {
+    await skipTurnNoValidTarget(arenaId);
+    return;
+  }
+  const randomId = validIds[Math.floor(Math.random() * validIds.length)];
+  const disorientedRoll = Math.random();
+  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: { ...turn, defenderId: randomId } });
+  await selectTarget(arenaId, randomId, { disorientedRoll });
+}
 
 /**
  * Skip current turn because attacker has no valid target (e.g. all enemies under Shadow Camouflage).

@@ -94,6 +94,8 @@ interface Props {
   confirmedPowerName?: string | null;
   /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
   onSkipTurnNoTarget?: () => void;
+  /** When in SELECT_TARGET and attacker has Disoriented (no target chosen yet, e.g. after Keraunos D4), call to let server pick random target and run 25% check */
+  onSelectTargetDisoriented?: () => void;
   /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
   onHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
@@ -146,7 +148,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -194,6 +196,20 @@ export default function BattleHUD({
       return !hasShadowCamouflage || isAreaAttack;
     });
   })();
+
+  const hasDisoriented = !!(turn?.attackerId && (battle.activeEffects || []).some((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+
+  // Disoriented: server picks target; when we're in SELECT_TARGET with no defenderId yet (e.g. after Keraunos D4), trigger once
+  const disorientedTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.SELECT_TARGET || !hasDisoriented || turn.defenderId || !isMyTurn || !onSelectTargetDisoriented) {
+      if (turn?.phase !== PHASE.SELECT_TARGET) disorientedTriggeredRef.current = false;
+      return;
+    }
+    if (disorientedTriggeredRef.current) return;
+    disorientedTriggeredRef.current = true;
+    onSelectTargetDisoriented();
+  }, [turn?.phase, turn?.defenderId, hasDisoriented, isMyTurn, onSelectTargetDisoriented]);
 
   /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
@@ -1836,8 +1852,8 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. */}
-      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. Disoriented: no manual target — server picks at random. */}
+      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
             <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -1858,6 +1874,22 @@ export default function BattleHUD({
                 </div>
               )}
               <span className="bhud__dice-bonus">critical: {turn.critWinFaces?.slice().sort((a, b) => a - b).join(', ') || '—'}</span>
+            </div>
+          ) : hasDisoriented && !turn.defenderId ? (
+            <div className="bhud__dice-modal bhud__targets-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Disoriented</span>
+              <p className="bhud__no-target-reason">Choosing target at random…</p>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            </div>
+          ) : hasDisoriented && turn.defenderId ? (
+            <div className="bhud__dice-modal bhud__targets-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Disoriented</span>
+              <p className="bhud__no-target-reason">Target chosen at random.</p>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
             </div>
           ) : targets.length > 0 ? (
             <TargetSelectModal
@@ -2193,6 +2225,7 @@ export default function BattleHUD({
           coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
           atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
           defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
+          skeletonHitActive={!!(transientSkeletonCard || activePlaybackStep?.isMinionHit)}
         />
       )}
 
