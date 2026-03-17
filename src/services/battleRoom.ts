@@ -2727,6 +2727,24 @@ export async function advanceAfterFloralHealSkippedAck(arenaId: string): Promise
   await update(roomRef(arenaId), updates);
 }
 
+/**
+ * Advance after caster acknowledges Soul Devourer "heal skipped" (e.g. caster has Healing Nullified).
+ * Clears soulDevourerHealSkipAwaitsAck so skeleton hits can start on next resolveTurn.
+ */
+export async function advanceAfterSoulDevourerHealSkippedAck(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.RESOLVING || !(turn as any).soulDevourerHealSkipAwaitsAck) return;
+
+  const turnObj = turn as unknown as Record<string, unknown>;
+  const { soulDevourerHealSkipAwaitsAck: _, ...turnWithoutAck } = turnObj;
+  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithoutAck });
+}
+
 /* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
 
 export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
@@ -3108,6 +3126,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   // Winner is being delayed so hit effects can play; wait for delayed write
   if (battle.winnerDelayedAt != null) return;
 
+  // Soul Devourer heal skipped: skeleton hits and master hit can run; only block advancing to next attacker until Roger that (checked in skeleton "past last" block below)
+
   // Shadow Camouflaging: wait for player to roll D4 for refill; only advanceAfterShadowCamouflageD4 may advance
   const scWinFaces = (battle.turn as any)?.shadowCamouflageRefillWinFaces;
   const scRoll = (battle.turn as any)?.shadowCamouflageRefillRoll;
@@ -3331,6 +3351,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           }
         }
       }
+      // Soul Devourer heal skipped: do not advance to next attacker until Roger that
+      if ((turn as any).soulDevourerHealSkipAwaitsAck) return;
       const updatesAdvance: Record<string, unknown> = {};
       const effectUpdatesAdv = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updatesAdvance);
       Object.assign(updatesAdvance, effectUpdatesAdv);
@@ -3457,6 +3479,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { }); }, END_ARENA_DELAY_MS);
           return;
         }
+        // Soul Devourer heal skipped: do not advance to next attacker until Roger that
+        if ((turn as any).soulDevourerHealSkipAwaitsAck) return;
         const updatedRoomAdv = { ...room, teamA: { ...room.teamA, members: teamAMembersAdv }, teamB: { ...room.teamB, members: teamBMembersAdv } } as BattleRoom;
         const updatedQueueAdv = buildTurnQueue(updatedRoomAdv, latestEffectsAdv);
         updatesAdv[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueueAdv;
@@ -3813,6 +3837,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         const minions = room[attackerTeam]?.minions || [];
         skeletonsForAttack = minions.filter((m: any) => m.masterId === attackerId);
       }
+      const soulDevourerHealSkipped = lifestealHeal === 0 && isHealingNullified(activeEffects, attackerId);
       mainAttackLogEntry = {
         round: battle.roundNumber,
         attackerId,
@@ -3825,6 +3850,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         missed: false,
         soulDevourerDrain: true,
         soulDevourerHealAmount: lifestealHeal,
+        ...(soulDevourerHealSkipped ? { soulDevourerHealSkipped: true, healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
         powerUsed: battle.turn.usedPowerName,
       };
       const prevLogSd = battle.log || [];
@@ -3839,6 +3865,17 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogSd.slice(0, -1), { ...lastSd, ...mainAttackLogEntry }]);
       } else {
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogSd, mainAttackLogEntry]);
+      }
+      if (soulDevourerHealSkipped) {
+        const turnUpdate: Record<string, unknown> = { ...battle.turn, soulDevourerHealSkipAwaitsAck: true };
+        // Still transition to MINION so skeleton hits run and show; advance is blocked until Roger that
+        if (skeletonsForAttack && skeletonsForAttack.length > 0 && defenderHpAfter > 0) {
+          turnUpdate.resolvingHitIndex = 1;
+          turnUpdate.playbackStep = buildMinionPlaybackStep(room, battle, attackerId, defenderId, 1);
+        }
+        updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        await update(roomRef(arenaId), updates);
+        return;
       }
     } else {
       // Normal attack: compare dice with active effect modifiers

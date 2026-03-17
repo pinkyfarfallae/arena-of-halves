@@ -37,6 +37,7 @@ import {
   skipTurnNoValidTarget,
   selectTargetDisoriented,
   advanceAfterFloralHealSkippedAck,
+  advanceAfterSoulDevourerHealSkippedAck,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
@@ -716,6 +717,14 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await advanceAfterFloralHealSkippedAck(arenaId);
   }, [arenaId]);
 
+  const handleSoulDevourerHealSkippedAck = useCallback(async () => {
+    if (!arenaId) return;
+    await advanceAfterSoulDevourerHealSkippedAck(arenaId);
+    // Brief delay so resolveTurn's get() sees the cleared flag (avoid race)
+    await new Promise((r) => setTimeout(r, 150));
+    await resolveTurn(arenaId); // start skeleton resolve
+  }, [arenaId]);
+
   const handleSelectTargetDisoriented = useCallback(async () => {
     if (arenaId) await selectTargetDisoriented(arenaId);
   }, [arenaId]);
@@ -1113,6 +1122,7 @@ function Arena(props?: ArenaDemoProps) {
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
             onSelectTargetDisoriented={handleSelectTargetDisoriented}
             onHealSkippedAck={handleHealSkippedAck}
+            onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
