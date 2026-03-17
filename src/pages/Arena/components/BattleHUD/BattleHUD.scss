@@ -92,6 +92,11 @@ $crimson-bright: #c41e3a;
     right: 0;
     width: calc((100vw - #{$sidebar-width}) / 2);
   }
+
+  /* Heal-skip overlay: show above skeleton hit card so both visible at once */
+  &--overlay {
+    z-index: 55;
+  }
 }
 
 @keyframes bhud-fade-in {

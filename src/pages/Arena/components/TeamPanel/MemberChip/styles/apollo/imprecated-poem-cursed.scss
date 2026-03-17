@@ -134,13 +134,6 @@ $overlay-glow: rgba(212, 200, 140, 0.2);
   @include mask-gradient-clip;
 }
 
-@media (max-width: $bp-compact) {
-  .mchip__imprecated-poem-cursed-overlay {
-    font-size: 0.5rem;
-    @include mask-right-side-fade;
-  }
-}
-
 /* ── Rising particles (Apollo: gold, amber, light motes) ── */
 $particle-gold: rgba(184, 165, 92, 0.85);
 $particle-amber: rgba(212, 200, 140, 0.7);
@@ -252,5 +245,18 @@ $particle-white-soft: rgba(255, 248, 220, 0.75);
       animation-delay: $delay;
       animation-duration: $dur;
     }
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .mchip__imprecated-poem-cursed-overlay {
+    font-size: 0.5rem;
+    @include mask-right-side-fade;
+  }
+
+  .mchip__imprecated-poem-rise-particles,
+  .mchip__imprecated-poem-rise-particles--white {
+    @include mask-right-side-fade;
+    opacity: 0.7;
   }
 }

@@ -122,28 +122,23 @@
       rgba(255, 249, 196, 0.5) 72%,
       transparent 80%);
   filter:
-    blur(6px)
-    brightness(1.13)
-    drop-shadow(0 0 18px rgba(#ffebf2, 0.6))
-    drop-shadow(0 0 26px rgba(#ffb0d1, 0.5));
+    blur(6px) brightness(1.13) drop-shadow(0 0 18px rgba(#ffebf2, 0.6)) drop-shadow(0 0 26px rgba(#ffb0d1, 0.5));
   /* Curve to point: smooth sides meeting at a sharp tip */
-  clip-path: polygon(
-    0% 50%,
-    8% 32%,
-    18% 18%,
-    35% 8%,
-    55% 5%,
-    75% 12%,
-    92% 35%,
-    100% 50%,
-    92% 65%,
-    75% 88%,
-    55% 95%,
-    35% 92%,
-    18% 82%,
-    8% 68%,
-    0% 50%
-  );
+  clip-path: polygon(0% 50%,
+      8% 32%,
+      18% 18%,
+      35% 8%,
+      55% 5%,
+      75% 12%,
+      92% 35%,
+      100% 50%,
+      92% 65%,
+      75% 88%,
+      55% 95%,
+      35% 92%,
+      18% 82%,
+      8% 68%,
+      0% 50%);
 }
 
 .mchip__petal-fairy-wing--lt {
@@ -1014,99 +1009,6 @@
   }
 }
 
-@media (max-width: v.$bp-compact) {
-  .mchip__petal-wind {
-    opacity: 0.5;
-    @include mask-right-side-fade;
-  }
-
-  .mchip__petal-emission {
-    width: 100%;
-    @include mask-right-side-fade;
-  }
-
-  .mchip__petal-overlay {
-    opacity: 0.75;
-    @include mask-right-side-fade;
-  }
-
-  .mchip__petal-flower {
-    width: 10px;
-    height: 10px;
-  }
-
-  .mchip__petal-fall {
-    &::before {
-      background:
-        radial-gradient(ellipse 8px 5px at 15% 4%, rgba(#ff568f, 0.85) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 9px at 72% 8%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 9px 6px at 42% 14%, rgba(#ffffff, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 8px at 88% 18%, rgba(#ff568f, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 25% 24%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 6px at 58% 30%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 6px 8px at 8% 36%, rgba(#ffffff, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 5px at 78% 42%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 48% 48%, rgba(#ff568f, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 6px at 52% 6%, rgba(#81c784, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 3px at 32% 13%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 90% 22%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 18% 32%, rgba(#81c784, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 65% 40%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 82% 46%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 5px at 15% 54%, rgba(#ff568f, 0.85) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 9px at 72% 58%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 9px 6px at 42% 64%, rgba(#ffffff, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 8px at 88% 68%, rgba(#ff568f, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 25% 74%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 6px at 58% 80%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 6px 8px at 8% 86%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 5px at 78% 92%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 48% 98%, rgba(#ff568f, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 6px at 52% 56%, rgba(#81c784, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 3px at 32% 63%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 90% 72%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 18% 82%, rgba(#81c784, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 65% 90%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 82% 96%, rgba(#66bb6a, 0.7) 0%, transparent 100%);
-    }
-
-    &::after {
-      background:
-        radial-gradient(ellipse 7px 5px at 35% 5%, rgba(#f06292, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 6px 8px at 82% 11%, rgba(#ff568f, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 5px at 55% 19%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 9px at 8% 27%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 6px at 68% 34%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 7px at 22% 41%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 92% 48%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 48% 8%, rgba(#66bb6a, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 3px at 75% 16%, rgba(#81c784, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 4px at 15% 28%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 88% 38%, rgba(#81c784, 0.65) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 4px at 40% 45%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 35% 55%, rgba(#f06292, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 6px 8px at 82% 61%, rgba(#ff568f, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 5px at 55% 69%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 9px at 8% 77%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 8px 6px at 68% 84%, rgba(#f06292, 0.8) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 7px at 22% 91%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 7px 5px at 92% 98%, rgba(#ff568f, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 5px at 48% 58%, rgba(#66bb6a, 0.75) 0%, transparent 100%),
-        radial-gradient(ellipse 5px 3px at 75% 66%, rgba(#81c784, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 4px at 15% 78%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
-        radial-gradient(ellipse 4px 3px at 88% 88%, rgba(#81c784, 0.65) 0%, transparent 100%),
-        radial-gradient(ellipse 3px 4px at 40% 95%, rgba(#66bb6a, 0.7) 0%, transparent 100%);
-    }
-  }
-
-  .mchip__petal-fairy-wing--lt {
-    rotate: -17deg;
-  }
-  .mchip__petal-fairy-wing--rt {
-    rotate: 23deg;
-  }
-}
-
 /* ── White falling lights (Efflorescence Muse — sunlight through leaves); white shine ── */
 .mchip__dryad-lights {
   position: absolute;
@@ -1335,5 +1237,109 @@
   100% {
     opacity: 0;
     transform: translateY(200px) translateX(#{-10 + math.random(20)}px) scale(0.3);
+  }
+}
+
+@media (max-width: v.$bp-compact) {
+  .mchip__petal-wind {
+    opacity: 0.5;
+    @include mask-right-side-fade;
+  }
+
+  .mchip__petal-emission {
+    width: 100%;
+    @include mask-right-side-fade;
+  }
+
+  .mchip--efflorescence-muse .mchip__petal-overlay {
+    opacity: 0.75;
+    @include mask-right-side-fade;
+  }
+
+  .mchip__petal-flower {
+    width: 10px;
+    height: 10px;
+  }
+
+  .mchip__petal-fall {
+    @include mask-right-side-fade;
+
+    &::before {
+      background:
+        radial-gradient(ellipse 8px 5px at 15% 4%, rgba(#ff568f, 0.85) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 9px at 72% 8%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 9px 6px at 42% 14%, rgba(#ffffff, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 8px at 88% 18%, rgba(#ff568f, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 25% 24%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 6px at 58% 30%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 8px at 8% 36%, rgba(#ffffff, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 78% 42%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 48% 48%, rgba(#ff568f, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 6px at 52% 6%, rgba(#81c784, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 32% 13%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 90% 22%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 18% 32%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 65% 40%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 82% 46%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 15% 54%, rgba(#ff568f, 0.85) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 9px at 72% 58%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 9px 6px at 42% 64%, rgba(#ffffff, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 8px at 88% 68%, rgba(#ff568f, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 25% 74%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 6px at 58% 80%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 8px at 8% 86%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 78% 92%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 48% 98%, rgba(#ff568f, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 6px at 52% 56%, rgba(#81c784, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 32% 63%, rgba(#a5d6a7, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 90% 72%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 18% 82%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 65% 90%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 82% 96%, rgba(#66bb6a, 0.7) 0%, transparent 100%);
+    }
+
+    &::after {
+      background:
+        radial-gradient(ellipse 7px 5px at 35% 5%, rgba(#f06292, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 8px at 82% 11%, rgba(#ff568f, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 55% 19%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 9px at 8% 27%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 6px at 68% 34%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 7px at 22% 41%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 92% 48%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 48% 8%, rgba(#66bb6a, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 75% 16%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 15% 28%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 88% 38%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 40% 45%, rgba(#66bb6a, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 35% 55%, rgba(#f06292, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 6px 8px at 82% 61%, rgba(#ff568f, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 5px at 55% 69%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 9px at 8% 77%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 8px 6px at 68% 84%, rgba(#f06292, 0.8) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 7px at 22% 91%, rgba(#f8bbd0, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 7px 5px at 92% 98%, rgba(#ff568f, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 5px at 48% 58%, rgba(#66bb6a, 0.75) 0%, transparent 100%),
+        radial-gradient(ellipse 5px 3px at 75% 66%, rgba(#81c784, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 15% 78%, rgba(#a5d6a7, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 4px 3px at 88% 88%, rgba(#81c784, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 3px 4px at 40% 95%, rgba(#66bb6a, 0.7) 0%, transparent 100%);
+    }
+  }
+
+  .mchip__petal-fairy-wing--lt {
+    rotate: -17deg;
+  }
+
+  .mchip__petal-fairy-wing--rt {
+    rotate: 23deg;
+  }
+
+  .mchip__petal-overlay {
+    background: radial-gradient(ellipse 85% 80% at 50% 50%, rgb(255, 255, 255) 0%, transparent 52%);
+  }
+
+  .mchip__petal-flower-fall {
+    @include mask-right-side-fade;
   }
 }

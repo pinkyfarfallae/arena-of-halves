@@ -98,6 +98,8 @@ interface Props {
   onSelectTargetDisoriented?: () => void;
   /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
   onHealSkippedAck?: () => void;
+  /** When Soul Devourer heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → clear ack flag so skeleton resolve can start */
+  onSoulDevourerHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
@@ -148,7 +150,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onSoulDevourerHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -1011,6 +1013,9 @@ export default function BattleHUD({
     }
     setFloralDelay(false);
   }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
+
+  /* ── Soul Devourer heal skipped: server sets soulDevourerHealSkipAwaitsAck so skeleton resolve does not start until Roger ── */
+  const soulDevourerHealSkipAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerHealSkipAwaitsAck);
 
   /* ── Fade transitions for resolve & waiting panels ── */
   const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
@@ -2042,32 +2047,64 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — show same modal for everyone; only caster sees "Roger that" button. */}
-      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+      {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — only heal receiver (ally target) sees "Roger that"; others see waiting. */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (() => {
+        const floralHealReceiverId = (turn as any).allyTargetId;
+        const floralHealReceiver = floralHealReceiverId ? find(teamA, teamB, floralHealReceiverId) : undefined;
+        const isFloralHealReceiver = myId === floralHealReceiverId;
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+            <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Heal skipped</span>
+              <p className="bhud__no-target-reason">
+                {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
+                  <>
+                    HP recovery has no effect
+                    <br />
+                    because the target has Healing Nullified.
+                  </>
+                ) : 'HP recovery has no effect.'}
+              </p>
+              {isFloralHealReceiver && onHealSkippedAck ? (
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => onHealSkippedAck()}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">Waiting for {floralHealReceiver?.nicknameEng ?? 'heal receiver'}…</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Soul Devourer: heal skipped — block skeleton resolve until heal receiver (caster) clicks Roger that. Others see waiting. */}
+      {soulDevourerHealSkipAwaitsAck && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
           <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
             <span className="bhud__dice-label">Heal skipped</span>
             <p className="bhud__no-target-reason">
-              {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
-              <>
-                HP recovery has no effect
-                <br />
-                because the target has Healing Nullified.
-              </>
-            ) : 'HP recovery has no effect.'}
+              HP recovery has no effect
+              <br />
+              because the caster has Healing Nullified.
             </p>
-            {isMyTurn && onHealSkippedAck ? (
+            {isMyTurn ? (
               <div className="bhud__target-actions">
                 <button
                   type="button"
                   className="bhud__target-confirm"
-                  onClick={() => onHealSkippedAck()}
+                  onClick={() => onSoulDevourerHealSkippedAck?.()}
                 >
                   Roger that
                 </button>
               </div>
             ) : (
-              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}…</p>
+              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'heal receiver'}…</p>
             )}
           </div>
         </div>

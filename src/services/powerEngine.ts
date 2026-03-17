@@ -925,10 +925,11 @@ export function applyImprecatedPoem(
   }
 
   if (poemTag === POEM_VERSE.ETERNAL_AGONY) {
-    // Extend all afflictions on defender by 2 rounds, then poem ends (no effect added)
+    // Extend all afflictions on defender by 2 rounds (2 * queueLen), then poem ends (no effect added)
+    const extendBy = 2 * queueLen;
     for (const e of effects) {
       if (e.targetId === defenderId && isAffliction(e)) {
-        e.turnsRemaining = (e.turnsRemaining ?? 0) + 2;
+        e.turnsRemaining = (e.turnsRemaining ?? 0) + extendBy;
       }
     }
   } else {
