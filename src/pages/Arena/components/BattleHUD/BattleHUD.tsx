@@ -109,6 +109,8 @@ interface Props {
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
   onFloralHealResultCardHidden?: () => void;
+  /** When target modal is used to pick an ally (e.g. Floral Fragrance, Apollo's Hymn), call with selected ally id instead of onSelectTarget. */
+  onSelectAllyTarget?: (allyId: string) => void;
 }
 
 /** Find a fighter across both teams */
@@ -155,7 +157,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -178,6 +180,11 @@ export default function BattleHUD({
       if (power?.name === POWER_NAMES.DEATH_KEEPER) {
         const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp <= 0);
+      }
+      // Ally-heal (Floral Fragrance, Apollo's Hymn, etc.): show alive teammates so target modal is used
+      if (power?.target === TARGET_TYPES.ALLY && !turn?.allyTargetId) {
+        const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
+        return (myTeam ?? []).filter((f) => f.currentHp > 0);
       }
     }
 
@@ -1962,18 +1969,24 @@ export default function BattleHUD({
               </div>
             </div>
           ) : targets.length > 0 ? (
-            <TargetSelectModal
-              attackerName={attacker?.nicknameEng ?? ''}
-              targets={targets}
-              themeColor={attacker?.theme[0]}
-              themeColorDark={attacker?.theme[18]}
-              onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
-              onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
-              backDisabled={backDisabled}
-              subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
-              eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
-              activeEffects={battle?.activeEffects ?? []}
-            />
+            (() => {
+              const isAllyHealTargetSelect = !!(turn?.usedPowerIndex != null && attacker && !turn?.allyTargetId && attacker.powers[turn.usedPowerIndex]?.target === TARGET_TYPES.ALLY && attacker.powers[turn.usedPowerIndex]?.name !== POWER_NAMES.DEATH_KEEPER);
+              return (
+                <TargetSelectModal
+                  attackerName={attacker?.nicknameEng ?? ''}
+                  targets={targets}
+                  themeColor={attacker?.theme[0]}
+                  themeColorDark={attacker?.theme[18]}
+                  onSelect={(id) => setTimeout(() => (isAllyHealTargetSelect && onSelectAllyTarget ? onSelectAllyTarget(id) : onSelectTarget(id)), 0)}
+                  onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
+                  backDisabled={backDisabled}
+                  subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
+                  eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
+                  activeEffects={battle?.activeEffects ?? []}
+                  healTargetSelect={isAllyHealTargetSelect}
+                />
+              );
+            })()
           ) : targets.length === 0 ? (
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
               <span className="bhud__dice-label">No valid target</span>

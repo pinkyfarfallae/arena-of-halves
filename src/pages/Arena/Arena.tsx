@@ -287,6 +287,22 @@ function Arena(props?: ArenaDemoProps) {
     setTimeout(() => { fn(); }, 0);
   }, []);
 
+  const handleSelectAllyTarget = useCallback((allyId: string) => {
+    const turn = room?.battle?.turn;
+    if (!arenaId || turn?.usedPowerIndex == null) return;
+    if (turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE) {
+      if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+      setNpcVisualTarget(allyId);
+      setNpcVisualPowerName(POWER_NAMES.FLORAL_FRAGRANCE);
+      floralVisualTimerRef.current = setTimeout(() => {
+        setNpcVisualTarget(null);
+        setNpcVisualPowerName(null);
+        floralVisualTimerRef.current = null;
+      }, 4000);
+    }
+    runAsync(() => selectAction(arenaId, TURN_ACTION.POWER, turn.usedPowerIndex, allyId));
+  }, [arenaId, room?.battle?.turn, runAsync]);
+
   const onSelectTargetDeferred = useCallback((defenderId: string) => {
     runAsync(() => handleSelectTarget(defenderId));
   }, [runAsync, handleSelectTarget]);
@@ -1156,6 +1172,7 @@ function Arena(props?: ArenaDemoProps) {
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
             onSelectTargetDisoriented={isAttackerNpc ? handleSelectTargetDisoriented : undefined}
             onConfirmDisorientedTarget={isDisorientedPlayerTurn ? handleSelectTarget : undefined}
+            onSelectAllyTarget={handleSelectAllyTarget}
             onHealSkippedAck={handleHealSkippedAck}
             onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
             onSpringHealSkippedAck={handleSpringHealSkippedAck}
