@@ -1125,8 +1125,8 @@ export default function BattleHUD({
     const isSkipDicePower = turn?.action === TURN_ACTION.POWER && (turn?.attackRoll == null || turn?.attackRoll === 0);
     const lastLog = (battle.log || []).at(-1);
     const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
-    // Keraunos: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
-    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+    // Keraunos / Jolt Arc: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
+    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE || turn?.usedPowerName === POWER_NAMES.JOLT_ARC;
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
@@ -1454,7 +1454,8 @@ export default function BattleHUD({
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
   const isKeraunosTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
-  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || defender);
+  const isJoltArcTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.JOLT_ARC;
+  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || isJoltArcTurn || defender);
   if (canFillCache) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
@@ -1475,6 +1476,22 @@ export default function BattleHUD({
           attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
           defenderName: defenderForKeraunos?.nicknameEng ?? defender?.nicknameEng ?? '',
           defenderTheme: defenderForKeraunos?.theme?.[0] ?? defender?.theme?.[0] ?? '',
+          side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        };
+      } else if (turn.usedPowerName === POWER_NAMES.JOLT_ARC && attacker) {
+        // Jolt Arc: เติมจาก client (caster damage); ใช้ defender หรือ turn.defenderId เพื่อชื่อ (อาจยังไม่มี defender ตอนแรก)
+        const def = defender ?? (turn.defenderId ? find(teamA, teamB, turn.defenderId) : undefined);
+        const activeEffects = battle.activeEffects || [];
+        const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
+        const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+        resolveCache.current = {
+          atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+          isHit: true, damage: 0, baseDmg, shockBonus: 0,
+          isPower: true, powerName: POWER_NAMES.JOLT_ARC,
+          critEligible: false, isCrit: false, critRoll: 0,
+          isDodged: false, coAttackHit: false, coAttackDamage: 0,
+          attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+          defenderName: def?.nicknameEng ?? turn.defenderId ?? '', defenderTheme: def?.theme?.[0] ?? '#666',
           side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         };
       } else if (defender) {
@@ -1675,6 +1692,7 @@ export default function BattleHUD({
         const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
         const isKeraunosEntry = (entry as any).powerUsed === POWER_NAMES.KERAUNOS_VOLTAGE;
+        const isJoltArcEntry = (entry as any).powerUsed === POWER_NAMES.JOLT_ARC;
         const mainIdK = turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (turn as any).keraunosMainTargetId : null;
         const secondaryIdsK = (turn as any).keraunosSecondaryTargetIds as string[] | undefined;
         const keraunosTierFromDefender =
@@ -1719,7 +1737,14 @@ export default function BattleHUD({
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
         if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus) {
+          // Jolt Arc: log ไม่มี baseDmg — ใช้ค่าที่ canFillCache เติมไว้ (ไม่เขียนทับ); ถ้ายังไม่มีให้คำนวณจาก caster
+          if (isJoltArcEntry) {
+            delete (rc as any).baseDmg;
+          }
           resolveCache.current = { ...resolveCache.current, ...rc } as any;
+          if (isJoltArcEntry && !resolveCache.current.baseDmg && atk) {
+            resolveCache.current.baseDmg = Math.max(0, atk.damage + getStatModifier(battle.activeEffects || [], entry.attackerId, MOD_STAT.DAMAGE));
+          }
           // Resolve bar must never show power name for Beyond the Nimbus (treat as normal attack); once resolveVisible goes false the fill stops, so force it here
           if (turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) {
             resolveCache.current.isPower = false;
@@ -2495,6 +2520,9 @@ export default function BattleHUD({
           cardData.isCritForKeraunos = !!cardData.isCrit;
           if (cardData.keraunosDamageTier == null) cardData.keraunosDamageTier = 0;
         }
+        if (cardData.powerName === POWER_NAMES.JOLT_ARC && !cardData.baseDmg && attacker) {
+          cardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
+        }
         return (
           <DamageCard
             key={activePlaybackStep.__cardKey}
@@ -2521,16 +2549,22 @@ export default function BattleHUD({
       })()}
 
       {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
-      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && (
+      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && (() => {
+        const masterCardData = { ...resolveCache.current };
+        if (masterCardData.powerName === POWER_NAMES.JOLT_ARC && !masterCardData.baseDmg && attacker) {
+          masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
+        }
+        return (
         <DamageCard
           key={masterDamageCardKey}
-          data={resolveCache.current}
+          data={masterCardData}
           exiting={resolveExiting}
           side={resolveCache.current.side}
           displayMs={masterResolveDisplayMs}
           onDisplayComplete={handleMasterDamageCardComplete}
         />
-      )}
+        );
+      })()}
 
       {/* Transient DamageCard for minion/skeleton hits — show whenever we have skeleton card data during resolve (buffer drives card+hit) */}
       {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && (
