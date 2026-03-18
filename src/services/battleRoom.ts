@@ -2388,7 +2388,26 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
 export const SKIP_REASON_SHADOW_CAMOUFLAGE = POWER_NAMES.SHADOW_CAMOUFLAGING;
 
 /**
+ * For Keraunos Voltage + Disoriented: pick one random main target and up to two random secondaries (per tier, without replacement).
+ */
+function pickKeraunosRandomTargets(validIds: string[]): { mainId: string; secondaryIds: string[] } {
+  const mainId = validIds[Math.floor(Math.random() * validIds.length)];
+  const rest1 = validIds.filter(id => id !== mainId);
+  const secondaryIds: string[] = [];
+  if (rest1.length >= 1) {
+    const s1 = rest1[Math.floor(Math.random() * rest1.length)];
+    secondaryIds.push(s1);
+    if (rest1.length >= 2) {
+      const rest2 = rest1.filter(id => id !== s1);
+      secondaryIds.push(rest2[Math.floor(Math.random() * rest2.length)]);
+    }
+  }
+  return { mainId, secondaryIds };
+}
+
+/**
  * Disoriented: server picks a random valid target and runs the 25% fail check.
+ * For Keraunos Voltage: picks random main + up to 2 random secondaries (per tier).
  * Call when phase is SELECT_TARGET, attacker has Disoriented, and target is not yet chosen (e.g. after Keraunos D4).
  */
 export async function selectTargetDisoriented(arenaId: string): Promise<void> {
@@ -2408,6 +2427,23 @@ export async function selectTargetDisoriented(arenaId: string): Promise<void> {
     await skipTurnNoValidTarget(arenaId);
     return;
   }
+
+  const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+  if (isKeraunos) {
+    const { mainId, secondaryIds } = pickKeraunosRandomTargets(validIds);
+    await update(roomRef(arenaId), {
+      [ARENA_PATH.BATTLE_TURN]: {
+        ...turn,
+        defenderId: mainId,
+        keraunosMainTargetId: mainId,
+        keraunosSecondaryTargetIds: secondaryIds,
+        keraunosTargetStep: null,
+      },
+    });
+    await selectTarget(arenaId, mainId);
+    return;
+  }
+
   const randomId = validIds[Math.floor(Math.random() * validIds.length)];
   await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: { ...turn, defenderId: randomId } });
   await selectTarget(arenaId, randomId);
@@ -2514,20 +2550,26 @@ export async function advanceAfterDisorientedD4(arenaId: string): Promise<void> 
     return;
   }
 
-  // Proceed to attack/defend: set ROLLING_ATTACK, clear Disoriented D4 fields
+  // Proceed: Keraunos Voltage goes to RESOLVING (skip dice); others go to ROLLING_ATTACK. Clear Disoriented D4 fields.
+  const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+  const phaseNext = isKeraunos ? PHASE.RESOLVING : PHASE.ROLLING_ATTACK;
   try {
     const defenderTeam = findFighterTeam(room, defenderId);
     const defenderMinions = defenderTeam ? (room as any)[defenderTeam]?.minions?.filter((m: any) => m.masterId === defenderId) ?? [] : [];
     const turnUpdate: Record<string, unknown> = {
       ...turn,
       defenderId,
-      phase: PHASE.ROLLING_ATTACK,
+      phase: phaseNext,
       disorientedWinFaces: null,
       disorientedRoll: null,
       playbackStep: null,
       resolvingHitIndex: null,
     };
-    if (defenderMinions.length > 0) {
+    if (isKeraunos) {
+      (turnUpdate as Record<string, unknown>).attackRoll = 0;
+      (turnUpdate as Record<string, unknown>).defendRoll = 0;
+    }
+    if (defenderMinions.length > 0 && !isKeraunos) {
       (turnUpdate as Record<string, unknown>).visualDefenderId = defenderMinions[0].characterId;
     }
     updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
@@ -2537,11 +2579,12 @@ export async function advanceAfterDisorientedD4(arenaId: string): Promise<void> 
     updates[ARENA_PATH.BATTLE_TURN] = {
       ...turn,
       defenderId,
-      phase: PHASE.ROLLING_ATTACK,
+      phase: phaseNext,
       disorientedWinFaces: null,
       disorientedRoll: null,
       playbackStep: null,
       resolvingHitIndex: null,
+      ...(isKeraunos ? { attackRoll: 0, defendRoll: 0 } : {}),
     };
     updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
     updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
