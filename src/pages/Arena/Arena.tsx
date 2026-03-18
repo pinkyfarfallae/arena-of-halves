@@ -38,6 +38,7 @@ import {
   selectTargetDisoriented,
   advanceAfterFloralHealSkippedAck,
   advanceAfterSoulDevourerHealSkippedAck,
+  advanceAfterSpringHealSkippedAck,
 } from '../../services/battleRoom';
 import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
@@ -521,10 +522,17 @@ function Arena(props?: ArenaDemoProps) {
       return;
     }
 
-    // NPC: Ephemeral Season Spring — roll D4 for heal amount (crit = 2, else 1), then advance after a short delay so server sees the roll
+    // NPC: Spring heal skipped — wait then ack so D4 roll for heal2 can run (flow: hit → apply heal / show skipped heal & wait for ack → roll next heal crit)
+    const springHealSkipAwaitsAck = (turn as any)?.springHealSkipAwaitsAck;
+    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && teamBIds.has(turn.attackerId)) {
+      schedule(() => advanceAfterSpringHealSkippedAck(arenaId), 1500);
+      return;
+    }
+
+    // NPC: Ephemeral Season Spring — roll D4 for heal amount (crit = 2, else 1), then advance (only when not waiting for skip ack)
     const springWinFaces = (turn as any)?.springHealWinFaces;
     const springRoll = (turn as any)?.springHealRoll;
-    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && Array.isArray(springWinFaces) && springWinFaces.length > 0 && springRoll == null && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && !springHealSkipAwaitsAck && Array.isArray(springWinFaces) && springWinFaces.length > 0 && springRoll == null && teamBIds.has(turn.attackerId)) {
       schedule(async () => {
         const roll = Math.ceil(Math.random() * 4);
         try {
@@ -725,6 +733,10 @@ function Arena(props?: ArenaDemoProps) {
     await resolveTurn(arenaId); // start skeleton resolve
   }, [arenaId]);
 
+  const handleSpringHealSkippedAck = useCallback(async () => {
+    if (arenaId) await advanceAfterSpringHealSkippedAck(arenaId);
+  }, [arenaId]);
+
   const handleSelectTargetDisoriented = useCallback(async () => {
     if (arenaId) await selectTargetDisoriented(arenaId);
   }, [arenaId]);
@@ -794,10 +806,10 @@ function Arena(props?: ArenaDemoProps) {
   const handleSelectSeason = async (season: SeasonKey) => {
     if (!arenaId) return;
     await selectSeason(arenaId, season);
-    // 3s visual delay for the selecting player, then apply effects + end turn
+    // Short delay so season selection is visible, then confirm (e.g. Spring → heal crit roll)
     setTimeout(async () => {
       await confirmSeason(arenaId);
-    }, 3000);
+    }, 200);
   };
 
   const handleCancelSeason = async () => {
@@ -1123,6 +1135,7 @@ function Arena(props?: ArenaDemoProps) {
             onSelectTargetDisoriented={handleSelectTargetDisoriented}
             onHealSkippedAck={handleHealSkippedAck}
             onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
+            onSpringHealSkippedAck={handleSpringHealSkippedAck}
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}

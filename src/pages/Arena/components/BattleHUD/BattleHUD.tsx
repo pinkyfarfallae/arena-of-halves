@@ -100,6 +100,8 @@ interface Props {
   onHealSkippedAck?: () => void;
   /** When Soul Devourer heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → clear ack flag so skeleton resolve can start */
   onSoulDevourerHealSkippedAck?: () => void;
+  /** When Spring heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → advance to D4 roll for heal2 */
+  onSpringHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
@@ -150,7 +152,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onSoulDevourerHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -2083,6 +2085,39 @@ export default function BattleHUD({
         );
       })()}
 
+      {/* Spring (Ephemeral Season): heal skipped (e.g. Healing Nullified) — caster clicks Roger that then D4 roll for heal2. */}
+      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && (turn as any).springHealSkipAwaitsAck && (() => {
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+            <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Heal skipped</span>
+              <p className="bhud__no-target-reason">
+                {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
+                  <>
+                    HP recovery has no effect
+                    <br />
+                    because the caster has Healing Nullified.
+                  </>
+                ) : 'HP recovery has no effect.'}
+              </p>
+              {isMyTurn && onSpringHealSkippedAck ? (
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => onSpringHealSkippedAck()}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}…</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Soul Devourer: heal skipped — block skeleton resolve until heal receiver (caster) clicks Roger that. Others see waiting. */}
       {soulDevourerHealSkipAwaitsAck && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
@@ -2155,8 +2190,8 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL. Player click → write immediately so viewer dice start at same time. */}
-      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
+      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL and not showing heal-skip modal. */}
+      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && !(turn as any).springHealSkipAwaitsAck && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
         const springWinFaces = (turn as any).springHealWinFaces ?? [];
         const springRoll = (turn as any).springHealRoll;
         const springRollDisplay = springRoll ?? springHealRollLocal;
@@ -2541,6 +2576,21 @@ export default function BattleHUD({
           }
 
           if (entry.powerUsed === POWER_NAMES.FLORAL_FRAGRANCE && entry.heal === 0 && (entry as any).healSkipReason) {
+            const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
+            return (
+              <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-power">{entry.powerUsed}</span>
+                <span className="bhud__log-sep">→</span>
+                <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                <span className="bhud__log-skip">Heal skipped</span>
+                <span className="bhud__log-skip-reason">({skipReasonLabel})</span>
+              </div>
+            );
+          }
+
+          if (entry.powerUsed === 'Ephemeral Season: Spring' && entry.heal === 0 && (entry as any).healSkipReason) {
             const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
             return (
               <div className="bhud__log-entry bhud__log-entry--skip" key={i}>

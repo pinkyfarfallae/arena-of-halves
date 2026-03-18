@@ -198,13 +198,15 @@ interface Props {
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
+  /** When true, never show Spring (Ephemeral Season) heal VFX on this chip (e.g. heal2 stored but not yet applied). */
+  suppressSpringHealVfx?: boolean;
   /** Ref for Arena soul float to target this chip's frame center (caster only). */
   casterFrameRef?: RefObject<HTMLDivElement | null>;
   /** Ref for Arena soul float to start from this chip's frame center (defender only). */
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -485,7 +487,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // Spring heal: โชว์ VFX แบบ Floral โดยใช้ state แยก ไม่มี effect อื่นมาเคลียร์
   useEffect(() => {
     const isSpring = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_') && floralFragranceHeal != null && floralFragranceHeal > 0;
-    if (!isSpring) return;
+    if (suppressSpringHealVfx || !isSpring) {
+      setShowSpringHealVfx(false);
+      springShownKeyRef.current = null;
+      return;
+    }
     if (springShownKeyRef.current === floralLogKey) return;
     springShownKeyRef.current = floralLogKey;
     setShowSpringHealVfx(true);
@@ -494,25 +500,42 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       springShownKeyRef.current = null;
     }, 3000);
     return () => clearTimeout(t);
-  }, [floralLogKey ?? '', floralFragranceHeal]);
+  }, [floralLogKey ?? '', floralFragranceHeal, suppressSpringHealVfx]);
 
   useEffect(() => {
-    if (!isFragranceWaved) {
-      prevFragranceRef.current = false;
-      if (springWaveActiveRef.current) return;
-      if (fragranceDelayTimerRef.current) {
-        clearTimeout(fragranceDelayTimerRef.current);
-        fragranceDelayTimerRef.current = null;
+    if (!isFragranceWaved || (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_'))) {
+      if (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_')) {
+        setShowFragranceWave(false);
+        springWaveActiveRef.current = false;
+        if (fragranceDelayTimerRef.current) {
+          clearTimeout(fragranceDelayTimerRef.current);
+          fragranceDelayTimerRef.current = null;
+        }
+        if (fragranceWaveTimerRef.current) {
+          clearTimeout(fragranceWaveTimerRef.current);
+          fragranceWaveTimerRef.current = null;
+        }
       }
-      if (fragranceWaveTimerRef.current) {
-        clearTimeout(fragranceWaveTimerRef.current);
-        fragranceWaveTimerRef.current = null;
+      if (!isFragranceWaved) {
+        prevFragranceRef.current = false;
+        if (springWaveActiveRef.current) return;
+        if (fragranceDelayTimerRef.current) {
+          clearTimeout(fragranceDelayTimerRef.current);
+          fragranceDelayTimerRef.current = null;
+        }
+        if (fragranceWaveTimerRef.current) {
+          clearTimeout(fragranceWaveTimerRef.current);
+          fragranceWaveTimerRef.current = null;
+        }
+        setShowFragranceWave(false);
       }
-      setShowFragranceWave(false);
       return;
     }
     const isSpringKey = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_');
+    if (isSpringKey && suppressSpringHealVfx) return;
     if (!isSpringKey && prevFragranceRef.current) return;
+    // Only show wave when boost would show (same condition as +n HP)
+    if (!(floralFragranceHeal != null && floralFragranceHeal > 0)) return;
 
     // If this fragrance originates from a persistent log entry, check localStorage
     // so we only show it once per client (prevents showing again after reload).
@@ -527,17 +550,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       } catch (e) { }
     }
 
-    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit)
+    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit).
+    // Mark as seen in localStorage immediately (not when the 3s timer fires) so a refresh during the wave doesn't re-show it.
     const showWave = () => {
+      if (floralLogKey && !isSpringKey) {
+        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
+      }
       if (isSpringKey) springWaveActiveRef.current = true;
       setShowFragranceWave(true);
       fragranceWaveTimerRef.current = setTimeout(() => {
         if (isSpringKey) springWaveActiveRef.current = false;
         setShowFragranceWave(false);
         fragranceWaveTimerRef.current = null;
-        if (floralLogKey) {
-          try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
-        }
       }, 3000);
       prevFragranceRef.current = true;
     };
@@ -558,7 +582,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     showWave();
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(isFragranceWaved), floralLogKey ?? '', floralFragranceDelayMs ?? 0]);
+  }, [Boolean(isFragranceWaved), floralFragranceHeal ?? 0, floralLogKey ?? '', floralFragranceDelayMs ?? 0, suppressSpringHealVfx]);
 
   // When healing has ended (result card hidden or not shown) and this chip is the Floral heal target, hide the wave immediately
   const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true);
