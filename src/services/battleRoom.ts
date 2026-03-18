@@ -2806,6 +2806,81 @@ export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/* ── advance after Spring heal skipped ack (heal1 skip → show D4 roll for heal2; heal2 skip → clear Spring and advance) ─── */
+
+export async function advanceAfterSpringHealSkippedAck(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL || !(turn as any).springHealSkipAwaitsAck) return;
+
+  const attackerId = turn.attackerId;
+  if (!attackerId || !battle) return;
+
+  const springHeal2Ack = (battle as { springHeal2?: number | null }).springHeal2;
+  if (springHeal2Ack != null) {
+    // R{n+2} heal2 was skipped: clear Spring and advance to next turn (no D4).
+    const latestEffects = battle.activeEffects || [];
+    const currentEffects = latestEffects.filter((e: ActiveEffect) => e.tag !== EFFECT_TAGS.SEASON_SPRING);
+    const updatedQueue = buildTurnQueue(room, currentEffects);
+    const currentIdx = updatedQueue.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
+    const fromIdx = currentIdx !== -1 ? currentIdx : battle.currentTurnIndex;
+    const updatedRoom = { ...room, battle: { ...battle, activeEffects: currentEffects } } as BattleRoom;
+    const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, currentEffects);
+    const nextEntry = updatedQueue[nextIdx];
+    const selfRes = applySelfResurrect(nextEntry.characterId, updatedRoom, currentEffects, {}, battle);
+    const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+    const activeEff = currentEffects;
+    const updates: Record<string, unknown> = {
+      [ARENA_PATH.BATTLE_SPRING_CASTER_ID]: null,
+      [ARENA_PATH.BATTLE_SPRING_HEAL1]: null,
+      [ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED]: null,
+      [ARENA_PATH.BATTLE_SPRING_HEAL2]: null,
+      [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: currentEffects,
+      [ARENA_PATH.BATTLE_TURN_QUEUE]: updatedQueue,
+      [ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE]: null,
+    };
+    if (nextFighter && !selfRes && isStunned(activeEff, nextEntry.characterId)) {
+      const { index: skipIdx } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, currentEffects);
+      const skipEntry = updatedQueue[skipIdx];
+      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = battle.roundNumber + (wrapped ? 1 : 0);
+      updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+    } else {
+      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+      updates[ARENA_PATH.BATTLE_TURN] = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION, ...(selfRes ? { resurrectTargetId: nextEntry.characterId } : {}) };
+    }
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // Heal1 skipped: set up D4 roll for heal2.
+  const caster = findFighter(room, attackerId);
+  const baseCritRate = caster ? (typeof caster.criticalRate === 'number' ? caster.criticalRate : 25) : 25;
+  const latestEffects = battle.activeEffects || [];
+  const healCritRate = Math.min(100, Math.max(0, baseCritRate + getStatModifier(latestEffects, attackerId, MOD_STAT.CRITICAL_RATE)));
+  const winFaces = getWinningFaces(healCritRate);
+
+  const turnObj = turn as unknown as Record<string, unknown>;
+  const { springHealSkipAwaitsAck: _, healSkipReason: __, ...rest } = turnObj;
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_TURN]: {
+      ...rest,
+      phase: PHASE.ROLLING_SPRING_HEAL,
+      springHealWinFaces: winFaces,
+      springRound: 2,
+      playbackStep: null,
+      resolvingHitIndex: null,
+    },
+    [ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE]: true,
+  };
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── advance after Spring (Ephemeral Season) D4 heal roll ─── */
 
 export async function advanceAfterSpringHealD4(arenaId: string): Promise<void> {
@@ -2836,7 +2911,7 @@ export async function advanceAfterSpringHealD4(arenaId: string): Promise<void> {
   const updatedRoom = room;
 
   if (springRound === 1) {
-    // ตอน confirm ทอย heal1 ได้ amount → เก็บ heal1 แล้ว advance ไปคนถัดไป (คนนั้นตีก่อนค่อยฮีลใน resolveTurn)
+    // R{n}: confirm Spring → roll heal crit 1 → store amount, advance to next fighter (no heal for caster this turn; heal1 applied when caster does action in R{n+1})
     updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = amount;
     updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [];
     const logEntry = {
@@ -2853,7 +2928,7 @@ export async function advanceAfterSpringHealD4(arenaId: string): Promise<void> {
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
   } else {
-    // springRound === 2: stored heal2; caster will get it after their next attack (in resolveTurn). Just advance.
+    // R{n+1} after roll heal crit 2: store heal2, advance to next fighter (no heal for caster this turn; heal2 applied when caster does action in R{n+2})
     updates[ARENA_PATH.BATTLE_SPRING_HEAL2] = amount;
   }
 
@@ -3293,20 +3368,120 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const skeletonsForAttackSk = minions.filter((m: any) => m.masterId === attackerId);
     const skIndex = resolvingHitIndex - 1;
 
-    // Past last skeleton: client already saw last hit card and called resolve again → check Spring (D4 heal2) then advance
+    // Past last skeleton: client already saw last hit card and called resolve again → check Spring (heal2 or heal1) then advance
     if (skIndex >= skeletonsForAttackSk.length) {
       const springCasterIdSk = (battle as { springCasterId?: string }).springCasterId;
       const springHeal1Sk = (battle as { springHeal1?: number }).springHeal1;
       const springHeal1ReceivedSk = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
       const springHeal2Sk = (battle as { springHeal2?: number | null }).springHeal2;
       const isCasterTeamSk = springCasterIdSk && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterIdSk) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
+      // R{n+2}: caster has heal2 pending — apply it or show skipped-heal modal
+      if (springCasterIdSk && isCasterTeamSk && springHeal2Sk != null && attackerId === springCasterIdSk) {
+        const rawEffH2 = battle.activeEffects;
+        const effectsH2: ActiveEffect[] = Array.isArray(rawEffH2) ? rawEffH2 : (rawEffH2 && typeof rawEffH2 === 'object' ? Object.values(rawEffH2) : []) as ActiveEffect[];
+        const springHeal2SkippedSk = isHealingNullified(effectsH2, attackerId);
+        const pathH2 = findFighterPath(room, attackerId);
+        if (pathH2) {
+          const fighterH2 = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+          const effectiveHealH2 = getEffectiveHealForReceiver(springHeal2Sk, fighterH2 ?? null, attackerId, effectsH2);
+          const springHeal2SkippedSk2 = springHeal2SkippedSk || effectiveHealH2 === 0;
+          const healAmountH2 = springHeal2SkippedSk2 ? 0 : effectiveHealH2;
+          const hpKeyH2 = `${pathH2}/currentHp`;
+          const currentHpH2 = (fighterH2?.currentHp ?? 0) as number;
+          const newHpH2 = Math.min(fighterH2?.maxHp ?? 999, currentHpH2 + healAmountH2);
+          const springUpdH2: Record<string, unknown> = { [hpKeyH2]: newHpH2 };
+          const logArrH2 = [...(battle.log || [])];
+          logArrH2.push({
+            round: battle.roundNumber,
+            attackerId,
+            defenderId: attackerId,
+            attackRoll: 0,
+            defendRoll: 0,
+            damage: 0,
+            heal: healAmountH2,
+            defenderHpAfter: newHpH2,
+            eliminated: false,
+            missed: false,
+            powerUsed: 'Ephemeral Season: Spring',
+            springHeal: springHeal2Sk,
+            springHealCrit: springHeal2Sk === 2,
+            ...(springHeal2SkippedSk2 ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
+          });
+          springUpdH2[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArrH2);
+          if (springHeal2SkippedSk2) {
+            springUpdH2[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+            springUpdH2[ARENA_PATH.BATTLE_TURN] = {
+              attackerId,
+              attackerTeam: turn.attackerTeam,
+              phase: PHASE.ROLLING_SPRING_HEAL,
+              springHealSkipAwaitsAck: true,
+              healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+              playbackStep: null,
+              resolvingHitIndex: null,
+            };
+            springUpdH2[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+            springUpdH2[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+            springUpdH2[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+            await update(roomRef(arenaId), springUpdH2);
+            return;
+          }
+          // Heal2 applied: clear Spring and fall through to advance
+          springUpdH2[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = null;
+          springUpdH2[ARENA_PATH.BATTLE_SPRING_HEAL1] = null;
+          springUpdH2[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = null;
+          springUpdH2[ARENA_PATH.BATTLE_SPRING_HEAL2] = null;
+          const currentEffH2 = battle.activeEffects || [];
+          const withoutSpringH2 = currentEffH2.filter((e: ActiveEffect) => e.tag !== EFFECT_TAGS.SEASON_SPRING);
+          springUpdH2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutSpringH2;
+          const effectUpdatesH2 = await tickEffectsWithSkeletonBlock(arenaId, room, battle, springUpdH2);
+          Object.assign(springUpdH2, effectUpdatesH2);
+          const battleAfterH2 = springUpdH2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] ? { ...battle, activeEffects: springUpdH2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] } : battle;
+          const getHpAfterH2 = (m: FighterState) => {
+            const p = findFighterPath(room, m.characterId);
+            if (p && `${p}/currentHp` in springUpdH2) return springUpdH2[`${p}/currentHp`] as number;
+            return m.currentHp;
+          };
+          const teamAMembersH2 = (room.teamA?.members || []).map((m: FighterState) => ({ ...m, currentHp: getHpAfterH2(m) }));
+          const teamBMembersH2 = (room.teamB?.members || []).map((m: FighterState) => ({ ...m, currentHp: getHpAfterH2(m) }));
+          const latestEffH2 = (springUpdH2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battleAfterH2.activeEffects || [];
+          const updatedRoomH2 = { ...room, teamA: { ...room.teamA, members: teamAMembersH2 }, teamB: { ...room.teamB, members: teamBMembersH2 } } as BattleRoom;
+          const updatedQueueH2 = buildTurnQueue(updatedRoomH2, latestEffH2);
+          springUpdH2[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueueH2;
+          const currentAttackerIdxH2 = updatedQueueH2.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
+          const fromIdxH2 = currentAttackerIdxH2 !== -1 ? currentAttackerIdxH2 : battle.currentTurnIndex;
+          const { index: nextIdxH2, wrapped: wrappedH2 } = nextAliveIndex(updatedQueueH2, fromIdxH2, updatedRoomH2, latestEffH2);
+          const nextEntryH2 = updatedQueueH2[nextIdxH2];
+          const selfResH2 = applySelfResurrect(nextEntryH2.characterId, updatedRoomH2, latestEffH2, springUpdH2, battle);
+          const nextFighterH2 = findFighter(updatedRoomH2, nextEntryH2.characterId);
+          const activeEffH2 = (springUpdH2[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffH2;
+          if (nextFighterH2 && !selfResH2 && isStunned(activeEffH2, nextEntryH2.characterId)) {
+            const { index: skipIdxH2 } = nextAliveIndex(updatedQueueH2, nextIdxH2, { ...updatedRoomH2 }, latestEffH2);
+            const skipEntryH2 = updatedQueueH2[skipIdxH2];
+            springUpdH2[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdxH2;
+            springUpdH2[ARENA_PATH.BATTLE_ROUND_NUMBER] = battle.roundNumber + (wrappedH2 ? 1 : 0);
+            springUpdH2[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntryH2.characterId, attackerTeam: skipEntryH2.team, phase: PHASE.SELECT_ACTION };
+          } else {
+            springUpdH2[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdxH2;
+            springUpdH2[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrappedH2 ? battle.roundNumber + 1 : battle.roundNumber;
+            springUpdH2[ARENA_PATH.BATTLE_TURN] = { attackerId: nextEntryH2.characterId, attackerTeam: nextEntryH2.team, phase: PHASE.SELECT_ACTION, ...(selfResH2 ? { resurrectTargetId: nextEntryH2.characterId } : {}) };
+          }
+          springUpdH2[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+          springUpdH2[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+          springUpdH2[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+          await update(roomRef(arenaId), springUpdH2);
+          return;
+        }
+      }
       if (springCasterIdSk && isCasterTeamSk && springHeal2Sk == null && springHeal1Sk != null && !springHeal1ReceivedSk.includes(attackerId)) {
         const pathSk = findFighterPath(room, attackerId);
         if (pathSk) {
           const hpKeySk = `${pathSk}/currentHp`;
           const fighterSk = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
           const currentHpSk = (fighterSk?.currentHp ?? 0) as number;
-          const healAmountSk = getEffectiveHealForReceiver(springHeal1Sk, fighterSk ?? null, attackerId, battle.activeEffects || []);
+          const rawSk = battle.activeEffects;
+          const effectsSk: ActiveEffect[] = Array.isArray(rawSk) ? rawSk : (rawSk && typeof rawSk === 'object' ? Object.values(rawSk) : []) as ActiveEffect[];
+          const springHealSkippedSk = isHealingNullified(effectsSk, attackerId);
+          const healAmountSk = springHealSkippedSk ? 0 : getEffectiveHealForReceiver(springHeal1Sk, fighterSk ?? null, attackerId, effectsSk);
           const newHpSk = Math.min(fighterSk?.maxHp ?? 999, currentHpSk + healAmountSk);
           const springUpd: Record<string, unknown> = { [hpKeySk]: newHpSk };
           const logArrSk = [...(battle.log || [])];
@@ -3324,10 +3499,28 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             powerUsed: 'Ephemeral Season: Spring',
             springHeal: springHeal1Sk,
             springHealCrit: springHeal1Sk === 2,
+            ...(springHealSkippedSk ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
           });
           springUpd[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArrSk);
           springUpd[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [...springHeal1ReceivedSk, attackerId];
-          if (attackerId === springCasterIdSk) {
+          if (attackerId === springCasterIdSk && springHealSkippedSk) {
+            springUpd[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+            springUpd[ARENA_PATH.BATTLE_TURN] = {
+              attackerId,
+              attackerTeam: turn.attackerTeam,
+              phase: PHASE.ROLLING_SPRING_HEAL,
+              springHealSkipAwaitsAck: true,
+              healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+              playbackStep: null,
+              resolvingHitIndex: null,
+            };
+            springUpd[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+            springUpd[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+            springUpd[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+            await update(roomRef(arenaId), springUpd);
+            return;
+          }
+          if (attackerId === springCasterIdSk && !springHealSkippedSk) {
             const casterSk = findFighter(room, attackerId);
             const baseCritSk = casterSk ? (typeof casterSk.criticalRate === 'number' ? casterSk.criticalRate : 25) : 25;
             const latestEffSk = battle.activeEffects || [];
@@ -3409,7 +3602,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             const hpKeyAdv = `${pathAdv}/currentHp`;
             const fighterAdv = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
             const currentHpAdv = (fighterAdv?.currentHp ?? 0) as number;
-            const healAmountAdv = getEffectiveHealForReceiver(springHeal1Adv, fighterAdv ?? null, attackerId, battle.activeEffects || []);
+            const rawAdv = battle.activeEffects;
+            const effectsAdv: ActiveEffect[] = Array.isArray(rawAdv) ? rawAdv : (rawAdv && typeof rawAdv === 'object' ? Object.values(rawAdv) : []) as ActiveEffect[];
+            const springHealSkippedAdv = isHealingNullified(effectsAdv, attackerId);
+            const healAmountAdv = springHealSkippedAdv ? 0 : getEffectiveHealForReceiver(springHeal1Adv, fighterAdv ?? null, attackerId, effectsAdv);
             const newHpAdv = Math.min(fighterAdv?.maxHp ?? 999, currentHpAdv + healAmountAdv);
             const springUpdAdv: Record<string, unknown> = { [hpKeyAdv]: newHpAdv };
             const logArrAdv = [...(battle.log || [])];
@@ -3427,9 +3623,24 @@ export async function resolveTurn(arenaId: string): Promise<void> {
               powerUsed: 'Ephemeral Season: Spring',
               springHeal: springHeal1Adv,
               springHealCrit: springHeal1Adv === 2,
+              ...(springHealSkippedAdv ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
             });
             springUpdAdv[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArrAdv);
             springUpdAdv[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = [...springHeal1ReceivedAdv, attackerId];
+            if (springHealSkippedAdv) {
+              springUpdAdv[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+              springUpdAdv[ARENA_PATH.BATTLE_TURN] = {
+                attackerId,
+                attackerTeam: turn.attackerTeam,
+                phase: PHASE.ROLLING_SPRING_HEAL,
+                springHealSkipAwaitsAck: true,
+                healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+                playbackStep: null,
+                resolvingHitIndex: null,
+              };
+              await update(roomRef(arenaId), springUpdAdv);
+              return;
+            }
             const casterAdv = findFighter(room, attackerId);
             const baseCritAdv = casterAdv ? (typeof casterAdv.criticalRate === 'number' ? casterAdv.criticalRate : 25) : 25;
             const healCritRateAdv = Math.min(100, Math.max(0, baseCritAdv + getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE)));
@@ -4203,10 +4414,15 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   if (springCasterId && isCasterTeam) {
     // Caster already has heal2: apply it after this attack, then clear Spring.
     if (springHeal2 != null && attackerId === springCasterId) {
+      const rawEff = room.battle?.activeEffects ?? battle.activeEffects;
+      const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff) ? rawEff : (rawEff && typeof rawEff === 'object' ? Object.values(rawEff) : []) as ActiveEffect[];
+      let springHeal2Skipped = isHealingNullified(effectsForHeal, attackerId);
       const path = findFighterPath(room, attackerId);
       if (path) {
         const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
-        const healAmount = getEffectiveHealForReceiver(springHeal2, fighter ?? null, attackerId, battle.activeEffects || []);
+        const effectiveHeal = getEffectiveHealForReceiver(springHeal2, fighter ?? null, attackerId, effectsForHeal);
+        springHeal2Skipped = springHeal2Skipped || effectiveHeal === 0;
+        const healAmount = springHeal2Skipped ? 0 : effectiveHeal;
         const hpKey = `${path}/currentHp`;
         const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
         const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
@@ -4226,8 +4442,24 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           powerUsed: 'Ephemeral Season: Spring',
           springHeal: springHeal2,
           springHealCrit: springHeal2 === 2,
+          ...(springHeal2Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
         });
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
+      }
+      if (springHeal2Skipped) {
+        // R{n+2} heal2 skipped: show skipped-heal modal; on ack we clear Spring and advance (no D4).
+        updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          attackerId,
+          attackerTeam: turn.attackerTeam,
+          phase: PHASE.ROLLING_SPRING_HEAL,
+          springHealSkipAwaitsAck: true,
+          healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
       }
       updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = null;
       updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = null;
@@ -4241,11 +4473,16 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       latestEffects = withoutSpring;
     } else if (springHeal1 != null && !springHeal1Received.includes(attackerId)) {
       // This attacker hasn't received heal1 yet: heal them (ตีก่อนค่อยฮีล = attack already done).
+      const rawEff1 = room.battle?.activeEffects ?? battle.activeEffects;
+      const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff1) ? rawEff1 : (rawEff1 && typeof rawEff1 === 'object' ? Object.values(rawEff1) : []) as ActiveEffect[];
+      let springHeal1Skipped = isHealingNullified(effectsForHeal, attackerId);
       const path = findFighterPath(room, attackerId);
       if (path) {
         const hpKey = `${path}/currentHp`;
         const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
-        const healAmount = getEffectiveHealForReceiver(springHeal1, fighter ?? null, attackerId, battle.activeEffects || []);
+        const effectiveHeal = getEffectiveHealForReceiver(springHeal1, fighter ?? null, attackerId, effectsForHeal);
+        springHeal1Skipped = springHeal1Skipped || effectiveHeal === 0;
+        const healAmount = springHeal1Skipped ? 0 : effectiveHeal;
         const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
         const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
         updates[hpKey] = newHp;
@@ -4264,17 +4501,35 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           powerUsed: 'Ephemeral Season: Spring',
           springHeal: springHeal1,
           springHealCrit: springHeal1 === 2,
+          ...(springHeal1Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
         });
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
       }
       const nextReceived = [...springHeal1Received, attackerId];
       updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = nextReceived;
       const currentEffects1 = [...((updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [])];
-      addSunbornSovereignRecoveryStack(room, currentEffects1, springCasterId!);
-      addSunbornSovereignRecoveryStack(room, currentEffects1, attackerId);
+      if (!springHeal1Skipped) {
+        addSunbornSovereignRecoveryStack(room, currentEffects1, springCasterId!);
+        addSunbornSovereignRecoveryStack(room, currentEffects1, attackerId);
+      }
       updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = currentEffects1;
 
       if (attackerId === springCasterId) {
+        if (springHeal1Skipped) {
+          // Heal skipped (e.g. Healing Nullified): show modal, then on ack advance to D4 roll for heal2.
+          updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+          updates[ARENA_PATH.BATTLE_TURN] = {
+            attackerId,
+            attackerTeam: turn.attackerTeam,
+            phase: PHASE.ROLLING_SPRING_HEAL,
+            springHealSkipAwaitsAck: true,
+            healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+            playbackStep: null,
+            resolvingHitIndex: null,
+          };
+          await update(roomRef(arenaId), updates);
+          return;
+        }
         // Caster got heal1; now roll for heal2.
         const caster = findFighter(room, attackerId);
         const baseCritRate = caster ? (typeof caster.criticalRate === 'number' ? caster.criticalRate : 25) : 25;

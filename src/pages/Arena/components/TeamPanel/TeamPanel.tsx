@@ -391,10 +391,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const logHasSpring = springLogIndex >= 0 && springHealFromLog > 0;
         const battleSpringHeal1 = battle != null ? (battle as { springHeal1?: number }).springHeal1 : undefined;
         const isSpringCasterInPhase = turn?.phase === PHASE.ROLLING_SPRING_HEAL && String(turn.attackerId) === String(m.characterId);
-        const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null;
+        const springRound = (turn as any)?.springRound as number | undefined;
+        const springCasterId = (battle as { springCasterId?: string })?.springCasterId;
+        const battleSpringHeal2 = battle != null ? (battle as { springHeal2?: number | null }).springHeal2 : undefined;
+        const springHealSkipAwaitsAck = !!(turn as any)?.springHealSkipAwaitsAck;
+        // Round 2 = D4 roll for heal2 only; no heal applied this turn — do not show heal VFX for caster.
+        const isSpringRound2Caster = springRound === 2 && String(m.characterId) === String(springCasterId);
+        // Heal2 stored but not yet applied (we advanced after roll heal crit 2) — do not show heal VFX for caster until heal2 is applied in resolveTurn.
+        const isSpringHeal2PendingCaster = battleSpringHeal2 != null && String(m.characterId) === String(springCasterId);
+        // Skipped-heal modal is showing (e.g. Healing Nullified) — do not show heal VFX for caster until they ack.
+        const isSpringHealSkipModalCaster = turn?.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && String(m.characterId) === String(springCasterId);
+        const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null && springRound !== 2 && !springHealSkipAwaitsAck;
         // Spring โชว์เฉพาะเมื่อ heal เป็น entry ล่าสุดใน log หรืออยู่ phase D4 — ไม่โชว์ซ้ำตอนเริ่มเทิร์นถัดไป (เทิร์นสุดท้ายก่อน Spring หมด)
         const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
-        const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex);
+        const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
         // Apollo's Hymn: heal VFX (sun/corona wave) — show on both caster and ally when log has APOLLO_S_HYMN
@@ -434,15 +444,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
         // Never use client state for Floral Fragrance — avoids jitter (flash before D4). Show only from server: roll result or log.
         const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
-        // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack; heal is done, hide fragrance wave
+        // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack
         const postHealFollowUp = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.allyTargetId);
 
         const isFragranceWaved =
           (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
           || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp && !isImprecatedPoemHealingNullified)
           || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
-          || (!!logHasFloral && !postHealFollowUp)
-          || (!!(springHealIsLatestEntry || springFromPhase) && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
+          || !!logHasFloral
+          || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
           || !!tagBasedProps.isFragranceWaved;
 
         const isHymnWaved = (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
@@ -601,6 +611,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             }
             soulDevourerHealAmount={soulDevourerHealFromLog?.amount}
             soulDevourerHealKey={soulDevourerHealFromLog?.key}
+            suppressSpringHealVfx={isSpringHeal2PendingCaster || isSpringHealSkipModalCaster}
             casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
           />
