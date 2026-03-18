@@ -925,13 +925,15 @@ export function applyImprecatedPoem(
   }
 
   if (poemTag === POEM_VERSE.ETERNAL_AGONY) {
-    // Extend all afflictions on defender by 2 rounds (2 * queueLen), then poem ends (no effect added)
+    // Eternal Agony: extend afflictions that still have turns left by 2 rounds (2 * queueLen). ถ้า effect มี 0 รอบคงเหลือ (หมดผลแล้ว) ไม่ขยาย
     const extendBy = 2 * queueLen;
     for (const e of effects) {
-      if (e.targetId === defenderId && isAffliction(e)) {
-        e.turnsRemaining = (e.turnsRemaining ?? 0) + extendBy;
+      const remaining = e.turnsRemaining ?? 0;
+      if (e.targetId === defenderId && isAffliction(e) && remaining > 0) {
+        e.turnsRemaining = remaining + extendBy;
       }
     }
+    // Eternal Agony เอาเข้าไป 3 วินาทีเสร็จแล้วลบออก — ไม่ push ที่นี่ เพราะ tickEffects จะลบ effect ที่ turnsRemaining === 0; battleRoom จะเพิ่มหลัง tick แล้วตั้งเวลา 3s ลบ
   } else {
     // HEALING_NULLIFIED or DISORIENTED: add effect for 2 rounds
     const existing = effects.find(e => e.targetId === defenderId && e.tag === poemTag);

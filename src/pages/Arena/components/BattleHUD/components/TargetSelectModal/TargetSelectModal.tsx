@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FighterState } from '../../../../../../types/battle';
+import type { ActiveEffect } from '../../../../../../types/power';
+import { isAffliction } from '../../../../../../data/statusCategory';
 import './TargetSelectModal.scss';
 
 const RANDOM_CYCLE_MS = 150;
@@ -28,9 +30,13 @@ interface Props {
   confirmLabel?: string;
   /** When set, show target list but no actions — display this as "Waiting for..." (e.g. for viewers/allies during Disoriented). */
   waitingForLabel?: string;
+  /** When true (Eternal Agony selected), show "No afflictions" on targets that have no afflictions. */
+  eternalAgonySelected?: boolean;
+  /** Used with eternalAgonySelected to compute which targets have no afflictions. */
+  activeEffects?: ActiveEffect[];
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cyclingIndex, setCyclingIndex] = useState<number>(0);
   const [isRandomizing, setIsRandomizing] = useState(false);
@@ -114,26 +120,39 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
         {waitingForLabel ? (subtitle ?? waitingForLabel) : (subtitle ?? (randomMode ? (selectedId ? 'Click Confirm to continue' : 'Click Random to pick target') : `${attackerName}'s turn`))}
       </span>
       <div className="bhud__targets-list">
-        {targets.map((t) => (
-          <button
-            key={t.characterId}
-            className={`bhud__target-btn${(randomMode && !waitingForLabel ? highlightId === t.characterId : selectedId === t.characterId) ? ' bhud__target-btn--selected' : ''}${waitingForLabel || randomMode ? ' bhud__target-btn--no-click' : ''}`}
-            style={{ '--t-color': t.theme[0] } as React.CSSProperties}
-            onClick={waitingForLabel || randomMode ? undefined : () => !isRandomizing && setSelectedId(t.characterId)}
-            type="button"
-            disabled={!!waitingForLabel}
-          >
-            {t.image ? (
-              <img className="bhud__target-img" src={t.image} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="bhud__target-initial" style={{ background: t.theme[0], color: t.theme[9] }}>{t.nicknameEng.charAt(0)}</span>
-            )}
-            <div className="bhud__target-info">
-              <span className="bhud__target-name">{t.nicknameEng}</span>
-              <span className="bhud__target-hp">{t.currentHp}/{t.maxHp}</span>
-            </div>
-          </button>
-        ))}
+        {targets.map((t) => {
+          const targetEffs = (eternalAgonySelected && activeEffects) ? activeEffects.filter((e) => String(e.targetId) === String(t.characterId)) : [];
+          const hasAffliction = targetEffs.some((e) => isAffliction(e) && (e.turnsRemaining ?? 0) > 0);
+          const showNoAfflictionWarning = eternalAgonySelected && !hasAffliction;
+          return (
+            <button
+              key={t.characterId}
+              className={`bhud__target-btn${(randomMode && !waitingForLabel ? highlightId === t.characterId : selectedId === t.characterId) ? ' bhud__target-btn--selected' : ''}${waitingForLabel || randomMode ? ' bhud__target-btn--no-click' : ''}`}
+              style={{ '--t-color': t.theme[0] } as React.CSSProperties}
+              onClick={waitingForLabel || randomMode ? undefined : () => !isRandomizing && setSelectedId(t.characterId)}
+              type="button"
+              disabled={!!waitingForLabel}
+            >
+              {t.image ? (
+                <img className="bhud__target-img" src={t.image} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="bhud__target-initial" style={{ background: t.theme[0], color: t.theme[9] }}>{t.nicknameEng.charAt(0)}</span>
+              )}
+              <div className="bhud__target-info">
+                <span className="bhud__target-name">{t.nicknameEng}</span>
+                <span className="bhud__target-hp-line">
+                  <span className="bhud__target-hp">{t.currentHp}/{t.maxHp}</span>
+                  {showNoAfflictionWarning && (
+                    <>
+                      <span className="bhud__target-hp-divider" aria-hidden="true"> · </span>
+                      <span className="bhud__target-no-affliction" title="Eternal Agony will not extend any duration on this target.">No afflictions</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
       <div className="bhud__target-actions">
         {waitingForLabel ? (
