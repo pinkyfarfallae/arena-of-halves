@@ -3246,18 +3246,6 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
     ...(powerNoDefend ? { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: 0 } : {}),
   };
 
-  // Quota gain: roll + attackDiceUp + buff modifiers >= 11
-  const attacker = findFighter(room, battle.turn.attackerId);
-  if (attacker) {
-    const buffMod = getStatModifier(battle.activeEffects || [], attacker.characterId, MOD_STAT.ATTACK_DICE_UP);
-    const recoveryMod = getStatModifier(battle.activeEffects || [], attacker.characterId, MOD_STAT.RECOVERY_DICE_UP);
-    const total = roll + attacker.attackDiceUp + buffMod + recoveryMod;
-    if (total >= 11 && attacker.quota < attacker.maxQuota) {
-      const atkPath = findFighterPath(room, attacker.characterId);
-      if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + 1;
-    }
-  }
-
   await update(roomRef(arenaId), updates);
 }
 
@@ -3275,18 +3263,71 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
     [ARENA_PATH.BATTLE_TURN_PHASE]: PHASE.RESOLVING,
   };
 
-  // Quota gain: roll + defendDiceUp + buff modifiers >= 11
-  const defender = battle.turn.defenderId ? findFighter(room, battle.turn.defenderId) : undefined;
-  if (defender) {
-    const buffMod = getStatModifier(battle.activeEffects || [], defender.characterId, MOD_STAT.DEFEND_DICE_UP);
-    const recoveryMod = getStatModifier(battle.activeEffects || [], defender.characterId, MOD_STAT.RECOVERY_DICE_UP);
-    const total = roll + defender.defendDiceUp + buffMod + recoveryMod;
-    if (total >= 11 && defender.quota < defender.maxQuota) {
-      const defPath = findFighterPath(room, defender.characterId);
-      if (defPath) updates[`${defPath}/quota`] = defender.quota + 1;
-    }
+  await update(roomRef(arenaId), updates);
+}
+
+/** เรียกเมื่อ animation เต๋าโจมตีจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+export async function ackAttackDiceShown(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.attackRoll == null) return;
+  if ((turn as unknown as Record<string, unknown>).attackQuotaRefilled) return;
+
+  const attackerId = turn.attackerId;
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+
+  const activeEffects = battle?.activeEffects || [];
+  const atkBuff = getStatModifier(activeEffects, attackerId, MOD_STAT.ATTACK_DICE_UP);
+  const atkRecovery = getStatModifier(activeEffects, attackerId, MOD_STAT.RECOVERY_DICE_UP);
+  const total = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
+  const turnWithFlag = { ...turn, attackQuotaRefilled: true } as Record<string, unknown>;
+  if (total < 11 || attacker.quota >= (attacker.maxQuota ?? 0)) {
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
+    return;
   }
 
+  const atkPath = findFighterPath(room, attackerId);
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
+  };
+  if (atkPath) updates[`${atkPath}/quota`] = Math.min(attacker.quota + 1, attacker.maxQuota ?? 0);
+  await update(roomRef(arenaId), updates);
+}
+
+/** เรียกเมื่อ animation เต๋าป้องกันจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+export async function ackDefendDiceShown(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESOLVING || turn.defendRoll == null) return;
+  if ((turn as unknown as Record<string, unknown>).defendQuotaRefilled) return;
+
+  const defenderId = turn.defenderId;
+  if (!defenderId) return;
+  const defender = findFighter(room, defenderId);
+  if (!defender) return;
+
+  const activeEffects = battle?.activeEffects || [];
+  const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
+  const defRecovery = getStatModifier(activeEffects, defenderId, MOD_STAT.RECOVERY_DICE_UP);
+  const total = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
+  const turnWithFlag = { ...turn, defendQuotaRefilled: true } as Record<string, unknown>;
+  if (total < 11 || defender.quota >= (defender.maxQuota ?? 0)) {
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
+    return;
+  }
+
+  const defPath = findFighterPath(room, defenderId);
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
+  };
+  if (defPath) updates[`${defPath}/quota`] = Math.min(defender.quota + 1, defender.maxQuota ?? 0);
   await update(roomRef(arenaId), updates);
 }
 
@@ -4441,6 +4482,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       }
     }
   }
+
   // skipDice powers: effect + log already written in selectAction()
   // Keraunos Voltage: shock is applied inside the Keraunos block above (before writing log) so log and aoeDamageMap include shock damage.
 

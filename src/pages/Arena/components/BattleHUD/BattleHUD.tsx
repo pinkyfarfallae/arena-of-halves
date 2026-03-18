@@ -3,7 +3,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4 } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -2327,6 +2327,7 @@ export default function BattleHUD({
           onAttackRollStart={handleAttackRollStart}
           onDefendRollStart={handleDefendRollStart}
           onAtkRollDone={() => {
+            if (arenaId) ackAttackDiceShown(arenaId).catch(() => {});
             if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             atkRollDoneTimeoutRef.current = setTimeout(() => {
@@ -2335,6 +2336,7 @@ export default function BattleHUD({
             }, delayMs);
           }}
           onDefRollDone={() => {
+            if (arenaId) ackDefendDiceShown(arenaId).catch(() => {});
             if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             defRollDoneTimeoutRef.current = setTimeout(() => {
