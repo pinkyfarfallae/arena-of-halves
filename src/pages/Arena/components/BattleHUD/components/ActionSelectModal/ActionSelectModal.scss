@@ -239,6 +239,16 @@ $crimson: #a0001b;
       color: $ink-faint;
     }
   }
+
+  /* Footer: why this power is disabled (Thai) — player primary bg, contrast text */
+  .bhud__power-tooltip-footer {
+    margin: 0.4rem -0.55rem -0.4rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0 0 8px 8px;
+    background: var(--power-tooltip-footer-bg, var(--modal-primary, #{$gold}));
+    color: var(--power-tooltip-footer-color, #000);
+    font-size: 0.52rem;
+  }
 }
 
 @keyframes bhud-tooltip-in {
