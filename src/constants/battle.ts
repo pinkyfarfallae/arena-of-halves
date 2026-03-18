@@ -14,6 +14,8 @@ export const PHASE = {
   ROLLING_FLORAL_HEAL: 'rolling-floral-heal',
   /** Spring (Ephemeral Season): roll D4 for heal crit (1 or 2 HP until next caster turn) */
   ROLLING_SPRING_HEAL: 'rolling-spring-heal',
+  /** Disoriented (Imprecated Poem): D4 roll for 25% no effect — client rolls on all screens, then advance */
+  ROLLING_DISORIENTED_NO_EFFECT: 'rolling-disoriented-no-effect',
   RESOLVING: 'resolving',
   DONE: 'done',
 } as const;
@@ -134,16 +136,18 @@ export function getPhaseLabel(
     case PHASE.RESOLVING:
       if (context?.treatAsNormalAttack)
         return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
-      if (context?.action === TURN_ACTION.POWER && !context?.usedPowerName) return 'used a power!';
+      if (context?.action === TURN_ACTION.POWER && !context?.usedPowerName) return 'Used a Power!';
       if (context?.action === TURN_ACTION.POWER && context?.usedPowerName)
         return `${context.usedPowerName} → ${context.defenderName ?? '...'}`;
       return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
     case PHASE.ROLLING_FLORAL_HEAL:
-      return 'heal crit';
+      return 'Heal Crit';
     case PHASE.ROLLING_SPRING_HEAL:
-      return 'Spring heal';
+      return 'Spring Heal';
+    case PHASE.ROLLING_DISORIENTED_NO_EFFECT:
+      return 'Disoriented';
     case PHASE.DONE:
-      return 'done';
+      return 'Done';
     default:
       return '';
   }
