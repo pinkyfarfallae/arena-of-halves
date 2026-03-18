@@ -1042,6 +1042,23 @@ export async function selectTarget(
       const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battleForTick, updates);
       Object.assign(updates, effectUpdates);
 
+      // Eternal Agony: add display-only effect after tick (so tick doesn't remove it). ลบหลัง 3 วินาที
+      if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
+        const effectsAfterTick = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [];
+        const eternalAgonyEffect: ActiveEffect = {
+          id: makeEffectId(attackerId, POWER_NAMES.IMPRECATED_POEM),
+          powerName: POWER_NAMES.IMPRECATED_POEM,
+          effectType: EFFECT_TYPES.DEBUFF,
+          sourceId: String(attackerId),
+          targetId: String(defenderId),
+          value: 0,
+          turnsRemaining: 0,
+          tag: EFFECT_TAGS.ETERNAL_AGONY,
+          tag2: EFFECT_TAGS.IMPRECATED_POEM,
+        };
+        updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = [...effectsAfterTick, eternalAgonyEffect];
+      }
+
       const defenderAfter = findFighter(room, defenderId);
       const getHp = (m: FighterState) => {
         const path = findFighterPath(room, m.characterId);
@@ -1133,6 +1150,18 @@ export async function selectTarget(
         updates[ARENA_PATH.BATTLE_TURN] = turnData;
       }
       await update(roomRef(arenaId), updates);
+      // Eternal Agony: เอาเข้าไป 3 วินาทีเสร็จแล้วลบออก — ลบ effect tag ETERNAL_AGONY หลัง 3 วินาที
+      if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
+        setTimeout(async () => {
+          const snap = await get(roomRef(arenaId));
+          const data = snap.val();
+          const effects = (data?.battle?.activeEffects ?? []) as ActiveEffect[];
+          const filtered = effects.filter(e => e.tag !== EFFECT_TAGS.ETERNAL_AGONY);
+          if (filtered.length < effects.length) {
+            await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: filtered });
+          }
+        }, 3000);
+      }
       return;
     }
 

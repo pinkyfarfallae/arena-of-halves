@@ -1945,6 +1945,8 @@ export default function BattleHUD({
               onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
               backDisabled={backDisabled}
               subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
+              eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
+              activeEffects={battle?.activeEffects ?? []}
             />
           ) : targets.length === 0 ? (
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>

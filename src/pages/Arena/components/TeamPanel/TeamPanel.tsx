@@ -299,8 +299,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const imprecatedPoemVerseTags = (() => {
           const tags: string[] = [];
           const seen = new Set<string>();
+          const charId = String(m.characterId);
           for (const e of activeEffects) {
-            if (e.targetId !== m.characterId) continue;
+            if (String(e.targetId) !== charId) continue;
             const verseTag =
               e.tag2 === EFFECT_TAGS.IMPRECATED_POEM
                 ? e.tag
@@ -315,9 +316,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return tags;
         })();
 
-        // Active effect pips (deduplicate same power from same source; group by tag so Jolt Arc vs Jolt Arc Deceleration are separate)
+        // Active effect pips (deduplicate same power from same source; group by tag). Show ETERNAL_AGONY even when turnsRemaining is 0 (display-only, removed after 3s).
         const effectPips: EffectPip[] = (() => {
-          const raw = activeEffects.filter(e => e.targetId === m.characterId && e.turnsRemaining > 0);
+          const charId = String(m.characterId);
+          const raw = activeEffects.filter(e => String(e.targetId) === charId && (e.turnsRemaining > 0 || e.tag === EFFECT_TAGS.ETERNAL_AGONY));
           const grouped = new Map<string, { count: number; maxTurns: number; sourceId: string; powerName: string; tag?: string }>();
           for (const e of raw) {
             const key = `${e.sourceId}:${e.powerName}:${e.tag ?? ''}`;
@@ -335,17 +337,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             const displayName = getEffectDisplayNameForTag(g.tag);
             const isSelfTarget = g.sourceId === m.characterId;
             const sourceName = isSelfTarget
-              ? 'Self'
+              ? TARGET_TYPES.SELF
               : isDemo && oppositeMemberIds.has(g.sourceId)
-                ? (side === PANEL_SIDE.LEFT ? 'Right' : 'Left')
+                ? (side === PANEL_SIDE.LEFT ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
                 : (source?.nicknameEng || '?');
+            const turnsLeft = g.tag === EFFECT_TAGS.ETERNAL_AGONY && g.maxTurns === 0
+              ? 1
+              : Math.ceil(g.maxTurns / queueLen);
             return {
               powerName: g.powerName,
               ...(displayName && { displayName }),
               sourceName,
               ...(source?.deityBlood != null && { sourceDeity: source.deityBlood }),
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
-              turnsLeft: Math.ceil(g.maxTurns / queueLen),
+              turnsLeft,
               count: g.count,
             };
           });

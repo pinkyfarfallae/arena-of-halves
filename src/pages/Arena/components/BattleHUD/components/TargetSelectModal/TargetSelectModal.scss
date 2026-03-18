@@ -104,11 +104,19 @@ $ink-faint: #9a8b76;
 .bhud__target-name {
   font-size: 0.75rem;
   font-weight: 700;
+  width: fit-content;
   color: var(--tc);
 
   @media (max-width: $bp-compact) {
     font-size: 0.65rem;
   }
+}
+
+.bhud__target-hp-line {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
 }
 
 .bhud__target-hp {
@@ -120,6 +128,23 @@ $ink-faint: #9a8b76;
   @media (max-width: $bp-compact) {
     font-size: 0.5rem;
   }
+}
+
+.bhud__target-hp-divider {
+  font-size: 1rem;
+  line-height: 0.55rem;
+  max-height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, $ink-faint 80%, transparent);
+  user-select: none;
+}
+
+.bhud__target-no-affliction {
+  font-size: 0.6rem;
+  color: #b8860b;
+  font-style: italic;
 }
 
 .bhud__target-btn--selected {

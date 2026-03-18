@@ -301,17 +301,18 @@ export function getTagBasedChipProps(
   characterId: string
 ): PowerVfxChipProps {
   const out: PowerVfxChipProps = {};
+  const cid = String(characterId);
   for (const entry of POWER_VFX_EFFECTS) {
     if (!entry.tag && !entry.id) continue;
     const matches = entry.tag && entry.applyTo
       ? (entry.applyTo === EFFECT_SIDE_LABEL.TARGET
-        ? activeEffects.some((e) => e.targetId === characterId && e.tag === entry.tag)
+        ? activeEffects.some((e) => String(e.targetId) === cid && e.tag === entry.tag)
         : entry.applyTo === EFFECT_SIDE_LABEL.CASTER
-          ? activeEffects.some((e) => e.sourceId === characterId && e.tag === entry.tag)
+          ? activeEffects.some((e) => String(e.sourceId) === cid && e.tag === entry.tag)
           : activeEffects.some(
-            (e) => (e.targetId === characterId || e.sourceId === characterId) && e.tag === entry.tag
+            (e) => (String(e.targetId) === cid || String(e.sourceId) === cid) && e.tag === entry.tag
           ))
-      : activeEffects.some((e) => e.tag === entry.id && e.targetId === characterId);
+      : activeEffects.some((e) => e.tag === entry.id && String(e.targetId) === cid);
     if (matches) {
       for (const [k, v] of Object.entries(entry.props) as [keyof PowerVfxChipProps, unknown][]) {
         // Arena computes effectPips from activeEffects; don't overwrite with static demo pips
