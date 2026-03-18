@@ -141,10 +141,10 @@ $ink-faint: #9a8b76;
   user-select: none;
 }
 
-.bhud__target-no-affliction {
+.bhud__target-no-affliction,
+.bhud__target-healing-nullified {
   font-size: 0.6rem;
   color: #b8860b;
-  font-style: italic;
 }
 
 .bhud__target-btn--selected {

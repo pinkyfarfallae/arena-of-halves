@@ -205,7 +205,9 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   const handlePowerConfirm = () => {
     if (selectedPowerIdx == null) return;
     const power = attacker.powers[selectedPowerIdx];
-    if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0) {
+    // Floral Fragrance, Apollo's Hymn: use target select modal (so "Healing nullified" can show there)
+    const useTargetModalForAlly = power?.name === POWER_NAMES.FLORAL_FRAGRANCE || power?.name === POWER_NAMES.APOLLO_S_HYMN;
+    if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0 && !useTargetModalForAlly) {
       const otherAlive = teammates.filter(m => m.characterId !== attacker.characterId && m.currentHp > 0);
       if (otherAlive.length === 0) {
         setShowPowerPicker(false);

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { FighterState } from '../../../../../../types/battle';
 import type { ActiveEffect } from '../../../../../../types/power';
 import { isAffliction } from '../../../../../../data/statusCategory';
+import { EFFECT_TAGS } from '../../../../../../constants/effectTags';
 import './TargetSelectModal.scss';
 
 const RANDOM_CYCLE_MS = 150;
@@ -34,9 +35,11 @@ interface Props {
   eternalAgonySelected?: boolean;
   /** Used with eternalAgonySelected to compute which targets have no afflictions. */
   activeEffects?: ActiveEffect[];
+  /** When true (ally-heal target selection), show "Healing nullified" on targets that have that effect. */
+  healTargetSelect?: boolean;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects, healTargetSelect }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cyclingIndex, setCyclingIndex] = useState<number>(0);
   const [isRandomizing, setIsRandomizing] = useState(false);
@@ -124,6 +127,7 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
           const targetEffs = (eternalAgonySelected && activeEffects) ? activeEffects.filter((e) => String(e.targetId) === String(t.characterId)) : [];
           const hasAffliction = targetEffs.some((e) => isAffliction(e) && (e.turnsRemaining ?? 0) > 0);
           const showNoAfflictionWarning = eternalAgonySelected && !hasAffliction;
+          const hasHealingNullified = !!(healTargetSelect && activeEffects?.some((e) => String(e.targetId) === String(t.characterId) && e.tag === EFFECT_TAGS.HEALING_NULLIFIED));
           return (
             <button
               key={t.characterId}
@@ -146,6 +150,12 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
                     <>
                       <span className="bhud__target-hp-divider" aria-hidden="true"> · </span>
                       <span className="bhud__target-no-affliction" title="Eternal Agony will not extend any duration on this target.">No afflictions</span>
+                    </>
+                  )}
+                  {hasHealingNullified && (
+                    <>
+                      <span className="bhud__target-hp-divider" aria-hidden="true"> · </span>
+                      <span className="bhud__target-healing-nullified" title="Healing will have no effect on this target.">Healing nullified</span>
                     </>
                   )}
                 </span>
