@@ -687,8 +687,9 @@ export function applyKeraunosVoltageChain(
 
 /**
  * Apply shock to everyone alive on the opponent team for Keraunos Voltage.
- * Uses central applyShockedEffectToTarget: already shocked → 100% base damage + remove all shocks; else apply shock.
- * baseDamageByTarget: main = 3, secondaries = 2, everyone else = 0 (so only bolt targets get bonus damage when already shocked).
+ * Uses central applyShockedEffectToTarget: already shocked → bonus damage = casterDamage (100% of caster's normal attack), then remove all shocks; else apply shock.
+ * casterDamage: attacker.damage + damage buff — used as bonus when target already has shock.
+ * baseDamageByTarget: main = 3, secondaries = 2, everyone else = 0 (determines who gets shock applied; bonus amount is always casterDamage).
  * currentHpByTarget: optional map of targetId -> current HP after damage (for bonus damage HP).
  * excludeTargetIds: targets that had skeleton block (hit landed on skeleton, not master) — do not apply shock or bonus damage to them.
  */
@@ -697,7 +698,7 @@ export function applyKeraunosVoltageShock(
   attackerId: string,
   defenderId: string,
   battle: BattleState,
-  baseDamage: number,
+  casterDamage: number,
   currentHpByTarget?: Record<string, number>,
   baseDamageByTarget?: Record<string, number>,
   excludeTargetIds?: string[],
@@ -716,13 +717,13 @@ export function applyKeraunosVoltageShock(
     if (excludeSet.has(targetId)) continue; // skeleton took the hit — no affliction on master
     const currentHp = currentHpByTarget?.[targetId];
     if (currentHp !== undefined && currentHp <= 0) continue; // KO'd by bolt — do not apply shock or overwrite HP
-    const baseDmg = baseDamageByTarget?.[targetId] ?? baseDamage;
+    // Bonus when already shocked = caster's damage (same as Lightning Reflex), not bolt 3/2/1
     const result = applyShockedEffectToTarget(
       room,
       attackerId,
       targetId,
       effects,
-      baseDmg,
+      casterDamage,
       POWER_NAMES.KERAUNOS_VOLTAGE,
       { skipIfEfflorescenceMuse: true, ...(currentHp !== undefined && { currentHp }) },
     );

@@ -63,10 +63,12 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
     const isCritKeraunos = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (rc.isCritForKeraunos ?? rc.isCrit) : rc.isCrit;
     // Keraunos: one card per target — show damage for this resolving fighter only (tier 0 = main 3/6, 1 = 2/4, 2 = 1/2)
     const tier = (rc as { keraunosDamageTier?: 0 | 1 | 2 }).keraunosDamageTier ?? 0;
+    const keraunosBaseByTier = [3, 2, 1];
     const keraunosDmgByTier = isCritKeraunos ? [6, 4, 2] : [3, 2, 1];
     const dmgForThisTarget = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE
       ? (rc.damage > 0 ? rc.damage : keraunosDmgByTier[tier])
       : rc.damage;
+    const showKeraunosBreakdown = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE && (rc.shockBonus > 0 || isCritKeraunos) && dmgForThisTarget > 0;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
         <div className={`dmg-card dmg-card--power ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
@@ -76,7 +78,30 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
             <span className="dmg-card__defname" style={{ color: rc.defenderTheme }}>{rc.defenderName}</span>
           </div>
           <span className="dmg-card__power">{rc.powerName}</span>
-          {dmgForThisTarget > 0 ? (
+          {showKeraunosBreakdown ? (
+            <>
+              <div className="dmg-card__breakdown">
+                <span className="dmg-card__base">{keraunosBaseByTier[tier]}</span>
+                {isCritKeraunos && (
+                  <>
+                    <span className="dmg-card__base">+</span>
+                    <span className="dmg-card__crit">{keraunosBaseByTier[tier]}</span>
+                  </>
+                )}
+                {rc.shockBonus > 0 && (
+                  <>
+                    <span className="dmg-card__base">+</span>
+                    <span className="dmg-card__shock">
+                      {rc.shockBonus}
+                      <Lightning width={12} height={12} />
+                    </span>
+                  </>
+                )}
+                <span className="dmg-card__eq">=</span>
+              </div>
+              <span className="dmg-card__total">-{dmgForThisTarget} DMG</span>
+            </>
+          ) : dmgForThisTarget > 0 ? (
             <span className="dmg-card__total">-{dmgForThisTarget} DMG</span>
           ) : rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (
             <>

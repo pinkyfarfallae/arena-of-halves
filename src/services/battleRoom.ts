@@ -623,10 +623,19 @@ function buildMasterPlaybackStep(
   const soulDevourerDrainTurn = !!(turn as any)?.soulDevourerDrain;
 
   if (isSkipDicePower) {
-    const lastLog = (battle.log || []).at(-1);
-    const logDmg = (lastLog?.attackerId === turn.attackerId) ? (lastLog.damage ?? 0) : 0;
     const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
     const isCritK = isKeraunos && !!(turn as any).isCrit;
+    const mult = isCritK ? 2 : 1;
+    const boltDmg = isKeraunos ? (3 * mult) : 0;
+    let damage = boltDmg;
+    let shockBonus = 0;
+    if (isKeraunos) {
+      const casterDamageK = Math.max(0, attacker.damage + getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE));
+      const mainId = defender.characterId;
+      const hadShock = activeEffects.some(e => e.targetId === mainId && e.tag === EFFECT_TAGS.SHOCK);
+      shockBonus = hadShock ? casterDamageK : 0;
+      damage = boltDmg + shockBonus;
+    }
     return {
       kind: BATTLE_PLAYBACK_KIND.MASTER,
       hitIndex: 0,
@@ -636,9 +645,9 @@ function buildMasterPlaybackStep(
       isPower: true,
       powerName: turn.usedPowerName ?? TURN_ACTION.POWER,
       isCrit: isCritK,
-      baseDmg: 0,
-      damage: logDmg,
-      shockBonus: 0,
+      baseDmg: boltDmg,
+      damage,
+      shockBonus,
       atkRoll: 0,
       defRoll: 0,
       isDodged: false,
@@ -3446,7 +3455,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       return;
     }
 
-    const initialStep = buildMasterPlaybackStep(room, battle, attacker, defender);
+    // Keraunos: log uses main target as defenderId; use main target for step so step matches log when it arrives
+    const mainIdForStep = (turn as any).usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE ? ((turn as any).keraunosMainTargetId ?? defenderId) : defenderId;
+    const defenderForStep = findFighter(room, mainIdForStep) ?? defender;
+    const initialStep = buildMasterPlaybackStep(room, battle, attacker, defenderForStep);
     await update(roomRef(arenaId), {
       [ARENA_PATH.BATTLE_TURN]: { ...turn, playbackStep: initialStep },
     });
@@ -4094,20 +4106,64 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         }
       }
     }
+    // Apply shock (already shocked → bonus damage = caster's damage, same as Lightning Reflex). Do this before writing log so log and aoeDamageMap include shock.
+    const casterDamageK = Math.max(0, attacker.damage + getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE));
+    const baseDamageByTargetK: Record<string, number> = {};
+    if (mainId) baseDamageByTargetK[mainId] = 3;
+    secondaryIds.forEach((sid, idx) => { baseDamageByTargetK[sid] = idx === 0 ? 2 : 1; });
+    const excludeSetK = new Set(keraunosShockExcludeTargetIds);
+    const shockBonusByTarget: Record<string, number> = {};
+    for (const id of [mainId, ...secondaryIds].filter(Boolean)) {
+      if (excludeSetK.has(id)) continue;
+      const hadShock = activeEffects.some(e => e.targetId === id && e.tag === EFFECT_TAGS.SHOCK);
+      if (hadShock) shockBonusByTarget[id] = casterDamageK;
+    }
+    const getHpForShockK = (characterId: string) => {
+      const path = findFighterPath(room, characterId);
+      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+      const f = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === characterId);
+      return f?.currentHp ?? 0;
+    };
+    const isTeamAK = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+    const enemyTeamK = isTeamAK ? (room.teamB?.members || []) : (room.teamA?.members || []);
+    const allBoltTargetIdsK = [mainId, ...secondaryIds].filter(Boolean);
+    const currentHpByTargetK: Record<string, number> = {};
+    for (const id of allBoltTargetIdsK) currentHpByTargetK[id] = getHpForShockK(id);
+    for (const id of enemyTeamK.filter(e => getHpForShockK(e.characterId) > 0).map(e => e.characterId)) {
+      if (currentHpByTargetK[id] === undefined) currentHpByTargetK[id] = getHpForShockK(id);
+    }
+    const allAliveEnemyIdsK = enemyTeamK.filter(e => getHpForShockK(e.characterId) > 0).map(e => e.characterId);
+    for (const id of allAliveEnemyIdsK) {
+      if (baseDamageByTargetK[id] === undefined) baseDamageByTargetK[id] = 0;
+    }
+    const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
+      ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
+      : battle;
+    const keraunosShockUpdates = applyKeraunosVoltageShock(
+      room, attackerId, mainId, battleForKeraunos, casterDamageK, currentHpByTargetK, baseDamageByTargetK, keraunosShockExcludeTargetIds,
+    );
+    Object.assign(updates, keraunosShockUpdates);
+    // Merge shock bonus into aoeDamageMap for log and display
+    for (const id of Object.keys(aoeDamageMapK)) {
+      aoeDamageMapK[id] = (aoeDamageMapK[id] ?? 0) + (shockBonusByTarget[id] ?? 0);
+    }
     const mainPath = mainId ? findFighterPath(room, mainId) : null;
     const mainHpAfter = mainPath && `${mainPath}/currentHp` in updates ? (updates[`${mainPath}/currentHp`] as number) : (mainId ? findFighter(room, mainId)?.currentHp ?? 0 : 0);
+    const mainTotalDmg = aoeDamageMapK[mainId] ?? dmgMain;
+    const mainShockBonus = shockBonusByTarget[mainId] ?? 0;
     const logEntryK = {
       round: battle.roundNumber,
       attackerId,
       defenderId: mainId,
       attackRoll: 0,
       defendRoll: 0,
-      damage: dmgMain,
+      damage: mainTotalDmg,
       defenderHpAfter: mainHpAfter,
       eliminated: mainHpAfter <= 0,
       missed: false,
       powerUsed: POWER_NAMES.KERAUNOS_VOLTAGE,
       aoeDamageMap: aoeDamageMapK,
+      ...(mainShockBonus > 0 ? { shockDamage: mainShockBonus } : {}),
       ...(isCritK && (turn as any).critRoll != null && { isCrit: true, critRoll: (turn as any).critRoll }),
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntryK]);
@@ -4386,39 +4442,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
   }
   // skipDice powers: effect + log already written in selectAction()
-
-  // Keraunos Voltage: apply shock to everyone alive on the opponent team (D4 was already rolled before resolve)
-  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && defenderId) {
-    const mainIdK = (turn as any).keraunosMainTargetId ?? defenderId;
-    const secondaryIdsK: string[] = (turn as any).keraunosSecondaryTargetIds ?? [];
-    const isTeamAK = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-    const enemyTeam = isTeamAK ? (room.teamB?.members || []) : (room.teamA?.members || []);
-    const getHpForShock = (characterId: string) => {
-      const path = findFighterPath(room, characterId);
-      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
-      const f = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === characterId);
-      return f?.currentHp ?? 0;
-    };
-    const allAliveEnemyIds = enemyTeam.filter(e => getHpForShock(e.characterId) > 0).map(e => e.characterId);
-    const baseDamageByTarget: Record<string, number> = {};
-    if (mainIdK) baseDamageByTarget[mainIdK] = 3;
-    secondaryIdsK.forEach((sid, idx) => { baseDamageByTarget[sid] = idx === 0 ? 2 : 1; });
-    for (const id of allAliveEnemyIds) {
-      if (baseDamageByTarget[id] === undefined) baseDamageByTarget[id] = 0; // shock only, no bolt damage
-    }
-    // Include all bolt targets (main + secondaries) so KO'd targets get post-bolt HP from updates, not room — avoids overwriting 0 with stale room HP
-    const allBoltTargetIds = [mainIdK, ...secondaryIdsK].filter(Boolean);
-    const currentHpByTarget: Record<string, number> = {};
-    for (const id of allBoltTargetIds) currentHpByTarget[id] = getHpForShock(id);
-    for (const id of allAliveEnemyIds) if (currentHpByTarget[id] === undefined) currentHpByTarget[id] = getHpForShock(id);
-    const battleForKeraunos = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
-      ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
-      : battle;
-    const keraunosShockUpdates = applyKeraunosVoltageShock(
-      room, attackerId, mainIdK, battleForKeraunos, 0, currentHpByTarget, baseDamageByTarget, keraunosShockExcludeTargetIds,
-    );
-    Object.assign(updates, keraunosShockUpdates);
-  }
+  // Keraunos Voltage: shock is applied inside the Keraunos block above (before writing log) so log and aoeDamageMap include shock damage.
 
   // Pomegranate's Oath co-attack: resolve at defender (skeleton blocks or master takes damage)
   if (!isDodged && hit && turn.coAttackRoll != null && turn.coAttackRoll > 0) {

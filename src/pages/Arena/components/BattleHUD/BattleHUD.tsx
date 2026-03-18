@@ -1464,6 +1464,7 @@ export default function BattleHUD({
         const keraunosMainDmg = 3 * (isCritK ? 2 : 1);
         const mainTargetId = (turn as any).keraunosMainTargetId ?? turn.defenderId;
         const defenderForKeraunos = mainTargetId ? find(teamA, teamB, mainTargetId) : defender;
+        // Bar/card จะได้ damage+shock จาก log playback effect ที่ sync เข้า resolveCache; ตรงนี้ใส่แค่ bolt
         resolveCache.current = {
           atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
           isHit: true, damage: keraunosMainDmg, baseDmg: 3, shockBonus: 0,
@@ -1581,6 +1582,7 @@ export default function BattleHUD({
   // Play back new entries in the persistent battle.log so every hit (master + minions)
   // shows a DamageCard and triggers hit visuals. We track which log entries we've
   // already rendered using `shownLogIndex` to only play new entries.
+  // When we have Keraunos playback step, sync that turn's log entry into resolveCache once so bar/card use it (no log parsing in bar/card).
   useEffect(() => {
     if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
       resolveCache.current.shownLogIndex = battle.log?.length || 0;
@@ -2486,7 +2488,7 @@ export default function BattleHUD({
       })()}
 
       {activePlaybackStep && (() => {
-        const cardData = { ...activePlaybackStep, side: activePlaybackStep.__side } as any;
+        const cardData = { ...resolveCache.current, ...activePlaybackStep, side: activePlaybackStep.__side } as any;
         if (cardData.powerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
           cardData.isCritForKeraunos = !!cardData.isCrit;
           if (cardData.keraunosDamageTier == null) cardData.keraunosDamageTier = 0;
