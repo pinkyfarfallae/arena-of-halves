@@ -21,6 +21,7 @@ import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal'
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
+import { getDisabledPowersAndReasons } from '../../../../data/power-disable-reason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
@@ -1819,33 +1820,31 @@ export default function BattleHUD({
   const atkSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
   const defSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
-  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock)
+  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock) and Thai reasons for tooltip footer
   const ae = battle.activeEffects || [];
-  const disabledPowerNames = (() => {
-    const disabled = new Set<string>();
-    const enemyIds = new Set(opposingTeam?.map(f => f.characterId) ?? []);
-    const hasEnemyShock = ae.some(e => e.tag === EFFECT_TAGS.SHOCK && enemyIds.has(e.targetId));
-    if (!hasEnemyShock) disabled.add(POWER_NAMES.JOLT_ARC);
-    // Death Keeper: disabled once consumed (tag no longer exists on attacker)
-    const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
-    if (!hasDeathKeeper) disabled.add(POWER_NAMES.DEATH_KEEPER);
-    // Undead Army: cannot summon more than 2 skeletons (use actual minion list so 2nd skeleton is allowed when only 1 exists)
-    const attackerTeamMinions = (turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB) ?? [];
-    const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
-      ? attackerTeamMinions.filter((m: any) => m?.masterId === turn?.attackerId).length
-      : 0;
-    const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
-      ? skeletonCountFromMinions
-      : (attacker ? (attacker.skeletonCount ?? 0) : 0);
-    if (attackerSkeletonCount >= 2) disabled.add(POWER_NAMES.UNDEAD_ARMY);
-    return disabled;
-  })();
-
-  // Dead teammates for Death Keeper targeting
   const myTeamMembers = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
   const deadTeammateIds = new Set(
     (myTeamMembers || []).filter(m => m.currentHp <= 0).map(m => m.characterId),
   );
+  const attackerTeamMinions = (turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB) ?? [];
+  const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
+    ? attackerTeamMinions.filter((m: any) => m?.masterId === turn?.attackerId).length
+    : 0;
+  const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
+    ? skeletonCountFromMinions
+    : (attacker ? (attacker.skeletonCount ?? 0) : 0);
+  const attackerAllyIds = (myTeamMembers || []).filter((m) => m.currentHp > 0).map((m) => m.characterId);
+  const { disabledPowerNames, disabledPowerReasons, infoReasons } = getDisabledPowersAndReasons({
+    activeEffects: ae,
+    opposingTeam: opposingTeam ?? undefined,
+    attackerId: turn?.attackerId,
+    attackerTeam: turn?.attackerTeam,
+    teamMinionsA,
+    teamMinionsB,
+    attackerSkeletonCount,
+    deadTeammateCount: deadTeammateIds.size,
+    attackerAllyIds,
+  });
 
   return (
     <div className="bhud">
@@ -2004,6 +2003,8 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
+            disabledPowerReasons={disabledPowerReasons}
+            infoReasons={infoReasons}
             teammates={turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB}
             deadTeammateIds={deadTeammateIds}
             onSelectAction={onSelectAction}
