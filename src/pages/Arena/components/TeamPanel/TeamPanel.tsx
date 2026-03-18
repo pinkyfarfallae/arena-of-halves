@@ -90,7 +90,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     (side === PANEL_SIDE.LEFT && turn.attackerTeam === BATTLE_TEAM.B) ||
     (side === PANEL_SIDE.RIGHT && turn.attackerTeam === BATTLE_TEAM.A)
   );
-  const canSelectTarget = turn?.phase === PHASE.SELECT_TARGET && turn.attackerId === myId && isOpposingTeam;
+  // Disoriented: player must use modal (Random → Confirm); do not allow picking target by clicking panel
+  const hasDisorientedOnAttacker = !!(turn?.attackerId && activeEffects.some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+  const canSelectTarget = turn?.phase === PHASE.SELECT_TARGET && turn.attackerId === myId && isOpposingTeam && !hasDisorientedOnAttacker;
 
   // Build a lookup map: characterId → FighterState (for effect pip source themes)
   const fighterMap = useMemo(() => {
@@ -414,12 +416,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
             const le = floralSearchLog[idx] as { powerUsed?: string; attackerId?: string; defenderId?: string };
             const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
-            if (pu !== powerName) continue;
+            const isApolloHymn = pu === powerName || (pu.includes('Apollo') && pu.includes('Hymn'));
+            if (!isApolloHymn) continue;
             if (String(le.defenderId) === charId || String(le.attackerId) === charId) return idx;
           }
           return -1;
         })();
-        const logHasHymn = hymnLogIndex >= 0;
+        // Only show hymn VFX when this entry is the most recent log entry (hymn just happened)
+        const hymnIsLatestEntry = hymnLogIndex >= 0 && hymnLogIndex === floralSearchLog.length - 1;
+        const logHasHymn = hymnIsLatestEntry;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
@@ -505,7 +510,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             isImprecatedPoemHealingNullified={isImprecatedPoemHealingNullified}
             isImprecatedPoemCursed={isImprecatedPoemCursed}
             imprecatedPoemVerseTags={imprecatedPoemVerseTags}
-            hymnLogKey={battle != null && battle.roundNumber != null && logHasHymn ? `hymn_${battle.roundNumber}_${hymnLogIndex}_${m.characterId}` : undefined}
+            hymnLogKey={battle != null && logHasHymn ? `hymn_${battle.roundNumber ?? 'r'}_${hymnLogIndex}_${m.characterId}` : undefined}
             hymnHeal={isHymnWaved && !isImprecatedPoemHealingNullified ? 2 : undefined}
             turnOrder={turnOrderMap.get(m.characterId)}
             effectPips={effectPips}

@@ -32,6 +32,7 @@ import {
   resolveTurn,
   normalizeFighter,
   advanceAfterShadowCamouflageD4,
+  advanceAfterDisorientedD4,
   advanceAfterFloralHealD4,
   advanceAfterSpringHealD4,
   skipTurnNoValidTarget,
@@ -544,6 +545,21 @@ function Arena(props?: ArenaDemoProps) {
       return;
     }
 
+    // NPC: Disoriented D4 roll (25% no effect), then advance
+    const disorientedWinFaces = (turn as any)?.disorientedWinFaces;
+    const disorientedRoll = (turn as any)?.disorientedRoll;
+    if (turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && Array.isArray(disorientedWinFaces) && disorientedWinFaces.length > 0 && disorientedRoll == null && teamBIds.has(turn.attackerId)) {
+      schedule(async () => {
+        const roll = Math.ceil(Math.random() * 4);
+        try {
+          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
+          await new Promise((r) => setTimeout(r, 800));
+          await advanceAfterDisorientedD4(arenaId);
+        } catch (e) {}
+      }, 1500);
+      return;
+    }
+
     // NPC cast Shadow Camouflaging: roll D4 for refill SP, then advance
     const scWinFaces = (turn as any)?.shadowCamouflageRefillWinFaces;
     const scRoll = (turn as any)?.shadowCamouflageRefillRoll;
@@ -559,7 +575,10 @@ function Arena(props?: ArenaDemoProps) {
     }
 
     // NPC's turn to select target → pick random alive opponent (filtered by power requirements and Shadow Camouflage)
-    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId)) {
+    // Disoriented: skip here; BattleHUD effect calls selectTargetDisoriented so server does 25% no-effect flow
+    const battle = room.battle;
+    const npcHasDisoriented = !!(turn.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId) && !npcHasDisoriented) {
       let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
 
       if (turn.usedPowerIndex != null && battle) {
@@ -792,6 +811,9 @@ function Arena(props?: ArenaDemoProps) {
   const isAttackerNpc = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId));
   /** When true, defender is NPC; dodge D4 must be simulated here. When false (PvP), wait for opponent's roll. */
   const isDefenderNpc = !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId));
+
+  /** Disoriented + player's turn: target must be chosen via modal (Random → Confirm), not by clicking panel. */
+  const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === user?.characterId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
 
   /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
   const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
@@ -1028,7 +1050,7 @@ function Arena(props?: ArenaDemoProps) {
             minionPulseMap={minionPulseMap}
             currentSkeletonHitTargetId={currentSkeletonHitTargetId}
             currentSkeletonPulseKey={currentSkeletonPulseKey}
-            onSelectTarget={onSelectTargetDeferred}
+            onSelectTarget={isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
             suppressHitAfterBack={suppressHitAfterBack}
@@ -1065,7 +1087,7 @@ function Arena(props?: ArenaDemoProps) {
               minionPulseMap={minionPulseMap}
               currentSkeletonHitTargetId={currentSkeletonHitTargetId}
               currentSkeletonPulseKey={currentSkeletonPulseKey}
-              onSelectTarget={onSelectTargetDeferred}
+              onSelectTarget={isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
               floralHealResultCardVisible={floralHealResultCardVisible}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
@@ -1132,7 +1154,8 @@ function Arena(props?: ArenaDemoProps) {
             onCancelPoem={handleCancelPoem}
             onCancelTarget={handleCancelTarget}
             onSkipTurnNoTarget={handleSkipTurnNoTarget}
-            onSelectTargetDisoriented={handleSelectTargetDisoriented}
+            onSelectTargetDisoriented={isAttackerNpc ? handleSelectTargetDisoriented : undefined}
+            onConfirmDisorientedTarget={isDisorientedPlayerTurn ? handleSelectTarget : undefined}
             onHealSkippedAck={handleHealSkippedAck}
             onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
             onSpringHealSkippedAck={handleSpringHealSkippedAck}

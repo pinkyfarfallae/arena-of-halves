@@ -201,6 +201,10 @@ export interface TurnState {
   shadowCamouflageRefillWinFaces?: number[];
   shadowCamouflageRefillRoll?: number;
 
+  /* Disoriented (Imprecated Poem): D4 roll for 25% action has no effect — server sets winFaces, client rolls on all screens then advanceAfterDisorientedD4 */
+  disorientedWinFaces?: number[];
+  disorientedRoll?: number;
+
   /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */

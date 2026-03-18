@@ -3,7 +3,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4 } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4 } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -96,6 +96,8 @@ interface Props {
   onSkipTurnNoTarget?: () => void;
   /** When in SELECT_TARGET and attacker has Disoriented (no target chosen yet, e.g. after Keraunos D4), call to let server pick random target and run 25% check */
   onSelectTargetDisoriented?: () => void;
+  /** Only way to advance when Disoriented + player's turn: called when player clicks Confirm in Disoriented modal. Passed only to attacker's client. */
+  onConfirmDisorientedTarget?: (defenderId: string) => void;
   /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
   onHealSkippedAck?: () => void;
   /** When Soul Devourer heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → clear ack flag so skeleton resolve can start */
@@ -152,7 +154,7 @@ export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -203,17 +205,18 @@ export default function BattleHUD({
 
   const hasDisoriented = !!(turn?.attackerId && (battle.activeEffects || []).some((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
 
-  // Disoriented: server picks target; when we're in SELECT_TARGET with no defenderId yet (e.g. after Keraunos D4), trigger once
+  // Disoriented: NPC only — auto-pick when attacker is NPC; player must use modal (Random → wait 3s → Confirm)
   const disorientedTriggeredRef = useRef(false);
   useEffect(() => {
-    if (turn?.phase !== PHASE.SELECT_TARGET || !hasDisoriented || turn.defenderId || !isMyTurn || !onSelectTargetDisoriented) {
+    const isPlayerAttacker = turn?.attackerId === myId;
+    if (turn?.phase !== PHASE.SELECT_TARGET || !hasDisoriented || turn.defenderId || isPlayerAttacker || !onSelectTargetDisoriented) {
       if (turn?.phase !== PHASE.SELECT_TARGET) disorientedTriggeredRef.current = false;
       return;
     }
     if (disorientedTriggeredRef.current) return;
     disorientedTriggeredRef.current = true;
     onSelectTargetDisoriented();
-  }, [turn?.phase, turn?.defenderId, hasDisoriented, isMyTurn, onSelectTargetDisoriented]);
+  }, [turn?.phase, turn?.defenderId, turn?.attackerId, hasDisoriented, myId, onSelectTargetDisoriented]);
 
   /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
@@ -945,10 +948,12 @@ export default function BattleHUD({
   const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
   const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
+  const [disorientedRollLocal, setDisorientedRollLocal] = useState<number | null>(null);
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
     if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
+    if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) setDisorientedRollLocal(null);
   }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces]);
 
   /* ── Auto-resolve after showing result (only after all checks done) ── */
@@ -1851,7 +1856,10 @@ export default function BattleHUD({
           {attacker && (
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
-              <span className="bhud__phase-label">
+              <span
+                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_FLORAL_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
+                data-phase={turn.phase ?? undefined}
+              >
                 {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action, treatAsNormalAttack: turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS })}
               </span>
             </>
@@ -1882,16 +1890,45 @@ export default function BattleHUD({
               )}
               <span className="bhud__dice-bonus">critical: {turn.critWinFaces?.slice().sort((a, b) => a - b).join(', ') || '—'}</span>
             </div>
+          ) : hasDisoriented && !turn.defenderId && targets.length > 0 && isMyTurn ? (
+            <TargetSelectModal
+              attackerName={attacker?.nicknameEng ?? ''}
+              targets={targets}
+              themeColor={attacker?.theme[0]}
+              themeColorDark={attacker?.theme[18]}
+              onSelect={(id) => {
+                const commit = onConfirmDisorientedTarget ?? onSelectTarget;
+                if (commit) setTimeout(() => commit(id), 0);
+              }}
+              onBack={onCancelTarget ? () => setTimeout(() => onCancelTarget(), 0) : undefined}
+              backDisabled={false}
+              randomMode={true}
+              confirmLabel="Random"
+              subtitle="Click Random to pick target"
+            />
+          ) : hasDisoriented && !turn.defenderId && targets.length > 0 && !isMyTurn ? (
+            <TargetSelectModal
+              attackerName={attacker?.nicknameEng ?? ''}
+              targets={targets}
+              themeColor={attacker?.theme[0]}
+              themeColorDark={attacker?.theme[18]}
+              onSelect={() => {}}
+              randomMode={true}
+              subtitle="Disoriented"
+              waitingForLabel={isAttackerNpc ? 'Choosing target at random…' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target…`}
+            />
           ) : hasDisoriented && !turn.defenderId ? (
-            <div className="bhud__dice-modal bhud__targets-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+            <div className="bhud__dice-modal bhud__targets-modal bhud__targets-modal--disoriented-wait" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
               <span className="bhud__dice-label">Disoriented</span>
-              <p className="bhud__no-target-reason">Choosing target at random…</p>
+              <p className="bhud__no-target-reason">
+                {isAttackerNpc ? 'Choosing target at random…' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target…`}
+              </p>
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
                 <div className="bhud__roll-waiting-spinner" />
               </div>
             </div>
-          ) : hasDisoriented && turn.defenderId ? (
-            <div className="bhud__dice-modal bhud__targets-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+          ) : hasDisoriented && turn.defenderId && !isMyTurn ? (
+            <div className="bhud__dice-modal bhud__targets-modal bhud__targets-modal--disoriented-wait" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
               <span className="bhud__dice-label">Disoriented</span>
               <p className="bhud__no-target-reason">Target chosen at random.</p>
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
@@ -2019,6 +2056,44 @@ export default function BattleHUD({
           />
         </div>
       )}
+
+      {/* Disoriented (Imprecated Poem): D4 roll for 25% action has no effect. Click = start dice on every screen; same flow as other D4. */}
+      {turn?.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && (turn as any)?.disorientedWinFaces?.length > 0 && (() => {
+        const winFaces = (turn as any).disorientedWinFaces ?? [];
+        const critPct = winFaces.length * 25;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            winFaces={winFaces}
+            roll={(turn as any).disorientedRoll ?? disorientedRollLocal}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+            title="Disoriented"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
+            wonText="No effect"
+            lostText="Proceed"
+            bonusLabel={`no effect: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isMyTurn ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll }).catch(() => {});
+              setDisorientedRollLocal(roll);
+            } : undefined}
+            onRoll={async (roll: number) => {
+              if (!arenaId) return;
+              try {
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
+                await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                await advanceAfterDisorientedD4(arenaId);
+              } catch (e) {}
+            }}
+            onResultCardVisible={arenaId ? () => {
+              window.setTimeout(() => advanceAfterDisorientedD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+            } : undefined}
+          />
+        );
+      })()}
 
       {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
       {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
