@@ -65,9 +65,12 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
     const tier = (rc as { keraunosDamageTier?: 0 | 1 | 2 }).keraunosDamageTier ?? 0;
     const keraunosBaseByTier = [3, 2, 1];
     const keraunosDmgByTier = isCritKeraunos ? [6, 4, 2] : [3, 2, 1];
+    // Jolt Arc: แบบเดียวกับ Keraunos — damage > 0 ใช้ damage, ไม่ก็ใช้ baseDmg (caster damage)
     const dmgForThisTarget = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE
       ? (rc.damage > 0 ? rc.damage : keraunosDmgByTier[tier])
-      : rc.damage;
+      : rc.powerName === POWER_NAMES.JOLT_ARC
+        ? rc.baseDmg
+        : rc.damage;
     const showKeraunosBreakdown = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE && (rc.shockBonus > 0 || isCritKeraunos) && dmgForThisTarget > 0;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
