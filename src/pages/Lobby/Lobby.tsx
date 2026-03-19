@@ -97,7 +97,7 @@ function Lobby() {
         setError('Room not found. Check the code.');
         return;
       }
-      navigate(code);
+      navigate(`/arena/${code}`);
     } catch {
       setError('Failed to join room. Try again.');
     } finally {
@@ -257,12 +257,17 @@ function Lobby() {
                         <button
                           key={room.arenaId ?? `room-${index}`}
                           className="lobby__room"
-                          onClick={() => navigate(`${room.arenaId}?watch=true`)}
+                          onClick={() => navigate(`/arena/${room.arenaId}?watch=true`)}
                         >
                           <span className="lobby__room-name">{room.roomName?.trim() || 'Arena'}</span>
-                          {room.teamSize > 1 && (
-                            <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
-                          )}
+                          {(() => {
+                            const a = room.teamA?.maxSize ?? room.teamSize;
+                            const b = room.teamB?.maxSize ?? room.teamSize;
+                            if (Math.max(a, b) <= 1) return null;
+                            return (
+                              <span className="lobby__room-mode">{a === b ? `${a}v${a}` : `${a}v${b}`}</span>
+                            );
+                          })()}
                           <span className={`lobby__room-status lobby__room-status--${room.status}`}>
                             {statusLabel(room.status)}
                           </span>
@@ -321,10 +326,9 @@ function Lobby() {
       {createdArenaId && (
         <ConfigArenaModal
           arenaId={createdArenaId}
-          isDev={role === ROLE.DEVELOPER}
           player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
           onClose={() => setCreatedArenaId(null)}
-          onEnter={(id) => navigate(id)}
+          onEnter={(id) => navigate(`/arena/${id}`)}
         />
       )}
 

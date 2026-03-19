@@ -159,13 +159,6 @@ function getAllFighterIds(room: BattleRoom): string[] {
   return [...teamAIds, ...teamBIds];
 }
 
-/** Build team name from member nicknames */
-function teamName(team: Team): string {
-  const members = team.members || [];
-  if (members.length === 0) return '???';
-  return members.map(m => m.nicknameEng).join(' & ');
-}
-
 /** True if the character has an active Soul Devourer effect (Hades). */
 function hasSoulDevourerEffect(activeEffects: ActiveEffect[] | undefined, characterId: string): boolean {
   return (activeEffects || []).some(
@@ -253,7 +246,8 @@ function roomRef(arenaId: string) {
 export async function createRoom(
   fighter: FighterState | FighterState[],
   customName?: string,
-  teamSize: number = 1,
+  teamAMax: number = 1,
+  teamBMax?: number,
 ): Promise<string> {
   let arenaId = generateArenaId();
 
@@ -268,7 +262,9 @@ export async function createRoom(
     }
   }
 
-  const size = Math.max(1, Math.floor(teamSize));
+  const maxA = Math.max(1, Math.floor(teamAMax));
+  const maxB = teamBMax != null ? Math.max(1, Math.floor(teamBMax)) : maxA;
+  const displaySize = Math.max(maxA, maxB);
   const teamAMembers = Array.isArray(fighter) ? fighter : [fighter];
   const firstName = Array.isArray(fighter)
     ? fighter.map(f => f.nicknameEng).join(' & ')
@@ -279,9 +275,9 @@ export async function createRoom(
     arenaId,
     roomName,
     status: ROOM_STATUS.CONFIGURING,
-    teamSize: size,
-    teamA: { members: teamAMembers, maxSize: size, minions: [] },
-    teamB: { members: [], maxSize: size, minions: [] },
+    teamSize: displaySize,
+    teamA: { members: teamAMembers, maxSize: maxA, minions: [] },
+    teamB: { members: [], maxSize: maxB, minions: [] },
     viewers: {},
     createdAt: Date.now(),
   };
@@ -298,28 +294,60 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
 
   const room = snap.val() as BattleRoom;
   const fighters = Array.isArray(fighter) ? fighter : [fighter];
+  if (fighters.length === 0) return null;
+
+  const teamAMembers = room.teamA?.members || [];
   const teamBMembers = room.teamB?.members || [];
-  const maxSize = room.teamB?.maxSize ?? room.teamSize;
+  const maxA = room.teamA?.maxSize ?? room.teamSize;
+  const maxB = room.teamB?.maxSize ?? room.teamSize;
 
-  // team B already has members or would exceed max size
-  if (teamBMembers.length > 0) return null;
-  if (fighters.length > maxSize) return null;
-
-  // check if any fighter already in any team
   const allIds = getAllFighterIds(room);
+  const incomingIds = fighters.map(f => f.characterId);
+  if (incomingIds.some((id, i) => incomingIds.indexOf(id) !== i)) return null;
   if (fighters.some((f) => allIds.includes(f.characterId))) return null;
 
-  const newMembers = [...teamBMembers, ...fighters];
-  const bothFull = (room.teamA?.members || []).length >= maxSize && newMembers.length >= maxSize;
+  const reservations = room.inviteReservations || [];
+  const single = fighters.length === 1 ? fighters[0] : null;
+  const matchReservation =
+    single &&
+    reservations.find((r) => r.characterId.toLowerCase() === single.characterId.toLowerCase());
 
-  // update room name when both teams are full
-  const roomName = bothFull
-    ? `${teamName(room.teamA)} vs ${teamName({ members: newMembers, maxSize })}`
-    : room.roomName;
+  if (matchReservation && single) {
+    const toA = matchReservation.team === 'teamA';
+    const members = toA ? teamAMembers : teamBMembers;
+    const max = toA ? maxA : maxB;
+    if (members.length + 1 > max) return null;
+    const newTeamA = toA ? [...teamAMembers, single] : teamAMembers;
+    const newTeamB = toA ? teamBMembers : [...teamBMembers, single];
+    const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
+    await update(roomRef(arenaId), {
+      [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
+      [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
+      [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
+    });
+    const updated = await get(roomRef(arenaId));
+    return updated.val() as BattleRoom;
+  }
+
+  const fitB = teamBMembers.length + fighters.length <= maxB;
+  const fitA = teamAMembers.length + fighters.length <= maxA;
+
+  let newTeamA = teamAMembers;
+  let newTeamB = teamBMembers;
+
+  if (fitB) {
+    newTeamB = [...teamBMembers, ...fighters];
+  } else if (fitA) {
+    newTeamA = [...teamAMembers, ...fighters];
+  } else {
+    return null;
+  }
+
+  const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
 
   await update(roomRef(arenaId), {
-    [teamPath(BATTLE_TEAM.B, 'members')]: newMembers,
-    roomName,
+    [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
+    [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
     [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
   });
 
