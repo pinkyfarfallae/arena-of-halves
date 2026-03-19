@@ -144,7 +144,7 @@ export default function PoemSelectModal({
     return (
       <div className="bhud__dice-modal" style={themeStyle}>
         <span className="bhud__dice-label">Choosing Verse</span>
-        <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
+        <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding...</span>
         <div className="bhud__dice-roller bhud__dice-roller--waiting">
           <div className="bhud__roll-waiting-spinner" />
         </div>

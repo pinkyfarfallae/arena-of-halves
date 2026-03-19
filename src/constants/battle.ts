@@ -8,7 +8,9 @@ export const PHASE = {
   SELECT_SEASON: 'select-season',
   /** Apollo's Imprecated Poem: choose verse then target enemy */
   SELECT_POEM: 'select-poem',
+  /** Rolling attack roll */
   ROLLING_ATTACK: 'rolling-attack',
+  /** Rolling defend roll */
   ROLLING_DEFEND: 'rolling-defend',
   /** Floral Fragrance on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
   ROLLING_FLORAL_HEAL: 'rolling-floral-heal',
@@ -16,6 +18,12 @@ export const PHASE = {
   ROLLING_SPRING_HEAL: 'rolling-spring-heal',
   /** Disoriented (Imprecated Poem): D4 roll for 25% no effect — client rolls on all screens, then advance */
   ROLLING_DISORIENTED_NO_EFFECT: 'rolling-disoriented-no-effect',
+  /** Volley Arrow Rapid Fire: caster rolls D4 for each extra shot (75% → 50% → 25% → ...) */
+  ROLLING_RAPID_FIRE_EXTRA_SHOT: 'rolling-rapid-fire-extra-shot',
+  /** Show damage for one extra shot; after card completes, advance to next D4 or end chain. */
+  RESOLVING_RAPID_FIRE_EXTRA_SHOT: 'resolving-rapid-fire-extra-shot',
+  /** Advance only (Rapid Fire chain done); resolveTurn skips main resolution and runs co-attack → advance. */
+  RESOLVING_AFTER_RAPID_FIRE: 'resolving-after-rapid-fire',
   RESOLVING: 'resolving',
   DONE: 'done',
 } as const;
@@ -146,6 +154,12 @@ export function getPhaseLabel(
       return 'Spring Heal';
     case PHASE.ROLLING_DISORIENTED_NO_EFFECT:
       return 'Disoriented';
+    case PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT:
+      return 'Rapid Fire D4';
+    case PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT:
+      return 'Extra shot';
+    case PHASE.RESOLVING_AFTER_RAPID_FIRE:
+      return 'resolving...';
     case PHASE.DONE:
       return 'Done';
     default:

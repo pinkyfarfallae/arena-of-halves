@@ -242,7 +242,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[String(min.characterId)] != null));
         const shouldAllowLegacyMinionPulse = !!(
           (hasMinionHitPulse || isSkeletonCardHitTarget) &&
-          (turn?.phase === PHASE.RESOLVING || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive)
+          (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive)
         );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
@@ -524,7 +524,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && turn?.phase === PHASE.RESOLVING) || (hasMinionPulseInChip && turn?.phase === PHASE.RESOLVING) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
+            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
             visualDefenderId={visualDefenderId}
             hitEventKey={
               (() => {

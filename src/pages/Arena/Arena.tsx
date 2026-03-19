@@ -29,6 +29,8 @@ import {
   cancelTargetSelection,
   submitAttackRoll,
   submitDefendRoll,
+  submitRapidFireD4Roll,
+  advanceToNextRapidFireStep,
   resolveTurn,
   normalizeFighter,
   advanceAfterShadowCamouflageD4,
@@ -576,6 +578,15 @@ function Arena(props?: ArenaDemoProps) {
       return;
     }
 
+    // NPC: Rapid Fire (Volley Arrow) D4 roll for extra shot
+    if (turn.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && teamBIds.has(turn.attackerId)) {
+      schedule(async () => {
+        const roll = Math.ceil(Math.random() * 4);
+        if (arenaId) await submitRapidFireD4Roll(arenaId, roll);
+      }, 1800);
+      return;
+    }
+
     // NPC cast Shadow Camouflaging: roll D4 for refill SP, then advance
     const scWinFaces = (turn as any)?.shadowCamouflageRefillWinFaces;
     const scRoll = (turn as any)?.shadowCamouflageRefillRoll;
@@ -957,7 +968,7 @@ function Arena(props?: ArenaDemoProps) {
               />
             ) : (
               <div className="arena__empty-slot">
-                <span>Awaiting Challenger…</span>
+                <span>Awaiting Challenger...</span>
               </div>
             )}
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.RIGHT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -1111,7 +1122,7 @@ function Arena(props?: ArenaDemoProps) {
             />
           ) : (
             <div className="arena__empty-slot">
-              <span>Awaiting Challenger…</span>
+              <span>Awaiting Challenger...</span>
             </div>
           )}
           {/* Seasonal effects overlay (right side) */}
@@ -1179,6 +1190,8 @@ function Arena(props?: ArenaDemoProps) {
             initialShowPowers={returnFromSeason}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
+            onSubmitRapidFireD4Roll={arenaId ? (roll: number) => submitRapidFireD4Roll(arenaId, roll) : () => {}}
+            onRapidFireDamageCardComplete={arenaId ? () => advanceToNextRapidFireStep(arenaId) : () => {}}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER}

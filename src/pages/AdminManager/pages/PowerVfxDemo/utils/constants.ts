@@ -44,9 +44,9 @@ export const MODAL_TITLE = {
 
 /** State messages when loading or empty. */
 export const STATE_MESSAGE = {
-  LOADING_FIGHTERS: 'Loading fighters…',
+  LOADING_FIGHTERS: 'Loading fighters...',
   NO_MEMBERS_OR_NPCS: 'No members or NPCs found.',
-  LOADING: 'Loading…',
+  LOADING: 'Loading...',
 } as const;
 
 /** Button labels in the bar. */

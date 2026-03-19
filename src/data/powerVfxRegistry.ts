@@ -186,6 +186,15 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     applyTo: 'both',
     props: { isHymnWaved: true },
   },
+  {
+    id: EFFECT_TAGS.RAPID_FIRE,
+    label: 'Rapid Fire',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.RAPID_FIRE,
+    applyTo: EFFECT_SIDE_LABEL.CASTER,
+    props: {},
+  },
   // Imprecated Poem verses (target cursed by verse — frame VFX; display name = verse name)
   {
     id: 'imprecated-poem-healing-nullified',

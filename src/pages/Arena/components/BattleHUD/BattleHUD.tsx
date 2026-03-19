@@ -73,6 +73,10 @@ interface Props {
   initialShowPowers?: boolean;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
+  /** Volley Arrow Rapid Fire: caster rolls D4 for each extra shot (75% → 50% → 25% → ...). */
+  onSubmitRapidFireD4Roll?: (roll: number) => void;
+  /** After showing damage for one Rapid Fire extra shot, call to advance to next D4 roll. */
+  onRapidFireDamageCardComplete?: () => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
   /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
@@ -155,7 +159,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onSubmitRapidFireD4Roll, onRapidFireDamageCardComplete, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
   confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
 }: Props) {
@@ -957,12 +961,23 @@ export default function BattleHUD({
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
   const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
   const [disorientedRollLocal, setDisorientedRollLocal] = useState<number | null>(null);
+  const [rapidFireD4RollLocal, setRapidFireD4RollLocal] = useState<number | null>(null);
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
     if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) setDisorientedRollLocal(null);
-  }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces]);
+    if (turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT) setRapidFireD4RollLocal(null);
+    if (turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (turn as any).rapidFireD4Roll == null) setRapidFireD4RollLocal(null);
+    if (turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) lastPulsedRapidFireStepRef.current = null;
+  }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces, (turn as any)?.rapidFireD4Roll]);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !turn.attackerId || !turn.defenderId) return;
+    const step = Number((turn as any).rapidFireStep) ?? 0;
+    if (lastPulsedRapidFireStepRef.current === step) return;
+    lastPulsedRapidFireStepRef.current = step;
+    onMinionHitPulse?.(turn.attackerId, turn.defenderId);
+  }, [turn?.phase, turn?.attackerId, turn?.defenderId, (turn as any)?.rapidFireStep, onMinionHitPulse]);
 
   /* ── Auto-resolve after showing result (only after all checks done) ── */
   // State-based count so the UI knows skeleton/minion playback is still running.
@@ -1005,6 +1020,8 @@ export default function BattleHUD({
   /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
   const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
+  /** Track which rapidFireStep we already pulsed for, so every extra shot gets hit VFX once. */
+  const lastPulsedRapidFireStepRef = useRef<number | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
     if (!isPlaybackDriver) return;
@@ -1945,16 +1962,16 @@ export default function BattleHUD({
               targets={targets}
               themeColor={attacker?.theme[0]}
               themeColorDark={attacker?.theme[18]}
-              onSelect={() => {}}
+              onSelect={() => { }}
               randomMode={true}
               subtitle="Disoriented"
-              waitingForLabel={isAttackerNpc ? 'Choosing target at random…' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target…`}
+              waitingForLabel={isAttackerNpc ? 'Choosing target at random...' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target...`}
             />
           ) : hasDisoriented && !turn.defenderId ? (
             <div className="bhud__dice-modal bhud__targets-modal bhud__targets-modal--disoriented-wait" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
               <span className="bhud__dice-label">Disoriented</span>
               <p className="bhud__no-target-reason">
-                {isAttackerNpc ? 'Choosing target at random…' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target…`}
+                {isAttackerNpc ? 'Choosing target at random...' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target...`}
               </p>
               <div className="bhud__dice-roller bhud__dice-roller--waiting">
                 <div className="bhud__roll-waiting-spinner" />
@@ -2017,7 +2034,7 @@ export default function BattleHUD({
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}…</p>
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}...</p>
               )}
             </div>
           ) : null}
@@ -2058,7 +2075,7 @@ export default function BattleHUD({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={{ '--modal-primary': attacker.theme?.[0], '--modal-dark': attacker.theme?.[18] } as React.CSSProperties}>
             <span className="bhud__dice-label">Choosing Action</span>
-            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
+            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding...</span>
             <div className="bhud__dice-roller bhud__dice-roller--waiting">
               <div className="bhud__roll-waiting-spinner" />
             </div>
@@ -2120,7 +2137,7 @@ export default function BattleHUD({
             bonusLabel={`no effect: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll }).catch(() => {});
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll }).catch(() => { });
               setDisorientedRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
@@ -2129,10 +2146,43 @@ export default function BattleHUD({
                 await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
                 await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
                 await advanceAfterDisorientedD4(arenaId);
-              } catch (e) {}
+              } catch (e) { }
             }}
             onResultCardVisible={arenaId ? () => {
-              window.setTimeout(() => advanceAfterDisorientedD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+              window.setTimeout(() => advanceAfterDisorientedD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
+            } : undefined}
+          />
+        );
+      })()}
+
+      {/* Volley Arrow Rapid Fire: caster rolls D4 for each extra shot. Click = roll on every screen; others see waiting until caster clicks; no replay/remount. */}
+      {turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && Array.isArray((turn as any).rapidFireWinFaces) && (turn as any).rapidFireWinFaces.length > 0 && (() => {
+        const winFaces = (turn as any).rapidFireWinFaces ?? [];
+        const pct = winFaces.length * 25;
+        const isCaster = turn.attackerId === myId;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isCaster}
+            winFaces={winFaces}
+            roll={(turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal ?? undefined}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+            title="Rapid Fire"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${pct}% extra shot)` : `D4 (${pct}%)`}
+            wonText="Extra shot"
+            lostText="End"
+            bonusLabel={`extra shot: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isCaster ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { rapidFireD4Roll: roll }).catch(() => { });
+              setRapidFireD4RollLocal(roll);
+            } : undefined}
+            onRoll={async () => { }}
+            onResultCardVisible={arenaId ? () => {
+              const r = (turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal;
+              if (r != null) window.setTimeout(() => onSubmitRapidFireD4Roll?.(r), REFILL_CARD_VIEW_MS);
             } : undefined}
           />
         );
@@ -2196,7 +2246,7 @@ export default function BattleHUD({
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {floralHealReceiver?.nicknameEng ?? 'heal receiver'}…</p>
+                <p className="bhud__no-target-waiting">Waiting for {floralHealReceiver?.nicknameEng ?? 'heal receiver'}...</p>
               )}
             </div>
           </div>
@@ -2229,7 +2279,7 @@ export default function BattleHUD({
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}…</p>
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}...</p>
               )}
             </div>
           </div>
@@ -2257,7 +2307,7 @@ export default function BattleHUD({
                 </button>
               </div>
             ) : (
-              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'heal receiver'}…</p>
+              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'heal receiver'}...</p>
             )}
           </div>
         </div>
@@ -2365,7 +2415,7 @@ export default function BattleHUD({
           onAttackRollStart={handleAttackRollStart}
           onDefendRollStart={handleDefendRollStart}
           onAtkRollDone={() => {
-            if (arenaId) ackAttackDiceShown(arenaId).catch(() => {});
+            if (arenaId) ackAttackDiceShown(arenaId).catch(() => { });
             if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             atkRollDoneTimeoutRef.current = setTimeout(() => {
@@ -2374,7 +2424,7 @@ export default function BattleHUD({
             }, delayMs);
           }}
           onDefRollDone={() => {
-            if (arenaId) ackDefendDiceShown(arenaId).catch(() => {});
+            if (arenaId) ackDefendDiceShown(arenaId).catch(() => { });
             if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             defRollDoneTimeoutRef.current = setTimeout(() => {
@@ -2568,14 +2618,14 @@ export default function BattleHUD({
           masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
         }
         return (
-        <DamageCard
-          key={masterDamageCardKey}
-          data={masterCardData}
-          exiting={resolveExiting}
-          side={resolveCache.current.side}
-          displayMs={masterResolveDisplayMs}
-          onDisplayComplete={handleMasterDamageCardComplete}
-        />
+          <DamageCard
+            key={masterDamageCardKey}
+            data={masterCardData}
+            exiting={resolveExiting}
+            side={resolveCache.current.side}
+            displayMs={masterResolveDisplayMs}
+            onDisplayComplete={handleMasterDamageCardComplete}
+          />
         );
       })()}
 
@@ -2590,6 +2640,43 @@ export default function BattleHUD({
           onDisplayComplete={() => skeletonCardCompleteRef.current?.()}
         />
       )}
+
+      {/* Rapid Fire extra shot: caster-side "Extra Shot" card + defender-side damage card + hit VFX (onMinionHitPulse in useEffect above) */}
+      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && (() => {
+        const dmg = Number((turn as any).rapidFireExtraShotDamage) ?? 0;
+        const baseDmg = Number((turn as any).rapidFireExtraShotBaseDmg) ?? 0;
+        const isCrit = !!(turn as any).rapidFireExtraShotIsCrit;
+        const rapidFireAtk = attacker ?? find(teamA, teamB, turn.attackerId);
+        const rapidFireDef = defender ?? find(teamA, teamB, turn.defenderId ?? '');
+        const casterSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
+        const cardData = {
+          isHit: true,
+          isPower: true,
+          powerName: POWER_NAMES.VOLLEY_ARROW,
+          isCrit,
+          baseDmg,
+          damage: dmg,
+          shockBonus: 0,
+          atkRoll: 0,
+          isDodged: false,
+          coAttackHit: false,
+          coAttackDamage: 0,
+          attackerName: rapidFireAtk?.nicknameEng ?? '',
+          attackerTheme: rapidFireAtk?.theme?.[0] ?? '#666',
+          defenderName: rapidFireDef?.nicknameEng ?? '',
+          defenderTheme: rapidFireDef?.theme?.[0] ?? '#666',
+        };
+        return (
+          <DamageCard
+            key="rapid-fire-extra-shot-dmg"
+            data={cardData}
+            exiting={false}
+            side={casterSide}
+            displayMs={MINION_RESOLVE_DISPLAY_MS}
+            onDisplayComplete={onRapidFireDamageCardComplete}
+          />
+        );
+      })()}
 
       {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
       {skipCard && (
