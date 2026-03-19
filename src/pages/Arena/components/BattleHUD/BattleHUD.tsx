@@ -115,6 +115,8 @@ interface Props {
   onFloralHealResultCardHidden?: () => void;
   /** When target modal is used to pick an ally (e.g. Floral Fragrance, Apollo's Hymn), call with selected ally id instead of onSelectTarget. */
   onSelectAllyTarget?: (allyId: string) => void;
+  /** True while Volley Arrow hit VFX is active. When false, Rapid Fire extra-shot damage card is hidden. */
+  volleyArrowHitActive?: boolean;
 }
 
 /** Find a fighter across both teams */
@@ -162,6 +164,7 @@ export default function BattleHUD({
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onSubmitRapidFireD4Roll, onRapidFireDamageCardComplete, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
   confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  volleyArrowHitActive,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -2611,8 +2614,8 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
-      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && (() => {
+      {/* Damage breakdown card — on defender side. For Volley Arrow (main or extra), hide when volleyArrowHitActive is false. */}
+      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && !(turn?.usedPowerName === POWER_NAMES.VOLLEY_ARROW && !volleyArrowHitActive) && (() => {
         const masterCardData = { ...resolveCache.current };
         if (masterCardData.powerName === POWER_NAMES.JOLT_ARC && !masterCardData.baseDmg && attacker) {
           masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
@@ -2641,8 +2644,8 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Rapid Fire extra shot: caster-side "Extra Shot" card + defender-side damage card + hit VFX (onMinionHitPulse in useEffect above) */}
-      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && (() => {
+      {/* Rapid Fire extra shot: caster-side "Extra Shot" card + defender-side damage card + hit VFX. Hide damage card when volleyArrowHitActive is false. */}
+      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && volleyArrowHitActive && (() => {
         const dmg = Number((turn as any).rapidFireExtraShotDamage) ?? 0;
         const baseDmg = Number((turn as any).rapidFireExtraShotBaseDmg) ?? 0;
         const isCrit = !!(turn as any).rapidFireExtraShotIsCrit;

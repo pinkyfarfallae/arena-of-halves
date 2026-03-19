@@ -204,9 +204,15 @@ interface Props {
   casterFrameRef?: RefObject<HTMLDivElement | null>;
   /** Ref for Arena soul float to start from this chip's frame center (defender only). */
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
+  /** True while Volley Arrow hit VFX (arrow + impact) is active. */
+  volleyArrowHitActive?: boolean;
+  /** True when this chip is the Volley Arrow hit target (defender). */
+  isVolleyArrowHitDefender?: boolean;
+  /** True when this chip is the Volley Arrow caster (attacker). */
+  isVolleyArrowHitAttacker?: boolean;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -877,6 +883,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && showHymnWave && isHymnWaved && 'mchip--hymn-waved',
     battleLive && isImprecatedPoemHealingNullified && 'mchip--imprecated-poem-healing-nullified',
     battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
+    isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -1022,6 +1029,25 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               <span key={i} className={`mchip__jolt-decel-spark-point mchip__jolt-decel-spark-point--${i + 1}`} />
             ))}
           </div>
+        </>
+      )}
+
+      {/* Volley Arrow hit defender — background layers (behind frame) */}
+      {isVolleyArrowHitDefender && (
+        <>
+          <div className="mchip__volley-arrow-glow" aria-hidden="true" />
+          <div className="mchip__volley-arrow-rays" aria-hidden="true">
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--1" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--2" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--3" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--4" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--5" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--6" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--7" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--8" />
+          </div>
+          <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--outer" aria-hidden="true" />
+          <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--inner" aria-hidden="true" />
         </>
       )}
 
@@ -1524,7 +1550,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             <div className="mchip__hymn-accents" aria-hidden="true" />
           </>
         )}
-        <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+        <div
+          ref={setFrameRef}
+          className={`mchip__frame${isVolleyArrowHitDefender && isHit ? ' mchip__frame--volley-arrow-hit' : ''}`}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+        >
           {fighter.image ? (
             <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
           ) : (
@@ -1657,6 +1688,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           </>
         )}
       </div>
+
+      {/* Volley Arrow hit defender — on-top layers (sparks, accents) so they are visible above the frame */}
+      {isVolleyArrowHitDefender && (
+        <>
+          <div className="mchip__volley-arrow-spark-points" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className={`mchip__volley-arrow-spark mchip__volley-arrow-spark--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-accents" aria-hidden="true" />
+        </>
+      )}
 
       {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
       {hasPomegranateEffect && battleLive && (

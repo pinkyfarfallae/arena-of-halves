@@ -105,6 +105,7 @@ $effects-with-shock-hit: (
   'hymn-waved': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
   'beyond-the-nimbus': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards, nimbus-frame-blink 0.3s ease-in-out infinite',
   'jolt-arc-attack': 'hit-shake 0.5s ease-out, shock-zap-glow 1.5s ease-out forwards',
+  'volley-arrow-hit-defender': 'hit-shake 0.5s ease-out',
 );
 
 @each $effect, $frame-anim in $effects-with-shock-hit {
