@@ -308,6 +308,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
         const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
         const hasDeathKeeper = tagBasedProps.hasDeathKeeper;
+        const hasSunbornSovereign = (m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign;
         const isResurrected = tagBasedProps.isResurrected;
         const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
         const isImprecatedPoemCursed = tagBasedProps.isImprecatedPoemCursed;
@@ -523,6 +524,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             hasBeyondNimbus={hasBeyondNimbus}
             hasSoulDevourer={hasSoulDevourer}
             hasDeathKeeper={hasDeathKeeper}
+            hasSunbornSovereign={hasSunbornSovereign}
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}
             isFragranceWaved={isFragranceWaved}
@@ -640,8 +642,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
             volleyArrowHitActive={volleyArrowHitActive}
-            isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId}
-            isVolleyArrowHitAttacker={hasRapidFireEffect}
+            isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender}
+            isVolleyArrowHitAttacker={hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker}
           />
         );
       })}

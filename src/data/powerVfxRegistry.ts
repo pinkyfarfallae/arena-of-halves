@@ -41,6 +41,12 @@ export interface PowerVfxChipProps {
   isKeraunosVoltageHit?: boolean;
   isJoltArcAttackHit?: boolean;
   effectPips?: EffectPip[];
+  /** Sunborn Sovereign passive — frame + sun badge (demo: from registry; Arena: from fighter.powers). */
+  hasSunbornSovereign?: boolean;
+  /** Volley Arrow hit VFX on target chip (demo-only). */
+  isVolleyArrowHitDefender?: boolean;
+  /** Volley Arrow hit VFX on attacker chip (Rapid Fire holder). */
+  isVolleyArrowHitAttacker?: boolean;
 }
 
 export interface PowerVfxEntry {
@@ -193,7 +199,28 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     group: DEITY.APOLLO,
     tag: EFFECT_TAGS.RAPID_FIRE,
     applyTo: EFFECT_SIDE_LABEL.CASTER,
-    props: {},
+    props: { isVolleyArrowHitAttacker: true },
+  },
+  {
+    id: 'sunborn-sovereign',
+    label: 'Sunborn Sovereign (caster)',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    props: { hasSunbornSovereign: true },
+  },
+  {
+    id: 'volley-arrow-hit-defender',
+    label: 'Volley Arrow hit (defender)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    props: { isVolleyArrowHitDefender: true },
+  },
+  {
+    id: 'volley-arrow-hit-attacker',
+    label: 'Volley Arrow hit (attacker)',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    props: { isVolleyArrowHitAttacker: true },
   },
   // Imprecated Poem verses (target cursed by verse — frame VFX; display name = verse name)
   {

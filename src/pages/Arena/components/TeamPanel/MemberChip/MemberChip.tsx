@@ -13,6 +13,7 @@ import Rose from './icons/Rose';
 import VoltageFrame from './icons/VoltageFrame';
 import WavyLines from './icons/WavyLines';
 import ReaperScythe from './icons/ReaperScythe';
+import Sun from './icons/Sun';
 import TargetCrosshair from './icons/TargetCrosshair';
 
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
@@ -136,6 +137,8 @@ interface Props {
   hasBeyondNimbus?: boolean;
   hasSoulDevourer?: boolean;
   hasDeathKeeper?: boolean;
+  /** Sunborn Sovereign passive — frame + sun badge (Apollo). */
+  hasSunbornSovereign?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
@@ -212,7 +215,7 @@ interface Props {
   isVolleyArrowHitAttacker?: boolean;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -875,6 +878,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && hasBeyondNimbus && 'mchip--beyond-the-nimbus',
     battleLive && hasSoulDevourer && 'mchip--soul-devourer',
     battleLive && hasDeathKeeper && 'mchip--death-keeper',
+    battleLive && hasSunbornSovereign && 'mchip--sunborn-sovereign',
     battleLive && showResurrecting && 'mchip--resurrecting',
     battleLive && showResFlash && 'mchip--res-flash',
     battleLive && showResGlow && 'mchip--res-glow',
@@ -1670,6 +1674,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                     gradientId={`reaper-grad-${fighter.characterId}`}
                     color1="#88789fff"
                     color2="#cda4e0ff"
+                  />
+                </div>
+              )}
+
+              {/* Sunborn Sovereign sun badge (Apollo passive) */}
+              {hasSunbornSovereign && (
+                <div className="mchip__sun-badge" aria-hidden="true">
+                  <Sun
+                    gradientId={`sun-grad-${fighter.characterId}`}
+                    color1="#fffef0"
+                    color2="#d4a017"
                   />
                 </div>
               )}
