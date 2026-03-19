@@ -152,7 +152,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
         })}
       </div>
       <button className="tp__save" onClick={handleSave} disabled={saving}>
-        {saving ? 'Saving…' : 'Save Theme'}
+        {saving ? 'Saving...' : 'Save Theme'}
       </button>
     </div>
   );

@@ -37,6 +37,7 @@ export type TargetTypeValue = (typeof TARGET_TYPES)[keyof typeof TARGET_TYPES];
 export const MOD_STAT = {
   ATTACK_DICE_UP: 'attackDiceUp',
   DEFEND_DICE_UP: 'defendDiceUp',
+  RECOVERY_DICE_UP: 'recoveryDiceUp',
   DAMAGE: 'damage',
   SPEED: 'speed',
   CRITICAL_RATE: 'criticalRate',

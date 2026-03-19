@@ -31,11 +31,22 @@ export interface PowerVfxChipProps {
   isResurrected?: boolean;
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
+  isHymnWaved?: boolean;
+  /** Imprecated Poem: Healing Nullified verse — dedicated frame VFX. */
+  isImprecatedPoemHealingNullified?: boolean;
+  /** Imprecated Poem: other verses (Disoriented / Eternal Agony) — generic curse frame. */
+  isImprecatedPoemCursed?: boolean;
   isHit?: boolean;
   isShockHit?: boolean;
   isKeraunosVoltageHit?: boolean;
   isJoltArcAttackHit?: boolean;
   effectPips?: EffectPip[];
+  /** Sunborn Sovereign passive — frame + sun badge (demo: from registry; Arena: from fighter.powers). */
+  hasSunbornSovereign?: boolean;
+  /** Volley Arrow hit VFX on target chip (demo-only). */
+  isVolleyArrowHitDefender?: boolean;
+  /** Volley Arrow hit VFX on attacker chip (Rapid Fire holder). */
+  isVolleyArrowHitAttacker?: boolean;
 }
 
 export interface PowerVfxEntry {
@@ -171,6 +182,74 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     group: DEITY.PERSEPHONE, 
     props: { isFragranceWaved: true } 
   },
+  // —— Apollo ——
+  {
+    id: EFFECT_TAGS.APOLLO_S_HYMN,
+    label: "Apollo's Hymn (heal VFX)",
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.APOLLO_S_HYMN,
+    applyTo: 'both',
+    props: { isHymnWaved: true },
+  },
+  {
+    id: EFFECT_TAGS.RAPID_FIRE,
+    label: 'Rapid Fire',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.RAPID_FIRE,
+    applyTo: EFFECT_SIDE_LABEL.CASTER,
+    props: { isVolleyArrowHitAttacker: true },
+  },
+  {
+    id: 'sunborn-sovereign',
+    label: 'Sunborn Sovereign (caster)',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    props: { hasSunbornSovereign: true },
+  },
+  {
+    id: 'volley-arrow-hit-defender',
+    label: 'Volley Arrow hit (defender)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    props: { isVolleyArrowHitDefender: true },
+  },
+  {
+    id: 'volley-arrow-hit-attacker',
+    label: 'Volley Arrow hit (attacker)',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.APOLLO,
+    props: { isVolleyArrowHitAttacker: true },
+  },
+  // Imprecated Poem verses (target cursed by verse — frame VFX; display name = verse name)
+  {
+    id: 'imprecated-poem-healing-nullified',
+    label: 'Healing Nullified (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.HEALING_NULLIFIED,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true, isImprecatedPoemHealingNullified: true },
+  },
+  {
+    id: 'imprecated-poem-disoriented',
+    label: 'Disoriented (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.DISORIENTED,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true },
+  },
+  {
+    id: 'imprecated-poem-eternal-agony',
+    label: 'Eternal Agony (Imprecated Poem)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.APOLLO,
+    tag: EFFECT_TAGS.ETERNAL_AGONY,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: { isImprecatedPoemCursed: true },
+  },
   // —— Hades ——
   { 
     id: 'shadow-camouflaged', 
@@ -258,17 +337,18 @@ export function getTagBasedChipProps(
   characterId: string
 ): PowerVfxChipProps {
   const out: PowerVfxChipProps = {};
+  const cid = String(characterId);
   for (const entry of POWER_VFX_EFFECTS) {
     if (!entry.tag && !entry.id) continue;
     const matches = entry.tag && entry.applyTo
       ? (entry.applyTo === EFFECT_SIDE_LABEL.TARGET
-        ? activeEffects.some((e) => e.targetId === characterId && e.tag === entry.tag)
+        ? activeEffects.some((e) => String(e.targetId) === cid && e.tag === entry.tag)
         : entry.applyTo === EFFECT_SIDE_LABEL.CASTER
-          ? activeEffects.some((e) => e.sourceId === characterId && e.tag === entry.tag)
+          ? activeEffects.some((e) => String(e.sourceId) === cid && e.tag === entry.tag)
           : activeEffects.some(
-            (e) => (e.targetId === characterId || e.sourceId === characterId) && e.tag === entry.tag
+            (e) => (String(e.targetId) === cid || String(e.sourceId) === cid) && e.tag === entry.tag
           ))
-      : activeEffects.some((e) => e.tag === entry.id && e.targetId === characterId);
+      : activeEffects.some((e) => e.tag === entry.id && String(e.targetId) === cid);
     if (matches) {
       for (const [k, v] of Object.entries(entry.props) as [keyof PowerVfxChipProps, unknown][]) {
         // Arena computes effectPips from activeEffects; don't overwrite with static demo pips

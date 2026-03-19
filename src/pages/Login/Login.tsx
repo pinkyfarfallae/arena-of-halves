@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Omega from './icons/Omega';
+import Eye from './icons/Eye';
+import EyeOff from './icons/EyeOff';
 import Lightning from '../../icons/Lightning';
 import Warning from './icons/Warning';
 import Swords from '../../icons/Swords';
@@ -39,6 +41,7 @@ function Login() {
   const { login, isLoggedIn, user, logout } = useAuth();
   const [characterId, setCharacterId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
 
@@ -100,15 +103,30 @@ function Login() {
 
           <div className="login__field">
             <label className="login__label" htmlFor="password">Passphrase</label>
-            <input
-              id="password"
-              className="login__input"
-              type="password"
-              placeholder="Speak the words"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+            <div className="login__password-wrap">
+              <input
+                id="password"
+                className="login__input login__input--password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Speak the words"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="login__password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                title={showPassword ? 'Hide passphrase' : 'Show passphrase'}
+                aria-label={showPassword ? 'Hide passphrase' : 'Show passphrase'}
+              >
+                {showPassword ? (
+                  <EyeOff width={20} height={20} aria-hidden />
+                ) : (
+                  <Eye width={20} height={20} aria-hidden />
+                )}
+              </button>
+            </div>
           </div>
 
           {error && <p className="login__error"><Warning width={14} height={14} /> {error}</p>}

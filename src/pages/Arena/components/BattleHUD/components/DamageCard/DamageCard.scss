@@ -101,19 +101,21 @@ $crimson-bright: #c41e3a;
   background: rgba($gold, 0.12);
   border: 1px solid rgba($gold, 0.25);
   border-radius: 3px;
+  margin-top: -2px;
 }
 
 .dmg-card__shock {
   font-size: 0.6rem;
   font-weight: 800;
   color: #039be5;
-  padding: 0.05rem 0.25rem;
+  padding: 0.05rem 0.2rem 0.05rem 0.25rem;
   background: rgba(#4fc3f7, 0.12);
   border: 1px solid rgba(#4fc3f7, 0.25);
   border-radius: 3px;
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
+  margin-top: -2px;
 }
 
 .dmg-card__shock-icon {

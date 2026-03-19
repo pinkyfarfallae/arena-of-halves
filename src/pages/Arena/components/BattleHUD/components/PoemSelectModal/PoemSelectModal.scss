@@ -1,0 +1,280 @@
+@use '../../../../../../styles/variables' as *;
+
+/* Apollo theme: sun / light / gold / prophecy — poem as divine curse */
+$apollo-gold: #d4a84b;
+$apollo-gold-light: #f0e0a8;
+$apollo-amber: #c4952e;
+$apollo-hover-tint: #e8d4a0; /* warm honey for hover */
+$apollo-ink: #2c2416;
+$apollo-ink-mid: #5c5030;
+$apollo-ink-faint: #8a7d5c;
+$apollo-bg: #fdf9ed;
+$apollo-bg-warm: #f8f0dc;
+
+/* ── Poem modal: Apollo (sun / verse / light) — size pattern matches season select modal ── */
+.bhud__poem-modal,
+.bhud__action-modal--poem {
+  gap: 0.5rem;
+  height: fit-content;
+}
+
+.bhud__poem-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* Option cards: rich Apollo gold card with icon pill */
+.bhud__poem-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 22%, #f5f0e6);
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 6%, #fff) 0%,
+    color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 12%, #fdfbf5) 100%
+  );
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at 0% 50%,
+      color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 14%, transparent) 0%,
+      transparent 55%
+    );
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: $apollo-hover-tint;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, $apollo-hover-tint 25%, #fff) 0%,
+      color-mix(in srgb, $apollo-amber 12%, #fdf8ec) 100%
+    );
+
+    &::before {
+      opacity: 1;
+      background: radial-gradient(
+        circle at 20% 50%,
+        color-mix(in srgb, $apollo-gold-light 40%, transparent) 0%,
+        transparent 65%
+      );
+    }
+  }
+
+  &.bhud__poem-btn--selected {
+    border-color: var(--modal-primary, $apollo-amber);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 14%, #fff) 0%,
+      color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 22%, #fdf9ed) 100%
+    );
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.bhud__poem-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+  border-radius: 6px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 18%, #fff),
+    color-mix(in srgb, var(--modal-dark, #{$apollo-amber}) 12%, #f8f4e8)
+  );
+  color: var(--modal-primary, $apollo-amber);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent);
+  transition: transform 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .bhud__poem-btn:hover & {
+    color: var(--modal-dark, $apollo-amber);
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, $apollo-hover-tint 35%, #fff),
+      color-mix(in srgb, $apollo-amber 22%, #f8f4e8)
+    );
+  }
+
+  .bhud__poem-btn--selected & {
+    color: var(--modal-dark, $apollo-amber);
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 28%, #fff),
+      color-mix(in srgb, var(--modal-dark, #{$apollo-amber}) 20%, #f8f4e8)
+    );
+  }
+}
+
+.bhud__poem-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.bhud__poem-label-th {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: $apollo-ink;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+.bhud__poem-label-en {
+  font-size: 0.42rem;
+  font-weight: 550;
+  color: $apollo-ink-mid;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* ── Compact mode (same pattern as season select modal) ── */
+@media (max-width: $bp-compact) {
+  .bhud__poem-modal,
+  .bhud__action-modal--poem {
+    gap: 0.3rem;
+    width: 150px;
+    padding: 0.35rem 0.35rem 0.3rem;
+  }
+
+  .bhud__poem-picker {
+    gap: 0.25rem;
+  }
+
+  .bhud__poem-btn {
+    padding: 0.3rem 0.2rem;
+    border-radius: 6px;
+  }
+
+  .bhud__poem-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.35rem;
+    border-radius: 4px;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  .bhud__poem-label-th {
+    font-size: 0.45rem;
+  }
+
+  .bhud__poem-label-en {
+    font-size: 0.36rem;
+  }
+
+  .poem-tip {
+    min-width: 120px;
+    max-width: 160px;
+  }
+
+  .poem-tip__inner {
+    padding: 0.4rem 0.5rem;
+    gap: 0.15rem;
+  }
+
+  .poem-tip__title {
+    font-size: 0.45rem;
+  }
+
+  .poem-tip__effect-th {
+    font-size: 0.42rem;
+  }
+
+  .poem-tip__scope {
+    font-size: 0.34rem;
+  }
+}
+
+/* ── Poem detail panel (hover): same size pattern as season-tip ── */
+.poem-tip {
+  position: fixed;
+  z-index: 9999;
+  transform: translateY(-100%);
+  pointer-events: none;
+  width: max-content;
+  min-width: 140px;
+  max-width: 200px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--modal-primary, #{$apollo-gold}) 28%, #e8e2d8);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+
+  &--visible {
+    opacity: 1;
+  }
+}
+
+.poem-tip__inner {
+  padding: 0.5rem 0.6rem;
+  margin-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.poem-tip__title {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--modal-dark, $apollo-ink);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+.poem-tip__effect-th {
+  font-size: 0.5rem;
+  font-weight: 500;
+  color: $apollo-ink-mid;
+  line-height: 1.4;
+  margin: 0;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}
+
+.poem-tip__scope {
+  font-size: 0.44rem;
+  font-weight: 600;
+  color: $apollo-ink-faint;
+  letter-spacing: 0.05em;
+  font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+}

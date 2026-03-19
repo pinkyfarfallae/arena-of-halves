@@ -1,0 +1,327 @@
+@use '../vars' as v;
+
+/* ── Apollo's Hymn — power VFX (sun / corona / light burst, similar structure to Floral Fragrance) ───────────── */
+
+$hymn-gold: #ffd700;
+$hymn-amber: #ffbf00;
+$hymn-light: #fff8dc;
+$hymn-white: rgba(255, 255, 255, 0.9);
+$hymn-corona: rgba(255, 220, 100, 0.85);
+
+/* Light radius ray corona — rays emanating from mchip__frame (conic-gradient + radial mask) */
+.mchip__frame-wrap .mchip__hymn-corona-rays {
+  position: absolute;
+  inset: -28px;
+  border-radius: 12px;
+  z-index: 11;
+  pointer-events: none;
+  filter: brightness(1.5) drop-shadow(0 0 12px rgba(0, 0, 0, 0.5));
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg 12deg,
+    rgba($hymn-gold, 0.45) 13deg 15deg,
+    transparent 16deg 28deg,
+    rgba($hymn-light, 0.4) 29deg 32deg,
+    transparent 33deg 45deg,
+    rgba($hymn-amber, 0.4) 46deg 49deg,
+    transparent 50deg 62deg,
+    rgba($hymn-gold, 0.45) 63deg 66deg,
+    transparent 67deg 79deg,
+    rgba($hymn-light, 0.4) 80deg 83deg,
+    transparent 84deg 96deg,
+    rgba($hymn-amber, 0.4) 97deg 100deg,
+    transparent 101deg 113deg,
+    rgba($hymn-gold, 0.45) 114deg 117deg,
+    transparent 118deg 130deg,
+    rgba($hymn-light, 0.4) 131deg 134deg,
+    transparent 135deg 147deg,
+    rgba($hymn-amber, 0.4) 148deg 151deg,
+    transparent 152deg 164deg,
+    rgba($hymn-gold, 0.45) 165deg 168deg,
+    transparent 169deg 181deg,
+    rgba($hymn-light, 0.4) 182deg 185deg,
+    transparent 186deg 198deg,
+    rgba($hymn-amber, 0.4) 199deg 202deg,
+    transparent 203deg 215deg,
+    rgba($hymn-gold, 0.45) 216deg 219deg,
+    transparent 220deg 232deg,
+    rgba($hymn-light, 0.4) 233deg 236deg,
+    transparent 237deg 249deg,
+    rgba($hymn-amber, 0.4) 250deg 253deg,
+    transparent 254deg 266deg,
+    rgba($hymn-gold, 0.45) 267deg 270deg,
+    transparent 271deg 283deg,
+    rgba($hymn-light, 0.4) 284deg 287deg,
+    transparent 288deg 300deg,
+    rgba($hymn-amber, 0.4) 301deg 304deg,
+    transparent 305deg 317deg,
+    rgba($hymn-gold, 0.45) 318deg 321deg,
+    transparent 322deg 334deg,
+    rgba($hymn-light, 0.4) 335deg 338deg,
+    transparent 339deg 351deg,
+    rgba($hymn-amber, 0.4) 352deg 355deg,
+    transparent 356deg 360deg
+  );
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    transparent 35%,
+    black 48%,
+    black 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    transparent 35%,
+    black 48%,
+    black 100%
+  );
+  filter: blur(3px);
+  animation: hymn-corona-rays-pulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes hymn-corona-rays-pulse {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+/* Hymn border ring — gold/amber gradient (sun corona), around mchip__frame only */
+.mchip__frame-wrap .mchip__hymn-border {
+  position: absolute;
+  inset: -2.5px;
+  border-radius: 10px;
+  z-index: 12;
+  pointer-events: none;
+  padding: 2px;
+  background: linear-gradient(90deg,
+      $hymn-amber 0%,
+      $hymn-gold 25%,
+      $hymn-light 50%,
+      $hymn-gold 75%,
+      $hymn-amber 100%);
+  background-size: 200% 100%;
+  animation: hymn-border-flow 3s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba($hymn-gold, 0.4);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+/* Hymn accents — light / sun burst spots around mchip__frame only (soft blur) */
+.mchip__frame-wrap .mchip__hymn-accents {
+  position: absolute;
+  inset: -6px;
+  border-radius: 10px;
+  z-index: 12;
+  pointer-events: none;
+  filter: blur(4px);
+  background:
+    radial-gradient(ellipse 20px 10px at 10% 12%, $hymn-corona 0%, transparent 100%),
+    radial-gradient(ellipse 15px 20px at 90% 18%, rgba($hymn-gold, 0.6) 0%, transparent 100%),
+    radial-gradient(ellipse 16px 14px at 85% 80%, $hymn-white 0%, transparent 100%),
+    radial-gradient(ellipse 14px 16px at 15% 75%, rgba($hymn-amber, 0.55) 0%, transparent 100%),
+    radial-gradient(ellipse 20px 25px at 50% 6%, $hymn-corona 0%, transparent 100%),
+    radial-gradient(ellipse 18px 22px at 48% 94%, rgba($hymn-gold, 0.5) 0%, transparent 100%);
+  animation: hymn-accents-drift 4s ease-in-out infinite alternate;
+}
+
+/* Hymn Wave — rising light / sun burst / corona particles (replaces petals) */
+.mchip__hymn-wave {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, black 10%, black 86%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-composite: destination-in;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 200%;
+    pointer-events: none;
+  }
+
+  /* Layer 1: corona / sun burst orbs — rising */
+  &::before {
+    bottom: -100%;
+    background:
+      radial-gradient(circle 8px at 20% 5%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 75% 10%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 9px at 45% 16%, rgba($hymn-gold, 0.8) 0%, transparent 70%),
+      radial-gradient(circle 7px at 88% 22%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 12% 28%, rgba($hymn-amber, 0.75) 0%, transparent 70%),
+      radial-gradient(circle 8px at 62% 35%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 7px at 35% 42%, rgba($hymn-gold, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 5% 12%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 95% 35%, rgba($hymn-amber, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 7px at 55% 8%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 6px at 52% 8%, rgba($hymn-gold, 0.75) 0%, transparent 70%),
+      radial-gradient(circle 5px at 30% 18%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 82% 30%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 5px at 18% 40%, rgba($hymn-amber, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 70% 46%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 8% 32%, rgba($hymn-gold, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 6px at 92% 50%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 4px at 42% 25%, $hymn-corona 0%, transparent 70%),
+      /* second half for loop */
+      radial-gradient(circle 8px at 20% 55%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 75% 60%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 9px at 45% 66%, rgba($hymn-gold, 0.8) 0%, transparent 70%),
+      radial-gradient(circle 7px at 88% 72%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 12% 78%, rgba($hymn-amber, 0.75) 0%, transparent 70%),
+      radial-gradient(circle 8px at 62% 85%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 7px at 35% 92%, rgba($hymn-gold, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 5% 62%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 95% 85%, rgba($hymn-amber, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 7px at 55% 58%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 6px at 52% 58%, rgba($hymn-gold, 0.75) 0%, transparent 70%),
+      radial-gradient(circle 5px at 30% 68%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 82% 80%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 5px at 18% 90%, rgba($hymn-amber, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 70% 96%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 8% 82%, rgba($hymn-gold, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 6px at 92% 100%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 4px at 42% 75%, $hymn-corona 0%, transparent 70%);
+    animation: hymn-splash-up 6s ease-out infinite;
+  }
+
+  &::after {
+    bottom: -50%;
+    background:
+      radial-gradient(circle 6px at 30% 6%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 7px at 68% 14%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 50% 22%, rgba($hymn-gold, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 15% 30%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 85% 38%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 5px at 40% 46%, rgba($hymn-amber, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 5px at 12% 16%, rgba($hymn-gold, 0.6) 0%, transparent 70%),
+      radial-gradient(circle 5px at 72% 36%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 58% 48%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 4px at 28% 52%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 30% 56%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 7px at 68% 64%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 5px at 50% 72%, rgba($hymn-gold, 0.7) 0%, transparent 70%),
+      radial-gradient(circle 6px at 15% 80%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 85% 88%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 5px at 40% 96%, rgba($hymn-amber, 0.65) 0%, transparent 70%),
+      radial-gradient(circle 5px at 12% 66%, rgba($hymn-gold, 0.6) 0%, transparent 70%),
+      radial-gradient(circle 5px at 72% 86%, $hymn-corona 0%, transparent 70%),
+      radial-gradient(circle 6px at 58% 98%, $hymn-white 0%, transparent 70%),
+      radial-gradient(circle 4px at 28% 102%, $hymn-corona 0%, transparent 70%);
+    animation: hymn-splash-up 7s ease-out infinite 0.3s;
+  }
+}
+
+@keyframes hymn-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes hymn-accents-drift {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateY(-3px) scale(1.02);
+    opacity: 0.65;
+  }
+}
+
+@keyframes hymn-splash-up {
+  0% {
+    transform: translateY(0) scaleY(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(-80%) scaleY(1.1);
+    opacity: 0.85;
+  }
+
+  100% {
+    transform: translateY(-160%) scaleY(0.9);
+    opacity: 0;
+  }
+}
+
+/* Apollo's Hymn — heal boost text (+n HP), gold/light theme */
+.mchip__hymn-heal-boost {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #fff8dc;
+  text-shadow:
+    0 0 8px rgba($hymn-gold, 0.7),
+    0 0 16px rgba($hymn-amber, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: hymn-heal-float 3s ease-out forwards;
+}
+
+@keyframes hymn-heal-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+
+  20% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
+}
+
+/* Compact */
+@media (max-width: v.$bp-compact) {
+  .mchip__frame-wrap .mchip__hymn-border {
+    inset: -2px;
+    padding: 1.5px;
+  }
+
+  .mchip__frame-wrap .mchip__hymn-accents {
+    inset: -4px;
+  }
+}

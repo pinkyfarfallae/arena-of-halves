@@ -104,11 +104,19 @@ $ink-faint: #9a8b76;
 .bhud__target-name {
   font-size: 0.75rem;
   font-weight: 700;
+  width: fit-content;
   color: var(--tc);
 
   @media (max-width: $bp-compact) {
     font-size: 0.65rem;
   }
+}
+
+.bhud__target-hp-line {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
 }
 
 .bhud__target-hp {
@@ -122,6 +130,23 @@ $ink-faint: #9a8b76;
   }
 }
 
+.bhud__target-hp-divider {
+  font-size: 1rem;
+  line-height: 0.55rem;
+  max-height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, $ink-faint 80%, transparent);
+  user-select: none;
+}
+
+.bhud__target-no-affliction,
+.bhud__target-healing-nullified {
+  font-size: 0.6rem;
+  color: #b8860b;
+}
+
 .bhud__target-btn--selected {
   background: color-mix(in srgb, var(--tc) 22%, transparent) !important;
   border-color: color-mix(in srgb, var(--tc) 50%, transparent) !important;
@@ -133,6 +158,23 @@ $ink-faint: #9a8b76;
   gap: 0.4rem;
   width: 100%;
   margin-top: 0.15rem;
+}
+
+.bhud__target-waiting {
+  margin: 0;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: $ink-faint;
+  text-align: center;
+  width: 100%;
+  padding: 0.35rem 0;
+}
+
+/* Random mode or waiting: targets are display-only — default cursor, not clickable */
+.bhud__target-btn--no-click {
+  cursor: default;
+  pointer-events: none;
+  opacity: 1;
 }
 
 .bhud__target-back {
@@ -191,6 +233,21 @@ $ink-faint: #9a8b76;
 
   @media (max-width: $bp-compact) {
     padding: 0.3rem 0.4rem;
+  }
+}
+
+/* ── Disoriented: message + spinner (Choosing... / Target chosen at random) ── */
+.bhud__targets-modal--disoriented-wait {
+  .bhud__no-target-reason {
+    margin: 0 0 0.5rem;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: $ink-faint;
+    text-align: center;
+  }
+
+  .bhud__dice-roller--waiting {
+    min-height: 60px;
   }
 }
 

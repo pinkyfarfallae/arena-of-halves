@@ -5,7 +5,7 @@ import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
 import { lightenColor } from '../../../../../utils/color';
-import FloralMaiden from './icons/FloralMaiden';
+import EfflorescenceMuse from './icons/EfflorescenceMuse';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
 import PomPearls from './icons/PomPearls';
@@ -13,6 +13,7 @@ import Rose from './icons/Rose';
 import VoltageFrame from './icons/VoltageFrame';
 import WavyLines from './icons/WavyLines';
 import ReaperScythe from './icons/ReaperScythe';
+import Sun from './icons/Sun';
 import TargetCrosshair from './icons/TargetCrosshair';
 
 import { DEITY_DISPLAY_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
@@ -23,6 +24,7 @@ import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel'
 import { EFFECT_TAGS } from '../../../../../constants/effectTags';
 import { CHARACTER } from '../../../../../constants/characters';
 import { POWER_NAMES } from '../../../../../constants/powers';
+import { getImprecatedPoemCurse } from '../../../../../data/imprecatedPoemCurse';
 
 import './MemberChip.scss';
 
@@ -135,9 +137,23 @@ interface Props {
   hasBeyondNimbus?: boolean;
   hasSoulDevourer?: boolean;
   hasDeathKeeper?: boolean;
+  /** Sunborn Sovereign passive — frame + sun badge (Apollo). */
+  hasSunbornSovereign?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
   isFragranceWaved?: boolean;
+  /** Apollo's Hymn: heal VFX (sun/corona wave). When true, show hymn wave for ~3s (keyed by hymnLogKey). */
+  isHymnWaved?: boolean;
+  /** Imprecated Poem: Healing Nullified verse — dedicated frame VFX. */
+  isImprecatedPoemHealingNullified?: boolean;
+  /** Imprecated Poem: other verses — generic curse frame VFX. */
+  isImprecatedPoemCursed?: boolean;
+  /** Imprecated Poem: verse effect tags on this target (HEALING_NULLIFIED / DISORIENTED / ETERNAL_AGONY); one fighter can be cursed by more than one verse. */
+  imprecatedPoemVerseTags?: string[];
+  /** Unique key for Apollo's Hymn heal so wave is shown once per event (e.g. round_logIdx_characterId). */
+  hymnLogKey?: string;
+  /** Heal amount to show as +n HP in hymn VFX. */
+  hymnHeal?: number;
   turnOrder?: number;
   effectPips?: EffectPip[];
   /** Stat modifiers from active effects: { damage, attackDiceUp, defendDiceUp, speed, criticalRate } */
@@ -185,13 +201,21 @@ interface Props {
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
+  /** When true, never show Spring (Ephemeral Season) heal VFX on this chip (e.g. heal2 stored but not yet applied). */
+  suppressSpringHealVfx?: boolean;
   /** Ref for Arena soul float to target this chip's frame center (caster only). */
   casterFrameRef?: RefObject<HTMLDivElement | null>;
   /** Ref for Arena soul float to start from this chip's frame center (defender only). */
   defenderFrameRef?: RefObject<HTMLDivElement | null>;
+  /** True while Volley Arrow hit VFX (arrow + impact) is active. */
+  volleyArrowHitActive?: boolean;
+  /** True when this chip is the Volley Arrow hit target (defender). */
+  isVolleyArrowHitDefender?: boolean;
+  /** True when this chip is the Volley Arrow caster (attacker). */
+  isVolleyArrowHitAttacker?: boolean;
 }
 
-export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, isResurrected, isResurrecting, isFragranceWaved, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, soulDevourerHealAmount = 0, soulDevourerHealKey, casterFrameRef, defenderFrameRef }: Props) {
+export default function MemberChip({ fighter, isAttacker, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -472,7 +496,11 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   // Spring heal: โชว์ VFX แบบ Floral โดยใช้ state แยก ไม่มี effect อื่นมาเคลียร์
   useEffect(() => {
     const isSpring = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_') && floralFragranceHeal != null && floralFragranceHeal > 0;
-    if (!isSpring) return;
+    if (suppressSpringHealVfx || !isSpring) {
+      setShowSpringHealVfx(false);
+      springShownKeyRef.current = null;
+      return;
+    }
     if (springShownKeyRef.current === floralLogKey) return;
     springShownKeyRef.current = floralLogKey;
     setShowSpringHealVfx(true);
@@ -481,25 +509,42 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       springShownKeyRef.current = null;
     }, 3000);
     return () => clearTimeout(t);
-  }, [floralLogKey ?? '', floralFragranceHeal]);
+  }, [floralLogKey ?? '', floralFragranceHeal, suppressSpringHealVfx]);
 
   useEffect(() => {
-    if (!isFragranceWaved) {
-      prevFragranceRef.current = false;
-      if (springWaveActiveRef.current) return;
-      if (fragranceDelayTimerRef.current) {
-        clearTimeout(fragranceDelayTimerRef.current);
-        fragranceDelayTimerRef.current = null;
+    if (!isFragranceWaved || (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_'))) {
+      if (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_')) {
+        setShowFragranceWave(false);
+        springWaveActiveRef.current = false;
+        if (fragranceDelayTimerRef.current) {
+          clearTimeout(fragranceDelayTimerRef.current);
+          fragranceDelayTimerRef.current = null;
+        }
+        if (fragranceWaveTimerRef.current) {
+          clearTimeout(fragranceWaveTimerRef.current);
+          fragranceWaveTimerRef.current = null;
+        }
       }
-      if (fragranceWaveTimerRef.current) {
-        clearTimeout(fragranceWaveTimerRef.current);
-        fragranceWaveTimerRef.current = null;
+      if (!isFragranceWaved) {
+        prevFragranceRef.current = false;
+        if (springWaveActiveRef.current) return;
+        if (fragranceDelayTimerRef.current) {
+          clearTimeout(fragranceDelayTimerRef.current);
+          fragranceDelayTimerRef.current = null;
+        }
+        if (fragranceWaveTimerRef.current) {
+          clearTimeout(fragranceWaveTimerRef.current);
+          fragranceWaveTimerRef.current = null;
+        }
+        setShowFragranceWave(false);
       }
-      setShowFragranceWave(false);
       return;
     }
     const isSpringKey = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_');
+    if (isSpringKey && suppressSpringHealVfx) return;
     if (!isSpringKey && prevFragranceRef.current) return;
+    // Only show wave when boost would show (same condition as +n HP)
+    if (!(floralFragranceHeal != null && floralFragranceHeal > 0)) return;
 
     // If this fragrance originates from a persistent log entry, check localStorage
     // so we only show it once per client (prevents showing again after reload).
@@ -514,17 +559,18 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       } catch (e) { }
     }
 
-    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit)
+    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit).
+    // Mark as seen in localStorage immediately (not when the 3s timer fires) so a refresh during the wave doesn't re-show it.
     const showWave = () => {
+      if (floralLogKey && !isSpringKey) {
+        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
+      }
       if (isSpringKey) springWaveActiveRef.current = true;
       setShowFragranceWave(true);
       fragranceWaveTimerRef.current = setTimeout(() => {
         if (isSpringKey) springWaveActiveRef.current = false;
         setShowFragranceWave(false);
         fragranceWaveTimerRef.current = null;
-        if (floralLogKey) {
-          try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
-        }
       }, 3000);
       prevFragranceRef.current = true;
     };
@@ -545,7 +591,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     showWave();
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(isFragranceWaved), floralLogKey ?? '', floralFragranceDelayMs ?? 0]);
+  }, [Boolean(isFragranceWaved), floralFragranceHeal ?? 0, floralLogKey ?? '', floralFragranceDelayMs ?? 0, suppressSpringHealVfx]);
 
   // When healing has ended (result card hidden or not shown) and this chip is the Floral heal target, hide the wave immediately
   const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true);
@@ -587,6 +633,37 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
 
   // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal ใช้ state แยก showSpringHealVfx
   const showFragranceVisual = (showFragranceWave && (isFragranceWaved || springWaveActiveRef.current) && !hideFragranceAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
+
+  /* ── Apollo's Hymn wave: sun/corona VFX for ~3s when hymn heal applied ── */
+  const [showHymnWave, setShowHymnWave] = useState(false);
+  const hymnShownKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isHymnWaved) {
+      hymnShownKeyRef.current = null;
+      setShowHymnWave(false);
+      return;
+    }
+    const key = hymnLogKey ?? `hymn_${fighter.characterId}`;
+    if (hymnShownKeyRef.current === key) return;
+    if (hymnLogKey) {
+      try {
+        if (window.localStorage.getItem(hymnLogKey)) {
+          hymnShownKeyRef.current = key;
+          return;
+        }
+      } catch (e) { }
+    }
+    hymnShownKeyRef.current = key;
+    setShowHymnWave(true);
+    const t = setTimeout(() => {
+      setShowHymnWave(false);
+      hymnShownKeyRef.current = null;
+      if (hymnLogKey) {
+        try { window.localStorage.setItem(hymnLogKey, '1'); } catch (e) { }
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [isHymnWaved, hymnLogKey ?? '', fighter.characterId]);
 
   // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
   const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
@@ -801,11 +878,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && hasBeyondNimbus && 'mchip--beyond-the-nimbus',
     battleLive && hasSoulDevourer && 'mchip--soul-devourer',
     battleLive && hasDeathKeeper && 'mchip--death-keeper',
+    battleLive && hasSunbornSovereign && 'mchip--sunborn-sovereign',
     battleLive && showResurrecting && 'mchip--resurrecting',
     battleLive && showResFlash && 'mchip--res-flash',
     battleLive && showResGlow && 'mchip--res-glow',
     battleLive && isResurrected && 'mchip--resurrected',
     battleLive && showFragranceVisual && 'mchip--fragrance-waved',
+    battleLive && showHymnWave && isHymnWaved && 'mchip--hymn-waved',
+    battleLive && isImprecatedPoemHealingNullified && 'mchip--imprecated-poem-healing-nullified',
+    battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
+    battleLive && isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
+    battleLive && isVolleyArrowHitAttacker && 'mchip--volley-arrow-hit-attacker',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -954,6 +1037,58 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
+      {/* Volley Arrow hit defender — background layers (behind frame) */}
+      {isVolleyArrowHitDefender && battleLive && (
+        <>
+          <div className="mchip__volley-arrow-glow" aria-hidden="true" />
+          <div className="mchip__volley-arrow-rays" aria-hidden="true">
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--1" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--2" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--3" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--4" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--5" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--6" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--7" />
+            <span className="mchip__volley-arrow-ray mchip__volley-arrow-ray--8" />
+          </div>
+          <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--outer" aria-hidden="true" />
+          <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--inner" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Volley Arrow hit attacker (rapid-fire caster) — background layers (behind frame) */}
+      {isVolleyArrowHitAttacker && battleLive && (
+        <>
+          <div className="mchip__volley-arrow-attacker-glow" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-rain" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__volley-arrow-attacker-drop" />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-dots" aria-hidden="true">
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--1" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--2" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--3" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--4" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--5" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--6" />
+          </div>
+          <div className="mchip__volley-arrow-attacker-rise" aria-hidden="true">
+            {Array.from({ length: 28 }, (_, i) => (
+              <span key={i} className="mchip__volley-arrow-attacker-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-rays" aria-hidden="true">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <span key={i} className={`mchip__volley-arrow-attacker-ray mchip__volley-arrow-attacker-ray--${i}`} />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--outer" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--inner" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--mid" aria-hidden="true" />
+        </>
+      )}
+
       {/* Beyond the Nimbus — background storm, rain light, and cloud under frame */}
       {hasBeyondNimbus && battleLive && (
         <>
@@ -987,7 +1122,14 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Soul Devourer — souls from every edge/corner inhaled to center (black, purple, white) */}
+      {/* Soul Devourer — animated black–white column grid background (clipped like petal), then souls inhaled to center */}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-bg" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={`mchip__soul-devourer-bg-column mchip__soul-devourer-bg-column--${i + 1}`} />
+          ))}
+        </div>
+      )}
       {hasSoulDevourer && battleLive && (
         <div className="mchip__soul-float" aria-hidden="true">
           {['tl', 'tr', 'br', 'bl', 't', 'r', 'b', 'l'].map((d) => (
@@ -995,9 +1137,29 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           ))}
         </div>
       )}
+      {hasSoulDevourer && battleLive && <div className="mchip__soul-devourer-overlay" aria-hidden="true" />}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-wisps" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <span key={i} className="mchip__soul-devourer-wisp" />
+          ))}
+        </div>
+      )}
+      {hasSoulDevourer && battleLive && (
+        <div className="mchip__soul-devourer-particles" aria-hidden="true">
+          {Array.from({ length: 12 }, (_, i) => (
+            <span key={i} className="mchip__soul-devourer-particle" />
+          ))}
+        </div>
+      )}
 
       {/* Fragrance Wave — falling flower/leaf particles (Floral Fragrance or Ephemeral Season: Spring heal, same VFX) */}
       {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+
+      {/* Apollo's Hymn — sun / corona wave (border + accents + heal text are around/inside frame, see frame-wrap below) */}
+      {showHymnWave && isHymnWaved && battleLive && (
+        <div className="mchip__hymn-wave" aria-hidden="true" />
+      )}
 
       {/* Fragrance petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
       {showFragranceVisual && battleLive && !hasEfflorescenceMuseInPips && (() => {
@@ -1170,6 +1332,27 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
+      {/* Imprecated Poem: curse frame + poem overlay + rising Apollo particles. */}
+      {isImprecatedPoemCursed && battleLive && (
+        <>
+          <div className="mchip__imprecated-poem-rise-particles" aria-hidden="true">
+            {Array.from({ length: 32 }, (_, i) => (
+              <span key={i} className="mchip__imprecated-poem-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__imprecated-poem-rise-particles mchip__imprecated-poem-rise-particles--white" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className="mchip__imprecated-poem-rise-particle-white" />
+            ))}
+          </div>
+          {imprecatedPoemVerseTags?.length ? (
+            <div className="mchip__imprecated-poem-cursed-overlay" aria-hidden="true">
+              {getImprecatedPoemCurse(imprecatedPoemVerseTags)}
+            </div>
+          ) : null}
+        </>
+      )}
+
       {/* Body — clips pattern, fades edges with gradient */}
       <div className="mchip__body">
         {deityIcon && (
@@ -1242,28 +1425,28 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           const charId = fighter.characterId;
           const charIdLower = charId?.toLowerCase();
           const isRosabella = charIdLower === CHARACTER.ROSABELLA;
-                const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
-                  angle: (i / 12) * 360 + 8,
-                  delay: i * 0.18,
-                  duration: 5 + (i % 3) * 0.8,
-                  distance: 80 + (i % 3) * 24,
-                }));
-                const leafParticles = Array.from({ length: 12 }, (_, i) => ({
-                  angle: (i / 12) * 360 + 7,
-                  delay: 0.1 + (i % 4) * 0.15,
-                  duration: 5.5 + (i % 5) * 0.5,
-                  distance: 92 + (i % 4) * 24,
-                  size: 0.8 + (i % 3) * 0.2,
-                }));
-                const dustParticles = Array.from({ length: 24 }, (_, i) => ({
-                  angle: (i / 24) * 360 + (i % 7) * 5,
-                  delay: (i % 6) * 0.12,
-                  duration: 4.5 + (i % 4) * 0.6,
-                  distance: 82 + (i % 5) * 20,
-                  size: 2.5 + (i % 4) * 0.8,
-                  scale: 0.9 + (i % 4) * 0.1,
-                  color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
-                }));
+          const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
+            angle: (i / 12) * 360 + 8,
+            delay: i * 0.18,
+            duration: 5 + (i % 3) * 0.8,
+            distance: 80 + (i % 3) * 24,
+          }));
+          const leafParticles = Array.from({ length: 12 }, (_, i) => ({
+            angle: (i / 12) * 360 + 7,
+            delay: 0.1 + (i % 4) * 0.15,
+            duration: 5.5 + (i % 5) * 0.5,
+            distance: 92 + (i % 4) * 24,
+            size: 0.8 + (i % 3) * 0.2,
+          }));
+          const dustParticles = Array.from({ length: 24 }, (_, i) => ({
+            angle: (i / 24) * 360 + (i % 7) * 5,
+            delay: (i % 6) * 0.12,
+            duration: 4.5 + (i % 4) * 0.6,
+            distance: 82 + (i % 5) * 20,
+            size: 2.5 + (i % 4) * 0.8,
+            scale: 0.9 + (i % 4) * 0.1,
+            color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
+          }));
           return (
             <>
               <div className="mchip__petal-vines" aria-hidden="true">
@@ -1343,10 +1526,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                     }
                   >
                     {isRosabella ? (
-                          <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
-                        ) : (
-                          <Flower width={14} height={14} />
-                        )}
+                      <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
+                    ) : (
+                      <Flower width={14} height={14} />
+                    )}
                   </div>
                 ))}
                 {leafParticles.map((p, i) => (
@@ -1397,7 +1580,20 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             />
           </div>
         )}
-        <div ref={setFrameRef} className="mchip__frame" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+        {/* Apollo's Hymn — corona (border, accents, light rays) around mchip__frame only */}
+        {showHymnWave && isHymnWaved && battleLive && (
+          <>
+            <div className="mchip__hymn-corona-rays" aria-hidden="true" />
+            <div className="mchip__hymn-border" aria-hidden="true" />
+            <div className="mchip__hymn-accents" aria-hidden="true" />
+          </>
+        )}
+        <div
+          ref={setFrameRef}
+          className={`mchip__frame${isVolleyArrowHitDefender && battleLive && isHit ? ' mchip__frame--volley-arrow-hit' : ''}`}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+        >
           {fighter.image ? (
             <img className="mchip__bg" src={fighter.image} alt="" referrerPolicy="no-referrer" />
           ) : (
@@ -1444,6 +1640,10 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                   )}
                 </>
               )}
+              {/* Apollo's Hymn — floating heal text (same position as Floral: centered on frame) */}
+              {showHymnWave && isHymnWaved && battleLive && hymnHeal != null && hymnHeal > 0 && (
+                <div className="mchip__hymn-heal-boost" aria-hidden="true">+{hymnHeal} HP</div>
+              )}
 
               {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
               {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
@@ -1459,7 +1659,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               {/* Efflorescence Muse badge — status immunity */}
               {isEfflorescenceMuse && (
                 <div className="mchip__petal-badge" aria-hidden="true">
-                  <FloralMaiden
+                  <EfflorescenceMuse
                     gradientId={`efflorescence-muse-grad-${fighter.characterId}`}
                     color1={lightenColor(fighter.theme[0], 0.5)}
                     color2="#d1ffd4"
@@ -1474,6 +1674,17 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
                     gradientId={`reaper-grad-${fighter.characterId}`}
                     color1="#88789fff"
                     color2="#cda4e0ff"
+                  />
+                </div>
+              )}
+
+              {/* Sunborn Sovereign sun badge (Apollo passive) */}
+              {hasSunbornSovereign && (
+                <div className="mchip__sun-badge" aria-hidden="true">
+                  <Sun
+                    gradientId={`sun-grad-${fighter.characterId}`}
+                    color1="#fffef0"
+                    color2="#d4a017"
                   />
                 </div>
               )}
@@ -1527,15 +1738,46 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
       </div>
 
-      {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
-      {hasPomegranateEffect && !isSpiritForm && !isEfflorescenceMuse && battleLive && (
+      {/* Volley Arrow hit defender — on-top layers (sparks, accents) so they are visible above the frame */}
+      {isVolleyArrowHitDefender && battleLive && (
         <>
-          {/* Triangle tunnel background (red/pink/white, 3D) */}
-          <div className="mchip__pom-tris-wrap" aria-hidden="true">
-            {Array.from({ length: 200 }, (_, i) => (
-              <div key={i} className="mchip__pom-tri" />
+          <div className="mchip__volley-arrow-spark-points" aria-hidden="true">
+            {Array.from({ length: 20 }, (_, i) => (
+              <span key={i} className={`mchip__volley-arrow-spark mchip__volley-arrow-spark--${i + 1}`} />
             ))}
           </div>
+          <div className="mchip__volley-arrow-accents" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Volley Arrow hit attacker — on-top layers (sparks, accents, bow strings) */}
+      {isVolleyArrowHitAttacker && battleLive && (
+        <>
+          <div className="mchip__volley-arrow-attacker-spark-points" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className={`mchip__volley-arrow-attacker-spark mchip__volley-arrow-attacker-spark--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-accents" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-strings" aria-hidden="true">
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--1" />
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--2" />
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--3" />
+          </div>
+        </>
+      )}
+
+      {/* Pomegranate effect — corner/circle animation bg + ruby seeds, lights, glow rise, drops, mist, glow dots, oath particles */}
+      {hasPomegranateEffect && battleLive && (
+        <>
+          {/* Triangle tunnel background (red/pink/white, 3D) */}
+          {!isEfflorescenceMuse && (
+            <div className="mchip__pom-tris-wrap" aria-hidden="true">
+              {Array.from({ length: 100 }, (_, i) => (
+                <div key={i} className="mchip__pom-tri" />
+              ))}
+            </div>
+          )}
           {/* Red/pink corner + circles animation background */}
           <div className="mchip__pom-canvas" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
@@ -1618,13 +1860,15 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Spirit form — all effects (b&w/ethereal): tris, canvas, seeds, lights, rises, drops, deco, glow/oath + wisps */}
-      {isSpiritForm && !isEfflorescenceMuse && battleLive && (
+      {isSpiritForm && battleLive && (
         <>
-          <div className="mchip__spirit-tris-wrap" aria-hidden="true">
-            {Array.from({ length: 200 }, (_, i) => (
-              <div key={i} className="mchip__spirit-tri" />
-            ))}
-          </div>
+          {!isEfflorescenceMuse && !hasPomegranateEffect && (
+            <div className="mchip__spirit-tris-wrap" aria-hidden="true">
+              {Array.from({ length: 100 }, (_, i) => (
+                <div key={i} className="mchip__spirit-tri" />
+              ))}
+            </div>
+          )}
           <div className="mchip__spirit-canvas" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
               <div key={`ninth-${n}`} className="mchip__spirit-ninth">
@@ -1642,11 +1886,13 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             ))}
             <div className="mchip__spirit-meeting-point" />
           </div>
-          <div className="mchip__spirit-seeds" aria-hidden="true">
-            {Array.from({ length: 14 }, (_, i) => (
-              <span key={i} className="mchip__spirit-seed" />
-            ))}
-          </div>
+          {!hasPomegranateEffect && (
+            <div className="mchip__spirit-seeds" aria-hidden="true">
+              {Array.from({ length: 14 }, (_, i) => (
+                <span key={i} className="mchip__spirit-seed" />
+              ))}
+            </div>
+          )}
           <div className="mchip__spirit-lights" aria-hidden="true">
             {Array.from({ length: 6 }, (_, i) => (
               <span key={i} className="mchip__spirit-light" />
@@ -1662,42 +1908,48 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
               <span key={i} className="mchip__spirit-white-rise-particle" />
             ))}
           </div>
-          <div className="mchip__spirit-drops" aria-hidden="true">
-            {Array.from({ length: 18 }, (_, i) => (
-              <span key={`rain-${i}`} className="mchip__spirit-drop" />
-            ))}
-            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-              <span key={`bolt-${n}`} className={`mchip__spirit-bolt mchip__spirit-bolt--${n}`} />
-            ))}
-          </div>
-          <div className="mchip__spirit-rise" aria-hidden="true">
-            {Array.from({ length: 10 }, (_, i) => (
-              <span key={i} className="mchip__spirit-rise-particle" />
-            ))}
-          </div>
-          <div className="mchip__spirit-deco" aria-hidden="true">
-            {[1, 2, 3, 4].map((n) => (
-              <span key={`corner-${n}`} className={`mchip__spirit-deco-corner mchip__spirit-deco-corner--${n}`} />
-            ))}
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <span key={`edge-${n}`} className={`mchip__spirit-deco-edge mchip__spirit-deco-edge--${n}`} />
-            ))}
-            {Array.from({ length: 24 }, (_, i) => (
-              <span key={`float-${i}`} className="mchip__spirit-deco-float" />
-            ))}
-          </div>
-          <div className="mchip__spirit-caster" aria-hidden="true">
-            <div className="mchip__spirit-glow-dots" aria-hidden="true">
-              {Array.from({ length: 24 }, (_, i) => (
-                <span key={i} className="mchip__spirit-glow-dot" />
+          {!hasPomegranateEffect && (
+            <div className="mchip__spirit-drops" aria-hidden="true">
+              {Array.from({ length: 18 }, (_, i) => (
+                <span key={`rain-${i}`} className="mchip__spirit-drop" />
+              ))}
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <span key={`bolt-${n}`} className={`mchip__spirit-bolt mchip__spirit-bolt--${n}`} />
               ))}
             </div>
-            <div className="mchip__spirit-oath-particles">
-              {Array.from({ length: 8 }, (_, i) => (
-                <span key={i} className="mchip__spirit-oath-particle" />
-              ))}
-            </div>
-          </div>
+          )}
+          {!hasPomegranateEffect && (
+            <>
+              <div className="mchip__spirit-rise" aria-hidden="true">
+                {Array.from({ length: 10 }, (_, i) => (
+                  <span key={i} className="mchip__spirit-rise-particle" />
+                ))}
+              </div>
+              <div className="mchip__spirit-deco" aria-hidden="true">
+                {[1, 2, 3, 4].map((n) => (
+                  <span key={`corner-${n}`} className={`mchip__spirit-deco-corner mchip__spirit-deco-corner--${n}`} />
+                ))}
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <span key={`edge-${n}`} className={`mchip__spirit-deco-edge mchip__spirit-deco-edge--${n}`} />
+                ))}
+                {Array.from({ length: 24 }, (_, i) => (
+                  <span key={`float-${i}`} className="mchip__spirit-deco-float" />
+                ))}
+              </div>
+              <div className="mchip__spirit-caster" aria-hidden="true">
+                <div className="mchip__spirit-glow-dots" aria-hidden="true">
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <span key={i} className="mchip__spirit-glow-dot" />
+                  ))}
+                </div>
+                <div className="mchip__spirit-oath-particles">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <span key={i} className="mchip__spirit-oath-particle" />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           <div className="mchip__spirit-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__spirit-wisp" />
@@ -1706,9 +1958,12 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         </>
       )}
 
-      {/* Shadow Camouflage — dark wisps + shadow particles + badge (overlays frame) */}
+      {/* Shadow Camouflage — conic + noise flicker (in mchip, not in frame) + wisps + particles */}
       {isShadowCamouflaged && battleLive && (
         <>
+          <div className="mchip__shadow-camo-conic-wrapper" >
+            <div className="mchip__shadow-camo-conic" aria-hidden="true" />
+          </div>
           <div className="mchip__shadow-wisps" aria-hidden="true">
             {Array.from({ length: 8 }, (_, i) => (
               <span key={i} className="mchip__shadow-wisp" />

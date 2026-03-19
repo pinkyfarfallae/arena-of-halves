@@ -172,9 +172,16 @@ export interface TurnState {
   /* Floral Fragrance + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterFloralHealD4) */
   floralHealWinFaces?: number[];
   floralHealRoll?: number;
+  /** Floral Fragrance: heal skipped (e.g. target has Healing Nullified) — show modal, caster acks, then advanceAfterFloralHealSkippedAck */
+  floralHealSkipped?: boolean;
+  /** Reason tag for heal skip (e.g. HEALING_NULLIFIED) for modal text */
+  healSkipReason?: string;
 
   /* Persephone's Ephemeral Season selection */
   selectedSeason?: SeasonKey;
+
+  /* Apollo's Imprecated Poem: chosen verse (effect tag) before selecting enemy */
+  selectedPoem?: string;
 
   /* Spring (Ephemeral Season): D4 roll for heal amount (crit = 2, else 1); same flow as Floral Fragrance */
   springHealWinFaces?: number[];
@@ -194,7 +201,11 @@ export interface TurnState {
   shadowCamouflageRefillWinFaces?: number[];
   shadowCamouflageRefillRoll?: number;
 
-  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
+  /* Disoriented (Imprecated Poem): D4 roll for 25% action has no effect — server sets winFaces, client rolls on all screens then advanceAfterDisorientedD4 */
+  disorientedWinFaces?: number[];
+  disorientedRoll?: number;
+
+  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, ... Client calls resolveTurn() again after each hit to get real-time HP updates. */
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
@@ -239,15 +250,23 @@ export interface BattleLogEntry {
   beyondTheNimbus?: boolean;
   /** Floral Fragrance (and similar) heal amount */
   heal?: number;
+  /** When heal was skipped (e.g. Healing Nullified); effect tag for display */
+  healSkipReason?: string;
   /** Floral Fragrance + Efflorescence Muse: D4 heal crit (2× heal) */
   floralHealCrit?: boolean;
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;
+  /** Imprecated Poem: which verse was applied (effect tag) */
+  imprecatedPoemVerse?: string;
   /** When skeleton/minion blocked: actual hit target id (blocker). Client uses this so hit VFX shows on skeleton, not master. */
   hitTargetId?: string;
   /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
   isMinionHit?: boolean;
+  /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
+  rapidFire?: boolean;
+  /** ช็อตเสริมดีเฟ้นใหม่ไม่ได้ — log มี attackRoll/defendRoll 0 */
+  rapidFireNoDefend?: boolean;
 }
 
 /** Full battle state stored alongside the room */

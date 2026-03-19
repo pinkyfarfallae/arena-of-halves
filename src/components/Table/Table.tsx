@@ -29,7 +29,7 @@ export default function Table<T extends Record<string, any>>({
 }: Props<T>) {
   const hasActions = actions && actions.length > 0;
 
-  if (loading) return <div className="at__loading">Loading…</div>;
+  if (loading) return <div className="at__loading">Loading...</div>;
 
   return (
     <div className="at">

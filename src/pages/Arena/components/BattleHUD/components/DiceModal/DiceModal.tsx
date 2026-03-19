@@ -78,6 +78,8 @@ interface Props {
   /* Active effect buff modifiers */
   atkBuffMod?: number;
   defBuffMod?: number;
+  /** When true, current resolve is a skeleton/minion hit (non-defensible) — hide defense dice. */
+  skeletonHitActive?: boolean;
 }
 
 /** CSS custom properties for modal theming */
@@ -97,6 +99,7 @@ export default function DiceModal({
   dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
   coAttackEligible, coAttackReady, coAttackRollResult, onCoAttackRollResult, onCoAttackRollStart, onCoAttackReplayEnd, coAttackCaster,
   atkBuffMod = 0, defBuffMod = 0,
+  skeletonHitActive = false,
 }: Props) {
   const { phase } = turn;
   const atkTheme = themeStyle(attacker);
@@ -279,8 +282,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit. Hide when power does not allow defend (e.g. Keraunos). */}
-      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && !(isMyDefend && defenderCannotDefend) && (
+      {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit. Hide when power does not allow defend (e.g. Keraunos) or Soul Devourer drain (no defense roll). */}
+      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && !(isMyDefend && defenderCannotDefend) && !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -311,8 +314,8 @@ export default function DiceModal({
           </div>
         </div>
       )}
-      {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone). Hide when power does not allow defend. */}
-      {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && !defenderCannotDefend && (
+      {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone). Hide when power does not allow defend or Soul Devourer drain. */}
+      {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && !defenderCannotDefend && !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -324,8 +327,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll. Hide when power does not allow defend. ── */}
-      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && turn.defendRoll != null && !resolveReady && !isMyDefend && (
+      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll. Hide when power does not allow defend or when hit is on skeleton (non-defensible). ── */}
+      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !resolveReady && !isMyDefend && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>

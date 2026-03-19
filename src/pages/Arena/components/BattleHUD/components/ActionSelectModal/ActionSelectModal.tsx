@@ -7,7 +7,29 @@ import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCK } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
 import { PANEL_SIDE, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
+import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/power-disable-reason';
+import { lightenColor, contrastText } from '../../../../../../utils/color';
 import './ActionSelectModal.scss';
+
+/** Render text with content inside double quotes as bold (same as power description). */
+function footerWithBoldQuotes(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIdx = 0;
+  const regex = /"([^"]+)"/g;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push(text.slice(lastIdx, match.index));
+    }
+    parts.push(<b key={key++}>{match[1]}</b>);
+    lastIdx = match.index + match[0].length;
+  }
+  if (lastIdx < text.length) {
+    parts.push(text.slice(lastIdx));
+  }
+  return parts.length === 0 ? text : <>{parts}</>;
+}
 
 interface Props {
   attacker: FighterState;
@@ -19,6 +41,10 @@ interface Props {
   side?: PanelSide;
   /** Power names that are conditionally disabled (e.g. Jolt Arc when no shocks) */
   disabledPowerNames?: Set<string>;
+  /** Thai reason per disabled power name (shown in tooltip footer when hovering disabled power) */
+  disabledPowerReasons?: Record<string, string>;
+  /** Optional footer for powers that are NOT disabled (e.g. Soul Devourer when skeleton quota full) */
+  infoReasons?: Record<string, string>;
   /** Attacker's teammates including self (for ally-targeting powers) */
   teammates?: FighterState[];
   /** Character IDs of dead teammates (for Death Keeper targeting) */
@@ -74,8 +100,24 @@ function FormatDesc({ text }: { text: string }) {
   );
 }
 
-/** Hover tooltip via portal — below on compact, side on larger screens */
-function PowerTooltip({ description, rect, themeStyle, side }: { description: string; rect: DOMRect; themeStyle: React.CSSProperties; side: PanelSide }) {
+/** Hover tooltip via portal — below on compact, side on larger screens. Footer: disableReason (why disabled) or infoReason (info only; background lightened 30%). */
+function PowerTooltip({
+  description,
+  rect,
+  themeStyle,
+  side,
+  disableReason,
+  infoReason,
+  themeColor,
+}: {
+  description: string;
+  rect: DOMRect;
+  themeStyle: React.CSSProperties;
+  side: PanelSide;
+  disableReason?: string;
+  infoReason?: string;
+  themeColor?: string;
+}) {
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
@@ -96,6 +138,8 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
     }
   }, [rect, side]);
 
+  const infoFooterBg = infoReason && themeColor ? lightenColor(themeColor, 0.3) : undefined;
+
   return createPortal(
     <div
       ref={tipRef}
@@ -103,13 +147,25 @@ function PowerTooltip({ description, rect, themeStyle, side }: { description: st
       style={{ ...themeStyle, top: pos.top, left: pos.left }}
     >
       <FormatDesc text={description} />
+      {disableReason && (
+        <div className="bhud__power-tooltip-footer">{footerWithBoldQuotes(disableReason)}</div>
+      )}
+      {infoReason && infoFooterBg && (
+        <div
+          className="bhud__power-tooltip-footer bhud__power-tooltip-footer--info"
+          style={{ background: infoFooterBg, color: contrastText(infoFooterBg) }}
+        >
+          {footerWithBoldQuotes(infoReason)}
+        </div>
+      )}
     </div>,
     document.body,
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
-  const [showPowerPicker, setShowPowerPicker] = useState(false);
+export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, disabledPowerReasons, infoReasons, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
+  // When returning from "choose target" (Back), open on power list immediately to avoid jitter of action buttons
+  const [showPowerPicker, setShowPowerPicker] = useState(() => !!initialShowPowers);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);
@@ -128,11 +184,17 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     setSelectedAllyId(null);
   }, [phase, initialShowPowers]);
 
-  const themeStyle = { '--modal-primary': themeColor, '--modal-dark': themeColorDark } as React.CSSProperties;
+  const themeStyle = {
+    '--modal-primary': themeColor,
+    '--modal-dark': themeColorDark,
+    '--power-tooltip-footer-bg': themeColor,
+    '--power-tooltip-footer-color': contrastText(themeColor ?? '#333'),
+  } as React.CSSProperties;
 
-  const handleMouseEnter = useCallback((realIdx: number, e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMouseEnter = useCallback((realIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
     setHoveredIdx(realIdx);
-    setHoveredRect(e.currentTarget.getBoundingClientRect());
+    const btn = e.currentTarget.querySelector('button');
+    setHoveredRect((btn || e.currentTarget).getBoundingClientRect());
   }, []);
 
   const handleMouseLeave = useCallback(() => {
@@ -144,7 +206,15 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   const handlePowerConfirm = () => {
     if (selectedPowerIdx == null) return;
     const power = attacker.powers[selectedPowerIdx];
-    if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0) {
+    // Floral Fragrance, Apollo's Hymn: use target select modal (so "Healing nullified" can show there)
+    const useTargetModalForAlly = power?.name === POWER_NAMES.FLORAL_FRAGRANCE || power?.name === POWER_NAMES.APOLLO_S_HYMN;
+    if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0 && !useTargetModalForAlly) {
+      const otherAlive = teammates.filter(m => m.characterId !== attacker.characterId && m.currentHp > 0);
+      if (otherAlive.length === 0) {
+        setShowPowerPicker(false);
+        onSelectAction(TURN_ACTION.POWER, power?.name, attacker.characterId);
+        return;
+      }
       setAllyPowerIdx(selectedPowerIdx);
       setAllyStep(true);
       setShowPowerPicker(false);
@@ -295,13 +365,16 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
               : unlocked && canAfford && !disabledPowerNames?.has(p.name);
             const selected = selectedPowerIdx === realIdx;
             return (
-              <div key={idx} className="bhud__power-item">
+              <div
+                key={idx}
+                className="bhud__power-item"
+                onMouseEnter={(e) => handleMouseEnter(realIdx, e)}
+                onMouseLeave={handleMouseLeave}
+              >
                 <button
                   className={`bhud__power-btn ${!usable ? 'bhud__power-btn--disabled' : ''} ${selected ? 'bhud__power-btn--selected' : ''}`}
                   disabled={!usable}
                   onClick={() => setSelectedPowerIdx(selected ? null : realIdx)}
-                  onMouseEnter={(e) => handleMouseEnter(realIdx, e)}
-                  onMouseLeave={handleMouseLeave}
                 >
                   <span className="bhud__power-type">{isDK ? 'Passive' : p.type}</span>
                   <span className="bhud__power-name">{p.name}</span>
@@ -327,10 +400,34 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
         </>
       )}
 
-      {/* Hover tooltip via portal */}
-      {hoveredPower?.description && hoveredRect && (
-        <PowerTooltip description={hoveredPower.description} rect={hoveredRect} themeStyle={themeStyle} side={side} />
-      )}
+      {/* Hover tooltip via portal — show for disabled powers too, with footer for disable reason (Thai) */}
+      {hoveredPower?.description && hoveredRect && (() => {
+        const costH = getQuotaCost(hoveredPower.type);
+        const isDKH = hoveredPower.name === POWER_NAMES.DEATH_KEEPER;
+        const canAffordH = isDKH || attacker.quota >= costH;
+        const unlockedH = isDKH || (
+          (hoveredPower.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
+          ((hoveredPower.type === POWER_TYPES.FIRST_SKILL || hoveredPower.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
+        );
+        const usableH = isDKH
+          ? (deadTeammateIds?.size ?? 0) > 0 && !disabledPowerNames?.has(hoveredPower.name)
+          : unlockedH && canAffordH && !disabledPowerNames?.has(hoveredPower.name);
+        const disableReason = !usableH
+          ? (disabledPowerNames?.has(hoveredPower.name) ? (disabledPowerReasons?.[hoveredPower.name] ?? undefined) : (!canAffordH ? NOT_ENOUGH_SKILL_POINT_REASON : undefined))
+          : undefined;
+        const infoReason = infoReasons?.[hoveredPower.name];
+        return (
+          <PowerTooltip
+            description={hoveredPower.description}
+            rect={hoveredRect}
+            themeStyle={themeStyle}
+            side={side}
+            disableReason={disableReason}
+            infoReason={infoReason}
+            themeColor={themeColor}
+          />
+        );
+      })()}
     </div>
   );
 }
