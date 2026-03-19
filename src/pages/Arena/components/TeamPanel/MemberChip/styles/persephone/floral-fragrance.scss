@@ -150,14 +150,29 @@
 }
 
 @keyframes fragrance-border-flow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @keyframes fragrance-accents-drift {
-  0% { transform: translateY(0) rotate(0deg); opacity: 0.85; }
-  100% { transform: translateY(-3px) rotate(2deg); opacity: 0.6; }
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.85;
+  }
+
+  100% {
+    transform: translateY(-3px) rotate(2deg);
+    opacity: 0.6;
+  }
 }
 
 @keyframes fragrance-splash-up {
@@ -165,10 +180,12 @@
     transform: translateY(0) scaleY(1);
     opacity: 1;
   }
+
   50% {
     transform: translateY(-80%) scaleY(1.1);
     opacity: 0.8;
   }
+
   100% {
     transform: translateY(-160%) scaleY(0.9);
     opacity: 0;
@@ -267,18 +284,22 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
     transform: rotate(var(--angle, 0deg)) translateY(0) rotate(0deg) scale(0);
     opacity: 0;
   }
+
   12% {
     transform: rotate(var(--angle, 0deg)) translateY(calc(-1 * var(--distance, 110px))) rotate(15deg) scale(var(--scale, var(--size, 1)));
     opacity: 0.95;
   }
+
   40% {
     transform: rotate(var(--angle, 0deg)) translateY(calc(-1.06 * var(--distance, 110px))) rotate(80deg) scale(var(--scale, var(--size, 1)));
     opacity: 0.85;
   }
+
   75% {
     transform: rotate(var(--angle, 0deg)) translateY(calc(-1.12 * var(--distance, 110px))) rotate(160deg) scale(var(--scale, var(--size, 1)));
     opacity: 0.45;
   }
+
   100% {
     transform: rotate(var(--angle, 0deg)) translateY(calc(-1.18 * var(--distance, 110px))) rotate(220deg) scale(var(--scale, var(--size, 1)));
     opacity: 0;
@@ -386,7 +407,7 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
   white-space: nowrap;
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: #4caf50;
+  color: #ffcddf;
   text-shadow:
     0 0 8px rgba(#81c784, 0.6),
     0 0 16px rgba(#81c784, 0.3),
@@ -399,17 +420,21 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
     opacity: 0;
     transform: translate(-50%, -30%) scale(0.7);
   }
+
   10% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1.1);
   }
+
   20% {
     transform: translate(-50%, -50%) scale(1);
   }
+
   70% {
     opacity: 1;
     transform: translate(-50%, -50%);
   }
+
   100% {
     opacity: 0;
     transform: translate(-50%, -80%);

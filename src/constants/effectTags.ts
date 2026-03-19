@@ -11,9 +11,18 @@ export const EFFECT_TAGS = {
   // Poseidon
   STUN: 'stun',
 
+  // Apollo
+  APOLLO_S_HYMN: 'apollo-s-hymn',
+  RAPID_FIRE: 'rapid-fire',
+  IMPRECATED_POEM: 'imprecated-poem',
+  HEALING_NULLIFIED: 'healing-nullified',
+  DISORIENTED: 'disoriented',
+  ETERNAL_AGONY: 'eternal-agony',
+
   // Hades
   RESURRECTED: 'resurrected',
   DEATH_KEEPER: 'death-keeper',
+  SHADOW_CAMOUFLAGING: 'shadow-camouflaging',
   SOUL_DEVOURER: 'soul-devourer',
 
   // Persephone
@@ -28,6 +37,16 @@ export const EFFECT_TAGS = {
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];
 
+/** Status category for cleanse/strip mechanics (e.g. "ลบ Affliction" / "ลบ Blessing"). */
+export const STATUS_CATEGORY = {
+  AFFLICTION: 'affliction',
+  BLESSING: 'blessing',
+} as const;
+
+export type StatusCategory = (typeof STATUS_CATEGORY)[keyof typeof STATUS_CATEGORY];
+
+/** Tag lists live in data/afflictions.ts and data/blessings.ts. Use getEffectStatusCategory from data/statusCategory.ts. */
+
 /**
  * Map effect tag to MemberChip modifier class.
  * Convention: tag "x-y" → class "mchip--x-y" (used in MemberChip for effect styling).
@@ -41,3 +60,10 @@ export const SEASON_TAG_PREFIX = 'season-';
 export function isSeasonTag(tag: EffectTag | string): boolean {
   return typeof tag === 'string' && tag.startsWith(SEASON_TAG_PREFIX);
 }
+
+/** Imprecated Poem verse tags (choose one to apply to enemy). */
+export const IMPRECATED_POEM_VERSE_TAGS: readonly EffectTag[] = [
+  EFFECT_TAGS.HEALING_NULLIFIED,
+  EFFECT_TAGS.DISORIENTED,
+  EFFECT_TAGS.ETERNAL_AGONY,
+] as const;

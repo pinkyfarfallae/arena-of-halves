@@ -245,7 +245,7 @@ function Lobby() {
                       disabled={deletingAll}
                       title="Delete all arena rooms on server"
                     >
-                      {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                      {deletingAll ? 'Deleting...' : 'Delete all rooms'}
                     </button>
                   )} */}
                 </div>
@@ -309,7 +309,7 @@ function Lobby() {
                     disabled={deletingAll}
                     title="Delete all arena rooms on server"
                   >
-                    {deletingAll ? 'Deleting…' : 'Delete all rooms'}
+                    {deletingAll ? 'Deleting...' : 'Delete all rooms'}
                   </button>
                 )} */}
               </div>

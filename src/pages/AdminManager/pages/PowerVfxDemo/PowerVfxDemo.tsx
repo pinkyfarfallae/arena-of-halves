@@ -314,13 +314,13 @@ export default function PowerVfxDemo() {
             ref={effectModalLeftRef}
             className={`power-vfx-demo__effect-modal-anchor power-vfx-demo__effect-modal-anchor--left ${casterEffectModalOpen ? 'power-vfx-demo__effect-modal-anchor--active' : ''}`}
             style={casterFighter ? themeToCiStyle(casterFighter.theme) : undefined}
-            aria-hidden
+            aria-hidden={!casterEffectModalOpen}
           />
           <div
             ref={effectModalRightRef}
             className={`power-vfx-demo__effect-modal-anchor power-vfx-demo__effect-modal-anchor--right ${targetEffectModalOpen ? 'power-vfx-demo__effect-modal-anchor--active' : ''}`}
             style={targetFighter ? themeToCiStyle(targetFighter.theme) : undefined}
-            aria-hidden
+            aria-hidden={!targetEffectModalOpen}
           />
         </div>
 

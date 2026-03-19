@@ -3,7 +3,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4 } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -11,6 +11,7 @@ import LoseBadge from './icons/Loser';
 import TargetSelectModal from './components/TargetSelectModal/TargetSelectModal';
 import ActionSelectModal from './components/ActionSelectModal/ActionSelectModal';
 import SeasonSelectModal from './components/SeasonSelectModal/SeasonSelectModal';
+import PoemSelectModal from './components/PoemSelectModal/PoemSelectModal';
 import DiceModal from './components/DiceModal/DiceModal';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './components/RefillSPDiceModal/RefillSPDiceModal';
@@ -20,6 +21,7 @@ import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal'
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
+import { getDisabledPowersAndReasons } from '../../../../data/power-disable-reason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { ARENA_PATH, BATTLE_TEAM, PHASE, getPhaseLabel, PANEL_SIDE, TURN_ACTION, type PanelSide, TurnAction } from '../../../../constants/battle';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
@@ -65,10 +67,16 @@ interface Props {
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
   onCancelSeason?: () => void;
+  onSelectPoem?: (poemTag: string) => void;
+  onCancelPoem?: () => void;
   onCancelTarget?: () => void;
   initialShowPowers?: boolean;
   onSubmitAttackRoll: (roll: number) => void;
   onSubmitDefendRoll: (roll: number) => void;
+  /** Volley Arrow Rapid Fire: caster rolls D4 for each extra shot (75% → 50% → 25% → ...). */
+  onSubmitRapidFireD4Roll?: (roll: number) => void;
+  /** After showing damage for one Rapid Fire extra shot, call to advance to next D4 roll. */
+  onRapidFireDamageCardComplete?: () => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
   /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
@@ -91,10 +99,24 @@ interface Props {
   confirmedPowerName?: string | null;
   /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
   onSkipTurnNoTarget?: () => void;
+  /** When in SELECT_TARGET and attacker has Disoriented (no target chosen yet, e.g. after Keraunos D4), call to let server pick random target and run 25% check */
+  onSelectTargetDisoriented?: () => void;
+  /** Only way to advance when Disoriented + player's turn: called when player clicks Confirm in Disoriented modal. Passed only to attacker's client. */
+  onConfirmDisorientedTarget?: (defenderId: string) => void;
+  /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
+  onHealSkippedAck?: () => void;
+  /** When Soul Devourer heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → clear ack flag so skeleton resolve can start */
+  onSoulDevourerHealSkippedAck?: () => void;
+  /** When Spring heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → advance to D4 roll for heal2 */
+  onSpringHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
   onFloralHealResultCardHidden?: () => void;
+  /** When target modal is used to pick an ally (e.g. Floral Fragrance, Apollo's Hymn), call with selected ally id instead of onSelectTarget. */
+  onSelectAllyTarget?: (allyId: string) => void;
+  /** True while Volley Arrow hit VFX is active. When false, Rapid Fire extra-shot damage card is hidden. */
+  volleyArrowHitActive?: boolean;
 }
 
 /** Find a fighter across both teams */
@@ -139,9 +161,10 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 
 export default function BattleHUD({
   arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
+  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onSubmitRapidFireD4Roll, onRapidFireDamageCardComplete, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  volleyArrowHitActive,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -164,6 +187,11 @@ export default function BattleHUD({
       if (power?.name === POWER_NAMES.DEATH_KEEPER) {
         const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp <= 0);
+      }
+      // Ally-heal (Floral Fragrance, Apollo's Hymn, etc.): show alive teammates so target modal is used
+      if (power?.target === TARGET_TYPES.ALLY && !turn?.allyTargetId) {
+        const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
+        return (myTeam ?? []).filter((f) => f.currentHp > 0);
       }
     }
 
@@ -189,6 +217,21 @@ export default function BattleHUD({
       return !hasShadowCamouflage || isAreaAttack;
     });
   })();
+
+  const hasDisoriented = !!(turn?.attackerId && (battle.activeEffects || []).some((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+
+  // Disoriented: NPC only — auto-pick when attacker is NPC; player must use modal (Random → wait 3s → Confirm)
+  const disorientedTriggeredRef = useRef(false);
+  useEffect(() => {
+    const isPlayerAttacker = turn?.attackerId === myId;
+    if (turn?.phase !== PHASE.SELECT_TARGET || !hasDisoriented || turn.defenderId || isPlayerAttacker || !onSelectTargetDisoriented) {
+      if (turn?.phase !== PHASE.SELECT_TARGET) disorientedTriggeredRef.current = false;
+      return;
+    }
+    if (disorientedTriggeredRef.current) return;
+    disorientedTriggeredRef.current = true;
+    onSelectTargetDisoriented();
+  }, [turn?.phase, turn?.defenderId, turn?.attackerId, hasDisoriented, myId, onSelectTargetDisoriented]);
 
   /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
@@ -920,11 +963,24 @@ export default function BattleHUD({
   const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
   const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
+  const [disorientedRollLocal, setDisorientedRollLocal] = useState<number | null>(null);
+  const [rapidFireD4RollLocal, setRapidFireD4RollLocal] = useState<number | null>(null);
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
     if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
-  }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces]);
+    if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) setDisorientedRollLocal(null);
+    if (turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT) setRapidFireD4RollLocal(null);
+    if (turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (turn as any).rapidFireD4Roll == null) setRapidFireD4RollLocal(null);
+    if (turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) lastPulsedRapidFireStepRef.current = null;
+  }, [turn?.phase, turn?.shadowCamouflageRefillWinFaces, (turn as any)?.rapidFireD4Roll]);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !turn.attackerId || !turn.defenderId) return;
+    const step = Number((turn as any).rapidFireStep) ?? 0;
+    if (lastPulsedRapidFireStepRef.current === step) return;
+    lastPulsedRapidFireStepRef.current = step;
+    onMinionHitPulse?.(turn.attackerId, turn.defenderId);
+  }, [turn?.phase, turn?.attackerId, turn?.defenderId, (turn as any)?.rapidFireStep, onMinionHitPulse]);
 
   /* ── Auto-resolve after showing result (only after all checks done) ── */
   // State-based count so the UI knows skeleton/minion playback is still running.
@@ -967,6 +1023,8 @@ export default function BattleHUD({
   /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
   const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
+  /** Track which rapidFireStep we already pulsed for, so every extra shot gets hit VFX once. */
+  const lastPulsedRapidFireStepRef = useRef<number | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
     if (!isPlaybackDriver) return;
@@ -990,6 +1048,9 @@ export default function BattleHUD({
     }
     setFloralDelay(false);
   }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
+
+  /* ── Soul Devourer heal skipped: server sets soulDevourerHealSkipAwaitsAck so skeleton resolve does not start until Roger ── */
+  const soulDevourerHealSkipAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerHealSkipAwaitsAck);
 
   /* ── Fade transitions for resolve & waiting panels ── */
   const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
@@ -1091,8 +1152,8 @@ export default function BattleHUD({
     const isSkipDicePower = turn?.action === TURN_ACTION.POWER && (turn?.attackRoll == null || turn?.attackRoll === 0);
     const lastLog = (battle.log || []).at(-1);
     const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
-    // Keraunos: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
-    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
+    // Keraunos / Jolt Arc: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
+    const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE || turn?.usedPowerName === POWER_NAMES.JOLT_ARC;
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
@@ -1139,9 +1200,11 @@ export default function BattleHUD({
 
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
+  // Exclude ROLLING_RAPID_FIRE_EXTRA_SHOT so Rapid Fire D4 modal is not covered; extra-shot damage card uses volleyArrowHitActive.
   // When turn has passed to NPC (SELECT_ACTION && !isMyTurn), hide immediately to avoid jitter of resolve/dice modal on player side.
   const resolveBarVisible =
     !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
+    turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT &&
     ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -1202,7 +1265,7 @@ export default function BattleHUD({
   }, []);
 
   // Skeleton chain: card complete callback (same as player hit — card's onDisplayComplete drives next)
-  const skeletonCardCompleteRef = useRef<() => void>(() => {});
+  const skeletonCardCompleteRef = useRef<() => void>(() => { });
 
   // Also render DamageCards directly from transient server buffer `lastSkeletonHits`
   const lastSkeletonHits = (battle as any)?.lastSkeletonHits as any[] | undefined;
@@ -1420,7 +1483,8 @@ export default function BattleHUD({
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
   const isKeraunosTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
-  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || defender);
+  const isJoltArcTurn = turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.JOLT_ARC;
+  const canFillCache = resolveVisible && turn && attacker && !shadowCamouflageD4 && !(turn.phase === PHASE.SELECT_ACTION && !isMyTurn) && (isKeraunosTurn || isJoltArcTurn || defender);
   if (canFillCache) {
     const isSkipDicePower = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
     const soulDevourerDrainTurn = !!(turn as any).soulDevourerDrain;
@@ -1430,6 +1494,7 @@ export default function BattleHUD({
         const keraunosMainDmg = 3 * (isCritK ? 2 : 1);
         const mainTargetId = (turn as any).keraunosMainTargetId ?? turn.defenderId;
         const defenderForKeraunos = mainTargetId ? find(teamA, teamB, mainTargetId) : defender;
+        // Bar/card จะได้ damage+shock จาก log playback effect ที่ sync เข้า resolveCache; ตรงนี้ใส่แค่ bolt
         resolveCache.current = {
           atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
           isHit: true, damage: keraunosMainDmg, baseDmg: 3, shockBonus: 0,
@@ -1440,6 +1505,22 @@ export default function BattleHUD({
           attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
           defenderName: defenderForKeraunos?.nicknameEng ?? defender?.nicknameEng ?? '',
           defenderTheme: defenderForKeraunos?.theme?.[0] ?? defender?.theme?.[0] ?? '',
+          side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+        };
+      } else if (turn.usedPowerName === POWER_NAMES.JOLT_ARC && attacker) {
+        // Jolt Arc: เติมจาก client (caster damage); ใช้ defender หรือ turn.defenderId เพื่อชื่อ (อาจยังไม่มี defender ตอนแรก)
+        const def = defender ?? (turn.defenderId ? find(teamA, teamB, turn.defenderId) : undefined);
+        const activeEffects = battle.activeEffects || [];
+        const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
+        const baseDmg = Math.max(0, attacker.damage + dmgBuff);
+        resolveCache.current = {
+          atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
+          isHit: true, damage: 0, baseDmg, shockBonus: 0,
+          isPower: true, powerName: POWER_NAMES.JOLT_ARC,
+          critEligible: false, isCrit: false, critRoll: 0,
+          isDodged: false, coAttackHit: false, coAttackDamage: 0,
+          attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
+          defenderName: def?.nicknameEng ?? turn.defenderId ?? '', defenderTheme: def?.theme?.[0] ?? '#666',
           side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         };
       } else if (defender) {
@@ -1547,6 +1628,7 @@ export default function BattleHUD({
   // Play back new entries in the persistent battle.log so every hit (master + minions)
   // shows a DamageCard and triggers hit visuals. We track which log entries we've
   // already rendered using `shownLogIndex` to only play new entries.
+  // When we have Keraunos playback step, sync that turn's log entry into resolveCache once so bar/card use it (no log parsing in bar/card).
   useEffect(() => {
     if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
       resolveCache.current.shownLogIndex = battle.log?.length || 0;
@@ -1639,6 +1721,7 @@ export default function BattleHUD({
         const defenderSideForMinion = turn?.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
         const isKeraunosEntry = (entry as any).powerUsed === POWER_NAMES.KERAUNOS_VOLTAGE;
+        const isJoltArcEntry = (entry as any).powerUsed === POWER_NAMES.JOLT_ARC;
         const mainIdK = turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE ? (turn as any).keraunosMainTargetId : null;
         const secondaryIdsK = (turn as any).keraunosSecondaryTargetIds as string[] | undefined;
         const keraunosTierFromDefender =
@@ -1683,7 +1766,14 @@ export default function BattleHUD({
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
         if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus) {
+          // Jolt Arc: log ไม่มี baseDmg — ใช้ค่าที่ canFillCache เติมไว้ (ไม่เขียนทับ); ถ้ายังไม่มีให้คำนวณจาก caster
+          if (isJoltArcEntry) {
+            delete (rc as any).baseDmg;
+          }
           resolveCache.current = { ...resolveCache.current, ...rc } as any;
+          if (isJoltArcEntry && !resolveCache.current.baseDmg && atk) {
+            resolveCache.current.baseDmg = Math.max(0, atk.damage + getStatModifier(battle.activeEffects || [], entry.attackerId, MOD_STAT.DAMAGE));
+          }
           // Resolve bar must never show power name for Beyond the Nimbus (treat as normal attack); once resolveVisible goes false the fill stops, so force it here
           if (turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS) {
             resolveCache.current.isPower = false;
@@ -1786,33 +1876,31 @@ export default function BattleHUD({
   const atkSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
   const defSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
 
-  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock)
+  // Compute conditionally disabled powers (e.g. Jolt Arc when no enemy has shock) and Thai reasons for tooltip footer
   const ae = battle.activeEffects || [];
-  const disabledPowerNames = (() => {
-    const disabled = new Set<string>();
-    const enemyIds = new Set(opposingTeam?.map(f => f.characterId) ?? []);
-    const hasEnemyShock = ae.some(e => e.tag === EFFECT_TAGS.SHOCK && enemyIds.has(e.targetId));
-    if (!hasEnemyShock) disabled.add(POWER_NAMES.JOLT_ARC);
-    // Death Keeper: disabled once consumed (tag no longer exists on attacker)
-    const hasDeathKeeper = ae.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
-    if (!hasDeathKeeper) disabled.add(POWER_NAMES.DEATH_KEEPER);
-    // Undead Army: cannot summon more than 2 skeletons (use actual minion list so 2nd skeleton is allowed when only 1 exists)
-    const attackerTeamMinions = (turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB) ?? [];
-    const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
-      ? attackerTeamMinions.filter((m: any) => m?.masterId === turn?.attackerId).length
-      : 0;
-    const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
-      ? skeletonCountFromMinions
-      : (attacker ? (attacker.skeletonCount ?? 0) : 0);
-    if (attackerSkeletonCount >= 2) disabled.add(POWER_NAMES.UNDEAD_ARMY);
-    return disabled;
-  })();
-
-  // Dead teammates for Death Keeper targeting
   const myTeamMembers = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
   const deadTeammateIds = new Set(
     (myTeamMembers || []).filter(m => m.currentHp <= 0).map(m => m.characterId),
   );
+  const attackerTeamMinions = (turn?.attackerTeam === BATTLE_TEAM.A ? teamMinionsA : teamMinionsB) ?? [];
+  const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
+    ? attackerTeamMinions.filter((m: any) => m?.masterId === turn?.attackerId).length
+    : 0;
+  const attackerSkeletonCount = Array.isArray(attackerTeamMinions)
+    ? skeletonCountFromMinions
+    : (attacker ? (attacker.skeletonCount ?? 0) : 0);
+  const attackerAllyIds = (myTeamMembers || []).filter((m) => m.currentHp > 0).map((m) => m.characterId);
+  const { disabledPowerNames, disabledPowerReasons, infoReasons } = getDisabledPowersAndReasons({
+    activeEffects: ae,
+    opposingTeam: opposingTeam ?? undefined,
+    attackerId: turn?.attackerId,
+    attackerTeam: turn?.attackerTeam,
+    teamMinionsA,
+    teamMinionsB,
+    attackerSkeletonCount,
+    deadTeammateCount: deadTeammateIds.size,
+    attackerAllyIds,
+  });
 
   return (
     <div className="bhud">
@@ -1823,7 +1911,10 @@ export default function BattleHUD({
           {attacker && (
             <>
               <span className="bhud__attacker-name">{attacker.nicknameEng}</span>
-              <span className="bhud__phase-label">
+              <span
+                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_FLORAL_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
+                data-phase={turn.phase ?? undefined}
+              >
                 {turn.phase && getPhaseLabel(turn.phase, { defenderName: defender?.nicknameEng, usedPowerName: turn.usedPowerName, action: turn.action, treatAsNormalAttack: turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS })}
               </span>
             </>
@@ -1831,8 +1922,8 @@ export default function BattleHUD({
         </div>
       </div>
 
-      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. */}
-      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. Disoriented: no manual target — server picks at random. */}
+      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
             <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -1854,16 +1945,70 @@ export default function BattleHUD({
               )}
               <span className="bhud__dice-bonus">critical: {turn.critWinFaces?.slice().sort((a, b) => a - b).join(', ') || '—'}</span>
             </div>
-          ) : targets.length > 0 ? (
+          ) : hasDisoriented && !turn.defenderId && targets.length > 0 && isMyTurn ? (
             <TargetSelectModal
               attackerName={attacker?.nicknameEng ?? ''}
               targets={targets}
               themeColor={attacker?.theme[0]}
               themeColorDark={attacker?.theme[18]}
-              onSelect={(id) => setTimeout(() => onSelectTarget(id), 0)}
-              onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
-              backDisabled={backDisabled}
+              onSelect={(id) => {
+                const commit = onConfirmDisorientedTarget ?? onSelectTarget;
+                if (commit) setTimeout(() => commit(id), 0);
+              }}
+              onBack={onCancelTarget ? () => setTimeout(() => onCancelTarget(), 0) : undefined}
+              backDisabled={false}
+              randomMode={true}
+              confirmLabel="Random"
+              subtitle="Click Random to pick target"
             />
+          ) : hasDisoriented && !turn.defenderId && targets.length > 0 && !isMyTurn ? (
+            <TargetSelectModal
+              attackerName={attacker?.nicknameEng ?? ''}
+              targets={targets}
+              themeColor={attacker?.theme[0]}
+              themeColorDark={attacker?.theme[18]}
+              onSelect={() => { }}
+              randomMode={true}
+              subtitle="Disoriented"
+              waitingForLabel={isAttackerNpc ? 'Choosing target at random...' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target...`}
+            />
+          ) : hasDisoriented && !turn.defenderId ? (
+            <div className="bhud__dice-modal bhud__targets-modal bhud__targets-modal--disoriented-wait" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Disoriented</span>
+              <p className="bhud__no-target-reason">
+                {isAttackerNpc ? 'Choosing target at random...' : `Waiting for ${attacker?.nicknameEng ?? 'attacker'} to pick target...`}
+              </p>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            </div>
+          ) : hasDisoriented && turn.defenderId && !isMyTurn ? (
+            <div className="bhud__dice-modal bhud__targets-modal bhud__targets-modal--disoriented-wait" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Disoriented</span>
+              <p className="bhud__no-target-reason">Target chosen at random.</p>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
+            </div>
+          ) : targets.length > 0 ? (
+            (() => {
+              const isAllyHealTargetSelect = !!(turn?.usedPowerIndex != null && attacker && !turn?.allyTargetId && attacker.powers[turn.usedPowerIndex]?.target === TARGET_TYPES.ALLY && attacker.powers[turn.usedPowerIndex]?.name !== POWER_NAMES.DEATH_KEEPER);
+              return (
+                <TargetSelectModal
+                  attackerName={attacker?.nicknameEng ?? ''}
+                  targets={targets}
+                  themeColor={attacker?.theme[0]}
+                  themeColorDark={attacker?.theme[18]}
+                  onSelect={(id) => setTimeout(() => (isAllyHealTargetSelect && onSelectAllyTarget ? onSelectAllyTarget(id) : onSelectTarget(id)), 0)}
+                  onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
+                  backDisabled={backDisabled}
+                  subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
+                  eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
+                  activeEffects={battle?.activeEffects ?? []}
+                  healTargetSelect={isAllyHealTargetSelect}
+                />
+              );
+            })()
           ) : targets.length === 0 ? (
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
               <span className="bhud__dice-label">No valid target</span>
@@ -1894,7 +2039,7 @@ export default function BattleHUD({
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}…</p>
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}...</p>
               )}
             </div>
           ) : null}
@@ -1920,6 +2065,8 @@ export default function BattleHUD({
             themeColorDark={attacker?.theme[18]}
             side={atkSide}
             disabledPowerNames={disabledPowerNames}
+            disabledPowerReasons={disabledPowerReasons}
+            infoReasons={infoReasons}
             teammates={turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB}
             deadTeammateIds={deadTeammateIds}
             onSelectAction={onSelectAction}
@@ -1933,7 +2080,7 @@ export default function BattleHUD({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={{ '--modal-primary': attacker.theme?.[0], '--modal-dark': attacker.theme?.[18] } as React.CSSProperties}>
             <span className="bhud__dice-label">Choosing Action</span>
-            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding…</span>
+            <span className="bhud__dice-sub">{attacker.nicknameEng} is deciding...</span>
             <div className="bhud__dice-roller bhud__dice-roller--waiting">
               <div className="bhud__roll-waiting-spinner" />
             </div>
@@ -1959,6 +2106,99 @@ export default function BattleHUD({
         </div>
       )}
 
+      {/* Poem selection (Apollo's Imprecated Poem) */}
+      {turn.phase === PHASE.SELECT_POEM && attacker && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <PoemSelectModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            phase={turn.phase}
+            themeColor={attacker?.theme[0]}
+            themeColorDark={attacker?.theme[18]}
+            side={atkSide}
+            onSelectPoem={(tag) => setTimeout(() => onSelectPoem?.(tag), 0)}
+            onBack={() => setTimeout(() => onCancelPoem?.(), 0)}
+          />
+        </div>
+      )}
+
+      {/* Disoriented (Imprecated Poem): D4 roll for 25% action has no effect. Click = start dice on every screen; same flow as other D4. */}
+      {turn?.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && (turn as any)?.disorientedWinFaces?.length > 0 && (() => {
+        const winFaces = (turn as any).disorientedWinFaces ?? [];
+        const critPct = winFaces.length * 25;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            winFaces={winFaces}
+            roll={(turn as any).disorientedRoll ?? disorientedRollLocal}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+            title="Disoriented"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
+            wonText="No effect"
+            lostText="Proceed"
+            bonusLabel={`no effect: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isMyTurn ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll }).catch(() => { });
+              setDisorientedRollLocal(roll);
+            } : undefined}
+            onRoll={async (roll: number) => {
+              if (!arenaId) return;
+              try {
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
+                await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                await advanceAfterDisorientedD4(arenaId);
+              } catch (e) { }
+            }}
+            onResultCardVisible={arenaId ? () => {
+              window.setTimeout(() => advanceAfterDisorientedD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
+            } : undefined}
+          />
+        );
+      })()}
+
+      {/* Volley Arrow Rapid Fire: caster rolls D4 for each extra shot. Click = roll on every screen; others see waiting until caster clicks; no replay/remount. */}
+      {turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (() => {
+        const rawWinFaces = (turn as any).rapidFireWinFaces;
+        const winFaces = Array.isArray(rawWinFaces) && rawWinFaces.length > 0
+          ? rawWinFaces
+          : (() => { const step = Number((turn as any).rapidFireStep) ?? 0; return step === 0 ? [2, 3, 4] : step === 1 ? [3, 4] : [4]; })();
+        if (winFaces.length === 0) return null;
+        return (() => {
+        const pct = winFaces.length * 25;
+        const isCaster = turn.attackerId === myId;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isCaster}
+            winFaces={winFaces}
+            roll={(turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal ?? undefined}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+            title="Rapid Fire"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${pct}% extra shot)` : `D4 (${pct}%)`}
+            wonText="Extra shot"
+            lostText="End"
+            bonusLabel={`extra shot: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isCaster ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { rapidFireD4Roll: roll }).catch(() => { });
+              setRapidFireD4RollLocal(roll);
+            } : undefined}
+            onRoll={async () => { }}
+            onResultCardVisible={arenaId ? () => {
+              const r = (turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal;
+              if (r != null) window.setTimeout(() => onSubmitRapidFireD4Roll?.(r), REFILL_CARD_VIEW_MS);
+            } : undefined}
+          />
+        );
+        })();
+      })()}
+
       {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
       {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
         <RefillSPDiceModal
@@ -1971,7 +2211,7 @@ export default function BattleHUD({
           resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
           onRollStart={arenaId && isMyTurn ? () => {
             const roll = Math.ceil(Math.random() * 4);
-            update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll }).catch(() => {});
+            update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll }).catch(() => { });
             setShadowCamouflageRefillRollLocal(roll);
           } : undefined}
           onRoll={async (roll: number) => {
@@ -1983,13 +2223,109 @@ export default function BattleHUD({
             } catch (e) { }
           }}
           onResultCardVisible={arenaId ? () => {
-            window.setTimeout(() => advanceAfterShadowCamouflageD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+            window.setTimeout(() => advanceAfterShadowCamouflageD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
           } : undefined}
         />
       )}
 
-      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit (same rate as target's critical rate); crit = 2× heal. Player click → write immediately so viewer dice start at same time. */}
-      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (() => {
+      {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — only heal receiver (ally target) sees "Roger that"; others see waiting. */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (() => {
+        const floralHealReceiverId = (turn as any).allyTargetId;
+        const floralHealReceiver = floralHealReceiverId ? find(teamA, teamB, floralHealReceiverId) : undefined;
+        const isFloralHealReceiver = myId === floralHealReceiverId;
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+            <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Heal skipped</span>
+              <p className="bhud__no-target-reason">
+                {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
+                  <>
+                    HP recovery has no effect
+                    <br />
+                    because the target has Healing Nullified.
+                  </>
+                ) : 'HP recovery has no effect.'}
+              </p>
+              {isFloralHealReceiver && onHealSkippedAck ? (
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => onHealSkippedAck()}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">Waiting for {floralHealReceiver?.nicknameEng ?? 'heal receiver'}...</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Spring (Ephemeral Season): heal skipped (e.g. Healing Nullified) — caster clicks Roger that then D4 roll for heal2. */}
+      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && (turn as any).springHealSkipAwaitsAck && (() => {
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+            <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+              <span className="bhud__dice-label">Heal skipped</span>
+              <p className="bhud__no-target-reason">
+                {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
+                  <>
+                    HP recovery has no effect
+                    <br />
+                    because the caster has Healing Nullified.
+                  </>
+                ) : 'HP recovery has no effect.'}
+              </p>
+              {isMyTurn && onSpringHealSkippedAck ? (
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => onSpringHealSkippedAck()}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}...</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Soul Devourer: heal skipped — block skeleton resolve until heal receiver (caster) clicks Roger that. Others see waiting. */}
+      {soulDevourerHealSkipAwaitsAck && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
+          <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
+            <span className="bhud__dice-label">Heal skipped</span>
+            <p className="bhud__no-target-reason">
+              HP recovery has no effect
+              <br />
+              because the caster has Healing Nullified.
+            </p>
+            {isMyTurn ? (
+              <div className="bhud__target-actions">
+                <button
+                  type="button"
+                  className="bhud__target-confirm"
+                  onClick={() => onSoulDevourerHealSkippedAck?.()}
+                >
+                  Roger that
+                </button>
+              </div>
+            ) : (
+              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'heal receiver'}...</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit. Only show when not heal-skipped AND server set winFaces (so everyone sees heal-skip modal when applicable). */}
+      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && !(turn as any).floralHealSkipped && (turn as any).floralHealWinFaces?.length > 0 && (() => {
         const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
         const floralRoll = (turn as any).floralHealRoll;
         const floralRollDisplay = floralRoll ?? floralHealRollLocal;
@@ -2010,7 +2346,7 @@ export default function BattleHUD({
             bonusLabel={`crit: ${[...floralWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => {});
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => { });
               setFloralHealRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
@@ -2026,15 +2362,15 @@ export default function BattleHUD({
               onFloralHealResultCardVisible?.();
               window.setTimeout(() => {
                 onFloralHealResultCardHidden?.();
-                advanceAfterFloralHealD4(arenaId).catch(() => {});
+                advanceAfterFloralHealD4(arenaId).catch(() => { });
               }, REFILL_CARD_VIEW_MS);
             } : onFloralHealResultCardVisible}
           />
         );
       })()}
 
-      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL. Player click → write immediately so viewer dice start at same time. */}
-      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
+      {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL and not showing heal-skip modal. */}
+      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && !(turn as any).springHealSkipAwaitsAck && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
         const springWinFaces = (turn as any).springHealWinFaces ?? [];
         const springRoll = (turn as any).springHealRoll;
         const springRollDisplay = springRoll ?? springHealRollLocal;
@@ -2055,7 +2391,7 @@ export default function BattleHUD({
             bonusLabel={`crit: ${[...springWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll }).catch(() => {});
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll }).catch(() => { });
               setSpringHealRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
@@ -2067,7 +2403,7 @@ export default function BattleHUD({
               } catch (e) { }
             }}
             onResultCardVisible={arenaId ? () => {
-              window.setTimeout(() => advanceAfterSpringHealD4(arenaId).catch(() => {}), REFILL_CARD_VIEW_MS);
+              window.setTimeout(() => advanceAfterSpringHealD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
             } : undefined}
           />
         );
@@ -2090,6 +2426,7 @@ export default function BattleHUD({
           onAttackRollStart={handleAttackRollStart}
           onDefendRollStart={handleDefendRollStart}
           onAtkRollDone={() => {
+            if (arenaId) ackAttackDiceShown(arenaId).catch(() => { });
             if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             atkRollDoneTimeoutRef.current = setTimeout(() => {
@@ -2098,6 +2435,7 @@ export default function BattleHUD({
             }, delayMs);
           }}
           onDefRollDone={() => {
+            if (arenaId) ackDefendDiceShown(arenaId).catch(() => { });
             if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
             const delayMs = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
             defRollDoneTimeoutRef.current = setTimeout(() => {
@@ -2140,6 +2478,7 @@ export default function BattleHUD({
           coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
           atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
           defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
+          skeletonHitActive={!!(transientSkeletonCard || activePlaybackStep?.isMinionHit)}
         />
       )}
 
@@ -2250,10 +2589,13 @@ export default function BattleHUD({
       })()}
 
       {activePlaybackStep && (() => {
-        const cardData = { ...activePlaybackStep, side: activePlaybackStep.__side } as any;
+        const cardData = { ...resolveCache.current, ...activePlaybackStep, side: activePlaybackStep.__side } as any;
         if (cardData.powerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
           cardData.isCritForKeraunos = !!cardData.isCrit;
           if (cardData.keraunosDamageTier == null) cardData.keraunosDamageTier = 0;
+        }
+        if (cardData.powerName === POWER_NAMES.JOLT_ARC && !cardData.baseDmg && attacker) {
+          cardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
         }
         return (
           <DamageCard
@@ -2280,17 +2622,23 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Damage breakdown card — on defender side. Only when phase is RESOLVING so it doesn't flash on attacker side during phase change to next turn. */}
-      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && (
-        <DamageCard
-          key={masterDamageCardKey}
-          data={resolveCache.current}
-          exiting={resolveExiting}
-          side={resolveCache.current.side}
-          displayMs={masterResolveDisplayMs}
-          onDisplayComplete={handleMasterDamageCardComplete}
-        />
-      )}
+      {/* Damage breakdown card — on defender side. For Volley Arrow (main or extra), hide when volleyArrowHitActive is false. */}
+      {!activePlaybackStep && !playbackStep && !playbackPendingAck && showMasterDamageCard && !(turn?.usedPowerName === POWER_NAMES.VOLLEY_ARROW && !volleyArrowHitActive) && (() => {
+        const masterCardData = { ...resolveCache.current };
+        if (masterCardData.powerName === POWER_NAMES.JOLT_ARC && !masterCardData.baseDmg && attacker) {
+          masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
+        }
+        return (
+          <DamageCard
+            key={masterDamageCardKey}
+            data={masterCardData}
+            exiting={resolveExiting}
+            side={resolveCache.current.side}
+            displayMs={masterResolveDisplayMs}
+            onDisplayComplete={handleMasterDamageCardComplete}
+          />
+        );
+      })()}
 
       {/* Transient DamageCard for minion/skeleton hits — show whenever we have skeleton card data during resolve (buffer drives card+hit) */}
       {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && (
@@ -2303,6 +2651,43 @@ export default function BattleHUD({
           onDisplayComplete={() => skeletonCardCompleteRef.current?.()}
         />
       )}
+
+      {/* Rapid Fire extra shot: caster-side "Extra Shot" card + defender-side damage card + hit VFX. Hide damage card when volleyArrowHitActive is false. */}
+      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && volleyArrowHitActive && (() => {
+        const dmg = Number((turn as any).rapidFireExtraShotDamage) ?? 0;
+        const baseDmg = Number((turn as any).rapidFireExtraShotBaseDmg) ?? 0;
+        const isCrit = !!(turn as any).rapidFireExtraShotIsCrit;
+        const rapidFireAtk = attacker ?? find(teamA, teamB, turn.attackerId);
+        const rapidFireDef = defender ?? find(teamA, teamB, turn.defenderId ?? '');
+        const casterSide = turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
+        const cardData = {
+          isHit: true,
+          isPower: true,
+          powerName: POWER_NAMES.VOLLEY_ARROW,
+          isCrit,
+          baseDmg,
+          damage: dmg,
+          shockBonus: 0,
+          atkRoll: 0,
+          isDodged: false,
+          coAttackHit: false,
+          coAttackDamage: 0,
+          attackerName: rapidFireAtk?.nicknameEng ?? '',
+          attackerTheme: rapidFireAtk?.theme?.[0] ?? '#666',
+          defenderName: rapidFireDef?.nicknameEng ?? '',
+          defenderTheme: rapidFireDef?.theme?.[0] ?? '#666',
+        };
+        return (
+          <DamageCard
+            key="rapid-fire-extra-shot-dmg"
+            data={cardData}
+            exiting={false}
+            side={casterSide}
+            displayMs={MINION_RESOLVE_DISPLAY_MS}
+            onDisplayComplete={onRapidFireDamageCardComplete}
+          />
+        );
+      })()}
 
       {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
       {skipCard && (
@@ -2413,6 +2798,36 @@ export default function BattleHUD({
                 <span className="bhud__log-round">R{entry.round}</span>
                 <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="bhud__log-power">Beyond the Nimbus</span>
+              </div>
+            );
+          }
+
+          if (entry.powerUsed === POWER_NAMES.FLORAL_FRAGRANCE && entry.heal === 0 && (entry as any).healSkipReason) {
+            const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
+            return (
+              <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-power">{entry.powerUsed}</span>
+                <span className="bhud__log-sep">→</span>
+                <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                <span className="bhud__log-skip">Heal skipped</span>
+                <span className="bhud__log-skip-reason">({skipReasonLabel})</span>
+              </div>
+            );
+          }
+
+          if (entry.powerUsed === 'Ephemeral Season: Spring' && entry.heal === 0 && (entry as any).healSkipReason) {
+            const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
+            return (
+              <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
+                <span className="bhud__log-round">R{entry.round}</span>
+                <span className="bhud__log-name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
+                <span className="bhud__log-power">{entry.powerUsed}</span>
+                <span className="bhud__log-sep">→</span>
+                <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
+                <span className="bhud__log-skip">Heal skipped</span>
+                <span className="bhud__log-skip-reason">({skipReasonLabel})</span>
               </div>
             );
           }

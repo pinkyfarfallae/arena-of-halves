@@ -66,6 +66,14 @@ $crimson-bright: #c41e3a;
 .bhud__phase-label {
   font-size: 0.65rem;
   color: $ink-faint;
+
+  /* D4 / showcase phases (Disoriented, Heal Crit, Spring Heal) — match dice-zone label prominence */
+  &--dice-phase {
+    font-weight: 700;
+    color: $ink;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
 }
 
 /* ══════════════════════════════════════
@@ -91,6 +99,11 @@ $crimson-bright: #c41e3a;
   &--right {
     right: 0;
     width: calc((100vw - #{$sidebar-width}) / 2);
+  }
+
+  /* Heal-skip overlay: show above skeleton hit card so both visible at once */
+  &--overlay {
+    z-index: 55;
   }
 }
 
@@ -256,6 +269,7 @@ $crimson-bright: #c41e3a;
   font-weight: 800;
   color: $gold-dark;
   text-align: center;
+  width: fit-content;
 }
 
 .bhud__resolve-crit-sep {

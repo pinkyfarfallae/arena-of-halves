@@ -44,11 +44,17 @@ export interface PowerDefinition {
   /** If true, power requires season selection before targeting (e.g. Persephone's Ephemeral Season) */
   requiresSeasonSelection?: boolean;
 
+  /** If true, power requires poem verse selection before targeting (e.g. Apollo's Imprecated Poem) */
+  requiresPoemSelection?: boolean;
+
   /** If set, only targets with this effect tag can be selected (e.g., 'shock' for Jolt Arc) */
   requiresTargetHasEffect?: string;
 
   /** If set, the power will afflict the target with the given afflictions. */
   afflictions?: EffectTag[];
+
+  /** If set, the power grants the given blessings (for data/statusCategory and strip mechanics). */
+  blessings?: EffectTag[];
 }
 
 /** An active effect applied to a fighter during battle */
@@ -61,8 +67,10 @@ export interface ActiveEffect {
   value: number;
   modStat?: ModStat;
   turnsRemaining: number;
-  /** Semantic tag for special mechanics (e.g. 'shock' for Lightning Reflex) */
+  /** Semantic tag for special mechanics (e.g. 'shock' for Lightning Reflex). For Imprecated Poem: verse tag (HEALING_NULLIFIED, etc.). */
   tag?: string;
+  /** Second tag (e.g. IMPRECATED_POEM for any verse effect). */
+  tag2?: string;
 }
 
 /** Quota cost by power type */

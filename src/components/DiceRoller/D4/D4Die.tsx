@@ -2,9 +2,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { DieRendererProps } from '../types';
 import { useAuth } from '../../../hooks/useAuth';
 import LoadingDice from '../LoadingDice/LoadingDice';
+import { lazyRetry } from '../../../utils/lazyRetry';
 import './D4Die.scss';
 
-const D4Scene = lazy(() => import('./D4Scene'));
+const D4Scene = lazy(lazyRetry(() => import('./D4Scene')));
 
 const WINK_COUNT = 8;
 
