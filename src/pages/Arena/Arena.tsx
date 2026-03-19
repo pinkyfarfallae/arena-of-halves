@@ -242,17 +242,21 @@ function Arena(props?: ArenaDemoProps) {
     };
   }, [soulDrainTurn?.phase, (soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain]);
 
-  // Volley Arrow: show amber/gold arrow (1) main hit — only when resolve is shown (after critical, same time as hit VFX) and (2) each extra shot
+  // Volley Arrow: show amber/gold arrow (1) main hit — when resolve is shown and caster used Volley Arrow or has Rapid Fire (round 2/3); (2) each extra shot
   const turn = room?.battle?.turn;
+  const activeEffects = room?.battle?.activeEffects ?? [];
+  const attackerHasRapidFire = !!(turn?.attackerId && (activeEffects as { targetId?: string; tag?: string; turnsRemaining?: number }[]).some(
+    (e) => e.targetId === turn?.attackerId && e.tag === EFFECT_TAGS.RAPID_FIRE && (e.turnsRemaining == null || e.turnsRemaining > 0),
+  ));
   const volleyMainArrowShownRef = useRef(false);
   useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING || turn?.usedPowerName !== POWER_NAMES.VOLLEY_ARROW) {
+    if (turn?.phase !== PHASE.RESOLVING || (turn?.usedPowerName !== POWER_NAMES.VOLLEY_ARROW && !attackerHasRapidFire)) {
       volleyMainArrowShownRef.current = false;
     }
-  }, [turn?.phase, turn?.usedPowerName]);
+  }, [turn?.phase, turn?.usedPowerName, attackerHasRapidFire]);
   useEffect(() => {
     const isExtraShot = turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT;
-    const isMainVolleyResolveShown = turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.VOLLEY_ARROW && resolveShown && !volleyMainArrowShownRef.current;
+    const isMainVolleyResolveShown = turn?.phase === PHASE.RESOLVING && (turn?.usedPowerName === POWER_NAMES.VOLLEY_ARROW || attackerHasRapidFire) && resolveShown && !volleyMainArrowShownRef.current;
     if (isExtraShot) {
       setVolleyArrowHitActive(true);
       const t = setTimeout(() => {
@@ -280,7 +284,7 @@ function Arena(props?: ArenaDemoProps) {
       setVolleyArrowDefenderPos(null);
     }
     return undefined;
-  }, [turn?.phase, turn?.usedPowerName, resolveShown, (turn as { rapidFireStep?: number })?.rapidFireStep, arenaId]);
+  }, [turn?.phase, turn?.usedPowerName, resolveShown, (turn as { rapidFireStep?: number })?.rapidFireStep, arenaId, attackerHasRapidFire]);
   useEffect(() => {
     if (!volleyArrowHitActive) return;
     const measure = () => {
@@ -900,6 +904,8 @@ function Arena(props?: ArenaDemoProps) {
   const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = effectiveRoom.battle;
+  /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
+  const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
   const isNpcPlaybackDriver = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
   const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
@@ -1008,8 +1014,8 @@ function Arena(props?: ArenaDemoProps) {
               suppressHitAfterBack={suppressHitAfterBack}
               floralHealResultCardVisible={floralHealResultCardVisible}
               volleyArrowHitActive={volleyArrowHitActive}
-              volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
-              volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
+              volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
+              volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
             />
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
           </div>
@@ -1043,8 +1049,8 @@ function Arena(props?: ArenaDemoProps) {
                 suppressHitAfterBack={suppressHitAfterBack}
                 floralHealResultCardVisible={floralHealResultCardVisible}
                 volleyArrowHitActive={volleyArrowHitActive}
-                volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
-                volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
+                volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
+                volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
               />
             ) : (
               <div className="arena__empty-slot">
@@ -1163,8 +1169,8 @@ function Arena(props?: ArenaDemoProps) {
             suppressHitAfterBack={suppressHitAfterBack}
             floralHealResultCardVisible={floralHealResultCardVisible}
             volleyArrowHitActive={volleyArrowHitActive}
-            volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
-            volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
+            volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
+            volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -1203,8 +1209,8 @@ function Arena(props?: ArenaDemoProps) {
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
               volleyArrowHitActive={volleyArrowHitActive}
-              volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
-              volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
+              volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
+              volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -1252,10 +1258,8 @@ function Arena(props?: ArenaDemoProps) {
           const dy = volleyArrowDefenderPos.y - volleyArrowCasterPos.y;
           const angleRad = Math.atan2(dy, dx);
           const angleDeg = (angleRad * 180) / Math.PI;
-          const dist = Math.hypot(dx, dy);
-          const arcHeight = Math.min(56, Math.max(28, dist * 0.22));
           const midX = (volleyArrowCasterPos.x + volleyArrowDefenderPos.x) / 2;
-          const midY = (volleyArrowCasterPos.y + volleyArrowDefenderPos.y) / 2 - arcHeight;
+          const midY = (volleyArrowCasterPos.y + volleyArrowDefenderPos.y) / 2;
           const arrowHalfLen = 50;
           const tipHitX = volleyArrowDefenderPos.x - arrowHalfLen * Math.cos(angleRad);
           const tipHitY = volleyArrowDefenderPos.y - arrowHalfLen * Math.sin(angleRad);
@@ -1317,7 +1321,10 @@ function Arena(props?: ArenaDemoProps) {
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
             onSubmitRapidFireD4Roll={arenaId ? (roll: number) => submitRapidFireD4Roll(arenaId, roll) : () => { }}
-            onRapidFireDamageCardComplete={arenaId ? () => advanceToNextRapidFireStep(arenaId) : () => { }}
+            onRapidFireDamageCardComplete={() => {
+              setVolleyArrowHitActive(false);
+              if (arenaId) advanceToNextRapidFireStep(arenaId);
+            }}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER}

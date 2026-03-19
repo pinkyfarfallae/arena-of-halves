@@ -1200,9 +1200,11 @@ export default function BattleHUD({
 
   // Keep resolve panel visible while a transient DamageCard (minion hit) is showing or skeleton chain is still playing.
   // Exclude Shadow Camouflage refill dice phase so .bhud__resolve is never shown during refill roll.
+  // Exclude ROLLING_RAPID_FIRE_EXTRA_SHOT so Rapid Fire D4 modal is not covered; extra-shot damage card uses volleyArrowHitActive.
   // When turn has passed to NPC (SELECT_ACTION && !isMyTurn), hide immediately to avoid jitter of resolve/dice modal on player side.
   const resolveBarVisible =
     !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
+    turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT &&
     ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -2159,8 +2161,13 @@ export default function BattleHUD({
       })()}
 
       {/* Volley Arrow Rapid Fire: caster rolls D4 for each extra shot. Click = roll on every screen; others see waiting until caster clicks; no replay/remount. */}
-      {turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && Array.isArray((turn as any).rapidFireWinFaces) && (turn as any).rapidFireWinFaces.length > 0 && (() => {
-        const winFaces = (turn as any).rapidFireWinFaces ?? [];
+      {turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (() => {
+        const rawWinFaces = (turn as any).rapidFireWinFaces;
+        const winFaces = Array.isArray(rawWinFaces) && rawWinFaces.length > 0
+          ? rawWinFaces
+          : (() => { const step = Number((turn as any).rapidFireStep) ?? 0; return step === 0 ? [2, 3, 4] : step === 1 ? [3, 4] : [4]; })();
+        if (winFaces.length === 0) return null;
+        return (() => {
         const pct = winFaces.length * 25;
         const isCaster = turn.attackerId === myId;
         return (
@@ -2189,6 +2196,7 @@ export default function BattleHUD({
             } : undefined}
           />
         );
+        })();
       })()}
 
       {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}

@@ -1,0 +1,41 @@
+@use '../vars' as *;
+
+/* ── Volley Arrow attacker (caster during rapid-fire / arrow in flight) ── */
+
+$volley-gold: #ffd700;
+$volley-amber: #d4a017;
+$volley-light: #fff3b8;
+$volley-white: #fffef0;
+
+/* Higher specificity so Volley Arrow attacker frame wins over .mchip--spotlight .mchip__frame */
+.mchip.mchip--volley-arrow-hit-attacker .mchip__frame {
+    box-shadow:
+      0 0 0 2px rgba(255, 235, 180, 0.7),
+      0 0 0 3px rgba(255, 215, 0, 0.2),
+      0 0 16px 2px rgba(255, 215, 0, 0.3),
+      0 0 28px 4px rgba(212, 160, 23, 0.15),
+      inset 0 0 14px rgba(255, 248, 220, 0.06);
+    animation: volley-arrow-attacker-frame-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes volley-arrow-attacker-frame-pulse {
+
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 235, 180, 0.7),
+      0 0 0 3px rgba(255, 215, 0, 0.2),
+      0 0 16px 2px rgba(255, 215, 0, 0.3),
+      0 0 28px 4px rgba(212, 160, 23, 0.15),
+      inset 0 0 14px rgba(255, 248, 220, 0.06);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(255, 248, 220, 0.85),
+      0 0 0 4px rgba(255, 215, 0, 0.3),
+      0 0 20px 4px rgba(255, 215, 0, 0.4),
+      0 0 36px 6px rgba(212, 160, 23, 0.2),
+      inset 0 0 18px rgba(255, 248, 220, 0.1);
+  }
+}

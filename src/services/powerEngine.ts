@@ -243,12 +243,14 @@ export function applyPowerEffect(
     case EFFECT_TYPES.BUFF:
     case EFFECT_TYPES.DEBUFF: {
       // Shadow Camouflaging / Beyond the Nimbus: no stack; new select = reset to 2 rounds.
-      // UI shows Math.ceil(turnsRemaining / queueLen) as "rounds", so store 2 * queueLen to display 2.
+      // Volley Arrow (Rapid Fire): 3 rounds. UI shows Math.ceil(turnsRemaining / queueLen) as "rounds", so store N * queueLen to display N.
       const isShadowCamouflaging = power.name === POWER_NAMES.SHADOW_CAMOUFLAGING || power.modStat === MOD_STAT.SHADOW_CAMOUFLAGED;
       const isBeyondTheNimbus = power.name === POWER_NAMES.BEYOND_THE_NIMBUS;
+      const isVolleyArrow = power.name === POWER_NAMES.VOLLEY_ARROW;
       const queueLen = battle.turnQueue?.length || 1;
       const shadowCamouflageDuration = 2 * queueLen;
       const beyondTheNimbusDuration = 2 * queueLen;
+      const volleyArrowDuration = 3 * queueLen
       const existingShadow = isShadowCamouflaging
         ? effects.find(e => e.targetId === targetId && (e.powerName === POWER_NAMES.SHADOW_CAMOUFLAGING || e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED))
         : null;
@@ -265,7 +267,9 @@ export function applyPowerEffect(
           ? shadowCamouflageDuration
           : isBeyondTheNimbus
             ? beyondTheNimbusDuration
-            : power.duration;
+            : isVolleyArrow
+              ? volleyArrowDuration
+              : power.duration;
         const eff: ActiveEffect = {
           id: makeEffectId(attackerId, power.name),
           powerName: power.name,
