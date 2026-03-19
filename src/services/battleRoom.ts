@@ -2,7 +2,7 @@ import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
 import { db } from '../firebase';
 import type {
   BattleRoom, BattleState, FighterState, Team,
-  TurnQueueEntry, Viewer, BattlePlaybackStep,
+  TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState,
 } from '../types/battle';
 import { BATTLE_PLAYBACK_KIND } from '../types/battle';
 import type { Character } from '../types/character';
@@ -3309,6 +3309,180 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
   await update(roomRef(arenaId), updates);
 }
 
+/* ── submit Rapid Fire D4 (Volley Arrow ช็อตเสริม) ─────────────────────────── */
+
+export async function submitRapidFireD4Roll(arenaId: string, roll: number): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT) return;
+  const winFaces = ((turn as any).rapidFireWinFaces as number[]) ?? [];
+  const step = Number((turn as any).rapidFireStep) ?? 0;
+  const baseDmg = Number((turn as any).rapidFireBaseDmg) ?? 0;
+  const isCrit = !!(turn as any).rapidFireIsCrit;
+  const defenderId = turn.defenderId;
+  const attackerId = turn.attackerId;
+  if (!attackerId || !defenderId || baseDmg <= 0) return;
+
+  const defender = findFighter(room, defenderId);
+  const attacker = findFighter(room, attackerId);
+  if (!defender || !attacker) return;
+  if (defender.currentHp <= 0) {
+    const turnUpdates: Record<string, unknown> = {
+      ...turn,
+      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
+      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
+      rapidFireStep: null,
+      rapidFireWinFaces: null,
+      rapidFireBaseDmg: null,
+      rapidFireIsCrit: null,
+      rapidFireD4Roll: null,
+    };
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
+    await resolveTurn(arenaId);
+    return;
+  }
+
+  const hit = winFaces.length > 0 && winFaces.includes(roll);
+  const updates: Record<string, unknown> = {};
+
+  if (!hit) {
+    const turnUpdates: Record<string, unknown> = {
+      ...turn,
+      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
+      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
+      rapidFireStep: null,
+      rapidFireWinFaces: null,
+      rapidFireBaseDmg: null,
+      rapidFireIsCrit: null,
+      rapidFireD4Roll: roll,
+    };
+    updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
+    await update(roomRef(arenaId), updates);
+    await resolveTurn(arenaId);
+    return;
+  }
+
+  let rawDmgRF = Math.ceil(baseDmg * 0.5);
+  if (isCrit) rawDmgRF *= 2;
+  const defPathRF = findFighterPath(room, defenderId);
+  const defenderHpBeforeRF = defender.currentHp;
+  const defenderForRF: FighterState = { ...defender, currentHp: defenderHpBeforeRF };
+  const resolveRF = await resolveHitAtDefender(arenaId, room, defenderId, rawDmgRF, updates, defenderForRF);
+  if (resolveRF.skippedMinionsPath) delete updates[resolveRF.skippedMinionsPath];
+  rawDmgRF = resolveRF.damageToMaster;
+  let shieldRemainingRF = rawDmgRF;
+  const activeEffects = battle.activeEffects || [];
+  const effectsForShieldRF = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [...activeEffects];
+  for (const se of effectsForShieldRF) {
+    if (se.targetId !== defenderId || se.effectType !== EFFECT_TYPES.SHIELD) continue;
+    if (shieldRemainingRF <= 0) break;
+    const absorbedRF = Math.min(se.value, shieldRemainingRF);
+    se.value -= absorbedRF;
+    shieldRemainingRF -= absorbedRF;
+  }
+  const dmgRF = shieldRemainingRF;
+  const newDefHpRF = Math.max(0, defenderHpBeforeRF - dmgRF);
+  if (defPathRF) updates[`${defPathRF}/currentHp`] = newDefHpRF;
+  const cleanedRF = effectsForShieldRF.filter(
+    (e: ActiveEffect) => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag),
+  );
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleanedRF;
+
+  const rapidFireLog = [
+    ...(battle.log || []),
+    {
+      round: battle.roundNumber,
+      attackerId,
+      defenderId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: dmgRF,
+      defenderHpAfter: newDefHpRF,
+      eliminated: newDefHpRF <= 0,
+      missed: false,
+      rapidFire: true,
+      rapidFireNoDefend: true,
+      rapidFireD4Roll: roll,
+      powerUsed: POWER_NAMES.VOLLEY_ARROW,
+      ...(isCrit ? { isCrit: true } : {}),
+    },
+  ];
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(rapidFireLog);
+
+  // Always show damage card + hit VFX first (including when this shot eliminates defender); then client calls advanceToNextRapidFireStep.
+  if (newDefHpRF <= 0) {
+    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = defenderId;
+  }
+  const turnUpdates: Record<string, unknown> = {
+    ...turn,
+    phase: PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT,
+    rapidFireD4Roll: roll,
+    rapidFireExtraShotDamage: dmgRF,
+    rapidFireExtraShotBaseDmg: rawDmgRF,
+    rapidFireExtraShotIsCrit: isCrit,
+    ...(newDefHpRF <= 0 ? { rapidFireExtraShotEliminated: true } : {}),
+  };
+  updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
+  await update(roomRef(arenaId), updates);
+}
+
+/** After client has shown the extra-shot damage card (RESOLVING_RAPID_FIRE_EXTRA_SHOT), advance to next D4 roll or end chain (or resolveTurn if that shot eliminated defender). */
+export async function advanceToNextRapidFireStep(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) return;
+
+  const defenderId = turn.defenderId;
+  const eliminated = !!(turn as any).rapidFireExtraShotEliminated;
+  const defender = defenderId ? findFighter(room, defenderId) : null;
+  const defenderDead = eliminated || (defender != null && defender.currentHp <= 0);
+
+  if (defenderDead) {
+    const turnUpdates: Record<string, unknown> = {
+      ...turn,
+      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
+      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
+      rapidFireStep: null,
+      rapidFireWinFaces: null,
+      rapidFireBaseDmg: null,
+      rapidFireIsCrit: null,
+      rapidFireD4Roll: null,
+      rapidFireExtraShotDamage: null,
+      rapidFireExtraShotBaseDmg: null,
+      rapidFireExtraShotIsCrit: null,
+      rapidFireExtraShotEliminated: null,
+    };
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
+    await resolveTurn(arenaId);
+    return;
+  }
+
+  const step = Number((turn as any).rapidFireStep) ?? 0;
+  const rapidFireChances = [0.75, 0.5, 0.25];
+  const nextStep = step + 1;
+  const nextChance = nextStep < rapidFireChances.length ? rapidFireChances[nextStep] : 0.25;
+  const nextWinFaces = nextChance >= 0.75 ? [2, 3, 4] : nextChance >= 0.5 ? [3, 4] : [4];
+
+  const turnUpdates: Record<string, unknown> = {
+    ...turn,
+    phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
+    rapidFireStep: nextStep,
+    rapidFireWinFaces: nextWinFaces,
+    rapidFireD4Roll: null,
+    rapidFireExtraShotDamage: null,
+    rapidFireExtraShotBaseDmg: null,
+    rapidFireExtraShotIsCrit: null,
+  };
+  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
+}
+
 /** เรียกเมื่อ animation เต๋าโจมตีจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
 export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
@@ -3374,6 +3548,115 @@ export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/** Post–Rapid Fire advance: co-attack (if any), skeleton step (if any), tick effects, then advance to next turn. */
+async function runPostRapidFireAdvance(
+  arenaId: string,
+  room: BattleRoom,
+  battle: BattleState,
+  updates: Record<string, unknown>,
+  ctx: {
+    attackerId: string;
+    defenderId: string;
+    attacker: FighterState;
+    defender: FighterState;
+    defTotal: number;
+    hit: boolean;
+    isDodged: boolean;
+    activeEffects: ActiveEffect[];
+    turn: TurnState;
+    skeletonsForAttack: any[];
+  },
+): Promise<void> {
+  const { attackerId, defenderId, attacker, defender, defTotal, hit, isDodged, activeEffects, turn, skeletonsForAttack } = ctx;
+  let battleRef = battle;
+  if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
+    battleRef = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
+  }
+  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battleRef, updates);
+  Object.assign(updates, effectUpdates);
+  const getHp = (m: FighterState) => {
+    const path = findFighterPath(room, m.characterId);
+    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+    return m.currentHp;
+  };
+  let teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  let teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battleRef.activeEffects || [];
+  const END_ARENA_HIT_EFFECTS_DELAY_MS = 3500;
+  if (isTeamEliminated(teamBMembers, latestEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll: turn.attackRoll, defendRoll: turn.defendRoll, action: turn.action, playbackStep: null, resolvingHitIndex: null };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
+      }).catch(() => {});
+    }, END_ARENA_HIT_EFFECTS_DELAY_MS);
+    return;
+  }
+  if (isTeamEliminated(teamAMembers, latestEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll: turn.attackRoll, defendRoll: turn.defendRoll, action: turn.action, playbackStep: null, resolvingHitIndex: null };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
+      }).catch(() => {});
+    }, END_ARENA_HIT_EFFECTS_DELAY_MS);
+    return;
+  }
+  const updatedRoom = { ...room, teamA: { ...room.teamA, members: teamAMembers }, teamB: { ...room.teamB, members: teamBMembers } };
+  const updatedQueue = buildTurnQueue(updatedRoom as BattleRoom, latestEffects);
+  updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
+  const currentAttackerIdx = updatedQueue.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom as BattleRoom, latestEffects);
+  const nextEntry = updatedQueue[nextIdx];
+  const selfRes3 = applySelfResurrect(nextEntry.characterId, updatedRoom as BattleRoom, latestEffects, updates, battle);
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffects;
+  let nextTurnOnly: Record<string, unknown>;
+  if (nextFighter && !selfRes3 && isStunned(activeEff, nextEntry.characterId)) {
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom as BattleRoom, latestEffects);
+    const skipEntry = updatedQueue[skipIdx];
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
+    nextTurnOnly = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+    const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
+    if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
+    const efflorescenceMuseSkip = onEfflorescenceMuseTurnStart(room, { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects }, skipEntry.characterId);
+    if (efflorescenceMuseSkip) Object.assign(updates, efflorescenceMuseSkip);
+  } else {
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    nextTurnOnly = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
+    if (selfRes3) nextTurnOnly.resurrectTargetId = nextEntry.characterId;
+    const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
+    if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
+    const efflorescenceMuseNext = onEfflorescenceMuseTurnStart(room, { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects }, nextEntry.characterId);
+    if (efflorescenceMuseNext) Object.assign(updates, efflorescenceMuseNext);
+  }
+  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+  const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
+  await set(turnRef, nextTurnOnly);
+  delete updates[ARENA_PATH.BATTLE_TURN];
+  await update(roomRef(arenaId), updates);
+}
+
 /* ── resolve turn (compare dice, apply damage, advance) ── */
 
 export async function resolveTurn(arenaId: string): Promise<void> {
@@ -3382,7 +3665,9 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   const room = snap.val() as BattleRoom;
   let battle = room.battle;
-  if (!battle || !battle.turn || battle.turn.phase !== PHASE.RESOLVING) return;
+  if (!battle || !battle.turn) return;
+  const turnPhase = battle.turn.phase;
+  if (turnPhase !== PHASE.RESOLVING && turnPhase !== PHASE.RESOLVING_AFTER_RAPID_FIRE) return;
   // Winner is being delayed so hit effects can play; wait for delayed write
   if (battle.winnerDelayedAt != null) return;
 
@@ -3486,6 +3771,27 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   if (!attacker || !defender) return;
 
   const turn = battle.turn;
+  // Advance only after Rapid Fire D4 chain done (skip main resolution)
+  if (turnPhase === PHASE.RESOLVING_AFTER_RAPID_FIRE) {
+    const updatesResume: Record<string, unknown> = {
+      [ARENA_PATH.BATTLE_TURN]: { ...turn, phase: PHASE.RESOLVING, rapidFireDefTotal: null },
+    };
+    await runPostRapidFireAdvance(arenaId, room, battle, updatesResume, {
+      attackerId,
+      defenderId: defenderId!,
+      attacker: attacker!,
+      defender: defender!,
+      defTotal: (turn as any).rapidFireDefTotal ?? 0,
+      hit: true,
+      isDodged: false,
+      activeEffects: battle.activeEffects || [],
+      turn,
+      skeletonsForAttack: findFighterTeam(room, attackerId)
+        ? ((room[findFighterTeam(room, attackerId)!]?.minions || []) as any[]).filter((m: any) => m.masterId === attackerId)
+        : [],
+    });
+    return;
+  }
   const resolvingHitIndex = (turn as any).resolvingHitIndex as number | undefined;
   const playbackStep = (turn as any).playbackStep as BattlePlaybackStep | undefined;
 
@@ -4524,6 +4830,30 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
       }
     }
+  }
+
+  // Rapid Fire (Volley Arrow)
+  const attackerHasRapidFire =
+    !soulDevourerDrain &&
+    hit &&
+    (action !== TURN_ACTION.POWER || isSelfBuffPower) &&
+    (activeEffects as ActiveEffect[]).some(
+      (e: ActiveEffect) => e.targetId === attackerId && e.tag === EFFECT_TAGS.RAPID_FIRE,
+    );
+  if (attackerHasRapidFire && defenderId && baseDmg > 0) {
+    // ให้ caster ทอย D4 เองทุกช็อตเสริม — เปลี่ยนเป็น phase ROLLING_RAPID_FIRE_D4 รอ client ส่ง roll
+    const rapidFireWinFacesFirst = [2, 3, 4]; // 75%
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      ...turn,
+      phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
+      rapidFireStep: 0,
+      rapidFireWinFaces: rapidFireWinFacesFirst,
+      rapidFireBaseDmg: baseDmg,
+      rapidFireIsCrit: !!isCrit,
+      rapidFireDefTotal: defTotal,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
   }
 
   // skipDice powers: effect + log already written in selectAction()

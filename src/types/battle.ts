@@ -205,7 +205,7 @@ export interface TurnState {
   disorientedWinFaces?: number[];
   disorientedRoll?: number;
 
-  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, … Client calls resolveTurn() again after each hit to get real-time HP updates. */
+  /** Per-hit resolve: 0 = master applied next, 1 = skeleton 0 next, 2 = skeleton 1 next, ... Client calls resolveTurn() again after each hit to get real-time HP updates. */
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
@@ -263,6 +263,10 @@ export interface BattleLogEntry {
   hitTargetId?: string;
   /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
   isMinionHit?: boolean;
+  /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
+  rapidFire?: boolean;
+  /** ช็อตเสริมดีเฟ้นใหม่ไม่ได้ — log มี attackRoll/defendRoll 0 */
+  rapidFireNoDefend?: boolean;
 }
 
 /** Full battle state stored alongside the room */
