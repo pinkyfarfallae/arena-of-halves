@@ -2373,6 +2373,16 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
     if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
   }
 
+  // Rapid Fire (Volley Arrow) is only appended when target is confirmed (in resolveTurn).
+  // On Back from choose target, remove any RAPID_FIRE effect on this attacker so the pip disappears.
+  const activeEffects = battle.activeEffects || [];
+  const withoutRapidFire = activeEffects.filter(
+    (e: ActiveEffect) => !(e.targetId === attackerId && e.tag === EFFECT_TAGS.RAPID_FIRE)
+  );
+  if (withoutRapidFire.length !== activeEffects.length) {
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutRapidFire;
+  }
+
   // Reset turn back to select-action
   updates[ARENA_PATH.BATTLE_TURN] = {
     attackerId,
@@ -4832,15 +4842,20 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
   }
 
-  // Rapid Fire (Volley Arrow)
+  // Rapid Fire (Volley Arrow) — use latest effects (updates may have modified); require effect still active (turnsRemaining > 0) so round 3 of buff still enters flow
+  const effectsForRapidFireCheck = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? activeEffects;
   const attackerHasRapidFire =
     !soulDevourerDrain &&
     hit &&
     (action !== TURN_ACTION.POWER || isSelfBuffPower) &&
-    (activeEffects as ActiveEffect[]).some(
-      (e: ActiveEffect) => e.targetId === attackerId && e.tag === EFFECT_TAGS.RAPID_FIRE,
+    (effectsForRapidFireCheck as ActiveEffect[]).some(
+      (e: ActiveEffect) =>
+        e.targetId === attackerId &&
+        e.tag === EFFECT_TAGS.RAPID_FIRE &&
+        (e.turnsRemaining == null || e.turnsRemaining > 0),
     );
-  if (attackerHasRapidFire && defenderId && baseDmg > 0) {
+  // Only enter Rapid Fire chain when defender survived the main hit; if eliminated, resolve and advance (all three rounds)
+  if (attackerHasRapidFire && defenderId && baseDmg > 0 && defenderHpAfter > 0) {
     // ให้ caster ทอย D4 เองทุกช็อตเสริม — เปลี่ยนเป็น phase ROLLING_RAPID_FIRE_D4 รอ client ส่ง roll
     const rapidFireWinFacesFirst = [2, 3, 4]; // 75%
     updates[ARENA_PATH.BATTLE_TURN] = {

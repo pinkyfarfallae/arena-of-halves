@@ -164,7 +164,8 @@ function PowerTooltip({
 }
 
 export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, disabledPowerReasons, infoReasons, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
-  const [showPowerPicker, setShowPowerPicker] = useState(false);
+  // When returning from "choose target" (Back), open on power list immediately to avoid jitter of action buttons
+  const [showPowerPicker, setShowPowerPicker] = useState(() => !!initialShowPowers);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);

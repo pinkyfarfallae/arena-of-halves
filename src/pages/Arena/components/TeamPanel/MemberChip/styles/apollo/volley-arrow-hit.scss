@@ -1,7 +1,8 @@
+@use '../vars' as *;
 @use '../mixins' as *;
 
-/* Volley Arrow hit VFX: thin arched gold arrow + impact (burst, ring, frame) at target.
-   Flies to target center, arrow tip stops at frame; then impact/ring/frame play. */
+/* Volley Arrow hit VFX: thin gold arrow + impact (burst, ring, frame) at target.
+   Flies straight to target; arrow tip stops at frame, then impact/ring/frame play. */
 
 $volley-arrow-duration: 0.5s;
 $volley-arrow-impact-duration: 0.6s;
@@ -46,15 +47,6 @@ $volley-arrow-my: -1.5px;
     margin-top: $volley-arrow-my;
     opacity: 1;
     filter: drop-shadow(0 0 4px rgba(212, 160, 23, 0.8)) drop-shadow(0 0 10px rgba(184, 134, 11, 0.4)) brightness(1.1);
-  }
-
-  48% {
-    left: var(--volley-arrow-mid-x, 50%);
-    top: var(--volley-arrow-mid-y, 50%);
-    margin-left: $volley-arrow-mx;
-    margin-top: $volley-arrow-my;
-    opacity: 1;
-    filter: drop-shadow(0 0 6px rgba(212, 160, 23, 0.75)) drop-shadow(0 0 12px rgba(184, 134, 11, 0.45)) brightness(1.05);
   }
 
   82% {
@@ -335,6 +327,7 @@ $volley-white: #fffef0;
   pointer-events: none;
   border: 2px solid rgba(255, 235, 180, 0.5);
   box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
+  filter: blur(5px);
 }
 
 .mchip__volley-arrow-ring--outer {
@@ -372,6 +365,7 @@ $volley-white: #fffef0;
   z-index: 18;
   pointer-events: none;
   border-radius: inherit;
+  @include mask-gradient-clip;
 }
 
 .mchip__volley-arrow-spark {
@@ -422,6 +416,7 @@ $volley-spark-tops: 10% 74% 38% 55% 90% 20% 48% 68% 6% 52% 82% 28% 62% 35% 88% 1
     radial-gradient(ellipse 12px 7px at 50% 4%, rgba($volley-white, 0.65) 0%, transparent 100%),
     radial-gradient(ellipse 9px 8px at 50% 96%, rgba($volley-amber, 0.5) 0%, transparent 100%);
   animation: volley-arrow-accents-drift 3.5s ease-in-out infinite alternate;
+  @include mask-gradient-clip;
 }
 
 @keyframes volley-arrow-accents-drift {
@@ -467,6 +462,7 @@ $volley-spark-tops: 10% 74% 38% 55% 90% 20% 48% 68% 6% 52% 82% 28% 62% 35% 88% 1
   border-radius: inherit;
   z-index: 10;
   pointer-events: none;
+  @include mask-gradient-clip;
   background: radial-gradient(ellipse 120% 120% at 50% 50%,
       rgba(255, 255, 255, 0.98) 0%,
       rgba(255, 248, 220, 0.88) 22%,
@@ -582,4 +578,96 @@ $volley-spark-tops: 10% 74% 38% 55% 90% 20% 48% 68% 6% 52% 82% 28% 62% 35% 88% 1
   30% { opacity: 0.7; transform: scale(1.22) rotate(-2deg); }
   55% { opacity: 0.35; transform: scale(1.32) rotate(1deg); }
   100% { opacity: 0; transform: scale(1.45) rotate(0deg); }
+}
+
+@media (max-width: $bp-compact) {
+  /* Clip all volley-arrow overlays to chip bounds; reduce frame box-shadow so glow doesn't get cut with a sharp line */
+  .mchip--volley-arrow-hit-defender {
+    overflow: hidden;
+    border-radius: inherit;
+  }
+  .mchip--volley-arrow-hit-defender .mchip__frame {
+    box-shadow:
+      0 0 0 2px rgba(255, 235, 180, 0.95),
+      0 0 0 3px rgba(255, 215, 0, 0.25),
+      0 0 10px 2px rgba(255, 215, 0, 0.4),
+      0 0 18px 4px rgba(212, 160, 23, 0.25),
+      inset 0 0 16px rgba(255, 235, 180, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    animation: volley-arrow-defender-frame-pulse-compact 0.7s ease-in-out infinite;
+  }
+  .mchip--volley-arrow-hit-defender.mchip--hit .mchip__frame {
+    overflow: hidden;
+    box-shadow:
+      0 0 0 2px rgba(255, 235, 180, 0.98),
+      0 0 0 4px rgba(255, 215, 0, 0.3),
+      0 0 12px 3px rgba(255, 215, 0, 0.5),
+      0 0 22px 6px rgba(212, 160, 23, 0.35),
+      inset 0 0 20px rgba(255, 235, 180, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    animation: volley-arrow-defender-frame-pulse-compact 0.7s ease-in-out infinite, volley-arrow-defender-impact-pulse-compact 1.8s ease-out forwards, hit-shake 0.5s ease-out;
+  }
+  @keyframes volley-arrow-defender-frame-pulse-compact {
+    0%, 100% {
+      box-shadow:
+        0 0 0 2px rgba(255, 235, 180, 0.95),
+        0 0 0 3px rgba(255, 215, 0, 0.25),
+        0 0 10px 2px rgba(255, 215, 0, 0.4),
+        0 0 18px 4px rgba(212, 160, 23, 0.25),
+        inset 0 0 16px rgba(255, 235, 180, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    50% {
+      box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.98),
+        0 0 0 4px rgba(255, 215, 0, 0.35),
+        0 0 12px 3px rgba(255, 215, 0, 0.45),
+        0 0 22px 5px rgba(212, 160, 23, 0.3),
+        inset 0 0 20px rgba(255, 235, 180, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+  }
+  @keyframes volley-arrow-defender-impact-pulse-compact {
+    0% {
+      box-shadow:
+        0 0 0 3px rgba(255, 235, 180, 1),
+        0 0 0 6px rgba(255, 215, 0, 0.5),
+        0 0 16px 4px rgba(255, 215, 0, 0.7),
+        0 0 28px 8px rgba(212, 160, 23, 0.4),
+        inset 0 0 24px rgba(255, 248, 220, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+    20% {
+      box-shadow:
+        0 0 0 2px rgba(255, 235, 180, 0.98),
+        0 0 0 5px rgba(255, 215, 0, 0.4),
+        0 0 14px 4px rgba(255, 215, 0, 0.55),
+        0 0 24px 6px rgba(212, 160, 23, 0.35),
+        inset 0 0 20px rgba(255, 235, 180, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+    100% {
+      box-shadow:
+        0 0 0 2px rgba(255, 235, 180, 0.98),
+        0 0 0 4px rgba(255, 215, 0, 0.3),
+        0 0 12px 3px rgba(255, 215, 0, 0.5),
+        0 0 22px 6px rgba(212, 160, 23, 0.35),
+        inset 0 0 20px rgba(255, 235, 180, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+  }
+  /* Softer right-side fade for ::after flash (longer transition 30% → 88% to avoid hard mask edge) */
+  .mchip--volley-arrow-hit-defender.mchip--hit .mchip__frame::after {
+    mask-image: linear-gradient(90deg, black 0%, black 30%, transparent 88%);
+    -webkit-mask-image: linear-gradient(90deg, black 0%, black 30%, transparent 88%);
+    mask-size: 100% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+  .mchip__volley-arrow-ring,
+  .mchip__volley-arrow-spark-points,
+  .mchip__volley-arrow-accents {
+    @include mask-right-side-fade;
+  }
 }

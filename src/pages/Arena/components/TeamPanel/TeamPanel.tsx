@@ -234,7 +234,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase !== PHASE.ROLLING_ATTACK &&
           turn?.phase !== PHASE.ROLLING_DEFEND
         ) && (m.skeletonCount ?? 0) <= 0
-        && !suppressHitAfterSelect && !suppressHitAfterBack;
+          && !suppressHitAfterSelect && !suppressHitAfterBack;
         const playbackHit = !!playbackStepActive && playbackStep?.defenderId === m.characterId;
         const playbackHitEventKey = (playbackHit && !playbackStep?.isMinionHit && playbackStep?.isHit !== false)
           ? buildBattlePlaybackEventKey(battle?.roundNumber ?? 0, battle?.currentTurnIndex ?? 0, playbackStep)
@@ -263,11 +263,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Tag-based chip props from shared registry (single source of truth for effect → props)
         const tagBasedProps = getTagBasedChipProps(activeEffects, m.characterId);
+        // Volley Arrow attacker = chip that has the Rapid Fire effect pip (caster of Volley Arrow)
+        const hasRapidFireEffect = activeEffects.some((e: { targetId?: string; tag?: string }) => String(e.targetId) === String(m.characterId) && e.tag === EFFECT_TAGS.RAPID_FIRE);
         // When skeleton blocked: lastHitTargetId is the blocker (minion), so master must NOT show hit VFX
         const lastHitTargetId = (battle as any)?.lastHitTargetId;
         const hitLandedOnMyMinion = turn?.defenderId === m.characterId && lastHitTargetId &&
           masterMinions.some((min: { characterId: string }) => min.characterId === lastHitTargetId);
-        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion;
+        // Only show hit when this chip is the current turn's defender (or AoE in RESOLVING). After extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) or when turn advances, previous defender must not show hit shake/VFX.
+        const isCurrentDefenderOrAoeResolving = turn?.defenderId == null || turn?.defenderId === m.characterId || (!!isAoeHit && turn?.phase === PHASE.RESOLVING);
+        const suppressHitAfterRapidFire = turn?.phase === PHASE.RESOLVING_AFTER_RAPID_FIRE && (turn?.defenderId === m.characterId || turn?.attackerId === m.characterId);
+        // Last log line can be the rapid-fire extra shot; once we're past that (RESOLVING_AFTER_RAPID_FIRE or next turn), don't show hit on the defender of that entry so they don't keep shaking.
+        const lastEntryIsRapidFireHitOnMe = !!(lastEntry && (lastEntry as { rapidFire?: boolean }).rapidFire === true && lastEntry.defenderId === m.characterId);
+        const pastRapidFireChain = turn?.phase === PHASE.RESOLVING_AFTER_RAPID_FIRE || (turn?.phase !== PHASE.RESOLVING && turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT);
+        const suppressHitFromRapidFireLog = lastEntryIsRapidFireHitOnMe && pastRapidFireChain;
+        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion && isCurrentDefenderOrAoeResolving && !suppressHitAfterRapidFire && !suppressHitFromRapidFireLog;
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
@@ -556,8 +565,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             minionHitPulseId={
               shouldAllowLegacyMinionPulse
                 ? (isSkeletonCardHitTarget && currentSkeletonPulseKey != null
-                    ? currentSkeletonPulseKey
-                    : (minionPulseMap && minionPulseMap[String(m.characterId)] != null ? Number(minionPulseMap[String(m.characterId)]) : undefined))
+                  ? currentSkeletonPulseKey
+                  : (minionPulseMap && minionPulseMap[String(m.characterId)] != null ? Number(minionPulseMap[String(m.characterId)]) : undefined))
                 : undefined
             }
             minionHitPulseDurationMs={isSkeletonCardHitTarget ? 2500 : 1500}
@@ -632,7 +641,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
             volleyArrowHitActive={volleyArrowHitActive}
             isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId}
-            isVolleyArrowHitAttacker={volleyArrowHitAttackerId === m.characterId}
+            isVolleyArrowHitAttacker={hasRapidFireEffect}
           />
         );
       })}

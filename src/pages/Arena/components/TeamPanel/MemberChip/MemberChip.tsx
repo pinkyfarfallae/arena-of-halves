@@ -884,6 +884,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && isImprecatedPoemHealingNullified && 'mchip--imprecated-poem-healing-nullified',
     battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
     isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
+    isVolleyArrowHitAttacker && 'mchip--volley-arrow-hit-attacker',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
