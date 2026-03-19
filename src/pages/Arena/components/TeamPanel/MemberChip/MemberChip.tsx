@@ -883,8 +883,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     battleLive && showHymnWave && isHymnWaved && 'mchip--hymn-waved',
     battleLive && isImprecatedPoemHealingNullified && 'mchip--imprecated-poem-healing-nullified',
     battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
-    isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
-    isVolleyArrowHitAttacker && 'mchip--volley-arrow-hit-attacker',
+    battleLive && isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
+    battleLive && isVolleyArrowHitAttacker && 'mchip--volley-arrow-hit-attacker',
   ].filter(Boolean).join(' ');
 
   // Prepare list of minions to render (live + recently removed for exit animation)
@@ -1034,7 +1034,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       )}
 
       {/* Volley Arrow hit defender — background layers (behind frame) */}
-      {isVolleyArrowHitDefender && (
+      {isVolleyArrowHitDefender && battleLive && (
         <>
           <div className="mchip__volley-arrow-glow" aria-hidden="true" />
           <div className="mchip__volley-arrow-rays" aria-hidden="true">
@@ -1049,6 +1049,39 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
           </div>
           <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--outer" aria-hidden="true" />
           <div className="mchip__volley-arrow-ring mchip__volley-arrow-ring--inner" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Volley Arrow hit attacker (rapid-fire caster) — background layers (behind frame) */}
+      {isVolleyArrowHitAttacker && battleLive && (
+        <>
+          <div className="mchip__volley-arrow-attacker-glow" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-rain" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__volley-arrow-attacker-drop" />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-dots" aria-hidden="true">
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--1" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--2" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--3" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--4" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--5" />
+            <span className="mchip__volley-arrow-attacker-dot mchip__volley-arrow-attacker-dot--6" />
+          </div>
+          <div className="mchip__volley-arrow-attacker-rise" aria-hidden="true">
+            {Array.from({ length: 28 }, (_, i) => (
+              <span key={i} className="mchip__volley-arrow-attacker-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-rays" aria-hidden="true">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <span key={i} className={`mchip__volley-arrow-attacker-ray mchip__volley-arrow-attacker-ray--${i}`} />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--outer" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--inner" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--mid" aria-hidden="true" />
         </>
       )}
 
@@ -1553,7 +1586,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
         )}
         <div
           ref={setFrameRef}
-          className={`mchip__frame${isVolleyArrowHitDefender && isHit ? ' mchip__frame--volley-arrow-hit' : ''}`}
+          className={`mchip__frame${isVolleyArrowHitDefender && battleLive && isHit ? ' mchip__frame--volley-arrow-hit' : ''}`}
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
         >
@@ -1691,7 +1724,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
       </div>
 
       {/* Volley Arrow hit defender — on-top layers (sparks, accents) so they are visible above the frame */}
-      {isVolleyArrowHitDefender && (
+      {isVolleyArrowHitDefender && battleLive && (
         <>
           <div className="mchip__volley-arrow-spark-points" aria-hidden="true">
             {Array.from({ length: 20 }, (_, i) => (
@@ -1699,6 +1732,23 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
             ))}
           </div>
           <div className="mchip__volley-arrow-accents" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Volley Arrow hit attacker — on-top layers (sparks, accents, bow strings) */}
+      {isVolleyArrowHitAttacker && battleLive && (
+        <>
+          <div className="mchip__volley-arrow-attacker-spark-points" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => (
+              <span key={i} className={`mchip__volley-arrow-attacker-spark mchip__volley-arrow-attacker-spark--${i + 1}`} />
+            ))}
+          </div>
+          <div className="mchip__volley-arrow-attacker-accents" aria-hidden="true" />
+          <div className="mchip__volley-arrow-attacker-strings" aria-hidden="true">
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--1" />
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--2" />
+            <span className="mchip__volley-arrow-attacker-string mchip__volley-arrow-attacker-string--3" />
+          </div>
         </>
       )}
 
