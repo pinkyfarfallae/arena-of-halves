@@ -288,6 +288,12 @@ export interface BattleState {
   springHealRollActive?: boolean | null;
 }
 
+/** Host assigns a player slot to a specific demigod; join by code places them on that team */
+export interface InviteReservation {
+  characterId: string;
+  team: 'teamA' | 'teamB';
+}
+
 /** The battle room stored in Firebase */
 export interface BattleRoom {
   arenaId: string;
@@ -303,6 +309,8 @@ export interface BattleRoom {
   battle?: BattleState;
   testMode?: boolean;
   npcId?: string;
+  /** When set, matching characterId joins the given team (see joinRoom) */
+  inviteReservations?: InviteReservation[];
 
   createdAt: number;
 }

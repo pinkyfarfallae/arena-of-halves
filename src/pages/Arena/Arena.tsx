@@ -4,7 +4,7 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
-import { fetchNPCs, pickRandomNPC } from '../../data/npcs';
+import { fetchNPCs } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
@@ -463,16 +463,20 @@ function Arena(props?: ArenaDemoProps) {
       return;
     }
 
-    // Room is waiting & not watch-only — join team B
-    const teamBFull = teamBMembers.length >= (room.teamB?.maxSize ?? 1);
-    if (!watchOnly && room.status === ROOM_STATUS.WAITING && !teamBFull) {
+    // Room is waiting & not watch-only — join team B first, then team A if B is full
+    const maxA = room.teamA?.maxSize ?? 1;
+    const maxB = room.teamB?.maxSize ?? 1;
+    const teamAFull = teamAMembers.length >= maxA;
+    const teamBFull = teamBMembers.length >= maxB;
+    if (!watchOnly && room.status === ROOM_STATUS.WAITING && (!teamBFull || !teamAFull)) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = getPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
-          setRole(ARENA_ROLE.TEAM_B);
+          const onA = result.teamA?.members?.some((m) => m.characterId === myId);
+          setRole(onA ? ARENA_ROLE.TEAM_A : ARENA_ROLE.TEAM_B);
           setJoined(true);
         } else {
           // slot taken, become viewer
@@ -550,12 +554,19 @@ function Arena(props?: ArenaDemoProps) {
       return () => { cancelled = true; };
     }
 
-    // Single NPC mode (original behavior)
+    // Single NPC: only when host picked an opponent via npcId (legacy / 1v1 shortcut)
     fetchNPCs().then((npcs) => {
       if (cancelled) return;
       const npcId = room.npcId;
-      const npc = (npcId && npcs.find((n) => n.characterId === npcId)) || pickRandomNPC(npcs);
-      if (!npc) return;
+      if (!npcId) {
+        npcJoining.current = false;
+        return;
+      }
+      const npc = npcs.find((n) => n.characterId === npcId);
+      if (!npc) {
+        npcJoining.current = false;
+        return;
+      }
       joinRoom(arenaId, npc);
     }).finally(() => { npcJoining.current = false; });
     return () => { cancelled = true; };
@@ -1087,9 +1098,14 @@ function Arena(props?: ArenaDemoProps) {
         <span className="arena__bar-spacer" />
 
         <div className="arena__bar-meta">
-          {effectiveRoom.teamSize > 1 && (
-            <span className="arena__bar-badge">{effectiveRoom.teamSize}v{effectiveRoom.teamSize}</span>
-          )}
+          {(() => {
+            const a = effectiveRoom.teamA?.maxSize ?? effectiveRoom.teamSize;
+            const b = effectiveRoom.teamB?.maxSize ?? effectiveRoom.teamSize;
+            if (Math.max(a, b) <= 1) return null;
+            return (
+              <span className="arena__bar-badge">{a === b ? `${a}v${a}` : `${a}v${b}`}</span>
+            );
+          })()}
           {role === ARENA_ROLE.VIEWER && (
             <span className="arena__bar-badge arena__bar-badge--spectator">Spectating</span>
           )}
