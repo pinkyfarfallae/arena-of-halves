@@ -581,6 +581,8 @@ function Arena(props?: ArenaDemoProps) {
 
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
+    if (room.devPlayAllFightersSelf) return;
+    if (room.devNpcAutoPlay === false) return;
     if (room.status !== ROOM_STATUS.BATTLING || !room.battle?.turn) return;
 
     const turn = room.battle.turn;
@@ -915,6 +917,17 @@ function Arena(props?: ArenaDemoProps) {
   const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   const battle = effectiveRoom.battle;
+  /** Dev test: treat current attacker as local player for HUD/TeamPanel (full manual or NPC-auto off). */
+  const devUiActAsAttacker =
+    !!(
+      effectiveRoom.testMode &&
+      isCreator &&
+      battle?.turn?.attackerId &&
+      (effectiveRoom.devPlayAllFightersSelf ||
+        (effectiveRoom.devNpcAutoPlay === false && teamBIds.has(battle.turn.attackerId)))
+    );
+  const battleUiMyId =
+    devUiActAsAttacker && battle?.turn?.attackerId ? battle.turn.attackerId : user?.characterId;
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
@@ -926,7 +939,7 @@ function Arena(props?: ArenaDemoProps) {
   const isDefenderNpc = !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId));
 
   /** Disoriented + player's turn: target must be chosen via modal (Random → Confirm), not by clicking panel. */
-  const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === user?.characterId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+  const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === battleUiMyId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
 
   /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
   const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
@@ -1170,7 +1183,7 @@ function Arena(props?: ArenaDemoProps) {
             side={PANEL_SIDE.LEFT}
             battle={battle}
             teamMinions={effectiveRoom.teamA?.minions}
-            myId={user?.characterId}
+            myId={battleUiMyId}
             resolveShown={resolveShown}
             transientEffectsActive={transientEffectsActive}
             soulDevourerHealReady={soulDevourerHealReady}
@@ -1210,7 +1223,7 @@ function Arena(props?: ArenaDemoProps) {
               side={PANEL_SIDE.RIGHT}
               battle={battle}
               teamMinions={effectiveRoom.teamB?.minions}
-              myId={user?.characterId}
+              myId={battleUiMyId}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
               soulDevourerHealReady={soulDevourerHealReady}
@@ -1315,7 +1328,7 @@ function Arena(props?: ArenaDemoProps) {
             teamB={teamBMembers}
             teamMinionsA={effectiveRoom.teamA?.minions}
             teamMinionsB={effectiveRoom.teamB?.minions}
-            myId={user?.characterId}
+            myId={battleUiMyId}
             transientEffectsActive={transientEffectsActive}
             confirmedPowerName={selectedPowerName}
             onSelectTarget={onSelectTargetDeferred}

@@ -308,6 +308,10 @@ export interface BattleRoom {
 
   battle?: BattleState;
   testMode?: boolean;
+  /** Dev arena (config modal): auto-run NPC / other-side turns; default true */
+  devNpcAutoPlay?: boolean;
+  /** Dev arena: host acts every fighter (disables NPC auto script; UI treats current attacker as you) */
+  devPlayAllFightersSelf?: boolean;
   npcId?: string;
   /** When set, matching characterId joins the given team (see joinRoom) */
   inviteReservations?: InviteReservation[];

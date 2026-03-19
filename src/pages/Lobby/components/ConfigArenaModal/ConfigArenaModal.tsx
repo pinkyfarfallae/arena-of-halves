@@ -31,6 +31,8 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
   const [copied, setCopied] = useState<CopyType | null>(null);
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [playerCharacters, setPlayerCharacters] = useState<FighterState[]>([]);
+  const [devNpcAutoPlay, setDevNpcAutoPlay] = useState(true);
+  const [devPlayAllFightersSelf, setDevPlayAllFightersSelf] = useState(false);
 
   useEffect(() => {
     fetchNPCs().then(setNpcs);
@@ -61,6 +63,16 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
   const isNpcFighter = (f: FighterState) => npcIdSet.has(f.characterId.toLowerCase());
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
+
+  const onDevNpcAutoPlayChange = (checked: boolean) => {
+    setDevNpcAutoPlay(checked);
+    if (checked) setDevPlayAllFightersSelf(false);
+  };
+
+  const onDevPlayAllFightersSelfChange = (checked: boolean) => {
+    setDevPlayAllFightersSelf(checked);
+    if (checked) setDevNpcAutoPlay(false);
+  };
 
   const handleCopy = async (type: CopyType) => {
     const text = type === COPY_TYPE.CODE ? arenaId : viewerLink;
@@ -154,6 +166,8 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
       npcId: null,
       npcTeam: null,
       inviteReservations: inviteReservations.length > 0 ? inviteReservations : null,
+      devNpcAutoPlay,
+      devPlayAllFightersSelf,
     });
     onEnter(arenaId);
   };
@@ -271,6 +285,34 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
                 />
               </div>
             </div>
+          </div>
+
+          <div className="cam__dev-config">
+            <label className="cam__label">Developer Config</label>
+            <label className="cam__dev-row">
+              <input
+                type="checkbox"
+                checked={devNpcAutoPlay}
+                onChange={(e) => onDevNpcAutoPlayChange(e.target.checked)}
+              />
+              <span className="cam__dev-row-text">
+                <span className="cam__dev-row-title">NPC &amp; Other Player Auto Play</span>
+                <span className="cam__dev-row-desc">Default: On — Your character is the player; others run as NPC / auto.</span>
+              </span>
+            </label>
+            <label className="cam__dev-row">
+              <input
+                type="checkbox"
+                checked={devPlayAllFightersSelf}
+                onChange={(e) => onDevPlayAllFightersSelfChange(e.target.checked)}
+              />
+              <span className="cam__dev-row-text">
+                <span className="cam__dev-row-title">Play every fighter by self</span>
+                <span className="cam__dev-row-desc">
+                  Default: Off — Everyone is controlled as player; you click through each fighter (disables NPC auto script).
+                </span>
+              </span>
+            </label>
           </div>
 
           <label className="cam__label">Room code &amp; spectate</label>
