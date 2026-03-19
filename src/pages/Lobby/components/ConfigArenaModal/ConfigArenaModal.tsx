@@ -141,28 +141,44 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
   const handleEnter = async () => {
     if (!player || !rosterComplete) return;
 
-    const membersA: FighterState[] = [player, ...selectedAlliesA.filter(isNpcFighter)];
-    const invitesA: InviteReservation[] = selectedAlliesA
-      .filter((f) => !isNpcFighter(f))
-      .map((f) => ({ characterId: f.characterId, team: 'teamA' }));
+    /** Solo dev: every pick is a full in-room fighter (camp + NPC); host plays all turns like test NPCs */
+    const embedAllRoster = devPlayAllFightersSelf;
 
-    const membersB: FighterState[] = selectedB.filter(isNpcFighter);
-    const invitesB: InviteReservation[] = selectedB
-      .filter((f) => !isNpcFighter(f))
-      .map((f) => ({ characterId: f.characterId, team: 'teamB' }));
+    let membersA: FighterState[];
+    let membersB: FighterState[];
+    let inviteReservations: InviteReservation[];
 
-    const inviteReservations: InviteReservation[] = [...invitesA, ...invitesB];
+    if (embedAllRoster) {
+      membersA = [player, ...selectedAlliesA];
+      membersB = [...selectedB];
+      inviteReservations = [];
+    } else {
+      membersA = [player, ...selectedAlliesA.filter(isNpcFighter)];
+      const invitesA: InviteReservation[] = selectedAlliesA
+        .filter((f) => !isNpcFighter(f))
+        .map((f) => ({ characterId: f.characterId, team: 'teamA' }));
+
+      membersB = selectedB.filter(isNpcFighter);
+      const invitesB: InviteReservation[] = selectedB
+        .filter((f) => !isNpcFighter(f))
+        .map((f) => ({ characterId: f.characterId, team: 'teamB' }));
+
+      inviteReservations = [...invitesA, ...invitesB];
+    }
+
     const hasNpc = [...membersA, ...membersB].some((f) => isNpcFighter(f));
     const pendingInvites = inviteReservations.length;
-    const rosterAFull = membersA.length + invitesA.length >= teamSizeA;
-    const rosterBFull = membersB.length + invitesB.length >= teamSizeB;
+    const invitesA = embedAllRoster ? 0 : selectedAlliesA.filter((f) => !isNpcFighter(f)).length;
+    const invitesB = embedAllRoster ? 0 : selectedB.filter((f) => !isNpcFighter(f)).length;
+    const rosterAFull = membersA.length + invitesA >= teamSizeA;
+    const rosterBFull = membersB.length + invitesB >= teamSizeB;
     const canReady = rosterAFull && rosterBFull && pendingInvites === 0;
 
     await update(ref(db, `arenas/${arenaId}`), {
       [ARENA_PATH.STATUS]: canReady ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
       [teamPath(BATTLE_TEAM.A, 'members')]: membersA,
       [teamPath(BATTLE_TEAM.B, 'members')]: membersB,
-      testMode: hasNpc ? true : null,
+      testMode: embedAllRoster || hasNpc ? true : null,
       npcId: null,
       npcTeam: null,
       inviteReservations: inviteReservations.length > 0 ? inviteReservations : null,
@@ -307,9 +323,10 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
                 onChange={(e) => onDevPlayAllFightersSelfChange(e.target.checked)}
               />
               <span className="cam__dev-row-text">
-                <span className="cam__dev-row-title">Play every fighter by self</span>
+                <span className="cam__dev-row-title">Play Every Fighters by Self</span>
                 <span className="cam__dev-row-desc">
-                  Default: Off — Everyone is controlled as player; you click through each fighter (disables NPC auto script).
+                  Default: Off — Fills the roster in-room (camp + NPC picks count as members; no pending invites). You
+                  control every fighter in turn; disables NPC auto script.
                 </span>
               </span>
             </label>
