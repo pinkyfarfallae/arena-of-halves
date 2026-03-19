@@ -832,7 +832,7 @@ export function onEfflorescenceMuseTurnStart(
  * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.
  */
 /**
- * Apollo's Hymn: heal self and selected ally 2 HP each, grant +25% crit to both for 2 rounds (no stack), then end turn.
+ * Apollo's Hymn: heal self and selected ally 2 HP each (once); grant +25% crit to both for 2 rounds (no stack), then end turn.
  */
 export function applyApolloHymn(
   room: BattleRoom,
