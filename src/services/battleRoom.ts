@@ -1598,7 +1598,7 @@ export async function selectAction(
       return;
     }
 
-    // ── Apollo's Hymn: heal self + 1 ally 2 HP each, +25% crit 2 rounds (no stack), then end turn ──
+    // ── Apollo's Hymn: heal self + 1 ally 2 HP each (once); +25% crit 2 rounds (no stack), then end turn ──
     if (power.name === POWER_NAMES.APOLLO_S_HYMN) {
       const hymnUpdates = applyApolloHymn(room, attackerId, allyTargetId, battle);
       Object.assign(updates, hymnUpdates);
