@@ -46,7 +46,7 @@ export const POWER_NAMES = {
   DISARM: 'Disarm',
 
   // Apollo
-  SUNBORN_SOVEREIGN: 'Sunborn Sovereign',
+  SUNBORN_SOVEREIGN: "Sunborn Sovereign",
   APOLLO_S_HYMN: "Apollo's Hymn",
   IMPRECATED_POEM: 'Imprecated Poem',
   VOLLEY_ARROW: 'Volley Arrow',
