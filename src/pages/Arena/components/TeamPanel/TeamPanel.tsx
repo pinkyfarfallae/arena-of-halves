@@ -46,6 +46,12 @@ interface Props {
   suppressHitAfterBack?: boolean;
   /** True when Floral Heal D4 result card is visible (so healing VFX shows in sync with "Normal Heal" / "Heal x2") */
   floralHealResultCardVisible?: boolean;
+  /** True while Volley Arrow hit VFX (arrow + impact) is active. */
+  volleyArrowHitActive?: boolean;
+  /** CharacterId of the Volley Arrow hit defender (target). When set, TeamPanel passes isVolleyArrowHitDefender to the matching chip. */
+  volleyArrowHitDefenderId?: string | null;
+  /** CharacterId of the Volley Arrow hit attacker (caster). When set, TeamPanel passes isVolleyArrowHitAttacker to the matching chip. */
+  volleyArrowHitAttackerId?: string | null;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -65,7 +71,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -624,6 +630,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             suppressSpringHealVfx={isSpringHeal2PendingCaster || isSpringHealSkipModalCaster}
             casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
+            volleyArrowHitActive={volleyArrowHitActive}
+            isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId}
+            isVolleyArrowHitAttacker={volleyArrowHitAttackerId === m.characterId}
           />
         );
       })}

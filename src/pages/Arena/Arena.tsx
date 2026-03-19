@@ -125,6 +125,10 @@ function Arena(props?: ArenaDemoProps) {
   const [casterFrameCenter, setCasterFrameCenter] = useState<{ x: number; y: number } | null>(null);
   /** Center of defender's mchip__frame (viewport px) so soul starts from target chip */
   const [defenderFrameCenter, setDefenderFrameCenter] = useState<{ x: number; y: number } | null>(null);
+  /** Volley Arrow extra shot: amber/gold arrow VFX from caster to defender */
+  const [volleyArrowHitActive, setVolleyArrowHitActive] = useState(false);
+  const [volleyArrowCasterPos, setVolleyArrowCasterPos] = useState<{ x: number; y: number } | null>(null);
+  const [volleyArrowDefenderPos, setVolleyArrowDefenderPos] = useState<{ x: number; y: number } | null>(null);
   const casterFrameRef = useRef<HTMLDivElement | null>(null);
   const defenderFrameRef = useRef<HTMLDivElement | null>(null);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
@@ -237,6 +241,67 @@ function Arena(props?: ArenaDemoProps) {
       clearTimeout(tEnd);
     };
   }, [soulDrainTurn?.phase, (soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain]);
+
+  // Volley Arrow: show amber/gold arrow (1) main hit — only when resolve is shown (after critical, same time as hit VFX) and (2) each extra shot
+  const turn = room?.battle?.turn;
+  const volleyMainArrowShownRef = useRef(false);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING || turn?.usedPowerName !== POWER_NAMES.VOLLEY_ARROW) {
+      volleyMainArrowShownRef.current = false;
+    }
+  }, [turn?.phase, turn?.usedPowerName]);
+  useEffect(() => {
+    const isExtraShot = turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT;
+    const isMainVolleyResolveShown = turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.VOLLEY_ARROW && resolveShown && !volleyMainArrowShownRef.current;
+    if (isExtraShot) {
+      setVolleyArrowHitActive(true);
+      const t = setTimeout(() => {
+        setVolleyArrowHitActive(false);
+        setVolleyArrowCasterPos(null);
+        setVolleyArrowDefenderPos(null);
+        /* Advance after VFX ends (damage card is hidden so onDisplayComplete never runs — advance here) */
+        if (arenaId) advanceToNextRapidFireStep(arenaId);
+      }, 1850); /* arrow 0.72s + impact 0.8s + buffer */
+      return () => clearTimeout(t);
+    }
+    if (isMainVolleyResolveShown) {
+      volleyMainArrowShownRef.current = true;
+      setVolleyArrowHitActive(true);
+      const t = setTimeout(() => {
+        setVolleyArrowHitActive(false);
+        setVolleyArrowCasterPos(null);
+        setVolleyArrowDefenderPos(null);
+      }, 1850); /* arrow 0.72s + impact 0.8s + buffer */
+      return () => clearTimeout(t);
+    }
+    if (!isExtraShot) {
+      setVolleyArrowHitActive(false);
+      setVolleyArrowCasterPos(null);
+      setVolleyArrowDefenderPos(null);
+    }
+    return undefined;
+  }, [turn?.phase, turn?.usedPowerName, resolveShown, (turn as { rapidFireStep?: number })?.rapidFireStep, arenaId]);
+  useEffect(() => {
+    if (!volleyArrowHitActive) return;
+    const measure = () => {
+      const casterEl = casterFrameRef.current;
+      const defenderEl = defenderFrameRef.current;
+      if (casterEl) {
+        const r = casterEl.getBoundingClientRect();
+        setVolleyArrowCasterPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }
+      if (defenderEl) {
+        const r = defenderEl.getBoundingClientRect();
+        setVolleyArrowDefenderPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }
+    };
+    const t = setTimeout(measure, 80);
+    const id = requestAnimationFrame(measure);
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(id);
+    };
+  }, [volleyArrowHitActive]);
   // Local visual override: NPC schedules a target, or human selects ally for Floral Fragrance (show heal effect immediately)
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -245,6 +310,8 @@ function Arena(props?: ArenaDemoProps) {
   // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
   const [returnFromSeason, setReturnFromSeason] = useState(false);
+  /** After cancel target (Back from target selection), open action modal on power list instead of Attack/Use power. */
+  const [returnFromTargetCancel, setReturnFromTargetCancel] = useState(false);
 
   /** Set when user confirms a power in the action modal (action === POWER). Cleared when turn/phase changes. */
   const [lastConfirmedPowerName, setLastConfirmedPowerName] = useState<string | null>(null);
@@ -263,6 +330,7 @@ function Arena(props?: ArenaDemoProps) {
 
   const handleSelectAction = useCallback(async (action: TurnAction, powerName?: string, allyTargetId?: string) => {
     setReturnFromSeason(false);
+    setReturnFromTargetCancel(false);
     if (action === TURN_ACTION.POWER && powerName) {
       setLastConfirmedPowerName(powerName);
     } else {
@@ -340,6 +408,7 @@ function Arena(props?: ArenaDemoProps) {
     const phase = room?.battle?.turn?.phase;
     if (phase && phase !== PHASE.SELECT_ACTION && phase !== PHASE.SELECT_TARGET) {
       setLastConfirmedPowerName(null);
+      setReturnFromTargetCancel(false);
     }
   }, [room?.battle?.turn?.phase]);
 
@@ -536,7 +605,7 @@ function Arena(props?: ArenaDemoProps) {
         try {
           await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
           await advanceAfterFloralHealD4(arenaId);
-        } catch (e) {}
+        } catch (e) { }
       }, 2000);
       return;
     }
@@ -558,7 +627,7 @@ function Arena(props?: ArenaDemoProps) {
           await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll });
           await new Promise((r) => setTimeout(r, 800));
           await advanceAfterSpringHealD4(arenaId);
-        } catch (e) {}
+        } catch (e) { }
       }, 2000);
       return;
     }
@@ -573,7 +642,7 @@ function Arena(props?: ArenaDemoProps) {
           await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
           await new Promise((r) => setTimeout(r, 800));
           await advanceAfterDisorientedD4(arenaId);
-        } catch (e) {}
+        } catch (e) { }
       }, 1500);
       return;
     }
@@ -596,7 +665,7 @@ function Arena(props?: ArenaDemoProps) {
         try {
           await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
           await advanceAfterShadowCamouflageD4(arenaId);
-        } catch (e) {}
+        } catch (e) { }
       }, 2000);
       return;
     }
@@ -690,7 +759,7 @@ function Arena(props?: ArenaDemoProps) {
           // Ally-targeting power: pick a random alive teammate
           if (pick.power.target === TARGET_TYPES.ALLY) {
             const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
-              if (teammates.length > 0) {
+            if (teammates.length > 0) {
               // Pomegranate's Oath: prefer other allies, self only if no others alive
               let pool = teammates;
               if (pick.power.name === POWER_NAMES.POMEGRANATES_OATH) {
@@ -875,21 +944,26 @@ function Arena(props?: ArenaDemoProps) {
 
   const handleCancelPoem = async () => {
     if (!arenaId) return;
+    setLastConfirmedPowerName(null); /* so action modal shows again after back to SELECT_ACTION */
+    setReturnFromTargetCancel(true); /* they had chosen a power (Imprecated Poem) -> open on power list */
     await cancelPoemSelection(arenaId);
   };
 
   const handleCancelTarget = async () => {
     setSuppressHitAfterBack(true);
+    const hadPowerSelected = !!(room?.battle?.turn?.usedPowerName ?? lastConfirmedPowerName);
+    setLastConfirmedPowerName(null); /* so action modal shows again after back to SELECT_ACTION */
+    setReturnFromTargetCancel(hadPowerSelected); /* only open on power list if they had confirmed a power; else Attack/Use power */
     if (suppressHitAfterBackTimerRef.current) clearTimeout(suppressHitAfterBackTimerRef.current);
     suppressHitAfterBackTimerRef.current = setTimeout(() => {
       setSuppressHitAfterBack(false);
       suppressHitAfterBackTimerRef.current = null;
     }, 500);
     if (!arenaId) return;
-    try { setMinionPulseMap({}); } catch (e) {}
+    try { setMinionPulseMap({}); } catch (e) { }
     try {
       await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE}`), { [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null, [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null });
-    } catch (e) {}
+    } catch (e) { }
     await cancelTargetSelection(arenaId);
   };
 
@@ -933,6 +1007,9 @@ function Arena(props?: ArenaDemoProps) {
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
               floralHealResultCardVisible={floralHealResultCardVisible}
+              volleyArrowHitActive={volleyArrowHitActive}
+              volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
+              volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
             />
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
           </div>
@@ -965,6 +1042,9 @@ function Arena(props?: ArenaDemoProps) {
                 clientVisualPowerName={npcVisualPowerName}
                 suppressHitAfterBack={suppressHitAfterBack}
                 floralHealResultCardVisible={floralHealResultCardVisible}
+                volleyArrowHitActive={volleyArrowHitActive}
+                volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
+                volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
               />
             ) : (
               <div className="arena__empty-slot">
@@ -1082,6 +1162,9 @@ function Arena(props?: ArenaDemoProps) {
             clientVisualPowerName={npcVisualPowerName}
             suppressHitAfterBack={suppressHitAfterBack}
             floralHealResultCardVisible={floralHealResultCardVisible}
+            volleyArrowHitActive={volleyArrowHitActive}
+            volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
+            volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -1119,6 +1202,9 @@ function Arena(props?: ArenaDemoProps) {
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
+              volleyArrowHitActive={volleyArrowHitActive}
+              volleyArrowHitDefenderId={volleyArrowHitActive ? battle?.turn?.defenderId : undefined}
+              volleyArrowHitAttackerId={volleyArrowHitActive ? battle?.turn?.attackerId : undefined}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -1160,6 +1246,46 @@ function Arena(props?: ArenaDemoProps) {
           );
         })()}
 
+        {/* Volley Arrow extra shot: thin arched gold arrow (CSS) from caster to defender */}
+        {volleyArrowHitActive && volleyArrowCasterPos && volleyArrowDefenderPos && turn?.attackerId && turn?.defenderId && (() => {
+          const dx = volleyArrowDefenderPos.x - volleyArrowCasterPos.x;
+          const dy = volleyArrowDefenderPos.y - volleyArrowCasterPos.y;
+          const angleRad = Math.atan2(dy, dx);
+          const angleDeg = (angleRad * 180) / Math.PI;
+          const dist = Math.hypot(dx, dy);
+          const arcHeight = Math.min(56, Math.max(28, dist * 0.22));
+          const midX = (volleyArrowCasterPos.x + volleyArrowDefenderPos.x) / 2;
+          const midY = (volleyArrowCasterPos.y + volleyArrowDefenderPos.y) / 2 - arcHeight;
+          const arrowHalfLen = 50;
+          const tipHitX = volleyArrowDefenderPos.x - arrowHalfLen * Math.cos(angleRad);
+          const tipHitY = volleyArrowDefenderPos.y - arrowHalfLen * Math.sin(angleRad);
+          return (
+            <div
+              className="arena__volley-arrow-hit"
+              style={
+                {
+                  '--volley-arrow-start-x': `${volleyArrowCasterPos.x}px`,
+                  '--volley-arrow-start-y': `${volleyArrowCasterPos.y}px`,
+                  '--volley-arrow-mid-x': `${midX}px`,
+                  '--volley-arrow-mid-y': `${midY}px`,
+                  '--volley-arrow-end-x': `${volleyArrowDefenderPos.x}px`,
+                  '--volley-arrow-end-y': `${volleyArrowDefenderPos.y}px`,
+                  '--volley-arrow-tip-hit-x': `${tipHitX}px`,
+                  '--volley-arrow-tip-hit-y': `${tipHitY}px`,
+                  '--volley-arrow-angle': `${angleDeg}deg`,
+                } as React.CSSProperties
+              }
+              aria-hidden
+            >
+              <div className="arena__volley-arrow-hit__arrow" />
+              <div className="arena__volley-arrow-hit__impact">
+                <span className="arena__volley-arrow-hit__impact-flash" />
+                <span className="arena__volley-arrow-hit__impact-frame" aria-hidden />
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Battle HUD overlay */}
         {isBattling && battle && (
           <BattleHUD
@@ -1187,11 +1313,11 @@ function Arena(props?: ArenaDemoProps) {
             onHealSkippedAck={handleHealSkippedAck}
             onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
             onSpringHealSkippedAck={handleSpringHealSkippedAck}
-            initialShowPowers={returnFromSeason}
+            initialShowPowers={returnFromSeason || returnFromTargetCancel}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}
-            onSubmitRapidFireD4Roll={arenaId ? (roll: number) => submitRapidFireD4Roll(arenaId, roll) : () => {}}
-            onRapidFireDamageCardComplete={arenaId ? () => advanceToNextRapidFireStep(arenaId) : () => {}}
+            onSubmitRapidFireD4Roll={arenaId ? (roll: number) => submitRapidFireD4Roll(arenaId, roll) : () => { }}
+            onRapidFireDamageCardComplete={arenaId ? () => advanceToNextRapidFireStep(arenaId) : () => { }}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER}
@@ -1212,6 +1338,7 @@ function Arena(props?: ArenaDemoProps) {
               if (!key) return;
               queueMicrotask(() => setMinionPulseMap((m) => ({ ...m, [key]: pulseId })));
             }}
+            volleyArrowHitActive={volleyArrowHitActive}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
             onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}
           />
