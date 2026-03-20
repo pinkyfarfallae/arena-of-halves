@@ -59,6 +59,7 @@ import CheckIcon from './icons/CheckIcon';
 import Eye from '../../icons/Eye';
 import './Arena.scss';
 import { CHARACTER } from '../../constants/characters';
+import { fetchNPCs } from '../../data/npcs';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -169,6 +170,21 @@ function Arena(props?: ArenaDemoProps) {
   const prevSelectActionAttackerIdRef = useRef<string | null>(null);
   const npcPhaseRef = useRef<string | null>(null);
   const npcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Spreadsheet NPC ids — auto-play applies to these fighters on either team (not "team B only"). */
+  const [npcCharacterIdSet, setNpcCharacterIdSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchNPCs()
+      .then((npcs) => {
+        if (cancelled) return;
+        setNpcCharacterIdSet(new Set(npcs.map((n) => n.characterId.toLowerCase())));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onSkeletonCardShow = useCallback((payload: { cardData: Record<string, unknown>; key: string; hitTargetId: string }) => {
     setTransientSkeletonCard(payload.cardData);
@@ -605,11 +621,13 @@ function Arena(props?: ArenaDemoProps) {
     if (room.devPlayAllFightersSelf) return;
     if (room.devNpcAutoPlay === false) return;
     if (room.status !== ROOM_STATUS.BATTLING || !room.battle?.turn) return;
+    if (npcCharacterIdSet.size === 0) return;
 
     const turn = room.battle.turn;
     const toArr = <T,>(v: T[] | Record<string, T> | undefined): T[] =>
       !v ? [] : Array.isArray(v) ? v : Object.values(v);
-    const teamBIds = new Set(toArr(room.teamB?.members).map((m: any) => m.characterId));
+    const isNpcId = (id: string | undefined) =>
+      !!id && npcCharacterIdSet.has(String(id).toLowerCase());
     const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
     if (npcPhaseRef.current === phaseKey && npcTimerRef.current !== null) return;
     if (npcTimerRef.current) {
@@ -626,25 +644,28 @@ function Arena(props?: ArenaDemoProps) {
       }, delay);
     };
 
-    if (turn.phase === PHASE.SELECT_ACTION && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.SELECT_ACTION && isNpcId(turn.attackerId)) {
       schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 700);
       return;
     }
-    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId)) {
+    if (turn.phase === PHASE.SELECT_TARGET && isNpcId(turn.attackerId)) {
       const battle = room.battle;
       const npcHasDisoriented = !!(turn.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
       if (npcHasDisoriented) {
         schedule(() => { selectTargetDisoriented(arenaId).catch(() => { }); }, 800);
         return;
       }
+      const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
+      const npcF = membersAll.find((m: any) => m.characterId === turn.attackerId);
       const isAreaAttack = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && (() => {
-        const npcF = toArr(room.teamB?.members).find((m: any) => m.characterId === turn.attackerId);
         const p = npcF?.powers?.[turn.usedPowerIndex!];
         return p?.target === TARGET_TYPES.AREA;
       })();
-      const teamAAlive = toArr(room.teamA?.members).filter((m: any) => m.currentHp > 0);
+      const attackerOnTeamA = toArr(room.teamA?.members).some((m: any) => m.characterId === turn.attackerId);
+      const enemyTeamMembers = toArr(attackerOnTeamA ? room.teamB?.members : room.teamA?.members);
+      const enemiesAlive = enemyTeamMembers.filter((m: any) => m.currentHp > 0);
       const effects = battle?.activeEffects || [];
-      const validTargets = teamAAlive.filter((enemy: any) =>
+      const validTargets = enemiesAlive.filter((enemy: any) =>
         !effects.some((e: any) => e.targetId === enemy.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED) || isAreaAttack
       );
       if (validTargets.length === 0) {
@@ -657,21 +678,20 @@ function Arena(props?: ArenaDemoProps) {
     }
     if (turn.phase === PHASE.ROLLING_ATTACK) {
       const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
-      const npcCo =
-        awaitingPom && turn.coAttackerId && teamBIds.has(turn.coAttackerId as string);
-      const npcMain = !awaitingPom && teamBIds.has(turn.attackerId);
+      const npcCo = awaitingPom && turn.coAttackerId && isNpcId(turn.coAttackerId as string);
+      const npcMain = !awaitingPom && isNpcId(turn.attackerId);
       if (npcCo || npcMain) {
         const roll = Math.floor(Math.random() * 12) + 1;
         schedule(() => submitAttackRoll(arenaId, roll), 1200);
         return;
       }
     }
-    if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && teamBIds.has(turn.defenderId)) {
+    if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && isNpcId(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
       schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
       return;
     }
-  }, [room, arenaId]);
+  }, [room, arenaId, npcCharacterIdSet]);
 
 
   /* ── Leave viewer on unmount ────────────────── */
@@ -756,7 +776,6 @@ function Arena(props?: ArenaDemoProps) {
     effectiveRoom.teamB?.members as FighterState[] | Record<string, FighterState> | undefined,
   ).map((m: FighterState) => normalizeFighter(m));
   const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
-  const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   /** Solo “play all camp”: any logged-in fighter on team A may drive every camp turn (not only devPlayAllHostCharacterId / slot 0 — fixes ally-slot login or host id drift). */
   const userIsOnTeamA = !!(
@@ -800,19 +819,32 @@ function Arena(props?: ArenaDemoProps) {
           effectiveRoom.testMode &&
           isCreator &&
           !!battle?.turn?.attackerId &&
-          teamBIds.has(battle.turn.attackerId)
+          npcCharacterIdSet.size > 0 &&
+          npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase())
         )
       )
   );
   const isAttackerNpc =
-    !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId)) &&
-    !effectiveRoom.devPlayAllFightersSelf;
+    !!(
+      effectiveRoom.testMode &&
+      battle?.turn?.attackerId &&
+      npcCharacterIdSet.size > 0 &&
+      npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase())
+    ) && !effectiveRoom.devPlayAllFightersSelf;
   const isDefenderNpc =
-    !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId)) &&
-    !effectiveRoom.devPlayAllFightersSelf;
+    !!(
+      effectiveRoom.testMode &&
+      battle?.turn?.defenderId &&
+      npcCharacterIdSet.size > 0 &&
+      npcCharacterIdSet.has(battle.turn.defenderId.toLowerCase())
+    ) && !effectiveRoom.devPlayAllFightersSelf;
   const isPomCoCasterNpc =
-    !!(effectiveRoom.testMode && battle?.turn?.coAttackerId && teamBIds.has(battle.turn.coAttackerId)) &&
-    !effectiveRoom.devPlayAllFightersSelf;
+    !!(
+      effectiveRoom.testMode &&
+      battle?.turn?.coAttackerId &&
+      npcCharacterIdSet.size > 0 &&
+      npcCharacterIdSet.has(battle.turn.coAttackerId.toLowerCase())
+    ) && !effectiveRoom.devPlayAllFightersSelf;
 
   /** Disoriented + player's turn: target must be chosen via modal (Random → Confirm), not by clicking panel. */
   const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === battleHudMyId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
