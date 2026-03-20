@@ -598,7 +598,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   useEffect(() => {
     if (!hideFragranceAfterHeal) return;
     setShowFragranceWave(false);
-    prevFragranceRef.current = false;
+    // Keep prevFragranceRef true while isFragranceWaved stays true so the wave does not re-trigger
+    // (same one-shot behavior as +HP text / hymn — see TeamPanel isFragranceWaved + floralLogIsLatestEntry).
     if (fragranceDelayTimerRef.current) {
       clearTimeout(fragranceDelayTimerRef.current);
       fragranceDelayTimerRef.current = null;

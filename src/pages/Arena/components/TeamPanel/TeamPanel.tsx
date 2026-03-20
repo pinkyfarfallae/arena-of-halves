@@ -307,7 +307,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const isSpiritForm = tagBasedProps.isSpiritForm;
         const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
         const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
-        const hasDeathKeeper = tagBasedProps.hasDeathKeeper;
+        const hasResurrectedSelf = activeEffects.some(
+          (e) =>
+            String(e.targetId) === String(m.characterId) &&
+            e.tag === EFFECT_TAGS.RESURRECTED &&
+            (e.turnsRemaining == null || e.turnsRemaining > 0),
+        );
+        const hasResurrectedAlly = activeEffects.some(
+          (e) =>
+            String(e.sourceId) === String(m.characterId) &&
+            e.tag === EFFECT_TAGS.RESURRECTED &&
+            String(e.targetId) !== String(m.characterId) &&
+            (e.turnsRemaining == null || e.turnsRemaining > 0),
+        );
+        const hasDeathKeeper = !!tagBasedProps.hasDeathKeeper && !hasResurrectedSelf && !hasResurrectedAlly;
         const hasSunbornSovereign = (m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign;
         const isResurrected = tagBasedProps.isResurrected;
         const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
@@ -370,7 +383,23 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               count: g.count,
             };
           });
-        })();
+        })().filter(
+          (pip) => {
+            if (
+              pip.powerName === POWER_NAMES.UNDEAD_ARMY &&
+              !hasMasterMinions &&
+              (m.skeletonCount ?? 0) <= 0
+            ) {
+              return false;
+            }
+            // Death Keeper pip should disappear once resurrection has already happened
+            // (self-resurrected, or this member already resurrected an ally).
+            if (pip.powerName === POWER_NAMES.DEATH_KEEPER) {
+              if (hasResurrectedSelf || hasResurrectedAlly) return false;
+            }
+            return true;
+          },
+        );
 
         // Resurrecting: mid-resurrection visual (self-resurrect overlay active), or from demo tag-based
         const isResurrecting = !!(
@@ -397,6 +426,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
         const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
+        /** Same rule as Apollo's Hymn: only the newest log row may drive heal VFX (avoids floral wave / +HP repeating on every render). */
+        const floralLogIsLatestEntry = floralLogIndex >= 0 && floralLogIndex === floralSearchLog.length - 1;
 
         // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
@@ -462,22 +493,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return { amount, key: `soul_devourer_heal_turn_${r}_${ti}_${m.characterId}` };
         })();
 
-        const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
-        const clientFragrance = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
         const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
         const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
         // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
-        // Never use client state for Floral Fragrance — avoids jitter (flash before D4). Show only from server: roll result or log.
-        const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
-        // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack
-        const postHealFollowUp = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.allyTargetId);
 
         const isFragranceWaved =
-          (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
-          || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp && !isImprecatedPoemHealingNullified)
-          || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
-          || !!logHasFloral
+          // Floral should behave like text-boost one-shot: trigger by concrete event only, not broad turn-state.
+          (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
+          || !!useFloralForThisMember
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
           || !!tagBasedProps.isFragranceWaved;
 
@@ -577,6 +601,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               battle != null && battle.roundNumber != null
                 ? (useFloralForThisMember && floralLogIndex >= 0)
                   ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
+                  : (floralHealRollDone && battle.currentTurnIndex != null)
+                    ? `floral_live_${battle.roundNumber}_${battle.currentTurnIndex}_${m.characterId}`
                   : (useSpringForThisMember && springLogIndex >= 0)
                     ? `spring_shown_${battle.roundNumber}_${springLogIndex}_${m.characterId}`
                     : (springFromPhase ? `spring_phase_${battle.roundNumber}_caster_${m.characterId}` : undefined)
@@ -620,7 +646,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                     ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
                     : isDemo && isFragranceWaved
                       ? 2
-                      : (clientFragrance || floralHealRollDone) && turn?.attackerId && allMembers?.length
+                      : floralHealRollDone && turn?.attackerId && allMembers?.length
                         ? (() => {
                           const caster = allMembers.find((a) => a.characterId === turn.attackerId);
                           if (!caster) return undefined;

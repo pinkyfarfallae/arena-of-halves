@@ -154,9 +154,6 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
               </div>
             )}
             <span className="dmg-card__total">-{rc.damage} DMG</span>
-            {rc.coAttackHit && rc.coAttackDamage > 0 && (
-              <span className="dmg-card__total dmg-card__total--co">Co-Attack: -{rc.coAttackDamage}</span>
-            )}
           </div>
         ) : (
           <span className="dmg-card__blocked">{rc.isPower ? 'RESISTED!' : 'BLOCKED!'}</span>

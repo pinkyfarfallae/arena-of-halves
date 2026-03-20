@@ -180,10 +180,27 @@ export default function BattleLogModal({ room, onClose }: Props) {
                       <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                     </>
                   )}
-                  {entry.damage > 0 && (
-                    <span className="blm__sep">&mdash;</span>
-                  )}
-                  {entry.damage > 0 && <span className="blm__hit">-{entry.damage} dmg</span>}
+                  {entry.damage > 0 ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__hit">-{entry.damage} dmg</span>
+                    </>
+                  ) : entry.isDodged && !noTarget ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__block">Dodged</span>
+                    </>
+                  ) : entry.missed && !noTarget ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__block">Blocked</span>
+                    </>
+                  ) : !noTarget ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__hit">0 dmg</span>
+                    </>
+                  ) : null}
                   {entry.eliminated && <span className="blm__ko">KO</span>}
                 </div>
               );
@@ -205,10 +222,14 @@ export default function BattleLogModal({ room, onClose }: Props) {
                   <span className="blm__bonus">+{def!.defendDiceUp}</span>
                 )}
                 <span className="blm__sep">&mdash;</span>
-                {entry.missed ? (
+                {entry.isDodged ? (
+                  <span className="blm__block">Dodged</span>
+                ) : entry.missed ? (
                   <span className="blm__block">Blocked</span>
-                ) : (
+                ) : entry.damage > 0 ? (
                   <span className="blm__hit">-{entry.damage} dmg</span>
+                ) : (
+                  <span className="blm__hit">0 dmg</span>
                 )}
                 {entry.critRoll != null && entry.critRoll > 0 && (
                   <span className={entry.isCrit ? 'blm__crit' : 'blm__crit-miss'}>

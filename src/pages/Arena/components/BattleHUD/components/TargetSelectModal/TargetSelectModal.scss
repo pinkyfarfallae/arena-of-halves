@@ -147,10 +147,22 @@ $ink-faint: #9a8b76;
   color: #b8860b;
 }
 
+/* Persephone — Muse blocks Imprecated Poem affliction (same emphasis as healing-nullified line, distinct hue) */
+.bhud__target-efflorescence-muse {
+  font-size: 0.6rem;
+  color: #b84c9a;
+}
+
 .bhud__target-btn--selected {
+  opacity: 1;
   background: color-mix(in srgb, var(--tc) 22%, transparent) !important;
   border-color: color-mix(in srgb, var(--tc) 50%, transparent) !important;
   box-shadow: 0 0 14px color-mix(in srgb, var(--tc) 25%, transparent);
+}
+
+.bhud__target-btn--dim-unselected {
+  opacity: 0.4 !important;
+  transition: opacity 0.15s ease;
 }
 
 .bhud__target-actions {

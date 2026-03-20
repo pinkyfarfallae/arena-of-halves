@@ -110,7 +110,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isShocked: true, effectPips: [shockPip(DEITY.ZEUS, ZEUS_THEME)] },
   },
   {
-    id: 'jolt-arc-deceleration',
+    id: EFFECT_TAGS.JOLT_ARC_DECELERATION,
     label: 'Jolt Arc Deceleration (affected)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.ZEUS,
@@ -141,7 +141,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isHit: true }
   },
   {
-    id: 'shock-hit',
+    id: EFFECT_TAGS.SHOCK,
     label: 'Shock Hit',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.ZEUS,
@@ -202,14 +202,14 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isVolleyArrowHitAttacker: true },
   },
   {
-    id: 'sunborn-sovereign',
+    id: EFFECT_TAGS.SUNBORN_SOVEREIGN,
     label: 'Sunborn Sovereign (caster)',
     side: EFFECT_SIDE_LABEL.CASTER,
     group: DEITY.APOLLO,
     props: { hasSunbornSovereign: true },
   },
   {
-    id: 'volley-arrow-hit-defender',
+    id: EFFECT_TAGS.RAPID_FIRE,
     label: 'Volley Arrow hit (defender)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.APOLLO,
@@ -224,7 +224,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   },
   // Imprecated Poem verses (target cursed by verse — frame VFX; display name = verse name)
   {
-    id: 'imprecated-poem-healing-nullified',
+    id: EFFECT_TAGS.HEALING_NULLIFIED,
     label: 'Healing Nullified (Imprecated Poem)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.APOLLO,
@@ -233,7 +233,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isImprecatedPoemCursed: true, isImprecatedPoemHealingNullified: true },
   },
   {
-    id: 'imprecated-poem-disoriented',
+    id: EFFECT_TAGS.DISORIENTED,
     label: 'Disoriented (Imprecated Poem)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.APOLLO,
@@ -242,7 +242,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isImprecatedPoemCursed: true },
   },
   {
-    id: 'imprecated-poem-eternal-agony',
+    id: EFFECT_TAGS.ETERNAL_AGONY,
     label: 'Eternal Agony (Imprecated Poem)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.APOLLO,
@@ -252,7 +252,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
   },
   // —— Hades ——
   { 
-    id: 'shadow-camouflaged', 
+    id: EFFECT_TAGS.SHADOW_CAMOUFLAGING, 
     label: 'Shadow Camouflaging (caster)', 
     side: EFFECT_SIDE_LABEL.CASTER, 
     group: DEITY.HADES, 
@@ -260,7 +260,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isShadowCamouflaged: true } 
   },
   {
-    id: 'soul-devourer',
+    id: EFFECT_TAGS.SOUL_DEVOURER,
     label: 'Soul Devourer (caster)',
     side: EFFECT_SIDE_LABEL.CASTER,
     group: DEITY.HADES,
@@ -269,7 +269,7 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { hasSoulDevourer: true },
   },
   {
-    id: 'death-keeper',
+    id: EFFECT_TAGS.DEATH_KEEPER,
     label: 'Death Keeper (caster)',
     side: EFFECT_SIDE_LABEL.CASTER,
     group: DEITY.HADES,
@@ -278,14 +278,14 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { hasDeathKeeper: true },
   },
   { 
-    id: 'resurrecting', 
+    id: EFFECT_TAGS.RESURRECTING, 
     label: 'Death Keeper (resurrecting)', 
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.HADES, 
     props: { isResurrecting: true } 
   },
   {
-    id: 'resurrected',
+    id: EFFECT_TAGS.RESURRECTED,
     label: 'Death Keeper (resurrected)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.HADES,
