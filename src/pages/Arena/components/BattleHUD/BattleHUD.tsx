@@ -132,7 +132,7 @@ interface Props {
   confirmedPowerName?: string | null;
   /** When in SELECT_TARGET with no valid target (e.g. all under Shadow Camouflage), call to skip turn */
   onSkipTurnNoTarget?: () => void;
-  /** When in SELECT_TARGET and attacker has Disoriented (no target chosen yet, e.g. after Keraunos D4), call to let server pick random target and run 25% check */
+  /** When in SELECT_TARGET and attacker has Disoriented (NPC auto path), let server pick random target and run 25% check. */
   onSelectTargetDisoriented?: () => void;
   /** Only way to advance when Disoriented + player's turn: called when player clicks Confirm in Disoriented modal. Passed only to attacker's client. */
   onConfirmDisorientedTarget?: (defenderId: string) => void;
@@ -238,7 +238,7 @@ export default function BattleHUD({
   onMinionHitPulse,
   confirmedPowerName, 
   onSkipTurnNoTarget, 
-  onSelectTargetDisoriented, 
+  onSelectTargetDisoriented,
   onConfirmDisorientedTarget, 
   onSelectAllyTarget, 
   onHealSkippedAck, 
