@@ -20,6 +20,7 @@ import {
   toFighterState,
   startBattle,
   selectTarget,
+  selectKeraunosTier2Batch,
   selectAction,
   selectSeason,
   confirmSeason,
@@ -348,6 +349,13 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await selectTarget(arenaId, defenderId);
   }, [arenaId]);
 
+  const handleSelectKeraunosTier2Batch = useCallback(
+    async (defenderIds: string[]) => {
+      if (arenaId) await selectKeraunosTier2Batch(arenaId, defenderIds);
+    },
+    [arenaId],
+  );
+
   const handleSelectAction = useCallback(async (action: TurnAction, powerName?: string, allyTargetId?: string) => {
     setReturnFromSeason(false);
     setReturnFromTargetCancel(false);
@@ -404,6 +412,13 @@ function Arena(props?: ArenaDemoProps) {
   const onSelectTargetDeferred = useCallback((defenderId: string) => {
     runAsync(() => handleSelectTarget(defenderId));
   }, [runAsync, handleSelectTarget]);
+
+  const onSelectKeraunosTier2BatchDeferred = useCallback(
+    (defenderIds: string[]) => {
+      runAsync(() => handleSelectKeraunosTier2Batch(defenderIds));
+    },
+    [runAsync, handleSelectKeraunosTier2Batch],
+  );
 
   const onSelectActionDeferred = useCallback((action: TurnAction, powerName?: string, allyTargetId?: string) => {
     if (action === TURN_ACTION.POWER && powerName) {
@@ -1204,6 +1219,7 @@ function Arena(props?: ArenaDemoProps) {
             transientEffectsActive={transientEffectsActive}
             confirmedPowerName={selectedPowerName}
             onSelectTarget={onSelectTargetDeferred}
+            onSelectKeraunosTier2Batch={onSelectKeraunosTier2BatchDeferred}
             onSelectAction={onSelectActionDeferred}
             onSelectSeason={handleSelectSeason}
             onPreviewSeason={handlePreviewSeason}

@@ -61,6 +61,23 @@ export function getWinningFaces(critRate: number): number[] {
   return winners;
 }
 
+/**
+ * Keraunos Voltage UI steps: 0 = main (3 dmg), 1 = 2-dmg target(s); with ≥3 alive enemies pick two distinct 2-dmg targets, then tier-3 (1 dmg) fills the rest.
+ * Legacy: step 2 was a manual third pick — still mapped for old room state.
+ */
+export function effectiveKeraunosStep(turn: {
+  keraunosTargetStep?: number | null;
+  keraunosSecondaryTargetIds?: string[] | null;
+}): 0 | 1 | 2 {
+  const raw = turn.keraunosTargetStep ?? 0;
+  const secCount = (turn.keraunosSecondaryTargetIds ?? []).length;
+  if (raw === 0) return 0;
+  if (raw === 1) return 1;
+  if (raw === 2) return secCount === 0 ? 1 : 2;
+  if (raw >= 3) return 2;
+  return 0;
+}
+
 /** Ensure no log entry has powerUsed === undefined (Firebase rejects undefined). Preserve hitTargetId so client gets it. */
 function sanitizeBattleLog(log: unknown[]): unknown[] {
   return log.map((e: any) => {
@@ -88,6 +105,7 @@ function nullStaleFieldsForFloralHealTurn(): Record<string, unknown> {
     isCrit: null,
     critRoll: null,
     critWinFaces: null,
+    powerQuotaApplied: null,
   };
 }
 
@@ -150,7 +168,37 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
     rapidFireIsCrit: null,
     rapidFireDefTotal: null,
     rapidFireD4Roll: null,
+    powerQuotaApplied: null,
   };
+}
+
+/**
+ * Deduct power SP/quota once when the turn commits (dice or resolve), after confirmations.
+ * Uses turn.usedPowerIndex; merges into turnUpdate and updates fighter quota paths.
+ */
+function deductPowerQuotaIfPending(
+  room: BattleRoom,
+  turn: TurnState,
+  attackerId: string,
+  updates: Record<string, unknown>,
+  turnUpdate: Record<string, unknown>,
+): void {
+  if (turn.powerQuotaApplied) return;
+  const idx = turn.usedPowerIndex;
+  if (idx == null) return;
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+  const power = attacker.powers?.[idx];
+  if (!power) return;
+  const cost = getQuotaCost(power.type);
+  if (cost <= 0) return;
+  const atkPath = findFighterPath(room, attackerId);
+  if (!atkPath) return;
+  const pendingQ = updates[`${atkPath}/quota`];
+  const currentQuota = typeof pendingQ === 'number' ? pendingQ : attacker.quota;
+  if (currentQuota < cost) return;
+  updates[`${atkPath}/quota`] = currentQuota - cost;
+  turnUpdate.powerQuotaApplied = true;
 }
 
 /** Append a dedicated battle-log row for Pomegranate co-attack (main hit stays its own row). */
@@ -1255,6 +1303,7 @@ export async function selectTarget(
           }
         }
       } catch (_) { }
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
       updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
       updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
       updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
@@ -1290,6 +1339,10 @@ export async function selectTarget(
       updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
       updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
     }
+    const atkTurnPending = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
+    if (atkTurnPending?.phase === PHASE.ROLLING_ATTACK) {
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, atkTurnPending);
+    }
     await update(ref(db, `arenas/${arenaId}`), updates);
     return;
   }
@@ -1306,6 +1359,7 @@ export async function selectTarget(
     // ── Imprecated Poem: apply chosen verse to defender, then end turn ──
     const selectedPoem = (turn as { selectedPoem?: string }).selectedPoem;
     if (power.name === POWER_NAMES.IMPRECATED_POEM && selectedPoem) {
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, {});
       const poemUpdates = applyImprecatedPoem(room, attackerId, defenderId, selectedPoem, battle);
       Object.assign(updates, poemUpdates);
 
@@ -1442,7 +1496,9 @@ export async function selectTarget(
     // Beyond the Nimbus: "Caster Beyond the Nimbus" already logged in selectAction; only advance phase here
     if (power.target === TARGET_TYPES.SELF) {
       if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
-        updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+        const turnNimbus: Record<string, unknown> = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+        deductPowerQuotaIfPending(room, turn, attackerId, updates, turnNimbus);
+        updates[ARENA_PATH.BATTLE_TURN] = turnNimbus;
         await update(roomRef(arenaId), updates);
         return;
       }
@@ -1459,7 +1515,9 @@ export async function selectTarget(
         powerUsed: power.name,
       };
       updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), selfLogEntry]);
-      updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+      const turnSelfPow: Record<string, unknown> = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, turnSelfPow);
+      updates[ARENA_PATH.BATTLE_TURN] = turnSelfPow;
       await update(roomRef(arenaId), updates);
       return;
     }
@@ -1472,7 +1530,7 @@ export async function selectTarget(
       if (power.name === POWER_NAMES.JOLT_ARC) {
         const { updates: joltUpdates, aoeDamageMap } = applyJoltArc(room, attackerId, battle);
         // Write only turn to RESOLVING so client can play the arc effect; do not apply damage/effects yet.
-        updates[ARENA_PATH.BATTLE_TURN] = {
+        const turnJoltSel: Record<string, unknown> = {
           attackerId,
           attackerTeam: turn.attackerTeam,
           defenderId,
@@ -1481,6 +1539,8 @@ export async function selectTarget(
           usedPowerIndex: turn.usedPowerIndex,
           usedPowerName: power.name,
         };
+        deductPowerQuotaIfPending(room, turn, attackerId, updates, turnJoltSel);
+        updates[ARENA_PATH.BATTLE_TURN] = turnJoltSel;
         await update(roomRef(arenaId), updates);
         // After effect duration, apply damage and skeleton destruction so effect plays before skeleton destroy / damage to master.
         setTimeout(() => {
@@ -1496,73 +1556,94 @@ export async function selectTarget(
         }, JOLT_ARC_EFFECT_MS);
         return;
       } else if (power.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-        // Keraunos Voltage: multi-step targets (1×3 dmg, up to 2×2 dmg) then D4 crit (rate = current caster crit + 25%)
+        // Keraunos Voltage: 3 dmg ×1 (main); 2 dmg ×2 or ×1 if only one enemy left after main; 1 dmg to all other alive enemies (auto).
         const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-      const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
-      const n = enemies.length;
-      const step = turn.keraunosTargetStep ?? 0;
-      const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
-      const secondaries = turn.keraunosSecondaryTargetIds ?? [];
-      const activeEffectsK = battle.activeEffects || [];
-      const critBuffK = getStatModifier(activeEffectsK, attackerId, MOD_STAT.CRITICAL_RATE);
-      const effectiveCritK = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
-      const critRate = Math.min(100, Math.max(0, effectiveCritK + 25));
+        const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
+        const n = enemies.length;
+        const step = effectiveKeraunosStep(turn);
+        const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
+        const secondaries = turn.keraunosSecondaryTargetIds ?? [];
+        const activeEffectsK = battle.activeEffects || [];
+        const critBuffK = getStatModifier(activeEffectsK, attackerId, MOD_STAT.CRITICAL_RATE);
+        const effectiveCritK = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+        const critRate = Math.min(100, Math.max(0, effectiveCritK + 25));
 
-      if (step === 0) {
-        // First click: main target (3 dmg). If only 1 enemy, done; if 2+ need secondaries.
-        const nextSecondaries: string[] = [];
-        const needMore = n >= 2;
-        const turnUpdate: Record<string, unknown> = {
-          ...turn,
-          defenderId,
-          keraunosMainTargetId: defenderId,
-          keraunosSecondaryTargetIds: nextSecondaries,
-          keraunosTargetStep: needMore ? 2 : null, // null = remove key (Firebase rejects undefined)
-        };
-        if (!needMore) {
-          turnUpdate.phase = PHASE.RESOLVING;
-          turnUpdate.critWinFaces = getWinningFaces(critRate);
-          turnUpdate.attackRoll = 0;
-          turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
-        } else {
-          turnUpdate.phase = PHASE.SELECT_TARGET;
-        }
-        updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-      } else if (step === 2) {
-        // Second click: first 2-dmg target. If 2 enemies done; if 3+ need one more.
-        const nextSecondaries = [...secondaries, defenderId];
-        const needMore = n >= 3;
-        const turnUpdate: Record<string, unknown> = {
-          ...turn,
-          defenderId: mainId,
-          keraunosMainTargetId: mainId,
-          keraunosSecondaryTargetIds: nextSecondaries,
-          keraunosTargetStep: needMore ? 3 : null,
-        };
-        if (!needMore) {
-          turnUpdate.phase = PHASE.RESOLVING;
-          turnUpdate.critWinFaces = getWinningFaces(critRate);
-          turnUpdate.attackRoll = 0;
-          turnUpdate.defendRoll = 0; // Keraunos: defender cannot defend
-        } else {
-          turnUpdate.phase = PHASE.SELECT_TARGET;
-        }
-        updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-      } else if (step === 3) {
-        // Third click: second 2-dmg target → done (3+ enemies)
-        const nextSecondaries = [...secondaries, defenderId];
-        updates[ARENA_PATH.BATTLE_TURN] = {
-          ...turn,
-          defenderId: mainId,
-          keraunosMainTargetId: mainId,
-          keraunosSecondaryTargetIds: nextSecondaries,
-          keraunosTargetStep: null, // remove key when done
+        const finishKeraunos = (): Record<string, unknown> => ({
           phase: PHASE.RESOLVING,
           critWinFaces: getWinningFaces(critRate),
           attackRoll: 0,
-          defendRoll: 0, // Keraunos: defender cannot defend
-        };
-      }
+          defendRoll: 0,
+          keraunosTargetStep: null,
+        });
+
+        if (step === 0) {
+          if (n <= 0) return;
+          const nextSecondaries: string[] = [];
+          const needMore = n >= 2;
+          const turnUpdate: Record<string, unknown> = {
+            ...turn,
+            defenderId,
+            keraunosMainTargetId: defenderId,
+            keraunosSecondaryTargetIds: nextSecondaries,
+            keraunosTargetStep: needMore ? 1 : null,
+          };
+          if (!needMore) {
+            Object.assign(turnUpdate, finishKeraunos());
+          } else {
+            turnUpdate.phase = PHASE.SELECT_TARGET;
+          }
+          updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+        } else if (step === 1) {
+          if (n < 2) return;
+          if (defenderId === mainId || secondaries.includes(defenderId)) return;
+          let nextSecondaries = [...secondaries, defenderId];
+          // ≥3 enemies: two manual 2-dmg targets, then auto 1-dmg to everyone else. Exactly 2 enemies: one 2-dmg pick only.
+          const needSecondTwoDmgPick = n >= 3 && nextSecondaries.length < 2;
+          if (needSecondTwoDmgPick) {
+            updates[ARENA_PATH.BATTLE_TURN] = {
+              ...turn,
+              defenderId: mainId,
+              keraunosMainTargetId: mainId,
+              keraunosSecondaryTargetIds: nextSecondaries,
+              keraunosTargetStep: 1,
+              phase: PHASE.SELECT_TARGET,
+            };
+          } else {
+            if (n >= 3) {
+              const remaining = enemies
+                .map(e => e.characterId)
+                .filter(id => id !== mainId && !nextSecondaries.includes(id));
+              nextSecondaries = [...nextSecondaries, ...remaining];
+            }
+            updates[ARENA_PATH.BATTLE_TURN] = {
+              ...turn,
+              defenderId: mainId,
+              keraunosMainTargetId: mainId,
+              keraunosSecondaryTargetIds: nextSecondaries,
+              keraunosTargetStep: null,
+              ...finishKeraunos(),
+            };
+          }
+        } else {
+          // Legacy step 2 (manual third pick): auto-append any enemies not yet in secondaries, then resolve
+          if (n < 2) return;
+          const mainLegacy = turn.keraunosMainTargetId ?? turn.defenderId;
+          if (!mainLegacy) return;
+          let secsLegacy = [...(turn.keraunosSecondaryTargetIds ?? [])];
+          if (secsLegacy.length === 0 && defenderId && defenderId !== mainLegacy) secsLegacy = [defenderId];
+          const remainingLegacy = enemies
+            .map(e => e.characterId)
+            .filter(id => id !== mainLegacy && !secsLegacy.includes(id));
+          const merged = remainingLegacy.length > 0 ? [...secsLegacy, ...remainingLegacy] : secsLegacy;
+          updates[ARENA_PATH.BATTLE_TURN] = {
+            ...turn,
+            defenderId: mainLegacy,
+            keraunosMainTargetId: mainLegacy,
+            keraunosSecondaryTargetIds: merged,
+            keraunosTargetStep: null,
+            ...finishKeraunos(),
+          };
+        }
 
       // ── Generic skipDice power ──
     } else {
@@ -1623,6 +1704,10 @@ export async function selectTarget(
       };
     }
 
+    const pendingPowTurn = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
+    if (pendingPowTurn?.phase === PHASE.RESOLVING || pendingPowTurn?.phase === PHASE.ROLLING_ATTACK) {
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, pendingPowTurn);
+    }
     await update(roomRef(arenaId), updates);
     return;
   }
@@ -1654,6 +1739,7 @@ export async function selectTarget(
       defendRoll: 0,
       soulDevourerDrain: true,
     };
+    deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
     updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
     updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
     updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
@@ -1676,7 +1762,9 @@ export async function selectTarget(
     powerUsed: power.name,
   };
   updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
-  updates[ARENA_PATH.BATTLE_TURN] = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+  const turnRollAtk: Record<string, unknown> = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+  deductPowerQuotaIfPending(room, turn, attackerId, updates, turnRollAtk);
+  updates[ARENA_PATH.BATTLE_TURN] = turnRollAtk;
   await update(roomRef(arenaId), updates);
   return;
 }
@@ -1686,6 +1774,69 @@ await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
   defenderId,
   phase: PHASE.ROLLING_ATTACK,
 });
+}
+
+/**
+ * Keraunos Voltage: confirm both 2-damage targets in one step when ≥3 alive enemies (after main is chosen).
+ */
+export async function selectKeraunosTier2Batch(arenaId: string, defenderIds: string[]): Promise<void> {
+  const uniq = Array.from(new Set(defenderIds));
+  if (uniq.length !== defenderIds.length) return;
+
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  if (!battle?.turn) return;
+  const turn = battle.turn;
+  if (turn.phase !== PHASE.SELECT_TARGET) return;
+  if (turn.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE || turn.keraunosAwaitingCrit) return;
+  if (effectiveKeraunosStep(turn) !== 1) return;
+  const existingSecs = turn.keraunosSecondaryTargetIds ?? [];
+  if (existingSecs.length > 0) return;
+
+  const attackerId = turn.attackerId;
+  const attacker = findFighter(room, attackerId);
+  if (!attacker) return;
+  const power = turn.usedPowerIndex != null ? attacker.powers?.[turn.usedPowerIndex] : undefined;
+  if (!power || power.name !== POWER_NAMES.KERAUNOS_VOLTAGE) return;
+
+  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
+  const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
+  const n = enemies.length;
+  const enemyIdSet = new Set(enemies.map(e => e.characterId));
+  const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
+  if (!mainId) return;
+
+  if (n < 3 || defenderIds.length !== 2) return;
+  if (defenderIds.some(id => id === mainId || !enemyIdSet.has(id))) return;
+
+  let nextSecondaries = [...defenderIds];
+  const remaining = enemies
+    .map(e => e.characterId)
+    .filter(id => id !== mainId && !nextSecondaries.includes(id));
+  nextSecondaries = [...nextSecondaries, ...remaining];
+
+  const activeEffectsK = battle.activeEffects || [];
+  const critBuffK = getStatModifier(activeEffectsK, attackerId, MOD_STAT.CRITICAL_RATE);
+  const effectiveCritK = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+  const critRate = Math.min(100, Math.max(0, effectiveCritK + 25));
+
+  const updates: Record<string, unknown> = {};
+  const turnUpdate: Record<string, unknown> = {
+    ...turn,
+    defenderId: mainId,
+    keraunosMainTargetId: mainId,
+    keraunosSecondaryTargetIds: nextSecondaries,
+    keraunosTargetStep: null,
+    phase: PHASE.RESOLVING,
+    critWinFaces: getWinningFaces(critRate),
+    attackRoll: 0,
+    defendRoll: 0,
+  };
+  deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
+  updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+  await update(roomRef(arenaId), updates);
 }
 
 /* ── select action (attack or use power) ─────────────── */
@@ -1762,11 +1913,7 @@ export async function selectAction(
   const cost = getQuotaCost(power.type);
   if (attacker.quota < cost) return; // insufficient quota
 
-  const atkPath = findFighterPath(room, attackerId);
   const updates: Record<string, unknown> = {};
-
-  // Ally powers (Floral, etc.): first step picks ally only — defer quota until ally is confirmed (second selectAction).
-  const deferQuotaUntilAllyConfirmed = power.target === TARGET_TYPES.ALLY && !allyTargetId;
 
   // Soul Devourer: Use Power that cannot attack → end turn (no quota spent; resolveTurn will advance)
   // Exceptions: Shadow Camouflaging (D4 refill flow); Undead Army (must apply to add 2nd skeleton)
@@ -1783,9 +1930,6 @@ export async function selectAction(
     await update(roomRef(arenaId), updates);
     return;
   }
-
-  // Deduct quota (skipped on first step of ally-target powers until ally is chosen)
-  if (!deferQuotaUntilAllyConfirmed && atkPath) updates[`${atkPath}/quota`] = attacker.quota - cost;
 
   // ── Season selection power (e.g. Persephone's Ephemeral Season): go to season selection ──
   // Also check canonical definition so rooms created before the flag was added still work
@@ -1905,6 +2049,8 @@ export async function selectAction(
 
     // ── Apollo's Hymn: heal self + 1 ally 2 HP each (once); +25% crit 2 rounds (no stack), then end turn ──
     if (power.name === POWER_NAMES.APOLLO_S_HYMN) {
+      const hymnQuotaPatch: Record<string, unknown> = {};
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, hymnQuotaPatch);
       const hymnUpdates = applyApolloHymn(room, attackerId, allyTargetId, battle);
       Object.assign(updates, hymnUpdates);
 
@@ -2010,6 +2156,8 @@ export async function selectAction(
 
     // ── Pomegranate's Oath: apply buff + end turn immediately (like confirmSeason) ──
     if (power.name === POWER_NAMES.POMEGRANATES_OATH) {
+      const pendingTurnPom: Record<string, unknown> = {};
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingTurnPom);
       const oathUpdates = applyPomegranateOath(room, attackerId, allyTargetId, battle);
       Object.assign(updates, oathUpdates);
 
@@ -2139,7 +2287,7 @@ export async function selectAction(
 
     // Heal skipped (e.g. สูญสิ้นเยียวยา): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
     if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasHealingNullified && ally && attacker) {
-      updates[ARENA_PATH.BATTLE_TURN] = {
+      const turnFloralSkip: Record<string, unknown> = {
         attackerId,
         attackerTeam: battle.turn.attackerTeam,
         phase: PHASE.ROLLING_FLORAL_HEAL,
@@ -2150,6 +2298,8 @@ export async function selectAction(
         floralHealSkipped: true,
         healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
       };
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralSkip);
+      updates[ARENA_PATH.BATTLE_TURN] = turnFloralSkip;
       await update(roomRef(arenaId), updates);
       return;
     }
@@ -2162,7 +2312,7 @@ export async function selectAction(
       const winFaces = getWinningFaces(healCritRate);
       // 0% crit → no D4 phase (empty winFaces would strand the turn)
       if (winFaces.length > 0) {
-        updates[ARENA_PATH.BATTLE_TURN] = {
+        const turnFloralD4: Record<string, unknown> = {
           ...nullStaleFieldsForFloralHealTurn(),
           attackerId,
           attackerTeam: battle.turn.attackerTeam,
@@ -2173,6 +2323,8 @@ export async function selectAction(
           allyTargetId,
           floralHealWinFaces: winFaces,
         };
+        deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralD4);
+        updates[ARENA_PATH.BATTLE_TURN] = turnFloralD4;
         await update(roomRef(arenaId), updates);
         return;
       }
@@ -2199,7 +2351,7 @@ export async function selectAction(
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
-    updates[ARENA_PATH.BATTLE_TURN] = {
+    const turnFloralAttack: Record<string, unknown> = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
       phase: PHASE.SELECT_TARGET,
@@ -2208,6 +2360,8 @@ export async function selectAction(
       usedPowerName: power.name,
       allyTargetId,
     };
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralAttack);
+    updates[ARENA_PATH.BATTLE_TURN] = turnFloralAttack;
     await update(roomRef(arenaId), updates);
     return;
   }
@@ -2298,12 +2452,14 @@ export async function selectAction(
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), soulDevourerConfirmLog]);
 
-    // Then go to select target
+    // Then go to select target (quota deducted when drain resolves in selectTarget)
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
       phase: PHASE.SELECT_TARGET,
       action: TURN_ACTION.ATTACK, // immediate attack (skeleton can assist)
+      usedPowerIndex: effectivePowerIndex,
+      usedPowerName: power.name,
     };
     await update(roomRef(arenaId), updates);
     return;
@@ -2340,7 +2496,7 @@ export async function selectAction(
         missed: false,
         powerUsed: power.name,
       }]);
-      updates[ARENA_PATH.BATTLE_TURN] = {
+      const turnShadow: Record<string, unknown> = {
         attackerId,
         attackerTeam: battle.turn!.attackerTeam,
         defenderId: attackerId,
@@ -2350,11 +2506,16 @@ export async function selectAction(
         usedPowerName: power.name,
         shadowCamouflageRefillWinFaces: winFaces,
       };
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnShadow);
+      updates[ARENA_PATH.BATTLE_TURN] = turnShadow;
       updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
       updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
       await update(roomRef(arenaId), updates);
       return;
     }
+
+    const pendingSkipSelf: Record<string, unknown> = {};
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingSkipSelf);
 
     // Sync activeEffects into battle for tickEffects
     const battleForTick = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
@@ -2463,7 +2624,7 @@ export async function selectAction(
     const firstEnemy = enemies.find(e => e.currentHp > 0);
     const primaryDefenderId = firstEnemy?.characterId ?? '';
     // Write only turn to RESOLVING so client can play the arc effect; do not apply damage/effects yet.
-    updates[ARENA_PATH.BATTLE_TURN] = {
+    const turnJolt: Record<string, unknown> = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
       defenderId: primaryDefenderId,
@@ -2472,6 +2633,8 @@ export async function selectAction(
       usedPowerIndex: effectivePowerIndex,
       usedPowerName: power.name,
     };
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnJolt);
+    updates[ARENA_PATH.BATTLE_TURN] = turnJolt;
     await update(roomRef(arenaId), updates);
     // After effect duration, apply damage and skeleton destruction so effect plays before skeleton destroy / damage to master.
     setTimeout(() => {
@@ -2613,7 +2776,7 @@ export async function cancelSeasonSelection(arenaId: string): Promise<void> {
   const atkPath = findFighterPath(room, attackerId);
 
   const updates: Record<string, unknown> = {};
-  if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
+  if (battle.turn.powerQuotaApplied && atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
 
   // Reset turn back to select-action
   updates[ARENA_PATH.BATTLE_TURN] = {
@@ -2645,7 +2808,7 @@ export async function cancelPoemSelection(arenaId: string): Promise<void> {
   const atkPath = findFighterPath(room, attackerId);
 
   const updates: Record<string, unknown> = {};
-  if (atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
+  if (battle.turn.powerQuotaApplied && atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
   updates[ARENA_PATH.BATTLE_TURN] = {
     attackerId,
     attackerTeam,
@@ -2684,6 +2847,34 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
     return;
   }
 
+  // Keraunos Voltage: back from 2nd 2-dmg pick → 1st 2-dmg; from 1st 2-dmg → main; from main → power selector
+  if (usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && !battle.turn.keraunosAwaitingCrit) {
+    const mainK = battle.turn.keraunosMainTargetId;
+    const secsK = battle.turn.keraunosSecondaryTargetIds ?? [];
+    if (mainK && secsK.length === 1) {
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...battle.turn,
+        defenderId: mainK,
+        visualDefenderId: null,
+        keraunosSecondaryTargetIds: null,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+    if (mainK && secsK.length === 0) {
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...battle.turn,
+        defenderId: null,
+        visualDefenderId: null,
+        keraunosMainTargetId: null,
+        keraunosSecondaryTargetIds: null,
+        keraunosTargetStep: 0,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+  }
+
   // Refund quota if a power was selected (ally-target step 1 defers quota until ally confirm — do not refund)
   const cancelPower = usedPowerIndex != null ? attacker.powers?.[usedPowerIndex as number] : undefined;
   const allyPickOnly =
@@ -2691,7 +2882,7 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
     usedPowerIndex != null &&
     cancelPower?.target === TARGET_TYPES.ALLY &&
     !(battle.turn as { allyTargetId?: string | null }).allyTargetId;
-  if (action === TURN_ACTION.POWER && usedPowerIndex != null && !allyPickOnly) {
+  if (battle.turn.powerQuotaApplied && action === TURN_ACTION.POWER && usedPowerIndex != null && !allyPickOnly) {
     const power = attacker.powers?.[usedPowerIndex as number];
     const cost = power ? getQuotaCost(power.type) : 1;
     const atkPath = findFighterPath(room, attackerId);
@@ -2723,26 +2914,24 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
 export const SKIP_REASON_SHADOW_CAMOUFLAGE = POWER_NAMES.SHADOW_CAMOUFLAGING;
 
 /**
- * For Keraunos Voltage + Disoriented: pick one random main target and up to two random secondaries (per tier, without replacement).
+ * For Keraunos Voltage + Disoriented: random main; two random 2-dmg targets if ≥3 enemies alive else one; rest get 1 dmg each.
  */
 function pickKeraunosRandomTargets(validIds: string[]): { mainId: string; secondaryIds: string[] } {
   const mainId = validIds[Math.floor(Math.random() * validIds.length)];
-  const rest1 = validIds.filter(id => id !== mainId);
-  const secondaryIds: string[] = [];
-  if (rest1.length >= 1) {
-    const s1 = rest1[Math.floor(Math.random() * rest1.length)];
-    secondaryIds.push(s1);
-    if (rest1.length >= 2) {
-      const rest2 = rest1.filter(id => id !== s1);
-      secondaryIds.push(rest2[Math.floor(Math.random() * rest2.length)]);
-    }
-  }
-  return { mainId, secondaryIds };
+  const rest = validIds.filter(id => id !== mainId);
+  if (rest.length === 0) return { mainId, secondaryIds: [] };
+  if (rest.length === 1) return { mainId, secondaryIds: [rest[0]] };
+  const i1 = Math.floor(Math.random() * rest.length);
+  const s1 = rest[i1];
+  const rest2 = rest.filter(id => id !== s1);
+  const s2 = rest2[Math.floor(Math.random() * rest2.length)];
+  const afterTwo = rest2.filter(id => id !== s2);
+  return { mainId, secondaryIds: [s1, s2, ...afterTwo] };
 }
 
 /**
  * Disoriented: server picks a random valid target and runs the 25% fail check.
- * For Keraunos Voltage: picks random main + up to 2 random secondaries (per tier).
+ * For Keraunos Voltage: picks random main + two random 2-dmg targets when possible + auto 1-dmg to any others.
  * Call when phase is SELECT_TARGET, attacker has Disoriented, and target is not yet chosen (e.g. after Keraunos D4).
  */
 export async function selectTargetDisoriented(arenaId: string): Promise<void> {
@@ -2924,6 +3113,11 @@ export async function advanceAfterDisorientedD4(arenaId: string): Promise<void> 
     updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
     updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
   }
+  const disorientTurn = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
+  if (disorientTurn?.phase === PHASE.ROLLING_ATTACK || disorientTurn?.phase === PHASE.RESOLVING) {
+    deductPowerQuotaIfPending(room, turn, attackerId, updates, disorientTurn);
+    updates[ARENA_PATH.BATTLE_TURN] = disorientTurn;
+  }
   await update(roomRef(arenaId), updates);
 }
 
@@ -2950,8 +3144,8 @@ export async function skipTurnNoValidTarget(
   const updates: Record<string, unknown> = {};
   const activeEffects = battle.activeEffects || [];
 
-  // Refund quota if a power was selected (same as cancel). Ally pick step 1 defers quota — nothing to refund.
-  if (!opts?.skipQuotaRefund && action === TURN_ACTION.POWER && usedPowerIndex != null) {
+  // Refund quota if a power was selected and quota was already deducted (ally pick step 1 never deducts).
+  if (!opts?.skipQuotaRefund && turn.powerQuotaApplied && action === TURN_ACTION.POWER && usedPowerIndex != null) {
     const power = attacker.powers?.[usedPowerIndex as number];
     const cost = power ? getQuotaCost(power.type) : 1;
     const atkPath = findFighterPath(room, attackerId);
@@ -3467,7 +3661,7 @@ export async function confirmSeason(arenaId: string): Promise<void> {
     const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);
     const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
     const winFaces = getWinningFaces(healCritRate);
-    updates[ARENA_PATH.BATTLE_TURN] = {
+    const turnSpring: Record<string, unknown> = {
       attackerId,
       attackerTeam,
       phase: PHASE.ROLLING_SPRING_HEAL,
@@ -3475,9 +3669,13 @@ export async function confirmSeason(arenaId: string): Promise<void> {
       springHealWinFaces: winFaces,
       springRound: 1,
     };
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnSpring);
+    updates[ARENA_PATH.BATTLE_TURN] = turnSpring;
     await update(roomRef(arenaId), updates);
     return;
   }
+
+  deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, {});
 
   // Apply season effects to all alive teammates (summer, autumn, winter)
   const seasonUpdates = applySeasonEffects(room, attackerId, selectedSeason, battle);
@@ -5662,6 +5860,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       defenderId,
       attackRoll: safeAttackRoll,
       defendRoll: safeDefendRoll,
+      atkTotal,
+      defTotal,
       damage: dmg,
       defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
       eliminated: hit && defenderHpAfter <= 0,
@@ -5685,7 +5885,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
 
   } else if (action === TURN_ACTION.POWER && usedPower?.name === POWER_NAMES.KERAUNOS_VOLTAGE) {
-    // Keraunos Voltage: normal 3 / 2 / 1 (main, 1st secondary, 2nd secondary); isCrit = ×2 → 6 / 4 / 2
+    // Keraunos Voltage: main 3; first two secondaries 2 each; any further 1 each. isCrit = ×2 on those bases.
     // Damage goes through resolveHitAtDefender so Hades child's skeleton can block (skeleton takes hit, master does not).
     // Targets whose hit was blocked by skeleton get no shock (see keraunosShockExcludeTargetIds below).
     const mainId = (turn as any).keraunosMainTargetId ?? defenderId;
@@ -5711,7 +5911,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     }
     for (let idx = 0; idx < secondaryIds.length; idx++) {
       const sid = secondaryIds[idx];
-      const baseSec = idx === 0 ? 2 : 1; // 1st secondary = 2, 2nd secondary = 1
+      const baseSec = idx < 2 ? 2 : 1; // first two ordered targets = 2 each; rest = 1 (auto “all others”)
       const dmgSec = baseSec * mult;
       const sec = findFighter(room, sid);
       if (sec && sec.currentHp > 0) {
@@ -5730,7 +5930,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const casterDamageK = Math.max(0, attacker.damage + getStatModifier(activeEffects, attackerId, MOD_STAT.DAMAGE));
     const baseDamageByTargetK: Record<string, number> = {};
     if (mainId) baseDamageByTargetK[mainId] = 3;
-    secondaryIds.forEach((sid, idx) => { baseDamageByTargetK[sid] = idx === 0 ? 2 : 1; });
+    secondaryIds.forEach((sid, idx) => { baseDamageByTargetK[sid] = idx < 2 ? 2 : 1; });
     const excludeSetK = new Set(keraunosShockExcludeTargetIds);
     const shockBonusByTarget: Record<string, number> = {};
     for (const id of [mainId, ...secondaryIds].filter(Boolean)) {
@@ -6010,6 +6210,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         defenderId,
         attackRoll: safeAttackRoll,
         defendRoll: safeDefendRoll,
+        atkTotal,
+        defTotal,
         damage: dmg,
         defenderHpAfter: hit ? defenderHpAfter : defender.currentHp,
         eliminated: hit && defenderHpAfter <= 0,

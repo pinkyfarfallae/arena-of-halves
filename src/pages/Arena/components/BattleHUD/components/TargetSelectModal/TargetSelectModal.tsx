@@ -39,10 +39,14 @@ interface Props {
   healTargetSelect?: boolean;
   /** Imprecated Poem verse tag — only used to show "Efflorescence Muse" on targets that actually have Muse (matches pips); we do not show the verse name as if it were already on the target. */
   afflictionVerseTag?: string | null;
+  /** When > 1 (e.g. 2 for Keraunos 2-dmg tier), tap targets to toggle selection until count matches, then Confirm calls onSelectMulti. */
+  multiSelectRequired?: number;
+  onSelectMulti?: (defenderIds: string[]) => void;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects, healTargetSelect, afflictionVerseTag }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects, healTargetSelect, afflictionVerseTag, multiSelectRequired, onSelectMulti }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cyclingIndex, setCyclingIndex] = useState<number>(0);
   const [isRandomizing, setIsRandomizing] = useState(false);
   /** True after the Random spinner animation has finished (not used for single-target pre-select). */
@@ -60,6 +64,12 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
 
   const n = targets.length;
   const targetIdsKey = targets.map((t) => t.characterId).join(',');
+  const isMultiSelect = typeof multiSelectRequired === 'number' && multiSelectRequired > 1 && !!onSelectMulti;
+
+  useEffect(() => {
+    if (!isMultiSelect) return;
+    setSelectedIds([]);
+  }, [isMultiSelect, targetIdsKey, multiSelectRequired]);
 
   useEffect(() => {
     if (!randomMode) return;
@@ -141,6 +151,9 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
     >
       <span className="bhud__dice-label">{randomMode ? 'Disoriented' : 'Select Target'}</span>
       <span className="bhud__dice-sub">
+        {isMultiSelect && multiSelectRequired != null ? (
+          <span className="bhud__targets-multi-count">{`${selectedIds.length} / ${multiSelectRequired} selected`}</span>
+        ) : null}
         {waitingForLabel ? (subtitle ?? waitingForLabel) : (subtitle ?? (randomMode ? (selectedId ? 'Click Confirm to continue' : 'Click Random to pick target') : `${attackerName}'s turn`))}
       </span>
       <div className="bhud__targets-list">
@@ -158,13 +171,29 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
               (e) => String(e.targetId) === String(t.characterId) && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
             )
           );
-          const isSelectedRow = randomMode && !waitingForLabel ? highlightId === t.characterId : selectedId === t.characterId;
+          const isSelectedRow = randomMode && !waitingForLabel
+            ? highlightId === t.characterId
+            : isMultiSelect
+              ? selectedIds.includes(t.characterId)
+              : selectedId === t.characterId;
           return (
             <button
               key={t.characterId}
               className={`bhud__target-btn${isSelectedRow ? ' bhud__target-btn--selected' : ''}${dimUnselectedOthers && t.characterId !== dimFocusTargetId ? ' bhud__target-btn--dim-unselected' : ''}${waitingForLabel || randomMode ? ' bhud__target-btn--no-click' : ''}`}
               style={{ '--t-color': t.theme[0] } as React.CSSProperties}
-              onClick={waitingForLabel || randomMode ? undefined : () => !isRandomizing && setSelectedId(t.characterId)}
+              onClick={
+                waitingForLabel || randomMode
+                  ? undefined
+                  : isMultiSelect && multiSelectRequired != null
+                    ? () => {
+                      setSelectedIds((prev) => {
+                        if (prev.includes(t.characterId)) return prev.filter((id) => id !== t.characterId);
+                        if (prev.length >= multiSelectRequired) return prev;
+                        return [...prev, t.characterId];
+                      });
+                    }
+                    : () => !isRandomizing && setSelectedId(t.characterId)
+              }
               type="button"
               disabled={!!waitingForLabel}
             >
@@ -224,7 +253,9 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
               disabled={
                 randomMode
                   ? isRandomizing || (!selectedId && n === 0)
-                  : !selectedId
+                  : isMultiSelect && multiSelectRequired != null
+                    ? selectedIds.length !== multiSelectRequired
+                    : !selectedId
               }
               onClick={
                 randomMode
@@ -233,7 +264,11 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
                     : selectedId
                       ? () => onSelect(selectedId)
                       : handleRandomClick
-                  : () => selectedId && onSelect(selectedId)
+                  : isMultiSelect && multiSelectRequired != null && onSelectMulti
+                    ? () => {
+                      if (selectedIds.length === multiSelectRequired) onSelectMulti(selectedIds);
+                    }
+                    : () => selectedId && onSelect(selectedId)
               }
             >
               {randomMode ? (isRandomizing ? confirmLabel : selectedId ? 'Confirm' : confirmLabel) : 'Confirm'}

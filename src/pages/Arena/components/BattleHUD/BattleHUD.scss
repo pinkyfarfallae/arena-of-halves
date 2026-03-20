@@ -482,6 +482,19 @@ $crimson-bright: #c41e3a;
   color: $crimson-bright;
 }
 
+.bhud__log-heal {
+  font-weight: 800;
+  color: #0d6b0d;
+  font-size: 0.58rem;
+}
+
+.bhud__log-applied {
+  font-weight: 700;
+  color: $ink-faint;
+  font-size: 0.58rem;
+  font-style: italic;
+}
+
 .bhud__log-ko {
   font-weight: 800;
   color: $crimson;

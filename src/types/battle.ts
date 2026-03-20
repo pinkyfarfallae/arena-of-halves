@@ -134,6 +134,8 @@ export interface TurnState {
   action?: (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
   usedPowerIndex?: number;
   usedPowerName?: string;
+  /** True after SP/quota was deducted for this power commit (used for idempotency and cancel refunds). */
+  powerQuotaApplied?: boolean;
 
   /* Critical hit (written by BattleHUD before resolve) */
   isCrit?: boolean;
@@ -152,7 +154,7 @@ export interface TurnState {
   keraunosMainTargetId?: string;
   /** Up to 2 targets (2 then 1 damage). */
   keraunosSecondaryTargetIds?: string[];
-  /** 0 = need main, 2 = need first secondary, 3 = need second secondary. */
+  /** 0 = main (3 dmg), 1 = choosing 2-dmg target(s). Third bolt targets are auto-filled. Legacy 2/3 still read via effectiveKeraunosStep. */
   keraunosTargetStep?: number;
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
@@ -252,6 +254,9 @@ export interface BattleLogEntry {
   defenderTheme?: string;
   attackRoll: number;
   defendRoll: number;
+  /** Compare totals used for hit vs block (die + character dice-up + effect modifiers incl. recovery). Omitted on legacy log rows. */
+  atkTotal?: number;
+  defTotal?: number;
   damage: number;
   defenderHpAfter: number;
   eliminated: boolean;
