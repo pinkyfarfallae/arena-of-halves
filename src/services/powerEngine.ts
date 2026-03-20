@@ -43,7 +43,12 @@ const SUNBORN_SOVEREIGN_RECOVERY_MAX = 2;
 
 /** True if the receiver has Healing Nullified (Imprecated Poem) — heals do nothing. */
 export function isHealingNullified(activeEffects: ActiveEffect[], receiverId: string): boolean {
-  return activeEffects.some(e => e.targetId === receiverId && e.tag === EFFECT_TAGS.HEALING_NULLIFIED);
+  return activeEffects.some((e) => {
+    if (String(e.targetId) !== String(receiverId)) return false;
+    if (e.tag !== EFFECT_TAGS.HEALING_NULLIFIED) return false;
+    // Expired effects may still exist briefly in activeEffects; treat only active durations as blocking.
+    return e.turnsRemaining == null || e.turnsRemaining > 0;
+  });
 }
 
 /** Effective heal amount for a receiver (e.g. +1 when receiver has a passive that boosts received healing). HEALING_NULLIFIED → 0. */

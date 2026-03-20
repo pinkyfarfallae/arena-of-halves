@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { FighterState } from '../../../../../../types/battle';
 import type { ActiveEffect } from '../../../../../../types/power';
 import { isAffliction } from '../../../../../../data/statusCategory';
-import { EFFECT_TAGS } from '../../../../../../constants/effectTags';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../../../constants/effectTags';
 import './TargetSelectModal.scss';
 
 const RANDOM_CYCLE_MS = 150;
@@ -37,12 +37,16 @@ interface Props {
   activeEffects?: ActiveEffect[];
   /** When true (ally-heal target selection), show "Healing nullified" on targets that have that effect. */
   healTargetSelect?: boolean;
+  /** Imprecated Poem verse tag — only used to show "Efflorescence Muse" on targets that actually have Muse (matches pips); we do not show the verse name as if it were already on the target. */
+  afflictionVerseTag?: string | null;
 }
 
-export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects, healTargetSelect }: Props) {
+export default function TargetSelectModal({ attackerName, targets, themeColor, themeColorDark, onSelect, onBack, backDisabled, subtitle, randomMode, confirmLabel = 'Random', waitingForLabel, eternalAgonySelected, activeEffects, healTargetSelect, afflictionVerseTag }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cyclingIndex, setCyclingIndex] = useState<number>(0);
   const [isRandomizing, setIsRandomizing] = useState(false);
+  /** True after the Random spinner animation has finished (not used for single-target pre-select). */
+  const [randomAnimationFinished, setRandomAnimationFinished] = useState(false);
   const stepCountRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const decelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,18 +59,34 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
   }, []);
 
   const n = targets.length;
-  // When only one target in randomMode, pre-select it — user just clicks Confirm
+  const targetIdsKey = targets.map((t) => t.characterId).join(',');
+
+  useEffect(() => {
+    if (!randomMode) return;
+    setSelectedId(null);
+    setRandomAnimationFinished(false);
+    setIsRandomizing(false);
+    setCyclingIndex(0);
+  }, [randomMode, targetIdsKey]);
+
+  // When only one target in randomMode, pre-select it — user just clicks Confirm (Back stays enabled)
   useEffect(() => {
     if (randomMode && n === 1 && targets[0]) {
       setSelectedId(targets[0].characterId);
+      setRandomAnimationFinished(false);
     }
   }, [randomMode, n, targets[0]?.characterId]);
 
   const displayIndex = isRandomizing ? cyclingIndex : (selectedId ? targets.findIndex((t) => t.characterId === selectedId) : -1);
   const highlightId = displayIndex >= 0 && displayIndex < n ? targets[displayIndex].characterId : null;
+  /** Dim non-chosen rows only after Disoriented random animation has finished (not while cycling, not in normal pick). */
+  const dimFocusTargetId =
+    randomMode && !waitingForLabel && randomAnimationFinished && selectedId != null ? selectedId : null;
+  const dimUnselectedOthers = dimFocusTargetId != null;
 
   const handleRandomClick = () => {
-    if (n === 0 || isRandomizing) return;
+    if (n === 0 || isRandomizing || selectedId != null) return;
+    setRandomAnimationFinished(false);
     setIsRandomizing(true);
     stepCountRef.current = 0;
     setCyclingIndex(0);
@@ -85,6 +105,7 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
           setSelectedId(chosenId);
           setCyclingIndex(finalIdx);
           setIsRandomizing(false);
+          setRandomAnimationFinished(true);
           decelTimeoutRef.current = null;
           return;
         }
@@ -128,10 +149,20 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
           const hasAffliction = targetEffs.some((e) => isAffliction(e) && (e.turnsRemaining ?? 0) > 0);
           const showNoAfflictionWarning = eternalAgonySelected && !hasAffliction;
           const hasHealingNullified = !!(healTargetSelect && activeEffects?.some((e) => String(e.targetId) === String(t.characterId) && e.tag === EFFECT_TAGS.HEALING_NULLIFIED));
+          const poemAfflictionTarget =
+            typeof afflictionVerseTag === 'string' &&
+            (IMPRECATED_POEM_VERSE_TAGS as readonly string[]).includes(afflictionVerseTag);
+          const showEfflorescenceMuseHint = !!(
+            poemAfflictionTarget &&
+            activeEffects?.some(
+              (e) => String(e.targetId) === String(t.characterId) && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
+            )
+          );
+          const isSelectedRow = randomMode && !waitingForLabel ? highlightId === t.characterId : selectedId === t.characterId;
           return (
             <button
               key={t.characterId}
-              className={`bhud__target-btn${(randomMode && !waitingForLabel ? highlightId === t.characterId : selectedId === t.characterId) ? ' bhud__target-btn--selected' : ''}${waitingForLabel || randomMode ? ' bhud__target-btn--no-click' : ''}`}
+              className={`bhud__target-btn${isSelectedRow ? ' bhud__target-btn--selected' : ''}${dimUnselectedOthers && t.characterId !== dimFocusTargetId ? ' bhud__target-btn--dim-unselected' : ''}${waitingForLabel || randomMode ? ' bhud__target-btn--no-click' : ''}`}
               style={{ '--t-color': t.theme[0] } as React.CSSProperties}
               onClick={waitingForLabel || randomMode ? undefined : () => !isRandomizing && setSelectedId(t.characterId)}
               type="button"
@@ -158,6 +189,17 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
                       <span className="bhud__target-healing-nullified" title="Healing will have no effect on this target.">Healing nullified</span>
                     </>
                   )}
+                  {showEfflorescenceMuseHint && (
+                    <>
+                      <span className="bhud__target-hp-divider" aria-hidden="true"> · </span>
+                      <span
+                        className="bhud__target-efflorescence-muse"
+                        title="Efflorescence Muse will block this affliction and be consumed."
+                      >
+                        Efflorescence Muse
+                      </span>
+                    </>
+                  )}
                 </span>
               </div>
             </button>
@@ -169,14 +211,21 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
           <p className="bhud__no-target-reason bhud__target-waiting">{waitingForLabel}</p>
         ) : (
           <>
-            {onBack != null && !backDisabled && !isRandomizing && !(randomMode && selectedId) && (
-              <button type="button" className="bhud__target-back" onClick={onBack}>
-                Back
-              </button>
-            )}
+            {onBack != null &&
+              !backDisabled &&
+              !isRandomizing &&
+              !(randomMode && selectedId && randomAnimationFinished) && (
+                <button type="button" className="bhud__target-back" onClick={onBack}>
+                  Back
+                </button>
+              )}
             <button
               className="bhud__target-confirm"
-              disabled={randomMode ? isRandomizing : !selectedId}
+              disabled={
+                randomMode
+                  ? isRandomizing || (!selectedId && n === 0)
+                  : !selectedId
+              }
               onClick={
                 randomMode
                   ? isRandomizing

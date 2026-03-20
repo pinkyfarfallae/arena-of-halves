@@ -19,7 +19,7 @@ import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 import { DEFAULT_THEME } from '../../../../constants/theme';
-import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
 import { getDisabledPowersAndReasons } from '../../../../data/power-disable-reason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
@@ -51,6 +51,35 @@ function useFadeTransition(visible: boolean, ms = 250) {
 
   return [show, exit] as const;
 }
+
+/** Resolve bar + DamageCard payload (main hit or Pomegranate co-attack log line). */
+type ResolveCacheRow = {
+  atkRoll: number;
+  defRoll: number;
+  atkBonus: number;
+  defBonus: number;
+  atkTotal: number;
+  defTotal: number;
+  isHit: boolean;
+  damage: number;
+  baseDmg: number;
+  shockBonus: number;
+  isPower: boolean;
+  powerName: string;
+  critEligible: boolean;
+  isCrit: boolean;
+  critRoll: number;
+  isDodged: boolean;
+  coAttackHit: boolean;
+  coAttackDamage: number;
+  attackerName: string;
+  attackerTheme: string;
+  defenderName: string;
+  defenderTheme: string;
+  side: PanelSide;
+  shownLogIndex?: number;
+  [key: string]: unknown;
+};
 
 interface Props {
   arenaId?: string;
@@ -121,6 +150,12 @@ interface Props {
   onSelectAllyTarget?: (allyId: string) => void;
   /** True while Volley Arrow hit VFX is active. When false, Rapid Fire extra-shot damage card is hidden. */
   volleyArrowHitActive?: boolean;
+  /** PvE: oath caster is NPC — auto-roll co-attack D12 in ROLLING_POMEGRANATE_CO_ATTACK. */
+  isPomCoCasterNpc?: boolean;
+  /** After main hit card when server deferred Pomegranate co — enter co attack phase. */
+  onAdvancePomegranateCoAttackPhase?: () => void;
+  onSubmitPomegranateCoAttackRoll?: (roll: number) => void;
+  onSubmitPomegranateCoDefendRoll?: (roll: number) => void;
 }
 
 /** Find a fighter across both teams */
@@ -164,11 +199,58 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, devPlayAllFightersSelf = false, devUiActAsAttacker = false, transientEffectsActive,
-  onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onSubmitRapidFireD4Roll, onRapidFireDamageCardComplete, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
-  transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
-  confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
+  arenaId, 
+  battle, 
+  teamA, 
+  teamB, 
+  teamMinionsA, 
+  teamMinionsB, 
+  myId, 
+  isPlaybackDriver = false, 
+  isViewer = false, 
+  isAttackerNpc = false, 
+  isDefenderNpc = false, 
+  devPlayAllFightersSelf = false, 
+  devUiActAsAttacker = false, 
+  transientEffectsActive,
+  onSelectTarget, 
+  onSelectAction, 
+  onSelectSeason, 
+  onPreviewSeason, 
+  onCancelSeason, 
+  onSelectPoem, 
+  onCancelPoem, 
+  onCancelTarget, 
+  initialShowPowers, 
+  onSubmitAttackRoll, 
+  onSubmitDefendRoll, 
+  onSubmitRapidFireD4Roll, 
+  onRapidFireDamageCardComplete, 
+  onResolve, 
+  onResolveVisible, 
+  onTransientEffectsActive, 
+  onSoulDevourerHealReady,
+  transientSkeletonCard, 
+  transientSkeletonCardKey, 
+  onSkeletonCardShow, 
+  onSkeletonCardClear, 
+  onSkeletonCardTarget, 
+  onMinionHitPulse,
+  confirmedPowerName, 
+  onSkipTurnNoTarget, 
+  onSelectTargetDisoriented, 
+  onConfirmDisorientedTarget, 
+  onSelectAllyTarget, 
+  onHealSkippedAck, 
+  onSoulDevourerHealSkippedAck, 
+  onSpringHealSkippedAck, 
+  onFloralHealResultCardVisible, 
+  onFloralHealResultCardHidden,
   volleyArrowHitActive,
+  isPomCoCasterNpc = false,
+  onAdvancePomegranateCoAttackPhase,
+  onSubmitPomegranateCoAttackRoll,
+  onSubmitPomegranateCoDefendRoll,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
 
@@ -273,6 +355,33 @@ export default function BattleHUD({
     }
   }, [turn?.phase, turn?.defenderId, myId, defRollDone, devUiActAsAttacker]);
 
+  const [preRolledPomCoDefend, setPreRolledPomCoDefend] = useState<number | null>(null);
+  useEffect(() => {
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack;
+    if (turn?.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND && turn?.defenderId === myId) {
+      setPreRolledPomCoDefend(Math.floor(Math.random() * 12) + 1);
+    } else if (
+      turn?.phase === PHASE.RESOLVING &&
+      !defRollDone &&
+      awaitingPom &&
+      turn?.coDefendRoll != null &&
+      (turn?.defenderId === myId || (devUiActAsAttacker && preRolledPomCoDefend != null))
+    ) {
+      /* Pomegranate co-defend: same pattern as preRolledDefend — keep through RESOLVING before server echoes */
+    } else {
+      setPreRolledPomCoDefend(null);
+    }
+  }, [
+    turn?.phase,
+    turn?.defenderId,
+    myId,
+    defRollDone,
+    devUiActAsAttacker,
+    turn?.coDefendRoll,
+    (turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack,
+    // preRolledPomCoDefend: intentionally omitted — hold branch reads it like preRolledDefend effect
+  ]);
+
   // Reset submitted flags when phase changes
   if (turn?.phase === PHASE.ROLLING_ATTACK) defSubmitted.current = false;
   if (turn?.phase === PHASE.SELECT_ACTION) atkSubmitted.current = false;
@@ -309,7 +418,6 @@ export default function BattleHUD({
   const dodgeReplayDoneTimeoutRef = useRef<number | null>(null);
   const critReplayDoneTimeoutRef = useRef<number | null>(null);
   const chainReplayDoneTimeoutRef = useRef<number | null>(null);
-  const coAttackReplayDoneTimeoutRef = useRef<number | null>(null);
   /** Viewer uses shorter delay so dice don't overlap damage card */
   const replayResultViewMsRef = useRef(PLAYER_ROLL_RESULT_VIEW_MS);
   replayResultViewMsRef.current = isViewer ? VIEWER_ROLL_RESULT_VIEW_MS : PLAYER_ROLL_RESULT_VIEW_MS;
@@ -324,7 +432,16 @@ export default function BattleHUD({
   }, [turn?.phase, isViewer]);
   // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
   useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId) return;
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack;
+    if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId && !awaitingPom && turn.coDefendRoll == null) return;
+    if (
+      turn?.phase === PHASE.RESOLVING &&
+      turn?.defenderId === myId &&
+      awaitingPom &&
+      turn.coDefendRoll != null
+    ) {
+      return;
+    }
     /* Play-all: myId follows attacker in RESOLVING while defend dice finish — never clear defRollDone here for that segment (myId flip or preRoll→server echo); avoids unmount → remount → “replay”. */
     if (
       turn?.phase === PHASE.RESOLVING &&
@@ -336,16 +453,39 @@ export default function BattleHUD({
     ) {
       return;
     }
+    /* Play-all: during pomegranate co-defend replay, myId is attacker — don’t clear defRollDone while embody shows co-def die */
+    if (
+      turn?.phase === PHASE.RESOLVING &&
+      devUiActAsAttacker &&
+      isPlaybackDriver &&
+      turn.defenderId &&
+      turn.defenderId !== myId &&
+      awaitingPom &&
+      turn.coDefendRoll != null &&
+      !defRollDone
+    ) {
+      return;
+    }
     if (defRollDoneTimeoutRef.current) {
       clearTimeout(defRollDoneTimeoutRef.current);
       defRollDoneTimeoutRef.current = null;
     }
     setDefRollDone(false);
-  }, [turn?.phase, turn?.defenderId, myId, devUiActAsAttacker, isPlaybackDriver, turn?.defendRoll, preRolledDefend]);
+  }, [
+    turn?.phase,
+    turn?.defenderId,
+    myId,
+    devUiActAsAttacker,
+    isPlaybackDriver,
+    turn?.defendRoll,
+    preRolledDefend,
+    turn?.coDefendRoll,
+    (turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack,
+  ]);
   // Clear replay-dice timeouts on phase change (same as attack/defend)
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING) {
-      [dodgeReplayDoneTimeoutRef, critReplayDoneTimeoutRef, chainReplayDoneTimeoutRef, coAttackReplayDoneTimeoutRef].forEach(ref => {
+      [dodgeReplayDoneTimeoutRef, critReplayDoneTimeoutRef, chainReplayDoneTimeoutRef].forEach(ref => {
         if (ref.current) {
           clearTimeout(ref.current);
           ref.current = null;
@@ -834,125 +974,47 @@ export default function BattleHUD({
     setChainRollResult(turn.chainRoll);
   }, [turn?.phase, resolveReady, critReady, chainReady, chainEligible, isMyTurn, chainRollResult, turn?.chainRoll, turn?.chainSuccess]);
 
-  /* ── Pomegranate's Oath: Co-attack D12 ── */
-  const [coAttackReady, setCoAttackReady] = useState(false);
-  const [coAttackEligible, setCoAttackEligible] = useState(false);
-  const [coAttackRollResult, setCoAttackRollResult] = useState(0);
-  const coAttackRef = useRef({ casterId: '', hit: false, damage: 0, roll: 0 });
-  const coAttackSubmitted = useRef(false);
-
-  // Reset co-attack state on phase change
+  const awaitingPomegranateCoAttack = !!(turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack;
+  const pomCoCasterFighter = turn?.coAttackerId ? find(teamA, teamB, turn.coAttackerId) : undefined;
+  const pomCoAttackSubmitted = useRef(false);
+  const pomCoDefendSubmitted = useRef(false);
   useEffect(() => {
-    setCoAttackReady(false);
-    setCoAttackEligible(false);
-    setCoAttackRollResult(0);
-    coAttackSubmitted.current = false;
-    coAttackRef.current = { casterId: '', hit: false, damage: 0, roll: 0 };
-  }, [turn?.phase]);
-
-  // Compute co-attack eligibility when all prior checks done
-  useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !dodgeReady || !critReady || !chainReady) return;
-    if (!attacker || !defender || !turn.defenderId) { setCoAttackReady(true); return; }
-
-    // Dodged → no co-attack
-    if (dodgeRef.current.isDodged) { setCoAttackReady(true); return; }
-
-    const isSkipDice = turn.action === TURN_ACTION.POWER && !turn.attackRoll;
-    if (isSkipDice) { setCoAttackReady(true); return; }
-
-    // Check if attacker (the one attacking this turn) has pomegranate-spirit
-    const ae = battle.activeEffects || [];
-    const spiritEffect = ae.find(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT);
-    if (!spiritEffect) { setCoAttackReady(true); return; }
-
-    // Self-target (caster === oath-bearer): no co-attack
-    if (spiritEffect.sourceId === turn.attackerId) { setCoAttackReady(true); return; }
-
-    // Check if main attack hit
-    const atkBuff = getStatModifier(ae, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
-    const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
-    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
-    if (at <= dt) { setCoAttackReady(true); return; }
-
-    // Check if caster is alive
-    const casterId = spiritEffect.sourceId;
-    const caster = find(teamA, teamB, casterId);
-    if (!caster || caster.currentHp <= 0) { setCoAttackReady(true); return; }
-
-    coAttackRef.current = { casterId, hit: false, damage: 0, roll: 0 };
-    /** Caster rolls (not the spirit-bearer attacking). myId often follows turn.attackerId in RESOLVING; play-all host must still roll for the oath caster. */
-    const isMyCaster =
-      casterId === myId ||
-      (!!devPlayAllFightersSelf && isPlaybackDriver && !isViewer);
-
-    if (isMyCaster) {
-      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackerId: casterId });
-      setCoAttackEligible(true);
-    } else if (turn.coAttackRoll != null && turn.coAttackRoll > 0) {
-      // PvP/viewer: caster already rolled
-      coAttackRef.current = { casterId, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
-      setCoAttackRollResult(turn.coAttackRoll);
-      setCoAttackEligible(true);
-    } else if (isViewer || !isAttackerNpc || !isPlaybackDriver) {
-      // Viewer, PvP opponent, or ally (not roller): wait for caster's roll — do not compute; show waiting until turn.coAttackRoll arrives
-      setCoAttackEligible(true);
-    } else {
-      // NPC (caster on attacker side) and I am playback driver: compute co-attack now, replay roller will trigger onCoAttackReplayEnd when done
-      const roll = Math.ceil(Math.random() * 12);
-      const coBuff = getStatModifier(ae, casterId, MOD_STAT.ATTACK_DICE_UP);
-      const coTotal = roll + caster.attackDiceUp + coBuff;
-      const coHit = coTotal > dt;
-      const coDmgBuff = getStatModifier(ae, casterId, MOD_STAT.DAMAGE);
-      const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
-      coAttackRef.current = { casterId, hit: coHit, damage: coDmg, roll };
-      if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackerId: casterId, coAttackHit: coHit, coAttackDamage: coDmg });
-      setCoAttackRollResult(roll);
-      setCoAttackEligible(true);
+    if (turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_ATTACK && turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_DEFEND) {
+      pomCoAttackSubmitted.current = false;
+      pomCoDefendSubmitted.current = false;
     }
-  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer, isAttackerNpc, isPlaybackDriver, devPlayAllFightersSelf]);
-
-  // Player clicks → generate roll, write immediately so viewer sees dice start at same time
-  const handleCoAttackRollStart = useCallback(() => {
-    if (coAttackSubmitted.current) return;
-    coAttackSubmitted.current = true;
-    const cr = coAttackRef.current;
-    const ae = battle.activeEffects || [];
-    const caster = find(teamA, teamB, cr.casterId);
-    if (!caster || !turn?.defenderId || !defender) return;
+  }, [turn?.phase]);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_ATTACK || !arenaId || !onSubmitPomegranateCoAttackRoll) return;
+    if (!isPomCoCasterNpc || !isPlaybackDriver || isViewer) return;
+    if (turn.coAttackRoll != null && turn.coAttackRoll > 0) return;
+    if (pomCoAttackSubmitted.current) return;
+    pomCoAttackSubmitted.current = true;
     const roll = Math.ceil(Math.random() * 12);
-    const coBuff = getStatModifier(ae, cr.casterId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
-    const coTotal = roll + caster.attackDiceUp + coBuff;
-    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
-    const coHit = coTotal > dt;
-    const coDmgBuff = getStatModifier(ae, cr.casterId, MOD_STAT.DAMAGE);
-    const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
-    coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
-    setCoAttackRollResult(roll);
-  }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
+    onSubmitPomegranateCoAttackRoll(roll);
+  }, [turn?.phase, turn?.coAttackRoll, arenaId, isPomCoCasterNpc, isPlaybackDriver, isViewer, onSubmitPomegranateCoAttackRoll]);
+  useEffect(() => {
+    if (turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_DEFEND || !arenaId || !onSubmitPomegranateCoDefendRoll) return;
+    if (!isDefenderNpc || !isPlaybackDriver || isViewer) return;
+    if (turn.coDefendRoll != null) return;
+    if (pomCoDefendSubmitted.current) return;
+    pomCoDefendSubmitted.current = true;
+    const roll = Math.ceil(Math.random() * 12);
+    onSubmitPomegranateCoDefendRoll(roll);
+  }, [turn?.phase, turn?.coDefendRoll, arenaId, isDefenderNpc, isPlaybackDriver, isViewer, onSubmitPomegranateCoDefendRoll]);
 
-  const handleCoAttackRollResult = useCallback((roll: number) => {
-    if (coAttackSubmitted.current) return;
-    coAttackSubmitted.current = true;
-    const cr = coAttackRef.current;
-    const ae = battle.activeEffects || [];
-    const caster = find(teamA, teamB, cr.casterId);
-    if (!caster || !turn?.defenderId || !defender) return;
-    const coBuff = getStatModifier(ae, cr.casterId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
-    const coTotal = roll + caster.attackDiceUp + coBuff;
-    const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
-    const coHit = coTotal > dt;
-    const coDmgBuff = getStatModifier(ae, cr.casterId, MOD_STAT.DAMAGE);
-    const coDmg = coHit ? Math.max(0, caster.damage + coDmgBuff) : 0;
-    coAttackRef.current = { ...cr, hit: coHit, damage: coDmg, roll };
-    if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackRoll: roll, coAttackHit: coHit, coAttackDamage: coDmg });
-    setCoAttackRollResult(roll);
-    setTimeout(() => setCoAttackReady(true), 1500);
-  }, [arenaId, battle.activeEffects, teamA, teamB, turn, defender]);
+  const handlePomegranateCoAttackRoll = useCallback(
+    (r: number) => {
+      onSubmitPomegranateCoAttackRoll?.(r);
+    },
+    [onSubmitPomegranateCoAttackRoll],
+  );
+  const handlePomegranateCoDefendRoll = useCallback(
+    (r: number) => {
+      onSubmitPomegranateCoDefendRoll?.(r);
+    },
+    [onSubmitPomegranateCoDefendRoll],
+  );
 
   /** When replay roller (viewer/NPC) finishes — delay then advance. Viewer uses shorter delay so dice don't overlap damage card. */
   const onDodgeReplayEnd = useCallback(() => {
@@ -979,25 +1041,6 @@ export default function BattleHUD({
       setChainReady(true);
     }, ms);
   }, []);
-  const onCoAttackReplayEnd = useCallback(() => {
-    if (coAttackReplayDoneTimeoutRef.current) clearTimeout(coAttackReplayDoneTimeoutRef.current);
-    const ms = replayResultViewMsRef.current;
-    coAttackReplayDoneTimeoutRef.current = window.setTimeout(() => {
-      coAttackReplayDoneTimeoutRef.current = null;
-      setCoAttackReady(true);
-    }, ms);
-  }, []);
-
-  // PvP watcher: caster rolled co-attack after we entered resolving
-  useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady || !chainReady || coAttackReady || !coAttackEligible) return;
-    if (coAttackRef.current.casterId === myId) return;
-    if (devPlayAllFightersSelf && isPlaybackDriver && !isViewer) return;
-    if (coAttackRollResult > 0) return;
-    if (turn?.coAttackRoll == null) return;
-    coAttackRef.current = { ...coAttackRef.current, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
-    setCoAttackRollResult(turn.coAttackRoll);
-  }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage, devPlayAllFightersSelf, isPlaybackDriver, isViewer]);
 
   /* ── Heal crit (Floral / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
   const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
@@ -1060,6 +1103,8 @@ export default function BattleHUD({
         ? CHAINED_MASTER_RESOLVE_DISPLAY_MS
         : 5000;
   const [showMasterDamageCard, setShowMasterDamageCard] = useState(false);
+  /** Pomegranate co-attack: separate log line → own resolve bar + DamageCard (not merged into main hit). */
+  const [pomegranateCoResolve, setPomegranateCoResolve] = useState<ResolveCacheRow | null>(null);
   /** Bump when we merge a main-attack log entry into resolveCache so DamageCard re-renders with server data (e.g. baseDmg, isCrit after Nimbus). */
   const [resolveCacheMergeTick, setResolveCacheMergeTick] = useState(0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
@@ -1067,27 +1112,24 @@ export default function BattleHUD({
   const lastPulsedRapidFireStepRef = useRef<number | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
+    const aw = !!(turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack;
+    if (
+      aw &&
+      turn?.phase === PHASE.RESOLVING &&
+      (turn.coAttackRoll == null || turn.coAttackRoll <= 0) &&
+      onAdvancePomegranateCoAttackPhase
+    ) {
+      onAdvancePomegranateCoAttackPhase();
+      return;
+    }
     if (!isPlaybackDriver) return;
     if (turn?.phase !== PHASE.RESOLVING) return;
     const shadowCamouflageD4Wait = !!(turn as any)?.shadowCamouflageRefillWinFaces?.length && (turn as any).shadowCamouflageRefillRoll == null;
     if (shadowCamouflageD4Wait) return;
     onResolve();
-  }, [isPlaybackDriver, turn, onResolve]);
+  }, [isPlaybackDriver, turn, onResolve, onAdvancePomegranateCoAttackPhase]);
 
-  /* ── Floral Fragrance: delay target selection only when picking ally (so fragrance wave can play). After heal (allyTargetId set) we already waited for result card + VFX, so show target selector immediately to avoid jitter. ── */
-  const [floralDelay, setFloralDelay] = useState(false);
-  useEffect(() => {
-    if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && turn.allyTargetId) {
-      setFloralDelay(false); // follow-up attack after heal: no delay, show target selector right away
-      return;
-    }
-    if (turn?.phase === PHASE.SELECT_TARGET && turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE) {
-      setFloralDelay(true);
-      const t = setTimeout(() => setFloralDelay(false), 3000);
-      return () => clearTimeout(t);
-    }
-    setFloralDelay(false);
-  }, [turn?.phase, turn?.usedPowerName, turn?.allyTargetId]);
+  /* ── Floral Fragrance: target modal shows immediately for ally pick. A previous 3s hide (floralDelay) caused jitter: first paint had delay=false → modal flashed, then effect hid it. VFX still runs from TeamPanel / client visual. ── */
 
   /* ── Soul Devourer heal skipped: server sets soulDevourerHealSkipAwaitsAck so skeleton resolve does not start until Roger ── */
   const soulDevourerHealSkipAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerHealSkipAwaitsAck);
@@ -1098,10 +1140,23 @@ export default function BattleHUD({
   const shadowCamouflageD4 = turn?.phase === PHASE.RESOLVING && !!(turn as any)?.shadowCamouflageRefillWinFaces?.length;
   const playbackStep = (turn as any)?.playbackStep as any;
   const resolvingHitIndex = (turn as any)?.resolvingHitIndex as number | undefined;
-  const allResolveChecksDone = (resolvingHitIndex != null && resolvingHitIndex >= 1) || soulDevourerDrain || (resolveReady && dodgeReady && critReady && chainReady && coAttackReady);
-  // Same for player and viewer: show damage card only when all resolve dice are done (no overlap; viewer sees same result and timing as player).
+  /** Main attack dice + dodge/crit/chain only — excludes Pomegranate co D12 so master card can show first */
+  const mainResolveChecksDone =
+    (resolvingHitIndex != null && resolvingHitIndex >= 1) ||
+    soulDevourerDrain ||
+    (resolveReady && dodgeReady && critReady && chainReady);
+  /** Full chain: after deferred Pomegranate co, server needs co attack + co defend rolls, then RESOLVING + defRollDone replay before resolveTurn. */
+  const allResolveChecksDone =
+    mainResolveChecksDone &&
+    (!awaitingPomegranateCoAttack ||
+      (turn?.phase === PHASE.RESOLVING &&
+        turn.coAttackRoll != null &&
+        turn.coAttackRoll > 0 &&
+        turn.coDefendRoll != null &&
+        defRollDone));
+  // Same for player and viewer: show damage card only when main resolve dice are done (co D12 runs after master card when Pomegranate defers).
   const resolveVisible = turn?.phase === PHASE.RESOLVING && (
-    (!!attacker && !!defender && allResolveChecksDone) ||
+    (!!attacker && !!defender && mainResolveChecksDone) ||
     (shadowCamouflageD4 && !!attacker)
   );
   const playbackRequestKeyRef = useRef<string | null>(null);
@@ -1115,8 +1170,12 @@ export default function BattleHUD({
     !shadowCamouflageD4 &&
     !!attacker &&
     !!defender &&
-    (allResolveChecksDone || playbackStep || activePlaybackStep || playbackPendingAck)
+    (mainResolveChecksDone || playbackStep || activePlaybackStep || playbackPendingAck)
   );
+  /** Main hit DamageCard must still run when co-attack is deferred (playbackFlowReady is already true — same gap as skipLogPlaybackWhileIdle). */
+  const playbackFlowSuppressesMasterCard =
+    playbackFlowReady &&
+    !(awaitingPomegranateCoAttack && turn?.phase === PHASE.RESOLVING && (turn.coAttackRoll == null || turn.coAttackRoll <= 0));
   useEffect(() => {
     if (!playbackStep) {
       completedPlaybackStepKeyRef.current = null;
@@ -1183,7 +1242,7 @@ export default function BattleHUD({
     };
   }, []);
   useEffect(() => {
-    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
+    if (playbackFlowSuppressesMasterCard || playbackStep || activePlaybackStep || playbackPendingAck) {
       masterDamageCardTurnKeyRef.current = null;
       setShowMasterDamageCard(false);
       return;
@@ -1214,16 +1273,18 @@ export default function BattleHUD({
       masterDamageCardTurnKeyRef.current = null;
       setShowMasterDamageCard(false);
     }
-  }, [battle.roundNumber, battle.currentTurnIndex, battle.log, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
+  }, [battle.roundNumber, battle.currentTurnIndex, battle.log, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackFlowSuppressesMasterCard, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex]);
   // When targets.length === 0 we show no-target modal (with "Waiting for X") in dice-zone; don't also show generic waiting banner
-  const baseWaitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && !floralDelay && targets.length > 0);
+  const baseWaitingVisible = !!(!isMyTurn && turn?.phase === PHASE.SELECT_TARGET && targets.length > 0);
   // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
+  // Pomegranate co log often lands as phase flips to SELECT_ACTION — still drive hit VFX while co card is up.
   const lastResolveVisibleRef = useRef<boolean | null>(null);
+  const hitEffectsResolveVisible = resolveVisible || !!pomegranateCoResolve;
   useEffect(() => {
-    if (lastResolveVisibleRef.current === resolveVisible) return;
-    lastResolveVisibleRef.current = resolveVisible;
-    onResolveVisible?.(resolveVisible);
-  }, [resolveVisible, onResolveVisible]);
+    if (lastResolveVisibleRef.current === hitEffectsResolveVisible) return;
+    lastResolveVisibleRef.current = hitEffectsResolveVisible;
+    onResolveVisible?.(hitEffectsResolveVisible);
+  }, [hitEffectsResolveVisible, onResolveVisible]);
 
   // Soul Devourer: soul floats 2.8s, lands and explodes 0.5s, then heal shows. Heal ready at 3.8s (after explode).
   useEffect(() => {
@@ -1245,8 +1306,9 @@ export default function BattleHUD({
   const resolveBarVisible =
     !(turn?.phase === PHASE.SELECT_ACTION && !isMyTurn) &&
     turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT &&
-    ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0);
+    ((resolveVisible && !shadowCamouflageD4) || !!activePlaybackStep || transientDamageActive || pendingSkeletonCount > 0 || !!pomegranateCoResolve);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
+  const [showPomegranateCoResolve, pomegranateCoResolveExiting] = useFadeTransition(!!pomegranateCoResolve, 250);
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
   // (Firebase may update unrelated fields, causing `battle` to change refs).
   const lastSkeletonHitsKeyRef = useRef<string | null>(null);
@@ -1472,34 +1534,7 @@ export default function BattleHUD({
   }, [showResurrecting]);
 
   // Cache resolve data so content doesn't flicker during exit animation
-  type ResolveCacheType = {
-    atkRoll: number;
-    defRoll: number;
-    atkBonus: number;
-    defBonus: number;
-    atkTotal: number;
-    defTotal: number;
-    isHit: boolean;
-    damage: number;
-    baseDmg: number;
-    shockBonus: number;
-    isPower: boolean;
-    powerName: string;
-    critEligible: boolean;
-    isCrit: boolean;
-    critRoll: number;
-    isDodged: boolean;
-    coAttackHit: boolean;
-    coAttackDamage: number;
-    attackerName: string;
-    attackerTheme: string;
-    defenderName: string;
-    defenderTheme: string;
-    side: PanelSide;
-    shownLogIndex?: number;
-    [key: string]: any;
-  };
-  const resolveCache = useRef<ResolveCacheType>({
+  const resolveCache = useRef<ResolveCacheRow>({
     atkRoll: 0, defRoll: 0, atkBonus: 0, defBonus: 0, atkTotal: 0, defTotal: 0,
     isHit: false, damage: 0, baseDmg: 0, shockBonus: 0,
     isPower: false, powerName: '', critEligible: false, isCrit: false, critRoll: 0,
@@ -1643,7 +1678,6 @@ export default function BattleHUD({
       damage += shockBonus;
 
       const dgd = dodgeRef.current.isDodged;
-      const ca = coAttackRef.current;
 
       const baseDmgFinal = useLogBreakdown && lastEntryForTurn?.baseDmg != null ? lastEntryForTurn.baseDmg : baseDmg;
       const isCritFinal = useLogBreakdown && lastEntryForTurn?.isCrit === true ? true : cd.isCrit;
@@ -1665,7 +1699,7 @@ export default function BattleHUD({
         atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
         isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
         critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll, critRollLabel,
-        isDodged: dgd, coAttackHit: ca.hit, coAttackDamage: ca.damage,
+        isDodged: dgd, coAttackHit: false, coAttackDamage: 0,
         attackerName: attacker.nicknameEng, attackerTheme: attacker.theme[0],
         defenderName: defender.nicknameEng, defenderTheme: defender.theme[0],
         side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
@@ -1677,8 +1711,16 @@ export default function BattleHUD({
   // shows a DamageCard and triggers hit visuals. We track which log entries we've
   // already rendered using `shownLogIndex` to only play new entries.
   // When we have Keraunos playback step, sync that turn's log entry into resolveCache once so bar/card use it (no log parsing in bar/card).
+  // Pomegranate defer: playbackFlowReady is true while still in RESOLVING — if we skip the whole effect, the main-hit log
+  // never merges into resolveCache and co D12 waits on an empty bar/card until refresh.
+  const skipLogPlaybackWhileIdle =
+    (playbackFlowReady &&
+      !(awaitingPomegranateCoAttack && turn?.phase === PHASE.RESOLVING && (turn.coAttackRoll == null || turn.coAttackRoll <= 0))) ||
+    playbackStep ||
+    activePlaybackStep ||
+    playbackPendingAck;
   useEffect(() => {
-    if (playbackFlowReady || playbackStep || activePlaybackStep || playbackPendingAck) {
+    if (skipLogPlaybackWhileIdle) {
       resolveCache.current.shownLogIndex = battle.log?.length || 0;
       return;
     }
@@ -1738,6 +1780,57 @@ export default function BattleHUD({
       setTimeout(() => {
         // Skip Shadow Camouflaging log entry — no damage card, no HP; we show D4 roll UI only
         if (entry.powerUsed === POWER_NAMES.SHADOW_CAMOUFLAGING && entry.defenderId === entry.attackerId && (entry.damage ?? 0) === 0) {
+          return;
+        }
+        // Pomegranate co-attack: its own resolve bar + DamageCard (do not merge into main hit cache)
+        if ((entry as any).isPomegranateCoAttack) {
+          const ae = battle.activeEffects || [];
+          const atkCo = find(teamA, teamB, entry.attackerId);
+          const defCo = find(teamA, teamB, entry.defenderId);
+          const atkBuffCo = getStatModifier(ae, entry.attackerId, MOD_STAT.ATTACK_DICE_UP);
+          const defBuffCo = getStatModifier(ae, entry.defenderId!, MOD_STAT.DEFEND_DICE_UP);
+          const atkRecoveryCo = getStatModifier(ae, entry.attackerId, MOD_STAT.RECOVERY_DICE_UP);
+          const defRecoveryCo = getStatModifier(ae, entry.defenderId!, MOD_STAT.RECOVERY_DICE_UP);
+          const atkTotalFromLog =
+            (entry as any).coAtkTotal ??
+            (entry.attackRoll ?? 0) + (atkCo?.attackDiceUp ?? 0) + atkBuffCo + atkRecoveryCo;
+          const defTotalFromLog =
+            (entry as any).coDefTotal ??
+            (entry.defendRoll ?? 0) + (defCo?.defendDiceUp ?? 0) + defBuffCo + defRecoveryCo;
+          const dmgBuffCo = getStatModifier(ae, entry.attackerId, MOD_STAT.DAMAGE);
+          const baseDmgCo = Math.max(0, (atkCo?.damage ?? 0) + dmgBuffCo);
+          const attackerIsTeamACo = !!(teamA || []).find((f: any) => f.characterId === entry.attackerId);
+          const coRc: ResolveCacheRow = {
+            atkRoll: entry.attackRoll ?? 0,
+            defRoll: entry.defendRoll ?? 0,
+            atkBonus: atkTotalFromLog - (entry.attackRoll ?? 0),
+            defBonus: defTotalFromLog - (entry.defendRoll ?? 0),
+            atkTotal: atkTotalFromLog,
+            defTotal: defTotalFromLog,
+            isHit: !entry.missed,
+            damage: (entry.damage as number) || 0,
+            baseDmg: baseDmgCo,
+            shockBonus: 0,
+            isPower: true,
+            powerName: String(entry.powerUsed || ''),
+            critEligible: false,
+            isCrit: false,
+            critRoll: 0,
+            isDodged: false,
+            coAttackHit: false,
+            coAttackDamage: 0,
+            attackerName: atkCo?.nicknameEng ?? entry.attackerId,
+            attackerTheme: atkCo?.theme?.[0] ?? '#666',
+            defenderName: defCo?.nicknameEng ?? entry.defenderId,
+            defenderTheme: defCo?.theme?.[0] ?? '#666',
+            side: attackerIsTeamACo ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
+          };
+          setPomegranateCoResolve(coRc);
+          onResolveVisible?.(true);
+          const hitTargetIdLog = (entry as any).hitTargetId ?? (battle as any)?.lastHitTargetId ?? entry.defenderId;
+          try {
+            scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: hitTargetIdLog });
+          } catch (_) { }
           return;
         }
         // Turn skipped (no valid target): show card on attacker side, same style as DamageCard
@@ -1813,7 +1906,7 @@ export default function BattleHUD({
 
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
-        if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus) {
+        if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus && !(entry as any).isPomegranateCoAttack) {
           // Jolt Arc: log ไม่มี baseDmg — ใช้ค่าที่ canFillCache เติมไว้ (ไม่เขียนทับ); ถ้ายังไม่มีให้คำนวณจาก caster
           if (isJoltArcEntry) {
             delete (rc as any).baseDmg;
@@ -1875,7 +1968,7 @@ export default function BattleHUD({
       } catch (e) { }
     }, delayAcc + HIT_DISPLAY_MS + 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleLastHitUpdate ref-stable; battle included
-  }, [playbackFlowReady, playbackStep, activePlaybackStep, playbackPendingAck, battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onSkeletonCardShow, onSkeletonCardClear, onMinionHitPulse, turn]);
+  }, [skipLogPlaybackWhileIdle, playbackFlowReady, awaitingPomegranateCoAttack, playbackStep, activePlaybackStep, playbackPendingAck, battle?.log, battle, arenaId, teamA, teamB, teamMinionsA, teamMinionsB, onResolveVisible, onSkeletonCardShow, onSkeletonCardClear, onMinionHitPulse, turn]);
 
   /* ── Winner: show only after all minion/skeleton hit effects have played ── */
   if (winner) {
@@ -1969,6 +2062,18 @@ export default function BattleHUD({
     turn?.phase === PHASE.RESOLVING &&
     (turn.defendRoll != null || preRolledDefend != null) &&
     !defRollDone &&
+    !!turn?.defenderId &&
+    !(awaitingPomegranateCoAttack && turn.coDefendRoll != null);
+
+  /** RESOLVING after ROLLING_POMEGRANATE_CO_DEFEND — same idea as embodyDefenderForDefReplay but for co D12 only (not main defendRoll). */
+  const embodyDefenderForPomCoDefReplay =
+    !!devUiActAsAttacker &&
+    isPlaybackDriver &&
+    !isViewer &&
+    turn?.phase === PHASE.RESOLVING &&
+    awaitingPomegranateCoAttack &&
+    turn.coDefendRoll != null &&
+    !defRollDone &&
     !!turn?.defenderId;
 
   /** Play-all: myId follows defender in ROLLING_DEFEND — keep atk-my-roll until atkRollDone (showMyAttackReplay). */
@@ -1983,12 +2088,9 @@ export default function BattleHUD({
   /** Play-all host already sees attack in atk-my-roll — hide duplicate atk-defend-phase auto replay. */
   const playbackHostHideEchoAttackReplay = !!devUiActAsAttacker && isPlaybackDriver && !isViewer;
 
-  const coAttackCasterFighter = coAttackRef.current.casterId
-    ? find(teamA, teamB, coAttackRef.current.casterId)
-    : undefined;
-  const isMyCoAttackRoll =
-    !!coAttackCasterFighter &&
-    (coAttackCasterFighter.characterId === myId ||
+  const isMyPomegranateCoAttack =
+    !!pomCoCasterFighter &&
+    (pomCoCasterFighter.characterId === myId ||
       (!!devPlayAllFightersSelf && isPlaybackDriver && !isViewer));
 
   return (
@@ -2012,7 +2114,7 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. Disoriented: no manual target — server picks at random. */}
-      {turn.phase === PHASE.SELECT_TARGET && !floralDelay && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {turn.phase === PHASE.SELECT_TARGET && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
             <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -2082,6 +2184,13 @@ export default function BattleHUD({
           ) : targets.length > 0 ? (
             (() => {
               const isAllyHealTargetSelect = !!(turn?.usedPowerIndex != null && attacker && !turn?.allyTargetId && attacker.powers[turn.usedPowerIndex]?.target === TARGET_TYPES.ALLY && attacker.powers[turn.usedPowerIndex]?.name !== POWER_NAMES.DEATH_KEEPER);
+              const selectedPoem = (turn as { selectedPoem?: string }).selectedPoem;
+              const afflictionVerseTag =
+                turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM &&
+                selectedPoem &&
+                (IMPRECATED_POEM_VERSE_TAGS as readonly string[]).includes(selectedPoem)
+                  ? selectedPoem
+                  : null;
               return (
                 <TargetSelectModal
                   attackerName={attacker?.nicknameEng ?? ''}
@@ -2095,6 +2204,7 @@ export default function BattleHUD({
                   eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
                   activeEffects={battle?.activeEffects ?? []}
                   healTargetSelect={isAllyHealTargetSelect}
+                  afflictionVerseTag={afflictionVerseTag}
                 />
               );
             })()
@@ -2499,7 +2609,7 @@ export default function BattleHUD({
       })()}
 
       {/* Dice rolling (attack, defend, resolving replay). In viewer mode hide when damage card is showing so blocked/hit card doesn't overlap dice. */}
-      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING) && !shadowCamouflageD4 && !(isViewer && resolveVisible) && (
+      {turn && (turn.phase === PHASE.ROLLING_ATTACK || turn.phase === PHASE.ROLLING_DEFEND || turn.phase === PHASE.RESOLVING || turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK || turn.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND) && !shadowCamouflageD4 && !(isViewer && resolveVisible) && (
         <DiceModal
           turn={turn}
           attacker={attacker}
@@ -2508,12 +2618,14 @@ export default function BattleHUD({
           isMyDefend={!!isMyDefend}
           isDefenderDodgeInteractive={isDefenderDodgeInteractive}
           embodyDefenderForDefReplay={embodyDefenderForDefReplay}
+          embodyDefenderForPomCoDefReplay={embodyDefenderForPomCoDefReplay}
           embodyAttackerForAttackReplay={embodyAttackerForAttackReplay}
           playbackHostHideEchoAttackReplay={playbackHostHideEchoAttackReplay}
           atkSide={atkSide}
           defSide={defSide}
           preRolledAttack={preRolledAttack}
           preRolledDefend={preRolledDefend}
+          preRolledPomCoDefend={preRolledPomCoDefend}
           onAttackRoll={handleAttackRollResult}
           onDefendRoll={handleDefendRollResult}
           onAttackRollStart={handleAttackRollStart}
@@ -2562,14 +2674,15 @@ export default function BattleHUD({
           onDodgeRollResult={handleDodgeRollResult}
           onDodgeRollStart={handleDodgeRollStart}
           onDodgeReplayEnd={onDodgeReplayEnd}
-          coAttackEligible={coAttackEligible}
-          coAttackReady={coAttackReady}
-          coAttackRollResult={coAttackRollResult}
-          onCoAttackRollResult={handleCoAttackRollResult}
-          onCoAttackRollStart={handleCoAttackRollStart}
-          onCoAttackReplayEnd={onCoAttackReplayEnd}
-          coAttackCaster={coAttackCasterFighter}
-          isMyCoAttack={isMyCoAttackRoll}
+          coAttackCaster={pomCoCasterFighter}
+          isMyPomegranateCoAttack={isMyPomegranateCoAttack}
+          onPomegranateCoAttackRoll={handlePomegranateCoAttackRoll}
+          onPomegranateCoDefendRoll={handlePomegranateCoDefendRoll}
+          pomCoAtkBuffMod={
+            turn?.coAttackerId
+              ? getStatModifier(battle.activeEffects || [], turn.coAttackerId, MOD_STAT.ATTACK_DICE_UP)
+              : 0
+          }
           atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
           defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
           skeletonHitActive={!!(transientSkeletonCard || activePlaybackStep?.isMinionHit)}
@@ -2670,12 +2783,48 @@ export default function BattleHUD({
                     </span>
                   )}
                   <span className="bhud__resolve-dmg">{showPowerName ? 'INVOKED!' : `-${rc.damage} DMG`}</span>
-                  {rc.coAttackHit && rc.coAttackDamage > 0 && (
-                    <span className="bhud__resolve-dmg">Co-Attack: -{rc.coAttackDamage} DMG</span>
-                  )}
                 </>
               ) : (
                 <span className="bhud__resolve-miss">{showPowerName ? 'RESISTED!' : 'BLOCKED!'}</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Pomegranate co-attack: separate ATK vs DEF bar (own log line) */}
+      {showPomegranateCoResolve && pomegranateCoResolve && !shadowCamouflageD4 && (() => {
+        const rc = pomegranateCoResolve;
+        const showPowerNameCo = rc.isPower && !!rc.powerName;
+        return (
+          <div className={`bhud__resolve ${rc.isHit ? '' : 'bhud__resolve--miss'} ${showPowerNameCo ? 'bhud__resolve--power' : ''} ${pomegranateCoResolveExiting ? 'bhud__resolve--exit' : ''}`}>
+            <div className="bhud__resolve-info">
+              {showPowerNameCo && (
+                <span className="bhud__resolve-power-name">{rc.powerName}</span>
+              )}
+              <div className="bhud__resolve-rolls">
+                <span className="bhud__resolve-roll">
+                  <span className="bhud__resolve-roll-label">ATK</span>
+                  <span className="bhud__resolve-roll-val">{rc.atkRoll}</span>
+                  {rc.atkBonus > 0 && (
+                    <span className="bhud__resolve-roll-bonus">+{rc.atkBonus}</span>
+                  )}
+                  <span className="bhud__resolve-roll-total">= {rc.atkTotal}</span>
+                </span>
+                <span className="bhud__resolve-vs">vs</span>
+                <span className="bhud__resolve-roll">
+                  <span className="bhud__resolve-roll-label">DEF</span>
+                  <span className="bhud__resolve-roll-val">{rc.defRoll}</span>
+                  {rc.defBonus > 0 && (
+                    <span className="bhud__resolve-roll-bonus">+{rc.defBonus}</span>
+                  )}
+                  <span className="bhud__resolve-roll-total">= {rc.defTotal}</span>
+                </span>
+              </div>
+              {rc.isHit ? (
+                <span className="bhud__resolve-dmg">-{rc.damage} DMG</span>
+              ) : (
+                <span className="bhud__resolve-miss">{showPowerNameCo ? 'RESISTED!' : 'BLOCKED!'}</span>
               )}
             </div>
           </div>
@@ -2733,6 +2882,20 @@ export default function BattleHUD({
           />
         );
       })()}
+
+      {pomegranateCoResolve && showPomegranateCoResolve && !activePlaybackStep && (
+        <DamageCard
+          key={`pom-co-${battle.roundNumber}-${battle.currentTurnIndex}-${pomegranateCoResolve.attackerId}-${pomegranateCoResolve.damage}-${pomegranateCoResolve.isHit ? 'hit' : 'miss'}`}
+          data={pomegranateCoResolve as any}
+          exiting={pomegranateCoResolveExiting}
+          side={pomegranateCoResolve.side}
+          displayMs={MINION_RESOLVE_DISPLAY_MS}
+          onDisplayComplete={() => {
+            setPomegranateCoResolve(null);
+            onResolveVisible?.(false);
+          }}
+        />
+      )}
 
       {/* Transient DamageCard for minion/skeleton hits — show whenever we have skeleton card data during resolve (buffer drives card+hit) */}
       {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && (
@@ -2962,7 +3125,24 @@ export default function BattleHUD({
                     <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                   </>
                 )}
-                {entry.damage > 0 && <span className="bhud__log-hit">{entry.damage} dmg</span>}
+                {entry.damage > 0 ? (
+                  <span className="bhud__log-hit">{entry.damage} dmg</span>
+                ) : entry.isDodged && !noTarget ? (
+                  <>
+                    <span className="bhud__log-sep">—</span>
+                    <span>Dodged</span>
+                  </>
+                ) : entry.missed && !noTarget ? (
+                  <>
+                    <span className="bhud__log-sep">—</span>
+                    <span>{defName} blocked {atkName}</span>
+                  </>
+                ) : !noTarget ? (
+                  <>
+                    <span className="bhud__log-sep">—</span>
+                    <span className="bhud__log-hit">{entry.damage} dmg</span>
+                  </>
+                ) : null}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
               </div>
             );
@@ -2977,7 +3157,9 @@ export default function BattleHUD({
                 <span className="bhud__log-sep">→</span>
                 <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                 <span className="bhud__log-sep">—</span>
-                {entry.missed ? (
+                {entry.isDodged ? (
+                  <span>Dodged</span>
+                ) : entry.missed ? (
                   <span>{defName} blocked {atkName}</span>
                 ) : (
                   <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
@@ -3002,7 +3184,9 @@ export default function BattleHUD({
                 <span className="bhud__log-bonus">+{defFighter!.defendDiceUp}={entry.defendRoll + defFighter!.defendDiceUp}</span>
               )}
               <span className="bhud__log-sep">—</span>
-              {entry.missed ? (
+              {entry.isDodged ? (
+                <span>Dodged</span>
+              ) : entry.missed ? (
                 <span>{defName} blocked {atkName}</span>
               ) : (
                 <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>

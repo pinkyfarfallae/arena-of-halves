@@ -28,6 +28,8 @@ interface Props {
   isDefenderDodgeInteractive?: boolean;
   /** Dev UI: myId follows attacker in RESOLVING — still show defender’s D12 replay until defRollDone (same as dodge embody). */
   embodyDefenderForDefReplay?: boolean;
+  /** Play-all: myId follows attacker during pomegranate co-defend RESOLVING replay (co D12 only). */
+  embodyDefenderForPomCoDefReplay?: boolean;
   /** Play-all: myId follows defender in ROLLING_DEFEND — still show atk-my-roll until atkRollDone. */
   embodyAttackerForAttackReplay?: boolean;
   /** Play-all host: suppress second attack DiceRoller (atk-defend-phase) that replays the same roll. */
@@ -41,6 +43,7 @@ interface Props {
   preRolledDefend?: number | null;
   onAttackRollStart?: () => void;
   onDefendRollStart?: () => void;
+  preRolledPomCoDefend?: number | null;
   onAtkRollDone: () => void;
   onDefRollDone: () => void;
   atkRollDone: boolean;
@@ -75,16 +78,13 @@ interface Props {
   onDodgeRollResult?: (roll: number) => void;
   onDodgeRollStart?: () => void;
   onDodgeReplayEnd?: () => void;
-  /* Pomegranate's Oath co-attack D12 */
-  coAttackEligible?: boolean;
-  coAttackReady?: boolean;
-  coAttackRollResult?: number;
-  /** True when this client should tap to roll (co-attack caster, or play-all host). Not the same as attacker — caster is usually the oath source. */
-  isMyCoAttack?: boolean;
-  onCoAttackRollResult?: (roll: number) => void;
-  onCoAttackRollStart?: () => void;
-  onCoAttackReplayEnd?: () => void;
+  /** Pomegranate co-attack: oath caster (D12) / same defender (defend) in dedicated phases */
   coAttackCaster?: FighterState;
+  isMyPomegranateCoAttack?: boolean;
+  onPomegranateCoAttackRoll?: (roll: number) => void;
+  onPomegranateCoDefendRoll?: (roll: number) => void;
+  /** Atk dice-up modifier for co caster (may differ from main attacker) */
+  pomCoAtkBuffMod?: number;
   /* Active effect buff modifiers */
   atkBuffMod?: number;
   defBuffMod?: number;
@@ -100,20 +100,23 @@ function themeStyle(f?: FighterState): React.CSSProperties {
 
 export default function DiceModal({
   turn, attacker, defender,
-  isMyTurn, isMyDefend, isDefenderDodgeInteractive, embodyDefenderForDefReplay = false, embodyAttackerForAttackReplay = false, playbackHostHideEchoAttackReplay = false, atkSide, defSide,
-  preRolledAttack, preRolledDefend,
+  isMyTurn, isMyDefend, isDefenderDodgeInteractive, embodyDefenderForDefReplay = false, embodyDefenderForPomCoDefReplay = false, embodyAttackerForAttackReplay = false, playbackHostHideEchoAttackReplay = false, atkSide, defSide,
+  preRolledAttack, preRolledDefend, preRolledPomCoDefend = null,
   onAttackRoll, onDefendRoll, onAttackRollStart, onDefendRollStart, onAtkRollDone, onDefRollDone,
   atkRollDone, defRollDone, defendReady, resolveReady, isViewer = false,
   critEligible, critReady, critWinFaces, critRollResult, onCritRollResult, onCritRollStart, onCritReplayEnd,
   chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult, onChainRollStart, onChainReplayEnd,
   dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
-  coAttackEligible, coAttackReady, coAttackRollResult, isMyCoAttack = false, onCoAttackRollResult, onCoAttackRollStart, onCoAttackReplayEnd, coAttackCaster,
+  coAttackCaster, isMyPomegranateCoAttack = false, onPomegranateCoAttackRoll, onPomegranateCoDefendRoll,
+  pomCoAtkBuffMod = 0,
   atkBuffMod = 0, defBuffMod = 0,
   skeletonHitActive = false,
 }: Props) {
   const { phase } = turn;
+  const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
   const atkTheme = themeStyle(attacker);
   const defTheme = themeStyle(defender);
+  const pomCoTheme = themeStyle(coAttackCaster);
   const dodgeAsDefender = isDefenderDodgeInteractive ?? isMyDefend;
 
   // ── Stable display state: only advance forward, never revert (fixes jitter when phase/turn updates arrive out of order) ──
@@ -131,6 +134,7 @@ export default function DiceModal({
   const viewerAttackReplayShownRef = useRef(false);
   /** True once this client showed "my defend" in ROLLING_DEFEND; keeps def-my-roll mounted across RESOLVING before server echoes defendRoll (avoids unmount → remount → replay). */
   const wasRollingDefendAsMeRef = useRef(false);
+  const wasRollingPomCoDefendAsMeRef = useRef(false);
   if (turnKey !== turnKeyRef.current) {
     turnKeyRef.current = turnKey;
     latchedPhaseRef.current = phase;
@@ -138,9 +142,13 @@ export default function DiceModal({
     latchedDefendRollRef.current = turn.defendRoll ?? null;
     viewerAttackReplayShownRef.current = false;
     wasRollingDefendAsMeRef.current = false;
+    wasRollingPomCoDefendAsMeRef.current = false;
   }
   if (phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) {
     wasRollingDefendAsMeRef.current = true;
+  }
+  if (phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND && isMyDefend) {
+    wasRollingPomCoDefendAsMeRef.current = true;
   }
   useEffect(() => {
     setShowDefenderWaiting(false);
@@ -154,7 +162,8 @@ export default function DiceModal({
     !isMyDefend &&
     !embodyDefenderForDefReplay &&
     !(turn as any).soulDevourerDrain &&
-    !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
+    !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) &&
+    !(awaitingPom && turn.coDefendRoll != null);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn;
   useEffect(() => {
     if (!resolvingWithNpcDefend) {
@@ -249,25 +258,209 @@ export default function DiceModal({
   // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends.
   // Do not require turn.defendRoll immediately — phase can flip before Firebase echoes the roll; use preRolledDefend / wasRollingDefendAsMeRef so DiceRoller never unmounts in that gap.
   const hasDefendResultForReplay =
-    turn?.defendRoll != null || preRolledDefend != null || (isMyDefend && wasRollingDefendAsMeRef.current);
+    turn?.defendRoll != null ||
+    preRolledDefend != null ||
+    (isMyDefend && wasRollingDefendAsMeRef.current) ||
+    (awaitingPom && turn.coDefendRoll != null);
   const showMyDefendReplay =
     phase === PHASE.RESOLVING &&
     !defRollDone &&
     (isMyDefend || embodyDefenderForDefReplay) &&
-    hasDefendResultForReplay;
+    hasDefendResultForReplay &&
+    !(awaitingPom && turn.coDefendRoll != null);
+  const hasPomCoDefendResultForReplay =
+    turn.coDefendRoll != null ||
+    preRolledPomCoDefend != null ||
+    ((isMyDefend || embodyDefenderForPomCoDefReplay) && wasRollingPomCoDefendAsMeRef.current);
+  const showMyPomCoDefendReplay =
+    phase === PHASE.RESOLVING &&
+    awaitingPom &&
+    !defRollDone &&
+    (isMyDefend || embodyDefenderForPomCoDefReplay) &&
+    hasPomCoDefendResultForReplay;
+
+  /** Same idea as showMyAttackReplay: keep co D12 on screen through ROLLING_POMEGRANATE_CO_DEFEND until atkRollDone + PLAYER_ROLL_RESULT_VIEW_MS. */
+  const hasPomCoAttackRoll = turn.coAttackRoll != null && turn.coAttackRoll > 0;
+  const showMyPomCoAttackReplay =
+    phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND &&
+    !atkRollDone &&
+    isMyPomegranateCoAttack &&
+    hasPomCoAttackRoll;
+  /** Opponent / viewer / main attacker while ally rolls co — was only shown in CO_ATTACK, so phase flip removed dice before result hold. */
+  const showPomCoAttackOppReplay =
+    phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND &&
+    !atkRollDone &&
+    !isMyPomegranateCoAttack &&
+    hasPomCoAttackRoll;
+  const showPomCoAttackZone =
+    !!coAttackCaster &&
+    (phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ||
+      showMyPomCoAttackReplay ||
+      showPomCoAttackOppReplay);
 
   useEffect(() => {
-    if (!showMyAttackReplay) setAtkReplayLanded(false);
-  }, [showMyAttackReplay]);
+    if (!showMyAttackReplay && !showMyPomCoAttackReplay && !showPomCoAttackOppReplay) setAtkReplayLanded(false);
+  }, [showMyAttackReplay, showMyPomCoAttackReplay, showPomCoAttackOppReplay]);
   useEffect(() => {
-    if (!showMyDefendReplay) setDefReplayLanded(false);
-  }, [showMyDefendReplay]);
+    if (!showMyDefendReplay && !showMyPomCoDefendReplay) setDefReplayLanded(false);
+  }, [showMyDefendReplay, showMyPomCoDefendReplay]);
   useEffect(() => {
-    if (defRollDone) wasRollingDefendAsMeRef.current = false;
+    if (defRollDone) {
+      wasRollingDefendAsMeRef.current = false;
+      wasRollingPomCoDefendAsMeRef.current = false;
+    }
   }, [defRollDone]);
 
   return (
     <>
+      {/* ── Pomegranate co-attack: caster D12 — extend through CO_DEFEND until atkRollDone (match main attack → defend handoff) ── */}
+      {showPomCoAttackZone && coAttackCaster && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+          <div className="bhud__dice-modal" style={pomCoTheme}>
+            <span className="bhud__dice-label">Co-Attack</span>
+            <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
+            {showMyPomCoAttackReplay ? (
+              <DiceRoller
+                key="pom-co-atk-caster-replay"
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={turn.coAttackRoll ?? undefined}
+                autoRoll={false}
+                hidePrompt
+                themeColors={dieColors(coAttackCaster)}
+                onRollEnd={() => {
+                  setAtkReplayLanded(true);
+                  onAtkRollDone();
+                }}
+              />
+            ) : showPomCoAttackOppReplay ? (
+              <DiceRoller
+                key={`pom-co-atk-opp-replay-${turn.coAttackRoll}`}
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={turn.coAttackRoll}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(coAttackCaster)}
+                onRollEnd={() => {
+                  setAtkReplayLanded(true);
+                  onAtkRollDone();
+                }}
+              />
+            ) : phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ? (
+              isMyPomegranateCoAttack ? (
+                <DiceRoller
+                  key="pom-co-atk"
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  fixedResult={turn.coAttackRoll != null && turn.coAttackRoll > 0 ? turn.coAttackRoll : undefined}
+                  autoRoll={turn.coAttackRoll != null && turn.coAttackRoll > 0}
+                  hidePrompt
+                  themeColors={dieColors(coAttackCaster)}
+                  onRollResult={onPomegranateCoAttackRoll}
+                  onRollEnd={() => {
+                    setAtkReplayLanded(true);
+                    onAtkRollDone();
+                  }}
+                />
+              ) : turn.coAttackRoll != null && turn.coAttackRoll > 0 ? (
+                <DiceRoller
+                  key={`pom-co-atk-replay-${turn.coAttackRoll}`}
+                  className="bhud__dice-roller"
+                  lockedDie={12}
+                  fixedResult={turn.coAttackRoll}
+                  autoRoll
+                  hidePrompt
+                  themeColors={dieColors(coAttackCaster)}
+                  onRollEnd={() => {
+                    setAtkReplayLanded(true);
+                    onAtkRollDone();
+                  }}
+                />
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )
+            ) : null}
+            <span className="bhud__dice-bonus">
+              {showMyPomCoAttackReplay || showPomCoAttackOppReplay
+                ? (!(atkRollDone || atkReplayLanded)
+                    ? 'rolling...'
+                    : (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod > 0
+                      ? `+${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod} → ${(turn.coAttackRoll ?? 0) + (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`
+                      : String(turn.coAttackRoll ?? ''))
+                : phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK && isMyPomegranateCoAttack
+                  ? (!(atkRollDone || atkReplayLanded) && (turn.coAttackRoll == null || turn.coAttackRoll <= 0)
+                      ? `dice up: ${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`
+                      : !(atkRollDone || atkReplayLanded)
+                        ? 'rolling...'
+                        : (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod > 0
+                          ? `+${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod} → ${(turn.coAttackRoll ?? 0) + (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`
+                          : String(turn.coAttackRoll ?? ''))
+                  : phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK
+                    ? !hasPomCoAttackRoll
+                      ? `dice up: ${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`
+                      : !(atkRollDone || atkReplayLanded)
+                        ? 'rolling...'
+                        : (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod > 0
+                          ? `+${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod} → ${(turn.coAttackRoll ?? 0) + (coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`
+                          : String(turn.coAttackRoll ?? '')
+                    : `dice up: ${(coAttackCaster.attackDiceUp ?? 0) + pomCoAtkBuffMod}`}
+            </span>
+          </div>
+        </div>
+      )}
+      {/* ── Pomegranate co-attack: defender vs co D12 (one roller: ROLLING_* → RESOLVING, same key as main def-my-roll pattern) ── */}
+      {(((phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND && isMyDefend) || showMyPomCoDefendReplay) && defender && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+          <div className="bhud__dice-modal" style={defTheme}>
+            <span className="bhud__dice-label">Co vs Defense</span>
+            <span className="bhud__dice-sub">{defender.nicknameEng}</span>
+            <DiceRoller
+              key="pom-co-def-my-roll"
+              className="bhud__dice-roller"
+              lockedDie={12}
+              fixedResult={
+                showMyPomCoDefendReplay
+                  ? (preRolledPomCoDefend ?? turn.coDefendRoll ?? undefined)
+                  : (preRolledPomCoDefend ?? undefined)
+              }
+              autoRoll={false}
+              accentColor={defender?.theme[9]}
+              themeColors={dieColors(defender)}
+              onRollResult={showMyPomCoDefendReplay ? undefined : onPomegranateCoDefendRoll}
+              onRollEnd={() => {
+                if (showMyPomCoDefendReplay) setDefReplayLanded(true);
+                onDefRollDone();
+              }}
+              hidePrompt
+            />
+            <span className="bhud__dice-bonus">
+              {showMyPomCoDefendReplay
+                ? (!(defRollDone || defReplayLanded)
+                    ? 'rolling...'
+                    : ((defender.defendDiceUp ?? 0) + defBuffMod) > 0
+                      ? `+${(defender.defendDiceUp ?? 0) + defBuffMod} → ${(turn.coDefendRoll ?? preRolledPomCoDefend ?? 0) + (defender.defendDiceUp ?? 0) + defBuffMod}`
+                      : String(turn.coDefendRoll ?? preRolledPomCoDefend))
+                : `dice up: ${(defender.defendDiceUp ?? 0) + defBuffMod}`}
+            </span>
+          </div>
+        </div>
+      ))}
+      {phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND && defender && !isMyDefend && (
+        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+          <div className="bhud__dice-modal" style={defTheme}>
+            <span className="bhud__dice-label">Co vs Defense</span>
+            <span className="bhud__dice-sub">{defender.nicknameEng}</span>
+            <div className="bhud__dice-roller bhud__dice-roller--waiting">
+              <div className="bhud__roll-waiting-spinner" />
+            </div>
+            <span className="bhud__dice-bonus">dice up: {(defender.defendDiceUp ?? 0) + defBuffMod}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── ROLLING ATTACK ── */}
       {/* My attack: one block so DiceRoller never remounts; show from ROLLING_ATTACK until atkRollDone after submit */}
       {((phase === PHASE.ROLLING_ATTACK && isMyTurn) || showMyAttackReplay) && (
@@ -379,8 +572,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll. Hide when power does not allow defend or when hit is on skeleton (non-defensible). ── */}
-      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && (
+      {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). ── */}
+      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(awaitingPom && turn.coDefendRoll != null) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -404,6 +597,41 @@ export default function DiceModal({
           </div>
         </div>
       )}
+
+      {/* RESOLVING — opponent/viewer: Pomegranate co defend replay (separate from main defendRoll) */}
+      {phase === PHASE.RESOLVING &&
+        awaitingPom &&
+        turn.coDefendRoll != null &&
+        !isMyDefend &&
+        !embodyDefenderForDefReplay &&
+        !embodyDefenderForPomCoDefReplay &&
+        atkRollDone &&
+        defender && (
+          <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+            <div className="bhud__dice-modal" style={defTheme}>
+              <span className="bhud__dice-label">Co vs Defense</span>
+              <span className="bhud__dice-sub">{defender.nicknameEng}</span>
+              <DiceRoller
+                key="pom-co-def-opp"
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={turn.coDefendRoll}
+                accentColor={defender?.theme[9]}
+                themeColors={dieColors(defender)}
+                autoRoll
+                hidePrompt
+                onRollEnd={onDefRollDone}
+              />
+              <span className="bhud__dice-bonus">
+                {!defRollDone
+                  ? 'rolling...'
+                  : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
+                    ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${turn.coDefendRoll + (defender?.defendDiceUp ?? 0) + defBuffMod}`
+                    : turn.coDefendRoll}
+              </span>
+            </div>
+          </div>
+        )}
 
       {/* ── D4 DODGE CHECK (Pomegranate's Oath) — after defend replay, before crit ── */}
       {phase === PHASE.RESOLVING && resolveReady && !dodgeReady && dodgeEligible && (
@@ -518,45 +746,6 @@ export default function DiceModal({
               </div>
             )}
             <span className="bhud__dice-bonus">chain: {chainWinFaces?.sort((a, b) => a - b).join(', ') || '—'}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── D12 CO-ATTACK (Pomegranate's Oath) — after chain, before resolve bar ── */}
-      {phase === PHASE.RESOLVING && resolveReady && critReady && chainReady && !coAttackReady && coAttackEligible && coAttackCaster && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <div className="bhud__dice-modal" style={themeStyle(coAttackCaster)}>
-            <span className="bhud__dice-label">Co-Attack</span>
-            <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
-            {isMyCoAttack ? (
-              <DiceRoller
-                key="coatk-d12"
-                className="bhud__dice-roller"
-                lockedDie={12}
-                fixedResult={(coAttackRollResult ?? 0) > 0 ? coAttackRollResult : undefined}
-                autoRoll={(coAttackRollResult ?? 0) > 0}
-                hidePrompt
-                themeColors={dieColors(coAttackCaster)}
-                onRollStart={onCoAttackRollStart}
-                onRollEnd={onCoAttackReplayEnd}
-              />
-            ) : (coAttackRollResult ?? 0) > 0 ? (
-              <DiceRoller
-                key={`coatk-replay-${coAttackRollResult}`}
-                className="bhud__dice-roller"
-                lockedDie={12}
-                fixedResult={coAttackRollResult}
-                autoRoll
-                hidePrompt
-                themeColors={dieColors(coAttackCaster)}
-                onRollEnd={onCoAttackReplayEnd}
-              />
-            ) : (
-              <div className="bhud__dice-roller bhud__dice-roller--waiting">
-                <div className="bhud__roll-waiting-spinner" />
-              </div>
-            )}
-            <span className="bhud__dice-bonus">co-attack</span>
           </div>
         </div>
       )}

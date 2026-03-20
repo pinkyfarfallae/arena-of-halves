@@ -1,4 +1,4 @@
-import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
+import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey, type TurnAction } from '../constants/battle';
 import { SeasonKey } from '../data/seasons';
 import { Theme25 } from './character';
 import { Deity } from './deity';
@@ -160,8 +160,10 @@ export interface TurnState {
   dodgeRoll?: number;
   dodgeWinFaces?: number[];
 
-  /* Pomegranate's Oath — co-attack D12 (written by BattleHUD before resolve) */
+  /* Pomegranate's Oath — co-attack dice (server + client; own attack → defend → resolving like main hit) */
   coAttackRoll?: number;
+  /** Defender's roll for the co-attack hit line only (main turn still uses defendRoll). */
+  coDefendRoll?: number;
   coAttackerId?: string;
   coAttackHit?: boolean;
   coAttackDamage?: number;
@@ -220,6 +222,23 @@ export interface TurnState {
   attackRollStartedAt?: number;
   /** When current player started rolling defend dice (timestamp) — so viewers can show rolling state in sync */
   defendRollStartedAt?: number;
+
+  /** Main hit committed; waiting for Pomegranate co-attack D12 (ally spirit only; self-target oath has no co-attack) */
+  awaitingPomegranateCoAttack?: boolean;
+  /** Snapshot for continuing resolve after deferred co-attack (same turn) */
+  pomegranateDeferredCtx?: {
+    hit: boolean;
+    isDodged: boolean;
+    soulDevourerDrain: boolean;
+    baseDmg: number;
+    defenderHpAfter: number;
+    dmg: number;
+    attackerHasRapidFire: boolean;
+    action?: TurnAction;
+    isSelfBuffPower: boolean;
+    defTotal: number;
+    isCrit: boolean;
+  };
 }
 
 /** A log entry for the battle feed */
@@ -270,6 +289,11 @@ export interface BattleLogEntry {
   hitTargetId?: string;
   /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
   isMinionHit?: boolean;
+  /** Pomegranate's Oath: separate log line for spirit co-attack (after main hit line). */
+  isPomegranateCoAttack?: boolean;
+  /** Co-attack vs same defense total used for the main hit (for resolve bar ATK vs DEF). */
+  coAtkTotal?: number;
+  coDefTotal?: number;
   /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
   rapidFire?: boolean;
   /** ช็อตเสริมดีเฟ้นใหม่ไม่ได้ — log มี attackRoll/defendRoll 0 */
