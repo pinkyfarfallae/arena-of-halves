@@ -1,4 +1,4 @@
-import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey, type TurnAction } from '../constants/battle';
+import { ArenaRole, PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey, type TurnAction } from '../constants/battle';
 import { SeasonKey } from '../data/seasons';
 import { Theme25 } from './character';
 import { Deity } from './deity';
@@ -322,7 +322,7 @@ export interface BattleState {
 /** Host assigns a player slot to a specific demigod; join by code places them on that team */
 export interface InviteReservation {
   characterId: string;
-  team: 'teamA' | 'teamB';
+  team: ArenaRole;
 }
 
 /** The battle room stored in Firebase */

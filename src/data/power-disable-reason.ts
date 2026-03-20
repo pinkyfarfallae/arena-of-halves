@@ -1,3 +1,4 @@
+import { ARENA_ROLE } from '../constants/battle';
 import { EFFECT_TAGS } from '../constants/effectTags';
 import { POWER_NAMES } from '../constants/powers';
 
@@ -113,7 +114,7 @@ export function getDisabledPowersAndReasons(params: GetDisabledPowersParams): Di
   }
 
   const attackerTeamMinions =
-    (attackerTeam === 'teamA' ? teamMinionsA : teamMinionsB) ?? [];
+    (attackerTeam === ARENA_ROLE.TEAM_A ? teamMinionsA : teamMinionsB) ?? [];
   const skeletonCountFromMinions = Array.isArray(attackerTeamMinions)
     ? attackerTeamMinions.filter((m) => m?.masterId === attackerId).length
     : 0;

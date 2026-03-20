@@ -22,7 +22,7 @@ import {
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../constants/effectTags';
 import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../constants/powers';
-import { ARENA_PATH, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
+import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { SKILL_UNLOCK } from '../constants/character';
 import { SEASON_KEYS, SeasonKey } from '../data/seasons';
@@ -458,7 +458,7 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
     reservations.find((r) => r.characterId.toLowerCase() === single.characterId.toLowerCase());
 
   if (matchReservation && single) {
-    const toA = matchReservation.team === 'teamA';
+    const toA = matchReservation.team === ARENA_ROLE.TEAM_A;
     const members = toA ? teamAMembers : teamBMembers;
     const max = toA ? maxA : maxB;
     if (members.length + 1 > max) return null;

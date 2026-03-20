@@ -12,7 +12,7 @@ import AresHelmet from '../../icons/AresHelmet';
 import NPCTeamSelection from './NPCTeamSelection/NPCTeamSelection';
 import './ConfigArenaModal.scss';
 import { COPY_TYPE, type CopyType } from '../../../../constants/lobby';
-import { ARENA_PATH, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../constants/battle';
+import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../constants/battle';
 import { CHARACTER } from '../../../../constants/characters';
 import { DEITY } from '../../../../constants/deities';
 
@@ -86,7 +86,7 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
   useEffect(() => {
     const t = preservedRoomLabel?.trim();
     if (!t) return;
-    update(ref(db, `arenas/${arenaId}`), { roomName: t }).catch(() => {});
+    update(ref(db, `arenas/${arenaId}`), { roomName: t }).catch(() => { });
   }, [arenaId, preservedRoomLabel]);
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
@@ -178,12 +178,12 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
       membersA = [player, ...selectedAlliesA.filter(isNpcFighter)];
       const invitesA: InviteReservation[] = selectedAlliesA
         .filter((f) => !isNpcFighter(f))
-        .map((f) => ({ characterId: f.characterId, team: 'teamA' }));
+        .map((f) => ({ characterId: f.characterId, team: ARENA_ROLE.TEAM_A }));
 
       membersB = selectedB.filter(isNpcFighter);
       const invitesB: InviteReservation[] = selectedB
         .filter((f) => !isNpcFighter(f))
-        .map((f) => ({ characterId: f.characterId, team: 'teamB' }));
+        .map((f) => ({ characterId: f.characterId, team: ARENA_ROLE.TEAM_B }));
 
       inviteReservations = [...invitesA, ...invitesB];
     }
