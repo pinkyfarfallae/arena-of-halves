@@ -24,6 +24,14 @@ interface Props {
   defender?: FighterState;
   isMyTurn: boolean;
   isMyDefend: boolean;
+  /** When set, overrides isMyDefend for Pomegranate dodge D4 only (play-all: myId follows attacker during RESOLVING replay). */
+  isDefenderDodgeInteractive?: boolean;
+  /** Dev UI: myId follows attacker in RESOLVING — still show defender’s D12 replay until defRollDone (same as dodge embody). */
+  embodyDefenderForDefReplay?: boolean;
+  /** Play-all: myId follows defender in ROLLING_DEFEND — still show atk-my-roll until atkRollDone. */
+  embodyAttackerForAttackReplay?: boolean;
+  /** Play-all host: suppress second attack DiceRoller (atk-defend-phase) that replays the same roll. */
+  playbackHostHideEchoAttackReplay?: boolean;
   atkSide: PanelSide;
   defSide: PanelSide;
   onAttackRoll: (roll: number) => void;
@@ -71,6 +79,8 @@ interface Props {
   coAttackEligible?: boolean;
   coAttackReady?: boolean;
   coAttackRollResult?: number;
+  /** True when this client should tap to roll (co-attack caster, or play-all host). Not the same as attacker — caster is usually the oath source. */
+  isMyCoAttack?: boolean;
   onCoAttackRollResult?: (roll: number) => void;
   onCoAttackRollStart?: () => void;
   onCoAttackReplayEnd?: () => void;
@@ -90,20 +100,21 @@ function themeStyle(f?: FighterState): React.CSSProperties {
 
 export default function DiceModal({
   turn, attacker, defender,
-  isMyTurn, isMyDefend, atkSide, defSide,
+  isMyTurn, isMyDefend, isDefenderDodgeInteractive, embodyDefenderForDefReplay = false, embodyAttackerForAttackReplay = false, playbackHostHideEchoAttackReplay = false, atkSide, defSide,
   preRolledAttack, preRolledDefend,
   onAttackRoll, onDefendRoll, onAttackRollStart, onDefendRollStart, onAtkRollDone, onDefRollDone,
   atkRollDone, defRollDone, defendReady, resolveReady, isViewer = false,
   critEligible, critReady, critWinFaces, critRollResult, onCritRollResult, onCritRollStart, onCritReplayEnd,
   chainEligible, chainReady, chainWinFaces, chainRollResult, onChainRollResult, onChainRollStart, onChainReplayEnd,
   dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
-  coAttackEligible, coAttackReady, coAttackRollResult, onCoAttackRollResult, onCoAttackRollStart, onCoAttackReplayEnd, coAttackCaster,
+  coAttackEligible, coAttackReady, coAttackRollResult, isMyCoAttack = false, onCoAttackRollResult, onCoAttackRollStart, onCoAttackReplayEnd, coAttackCaster,
   atkBuffMod = 0, defBuffMod = 0,
   skeletonHitActive = false,
 }: Props) {
   const { phase } = turn;
   const atkTheme = themeStyle(attacker);
   const defTheme = themeStyle(defender);
+  const dodgeAsDefender = isDefenderDodgeInteractive ?? isMyDefend;
 
   // ── Stable display state: only advance forward, never revert (fixes jitter when phase/turn updates arrive out of order) ──
   const turnKeyRef = useRef<string>('');
@@ -117,31 +128,46 @@ export default function DiceModal({
   const [defReplayLanded, setDefReplayLanded] = useState(false);
 
   const turnKey = `${turn.attackerId ?? ''}:${turn.defenderId ?? ''}`;
-  const prevTurnKeyRef = useRef(turnKey);
   const viewerAttackReplayShownRef = useRef(false);
+  /** True once this client showed "my defend" in ROLLING_DEFEND; keeps def-my-roll mounted across RESOLVING before server echoes defendRoll (avoids unmount → remount → replay). */
+  const wasRollingDefendAsMeRef = useRef(false);
   if (turnKey !== turnKeyRef.current) {
-    prevTurnKeyRef.current = turnKeyRef.current;
     turnKeyRef.current = turnKey;
     latchedPhaseRef.current = phase;
     latchedAttackRollRef.current = turn.attackRoll ?? null;
     latchedDefendRollRef.current = turn.defendRoll ?? null;
     viewerAttackReplayShownRef.current = false;
+    wasRollingDefendAsMeRef.current = false;
+  }
+  if (phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) {
+    wasRollingDefendAsMeRef.current = true;
   }
   useEffect(() => {
-    if (prevTurnKeyRef.current !== turnKeyRef.current) {
-      prevTurnKeyRef.current = turnKeyRef.current;
-      setShowDefenderWaiting(false);
-      setShowNpcDefendDice(false);
-    }
-  });
+    setShowDefenderWaiting(false);
+    setShowNpcDefendDice(false);
+  }, [turnKey]);
 
   // When RESOLVING with defend roll — show defender dice after attack animation (atkRollDone) or immediately if player rolled attack. In viewer: same flow, show defender dice content without 1s delay.
   const resolvingWithNpcDefend =
-    phase === PHASE.RESOLVING && turn.defendRoll != null && !isMyDefend && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
+    phase === PHASE.RESOLVING &&
+    turn.defendRoll != null &&
+    !isMyDefend &&
+    !embodyDefenderForDefReplay &&
+    !(turn as any).soulDevourerDrain &&
+    !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn;
   useEffect(() => {
     if (!resolvingWithNpcDefend) {
-      if (!isViewer) setShowNpcDefendDice(false);
+      if (!isViewer) {
+        // Don't clear during transient frames (e.g. out-of-order updates) while still in RESOLVING as attacker watching NPC defend
+        const holdNpcDefendDiceUi =
+          phase === PHASE.RESOLVING &&
+          !isMyDefend &&
+          !embodyDefenderForDefReplay &&
+          !(turn as any).soulDevourerDrain &&
+          !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
+        if (!holdNpcDefendDiceUi) setShowNpcDefendDice(false);
+      }
       return;
     }
     if (isViewer) {
@@ -154,7 +180,17 @@ export default function DiceModal({
     }
     const t = window.setTimeout(() => setShowNpcDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS);
     return () => clearTimeout(t);
-  }, [resolvingWithNpcDefend, attackDoneOrPlayerRolled, isViewer]);
+  }, [
+    resolvingWithNpcDefend,
+    attackDoneOrPlayerRolled,
+    isViewer,
+    phase,
+    isMyDefend,
+    turn.action,
+    turn.attackRoll,
+    (turn as { soulDevourerDrain?: boolean }).soulDevourerDrain,
+    embodyDefenderForDefReplay,
+  ]);
 
   // Latch phase/rolls forward only
   if (phase === PHASE.ROLLING_DEFEND && turn.attackRoll != null) {
@@ -183,7 +219,8 @@ export default function DiceModal({
     phase === PHASE.RESOLVING && turn.attackRoll != null && turn.defendRoll != null && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
   const fromRollingDefend = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
   const fromResolvingSkip = serverSkippedToResolving && !atkRollDone && !isMyTurn && latchedAttackRoll != null && !viewerAttackReplayShownRef.current && !defRollDone;
-  const showAttackReplay = (fromRollingDefend || fromResolvingSkip) && !defRollDone;
+  const showAttackReplay =
+    (fromRollingDefend || fromResolvingSkip) && !defRollDone && !playbackHostHideEchoAttackReplay;
 
   useEffect(() => {
     if (showAttackReplay) viewerAttackReplayShownRef.current = true;
@@ -204,10 +241,20 @@ export default function DiceModal({
 
   // What to show for attack side (opponent flow): wait → replay; never go back to wait once we have replay
   const showAttackWait = latchedPhase === PHASE.ROLLING_ATTACK || (latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll == null);
-  // After I (attacker) clicked: phase is already ROLLING_DEFEND but keep showing my attack dice replay until animation ends
-  const showMyAttackReplay = phase === PHASE.ROLLING_DEFEND && isMyTurn && turn?.attackRoll != null && !atkRollDone;
-  // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends
-  const showMyDefendReplay = phase === PHASE.RESOLVING && isMyDefend && turn?.defendRoll != null && !defRollDone;
+  // After I (attacker) clicked: phase is already ROLLING_DEFEND but keep showing my attack dice until atkRollDone (play-all: embody when myId tracks defender)
+  const showMyAttackReplay =
+    phase === PHASE.ROLLING_DEFEND &&
+    !atkRollDone &&
+    (isMyTurn || embodyAttackerForAttackReplay);
+  // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends.
+  // Do not require turn.defendRoll immediately — phase can flip before Firebase echoes the roll; use preRolledDefend / wasRollingDefendAsMeRef so DiceRoller never unmounts in that gap.
+  const hasDefendResultForReplay =
+    turn?.defendRoll != null || preRolledDefend != null || (isMyDefend && wasRollingDefendAsMeRef.current);
+  const showMyDefendReplay =
+    phase === PHASE.RESOLVING &&
+    !defRollDone &&
+    (isMyDefend || embodyDefenderForDefReplay) &&
+    hasDefendResultForReplay;
 
   useEffect(() => {
     if (!showMyAttackReplay) setAtkReplayLanded(false);
@@ -215,6 +262,9 @@ export default function DiceModal({
   useEffect(() => {
     if (!showMyDefendReplay) setDefReplayLanded(false);
   }, [showMyDefendReplay]);
+  useEffect(() => {
+    if (defRollDone) wasRollingDefendAsMeRef.current = false;
+  }, [defRollDone]);
 
   return (
     <>
@@ -231,8 +281,8 @@ export default function DiceModal({
               key="atk-my-roll"
               className="bhud__dice-roller"
               lockedDie={12}
-              fixedResult={showMyAttackReplay ? (turn.attackRoll ?? undefined) : (preRolledAttack ?? undefined)}
-              autoRoll={showMyAttackReplay}
+              fixedResult={showMyAttackReplay ? (turn.attackRoll ?? preRolledAttack ?? undefined) : (preRolledAttack ?? undefined)}
+              autoRoll={false}
               accentColor={attacker?.theme[9]}
               themeColors={dieColors(attacker)}
               onRollResult={showMyAttackReplay ? undefined : onAttackRoll}
@@ -283,7 +333,9 @@ export default function DiceModal({
         </div>
       )}
       {/* My defend: one block so DiceRoller never remounts; show from ROLLING_DEFEND until defRollDone after submit. Hide when power does not allow defend (e.g. Keraunos) or Soul Devourer drain (no defense roll). */}
-      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) && !(isMyDefend && defenderCannotDefend) && !(turn as any).soulDevourerDrain && (
+      {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) &&
+        !((isMyDefend || embodyDefenderForDefReplay) && defenderCannotDefend) &&
+        !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -294,8 +346,8 @@ export default function DiceModal({
               key="def-my-roll"
               className="bhud__dice-roller"
               lockedDie={12}
-              fixedResult={showMyDefendReplay ? (turn.defendRoll ?? undefined) : (preRolledDefend ?? undefined)}
-              autoRoll={showMyDefendReplay}
+              fixedResult={showMyDefendReplay ? (preRolledDefend ?? turn.defendRoll ?? undefined) : (preRolledDefend ?? undefined)}
+              autoRoll={false}
               accentColor={defender?.theme[9]}
               themeColors={dieColors(defender)}
               onRollResult={showMyDefendReplay ? undefined : onDefendRoll}
@@ -328,7 +380,7 @@ export default function DiceModal({
       )}
 
       {/* ── RESOLVING — defender dice. Show after attack animation (atkRollDone) or if player rolled attack. In viewer: show defender dice as soon as we have defendRoll. Hide when power does not allow defend or when hit is on skeleton (non-defensible). ── */}
-      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !resolveReady && !isMyDefend && (
+      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
@@ -359,7 +411,7 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Spirit Dodge</span>
             <span className="bhud__dice-sub">{defender?.nicknameEng} — D4 (50%)</span>
-            {isMyDefend ? (
+            {dodgeAsDefender ? (
               <DiceRoller
                 key="dodge-d4"
                 className="bhud__dice-roller"
@@ -476,54 +528,33 @@ export default function DiceModal({
           <div className="bhud__dice-modal" style={themeStyle(coAttackCaster)}>
             <span className="bhud__dice-label">Co-Attack</span>
             <span className="bhud__dice-sub">{coAttackCaster.nicknameEng} — D12</span>
-            {coAttackCaster.characterId === attacker?.characterId ? (
-              // Self-oath: caster is the attacker (isMyTurn controls)
-              isMyTurn ? (
-                <DiceRoller
-                  key="coatk-d12"
-                  className="bhud__dice-roller"
-                  lockedDie={12}
-                  fixedResult={(coAttackRollResult ?? 0) > 0 ? coAttackRollResult : undefined}
-                  autoRoll={(coAttackRollResult ?? 0) > 0}
-                  hidePrompt
-                  themeColors={dieColors(coAttackCaster)}
-                  onRollStart={onCoAttackRollStart}
-                  onRollEnd={onCoAttackReplayEnd}
-                />
-              ) : (coAttackRollResult ?? 0) > 0 ? (
-                <DiceRoller
-                  key={`coatk-replay-${coAttackRollResult}`}
-                  className="bhud__dice-roller"
-                  lockedDie={12}
-                  fixedResult={coAttackRollResult}
-                  autoRoll
-                  hidePrompt
-                  themeColors={dieColors(coAttackCaster)}
-                  onRollEnd={onCoAttackReplayEnd}
-                />
-              ) : (
-                <div className="bhud__dice-roller bhud__dice-roller--waiting">
-                  <div className="bhud__roll-waiting-spinner" />
-                </div>
-              )
+            {isMyCoAttack ? (
+              <DiceRoller
+                key="coatk-d12"
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={(coAttackRollResult ?? 0) > 0 ? coAttackRollResult : undefined}
+                autoRoll={(coAttackRollResult ?? 0) > 0}
+                hidePrompt
+                themeColors={dieColors(coAttackCaster)}
+                onRollStart={onCoAttackRollStart}
+                onRollEnd={onCoAttackReplayEnd}
+              />
+            ) : (coAttackRollResult ?? 0) > 0 ? (
+              <DiceRoller
+                key={`coatk-replay-${coAttackRollResult}`}
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={coAttackRollResult}
+                autoRoll
+                hidePrompt
+                themeColors={dieColors(coAttackCaster)}
+                onRollEnd={onCoAttackReplayEnd}
+              />
             ) : (
-              // Caster is a teammate, not the current attacker
-              (coAttackRollResult ?? 0) > 0 ? (
-                <DiceRoller
-                  key={`coatk-replay-${coAttackRollResult}`}
-                  className="bhud__dice-roller"
-                  lockedDie={12}
-                  fixedResult={coAttackRollResult}
-                  autoRoll
-                  hidePrompt
-                  themeColors={dieColors(coAttackCaster)}
-                  onRollEnd={onCoAttackReplayEnd}
-                />
-              ) : (
-                <div className="bhud__dice-roller bhud__dice-roller--waiting">
-                  <div className="bhud__roll-waiting-spinner" />
-                </div>
-              )
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
             )}
             <span className="bhud__dice-bonus">co-attack</span>
           </div>

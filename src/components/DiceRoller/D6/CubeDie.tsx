@@ -65,6 +65,8 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark, f
   const groupRef = useRef<THREE.Group>(null);
   const prevTrigger = useRef(0);
   const hasReported = useRef(false);
+  const fixedResultRef = useRef(fixedResult);
+  fixedResultRef.current = fixedResult;
 
   const spinning = useRef(false);
   const spinStart = useRef(0);
@@ -122,9 +124,9 @@ export default function CubeDie({ rollTrigger, onResult, primary, primaryDark, f
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResult ?? (Math.floor(Math.random() * 6) + 1);
+    targetResult.current = fixedResultRef.current ?? (Math.floor(Math.random() * 6) + 1);
     targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
-  }, [rollTrigger, fixedResult]);
+  }, [rollTrigger]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {

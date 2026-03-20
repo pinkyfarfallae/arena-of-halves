@@ -92,6 +92,8 @@ export default function TrapezohedronDie({
   const groupRef = useRef<THREE.Group>(null);
   const prevTrigger = useRef(0);
   const hasReported = useRef(false);
+  const fixedResultRef = useRef(fixedResult);
+  fixedResultRef.current = fixedResult;
 
   const spinning = useRef(false);
   const spinStart = useRef(0);
@@ -153,11 +155,12 @@ export default function TrapezohedronDie({
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetFaceIdx.current = fixedResult != null
-      ? FACE_VALUES.indexOf(fixedResult)
+    const fr = fixedResultRef.current;
+    targetFaceIdx.current = fr != null
+      ? FACE_VALUES.indexOf(fr)
       : Math.floor(Math.random() * 10);
     targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
-  }, [rollTrigger, fixedResult]);
+  }, [rollTrigger]);
 
   // Tint faces based on camera-facing direction + flash
   const tintFaces = () => {

@@ -1,13 +1,24 @@
-/* ── Self-Resurrect Overlay (Hades Death Keeper) ── */
+@use '../../../../../../styles/variables' as *;
+
+/* ── Self-Resurrect Overlay (Hades Death Keeper) — fluid for all viewports ── */
 .bhud__resurrect-overlay {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 1rem 1.2rem;
+  gap: clamp(4px, 1.2vw, 6px);
+  /* Match .bhud__action-modal (“Choose action”) width */
+  width: min(100%, 220px);
+  /* Parent .bhud__dice-zone applies safe-area padding; shrink if column is narrower than card */
+  max-width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
+  padding:
+    clamp(0.65rem, 2.2vw, 1rem)
+    clamp(0.75rem, 3vw, 1.2rem);
   background: radial-gradient(ellipse at center, rgba(#1a0a2e, 0.95), rgba(#0d0015, 0.98));
   border: 1.5px solid rgba(#7e57c2, 0.5);
-  border-radius: 12px;
+  border-radius: clamp(10px, 2.5vw, 12px);
   box-shadow:
     0 0 20px rgba(#4a148c, 0.4),
     0 0 40px rgba(#1a0a2e, 0.3),
@@ -15,7 +26,6 @@
   animation: resurrect-appear 0.5s cubic-bezier(0.22, 0.61, 0.36, 1), resurrect-shimmer 3s ease-in-out infinite;
   position: relative;
   overflow: hidden;
-  min-width: 210px;
 
   &::before {
     content: '';
@@ -28,8 +38,9 @@
 }
 
 .bhud__resurrect-sigil {
-  width: 40px;
-  height: 40px;
+  width: clamp(28px, 9vw, 40px);
+  height: clamp(28px, 9vw, 40px);
+  flex-shrink: 0;
   border: 2px solid rgba(#7e57c2, 0.6);
   border-radius: 50%;
   position: relative;
@@ -53,19 +64,27 @@
 }
 
 .bhud__resurrect-title {
-  font-size: 0.7rem;
+  font-size: clamp(0.52rem, 2.1vw, 0.7rem);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: clamp(0.08em, 0.4vw, 0.15em);
   color: #b39ddb;
   text-shadow: 0 0 8px rgba(#7e57c2, 0.6);
   animation: resurrect-text-pulse 1.5s ease-in-out infinite;
+  text-align: center;
+  max-width: 100%;
 }
 
 .bhud__resurrect-name {
-  font-size: 0.55rem;
+  font-size: clamp(0.42rem, 1.85vw, 0.55rem);
   color: rgba(#ce93d8, 0.7);
   letter-spacing: 0.06em;
+  text-align: center;
+  max-width: 100%;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding-inline: 0.15rem;
 }
 
 .bhud__resurrect-flames {
@@ -84,9 +103,9 @@
   filter: blur(2px);
   animation: resurrect-flame-rise 1.8s ease-in-out infinite;
 
-  @for $i from 1 through 13 {
+  @for $i from 1 through 8 {
     &:nth-child(#{$i}) {
-      left: calc(8% + #{($i - 1) * 12%});
+      left: calc(6% + #{($i - 1) * 11.5%});
 
       background: if($i % 3==0,
           rgba(#7e57c2, 0.7),
@@ -195,5 +214,36 @@
   50% {
     opacity: 0.25;
     transform: translateY(-8px) scale(1.05);
+  }
+}
+
+/* Short viewports (landscape phone, small HUD strip) */
+@media (max-height: 520px) {
+  .bhud__resurrect-overlay {
+    gap: 3px;
+    padding-block: 0.45rem;
+    width: min(100%, 220px);
+  }
+
+  .bhud__resurrect-sigil {
+    width: clamp(24px, 7vh, 34px);
+    height: clamp(24px, 7vh, 34px);
+  }
+}
+
+/* Same breakpoint as .bhud__action-modal — 180px narrow column */
+@media (max-width: $bp-compact) {
+  .bhud__resurrect-overlay {
+    width: min(100%, 180px);
+  }
+}
+
+@media (max-width: $bp-mobile) {
+  .bhud__resurrect-overlay {
+    border-radius: 9px;
+  }
+
+  .bhud__resurrect-title {
+    letter-spacing: 0.1em;
   }
 }

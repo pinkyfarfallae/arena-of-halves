@@ -184,6 +184,7 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
       inviteReservations: inviteReservations.length > 0 ? inviteReservations : null,
       devNpcAutoPlay,
       devPlayAllFightersSelf,
+      devPlayAllHostCharacterId: embedAllRoster ? player.characterId : null,
     });
     onEnter(arenaId);
   };

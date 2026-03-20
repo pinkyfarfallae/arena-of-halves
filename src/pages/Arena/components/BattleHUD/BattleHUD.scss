@@ -90,6 +90,10 @@ $crimson-bright: #c41e3a;
   background: transparent;
   pointer-events: none;
   animation: bhud-fade-in 0.2s ease-out;
+  /* Keep modals (resurrect, dice, actions) inside safe area on notched devices */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  box-sizing: border-box;
 
   &--left {
     left: $sidebar-width;
