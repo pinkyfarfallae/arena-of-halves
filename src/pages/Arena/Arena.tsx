@@ -60,6 +60,13 @@ import Eye from '../../icons/Eye';
 import './Arena.scss';
 import { CHARACTER } from '../../constants/characters';
 
+/**
+ * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
+ * but the attack D12 + read delay in BattleHUD is ~2.3s anim + 2s PLAYER_ROLL_RESULT_VIEW_MS — scheduling
+ * defend at 1200ms made resolution start before the attack “finished” on screen.
+ */
+const NPC_AUTO_DEFEND_DELAY_MS = 5200;
+
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
   members: FighterState[],
@@ -637,7 +644,7 @@ function Arena(props?: ArenaDemoProps) {
     }
     if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && teamBIds.has(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
-      schedule(() => submitDefendRoll(arenaId, roll), 1200);
+      schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
       return;
     }
   }, [room, arenaId]);
@@ -749,11 +756,11 @@ function Arena(props?: ArenaDemoProps) {
   /** Play-all-fighters: only the configurated host drives; embedded teammates watch like viewers. */
   const playAllNonHostViewer = !!(effectiveRoom.devPlayAllFightersSelf && !isPlayAllHost);
   const battle = effectiveRoom.battle;
-  /** Play-all-camp: host controls whichever fighter is acting. */
+  /** Play-all-camp only: host controls whichever fighter is acting. */
   const devUiActAsAttacker =
     !!(
-      (effectiveRoom.testMode || !!effectiveRoom.devPlayAllFightersSelf) &&
-      (effectiveRoom.devPlayAllFightersSelf ? isPlayAllHost : isCreator) &&
+      effectiveRoom.devPlayAllFightersSelf &&
+      isPlayAllHost &&
       battle?.turn?.attackerId
     );
   const battleUiMyId = (() => {
@@ -775,7 +782,15 @@ function Arena(props?: ArenaDemoProps) {
   const isPlaybackDriver = !!(
     effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
-      : (battle?.turn?.attackerId === user?.characterId || devUiActAsAttacker)
+      : (
+        battle?.turn?.attackerId === user?.characterId ||
+        (
+          effectiveRoom.testMode &&
+          isCreator &&
+          !!battle?.turn?.attackerId &&
+          teamBIds.has(battle.turn.attackerId)
+        )
+      )
   );
   const isAttackerNpc =
     !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId)) &&
