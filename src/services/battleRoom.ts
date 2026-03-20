@@ -2,7 +2,7 @@ import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
 import { db } from '../firebase';
 import type {
   BattleRoom, BattleState, FighterState, Team,
-  TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState,
+  TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState, InviteReservation,
 } from '../types/battle';
 import { BATTLE_PLAYBACK_KIND } from '../types/battle';
 import type { Character } from '../types/character';
@@ -243,6 +243,18 @@ export function teamMembersFromFirebase<T>(raw: T[] | Record<string, T> | undefi
     .map(([, v]) => v);
 }
 
+/** Firebase may store `inviteReservations` as an object keyed by index (same as team members). */
+export function inviteReservationsFromFirebase(
+  raw: InviteReservation[] | Record<string, InviteReservation> | undefined | null,
+): InviteReservation[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw;
+  return Object.entries(raw as Record<string, InviteReservation>)
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([, v]) => v)
+    .filter((v): v is InviteReservation => v != null && typeof (v as InviteReservation).characterId === 'string');
+}
+
 /** Build a FighterState snapshot from a Character + their Powers */
 export function toFighterState(character: Character, powers: PowerDefinition[]): FighterState {
   // Calculate critical rate based on strength
@@ -286,8 +298,8 @@ export function toFighterState(character: Character, powers: PowerDefinition[]):
 
 /** Get all character IDs in a room (both teams) */
 function getAllFighterIds(room: BattleRoom): string[] {
-  const teamAIds = (room.teamA?.members || []).map(m => m.characterId);
-  const teamBIds = (room.teamB?.members || []).map(m => m.characterId);
+  const teamAIds = teamMembersFromFirebase(room.teamA?.members).map((m) => m.characterId);
+  const teamBIds = teamMembersFromFirebase(room.teamB?.members).map((m) => m.characterId);
   return [...teamAIds, ...teamBIds];
 }
 
@@ -428,17 +440,18 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
   const fighters = Array.isArray(fighter) ? fighter : [fighter];
   if (fighters.length === 0) return null;
 
-  const teamAMembers = room.teamA?.members || [];
-  const teamBMembers = room.teamB?.members || [];
+  const teamAMembers = teamMembersFromFirebase(room.teamA?.members);
+  const teamBMembers = teamMembersFromFirebase(room.teamB?.members);
   const maxA = room.teamA?.maxSize ?? room.teamSize;
   const maxB = room.teamB?.maxSize ?? room.teamSize;
 
   const allIds = getAllFighterIds(room);
+  const idKey = (id: string) => id.toLowerCase();
   const incomingIds = fighters.map(f => f.characterId);
   if (incomingIds.some((id, i) => incomingIds.indexOf(id) !== i)) return null;
-  if (fighters.some((f) => allIds.includes(f.characterId))) return null;
+  if (fighters.some((f) => allIds.some((existing) => idKey(existing) === idKey(f.characterId)))) return null;
 
-  const reservations = room.inviteReservations || [];
+  const reservations = inviteReservationsFromFirebase(room.inviteReservations);
   const single = fighters.length === 1 ? fighters[0] : null;
   const matchReservation =
     single &&
@@ -452,10 +465,14 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
     const newTeamA = toA ? [...teamAMembers, single] : teamAMembers;
     const newTeamB = toA ? teamBMembers : [...teamBMembers, single];
     const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
+    const remainingReservations = reservations.filter(
+      (r) => r.characterId.toLowerCase() !== single.characterId.toLowerCase(),
+    );
     await update(roomRef(arenaId), {
       [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
       [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
       [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
+      inviteReservations: remainingReservations.length > 0 ? remainingReservations : null,
     });
     const updated = await get(roomRef(arenaId));
     return updated.val() as BattleRoom;

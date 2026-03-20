@@ -13,6 +13,7 @@ import { COPY_TYPE, type CopyType } from '../../constants/lobby';
 import {
   onRoomChange,
   joinRoom,
+  inviteReservationsFromFirebase,
   joinAsViewer,
   leaveViewer,
   deleteRoom,
@@ -492,36 +493,41 @@ function Arena(props?: ArenaDemoProps) {
     if (!room || !user || !arenaId || joined) return;
 
     const myId = user.characterId;
+    const idEq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
     const teamAMembers = teamMembersFromFirebase(room.teamA?.members);
     const teamBMembers = teamMembersFromFirebase(room.teamB?.members);
 
     // Already in team A
-    if (teamAMembers.some(m => m.characterId === myId)) {
+    if (teamAMembers.some(m => idEq(m.characterId, myId))) {
       setRole(ARENA_ROLE.TEAM_A);
       setJoined(true);
       return;
     }
 
     // Already in team B
-    if (teamBMembers.some(m => m.characterId === myId)) {
+    if (teamBMembers.some(m => idEq(m.characterId, myId))) {
       setRole(ARENA_ROLE.TEAM_B);
       setJoined(true);
       return;
     }
 
-    // Room is waiting & not watch-only — join team B first, then team A if B is full
     const maxA = room.teamA?.maxSize ?? 1;
     const maxB = room.teamB?.maxSize ?? 1;
     const teamAFull = teamAMembers.length >= maxA;
     const teamBFull = teamBMembers.length >= maxB;
-    if (!watchOnly && room.status === ROOM_STATUS.WAITING && (!teamBFull || !teamAFull)) {
+    const reserved = inviteReservationsFromFirebase(room.inviteReservations);
+    const hasReservedSlot = reserved.some((r) => idEq(r.characterId, myId));
+
+    // WAITING: join as fighter if there is open capacity OR this login matches host invite (correct team in joinRoom)
+    if (!watchOnly && room.status === ROOM_STATUS.WAITING && (hasReservedSlot || !teamBFull || !teamAFull)) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = getPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
-          const onA = result.teamA?.members?.some((m) => m.characterId === myId);
+          const resultA = teamMembersFromFirebase(result.teamA?.members);
+          const onA = resultA.some((m) => idEq(m.characterId, myId));
           setRole(onA ? ARENA_ROLE.TEAM_A : ARENA_ROLE.TEAM_B);
           setJoined(true);
         } else {
@@ -969,7 +975,9 @@ function Arena(props?: ArenaDemoProps) {
         </Link>
 
         <div className="arena__bar-title">
-          <span className="arena__bar-name">{effectiveRoom.roomName}</span>
+          <span className="arena__bar-name">
+            {effectiveRoom.roomName?.trim() || effectiveRoom.arenaId || arenaId || 'Arena'}
+          </span>
         </div>
 
         <span className="arena__bar-spacer" />

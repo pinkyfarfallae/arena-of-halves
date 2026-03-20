@@ -44,6 +44,8 @@ function Lobby() {
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
+  /** Snapshot of custom room title at create time — input state alone can drift before config modal finishes. */
+  const [createdRoomLabel, setCreatedRoomLabel] = useState<string | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
 
@@ -74,7 +76,12 @@ function Lobby() {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
       const fighter = toFighterState(user, powers);
-      const arenaId = await createRoom(fighter, roomName || undefined);
+      const trimmedTitle = roomName.trim();
+      const arenaId = await createRoom(
+        fighter,
+        trimmedTitle.length > 0 ? trimmedTitle : undefined,
+      );
+      setCreatedRoomLabel(trimmedTitle.length > 0 ? trimmedTitle : null);
       setCreatedArenaId(arenaId);
     } catch {
       setError('Failed to create room. Try again.');
@@ -326,8 +333,12 @@ function Lobby() {
       {createdArenaId && (
         <ConfigArenaModal
           arenaId={createdArenaId}
+          preservedRoomLabel={createdRoomLabel ?? undefined}
           player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
-          onClose={() => setCreatedArenaId(null)}
+          onClose={() => {
+            setCreatedArenaId(null);
+            setCreatedRoomLabel(null);
+          }}
           onEnter={(id) => navigate(`/arena/${id}`)}
         />
       )}
