@@ -15,6 +15,8 @@ import { COPY_TYPE, type CopyType } from '../../../../constants/lobby';
 import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../constants/battle';
 import { CHARACTER } from '../../../../constants/characters';
 import { DEITY } from '../../../../constants/deities';
+import { ROLE } from '../../../../constants/role';
+import { useAuth } from '../../../../hooks/useAuth';
 
 const ROOM_TITLE_MAX_LEN = 120;
 
@@ -41,6 +43,8 @@ interface Props {
 }
 
 export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, onClose, onEnter }: Props) {
+  const { role } = useAuth();
+  const isDeveloper = role === ROLE.DEVELOPER;
   const [teamSizeA, setTeamSizeA] = useState(1);
   const [teamSizeB, setTeamSizeB] = useState(1);
   const [selectedAlliesA, setSelectedAlliesA] = useState<FighterState[]>([]);
@@ -164,7 +168,7 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
     if (!player || !rosterComplete) return;
 
     /** Solo dev: every pick is a full in-room fighter (camp + NPC); host plays all turns like test NPCs */
-    const embedAllRoster = devPlayAllFightersSelf;
+    const embedAllRoster = isDeveloper && devPlayAllFightersSelf;
 
     let membersA: FighterState[];
     let membersB: FighterState[];
@@ -211,7 +215,7 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
       npcTeam: null,
       inviteReservations: inviteReservations.length > 0 ? inviteReservations : null,
       devNpcAutoPlay: true,
-      devPlayAllFightersSelf,
+      devPlayAllFightersSelf: isDeveloper ? devPlayAllFightersSelf : false,
       devPlayAllHostCharacterId: embedAllRoster ? player.characterId : null,
     });
     onEnter(arenaId);
@@ -332,23 +336,25 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
             </div>
           </div>
 
-          <div className="cam__dev-config">
-            <label className="cam__label">Developer Config</label>
-            <label className="cam__dev-row">
-              <input
-                type="checkbox"
-                checked={devPlayAllFightersSelf}
-                onChange={(e) => onDevPlayAllFightersSelfChange(e.target.checked)}
-              />
-              <span className="cam__dev-row-text">
-                <span className="cam__dev-row-title">Play Every Fighters by Self</span>
-                <span className="cam__dev-row-desc">
-                  Default: Off — Fills the roster in-room (camp + NPC picks count as members; no pending invites). You
-                  control every fighter in turn; disables NPC auto script.
+          {isDeveloper && (
+            <div className="cam__dev-config">
+              <label className="cam__label">Developer Config</label>
+              <label className="cam__dev-row">
+                <input
+                  type="checkbox"
+                  checked={devPlayAllFightersSelf}
+                  onChange={(e) => onDevPlayAllFightersSelfChange(e.target.checked)}
+                />
+                <span className="cam__dev-row-text">
+                  <span className="cam__dev-row-title">Play Every Fighters by Self</span>
+                  <span className="cam__dev-row-desc">
+                    Default: Off — Fills the roster in-room (camp + NPC picks count as members; no pending invites). You
+                    control every fighter in turn; disables NPC auto script.
+                  </span>
                 </span>
-              </span>
-            </label>
-          </div>
+              </label>
+            </div>
+          )}
 
           <label className="cam__label">Room code &amp; spectate</label>
           <div className="cam__copy-row">
