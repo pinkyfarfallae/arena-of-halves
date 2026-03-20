@@ -85,6 +85,10 @@ interface Props {
   isAttackerNpc?: boolean;
   /** When true (PvE), defender is NPC; this client simulates dodge D4. When false (PvP), wait for opponent's roll. */
   isDefenderNpc?: boolean;
+  /** Dev: host plays every fighter — Pomegranate dodge D4 must be interactive even when HUD myId follows the attacker during replay. */
+  devPlayAllFightersSelf?: boolean;
+  /** Dev: HUD myId follows attacker in RESOLVING — defender replay needs separate “embody defender” (see DiceModal). */
+  devUiActAsAttacker?: boolean;
   onTransientEffectsActive?: (active: boolean) => void;
   /** Called true 2.5s after entering RESOLVING with Soul Devourer drain so heal shows after master damage card */
   onSoulDevourerHealReady?: (ready: boolean) => void;
@@ -160,7 +164,7 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, transientEffectsActive,
+  arenaId, battle, teamA, teamB, teamMinionsA, teamMinionsB, myId, isPlaybackDriver = false, isViewer = false, isAttackerNpc = false, isDefenderNpc = false, devPlayAllFightersSelf = false, devUiActAsAttacker = false, transientEffectsActive,
   onSelectTarget, onSelectAction, onSelectSeason, onPreviewSeason, onCancelSeason, onSelectPoem, onCancelPoem, onCancelTarget, initialShowPowers, onSubmitAttackRoll, onSubmitDefendRoll, onSubmitRapidFireD4Roll, onRapidFireDamageCardComplete, onResolve, onResolveVisible, onTransientEffectsActive, onSoulDevourerHealReady,
   transientSkeletonCard, transientSkeletonCardKey, onSkeletonCardShow, onSkeletonCardClear, onSkeletonCardTarget, onMinionHitPulse,
   confirmedPowerName, onSkipTurnNoTarget, onSelectTargetDisoriented, onConfirmDisorientedTarget, onSelectAllyTarget, onHealSkippedAck, onSoulDevourerHealSkippedAck, onSpringHealSkippedAck, onFloralHealResultCardVisible, onFloralHealResultCardHidden,
@@ -240,20 +244,34 @@ export default function BattleHUD({
   // Pre-roll so we can send result on click (viewer gets result when player clicks, not when animation ends)
   const [preRolledAttack, setPreRolledAttack] = useState<number | null>(null);
   const [preRolledDefend, setPreRolledDefend] = useState<number | null>(null);
+  const [atkRollDone, setAtkRollDone] = useState(false);
+  const [defRollDone, setDefRollDone] = useState(false);
   useEffect(() => {
     if (turn?.phase === PHASE.ROLLING_ATTACK && turn?.attackerId === myId) {
       setPreRolledAttack(Math.floor(Math.random() * 12) + 1);
+    } else if (
+      turn?.phase === PHASE.ROLLING_DEFEND &&
+      !atkRollDone &&
+      (turn?.attackerId === myId || (devUiActAsAttacker && preRolledAttack != null))
+    ) {
+      /* Keep through phase flip; play-all switches myId to defender before atkRollDone. */
     } else {
       setPreRolledAttack(null);
     }
-  }, [turn?.phase, turn?.attackerId, myId]);
+  }, [turn?.phase, turn?.attackerId, myId, atkRollDone, devUiActAsAttacker]);
   useEffect(() => {
     if (turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId === myId) {
       setPreRolledDefend(Math.floor(Math.random() * 12) + 1);
+    } else if (
+      turn?.phase === PHASE.RESOLVING &&
+      !defRollDone &&
+      (turn?.defenderId === myId || (devUiActAsAttacker && preRolledDefend != null))
+    ) {
+      /* RESOLVING replay: play-all switches myId to attacker before defRollDone — keep pre-roll for fixedResult. */
     } else {
       setPreRolledDefend(null);
     }
-  }, [turn?.phase, turn?.defenderId, myId]);
+  }, [turn?.phase, turn?.defenderId, myId, defRollDone, devUiActAsAttacker]);
 
   // Reset submitted flags when phase changes
   if (turn?.phase === PHASE.ROLLING_ATTACK) defSubmitted.current = false;
@@ -283,8 +301,6 @@ export default function BattleHUD({
   }, [onSubmitDefendRoll, preRolledDefend]);
 
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
-  const [atkRollDone, setAtkRollDone] = useState(false);
-  const [defRollDone, setDefRollDone] = useState(false);
   /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends). Shorter for viewer so dice don't overlap damage card. */
   const PLAYER_ROLL_RESULT_VIEW_MS = 2000;
   const VIEWER_ROLL_RESULT_VIEW_MS = 1100;
@@ -309,12 +325,23 @@ export default function BattleHUD({
   // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
   useEffect(() => {
     if (turn?.phase === PHASE.RESOLVING && turn?.defenderId === myId) return;
+    /* Play-all: myId follows attacker in RESOLVING while defend dice finish — never clear defRollDone here for that segment (myId flip or preRoll→server echo); avoids unmount → remount → “replay”. */
+    if (
+      turn?.phase === PHASE.RESOLVING &&
+      devUiActAsAttacker &&
+      isPlaybackDriver &&
+      turn.defenderId &&
+      turn.defenderId !== myId &&
+      (turn.defendRoll != null || preRolledDefend != null)
+    ) {
+      return;
+    }
     if (defRollDoneTimeoutRef.current) {
       clearTimeout(defRollDoneTimeoutRef.current);
       defRollDoneTimeoutRef.current = null;
     }
     setDefRollDone(false);
-  }, [turn?.phase, turn?.defenderId, myId]);
+  }, [turn?.phase, turn?.defenderId, myId, devUiActAsAttacker, isPlaybackDriver, turn?.defendRoll, preRolledDefend]);
   // Clear replay-dice timeouts on phase change (same as attack/defend)
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING) {
@@ -331,14 +358,18 @@ export default function BattleHUD({
   const [defendReady, setDefendReady] = useState(false);
   const [resolveReady, setResolveReady] = useState(false);
 
-  // Reset defendReady when phase changes. When I am defender (NPC attacked), wait for attack dice to show first — set defendReady only after atkRollDone to avoid jitter.
+  // Reset defendReady when phase changes. When I am defender, wait for attack dice animation — set defendReady after atkRollDone.
+  // Once true, never flip back to false while still in ROLLING_DEFEND (atkRollDone can jitter briefly and would remount DiceRoller).
   useEffect(() => {
-    if (turn?.phase !== PHASE.ROLLING_DEFEND) return;
+    if (turn?.phase !== PHASE.ROLLING_DEFEND) {
+      setDefendReady(false);
+      return;
+    }
     if (turn.defenderId === myId) {
       if (turn.attackRoll != null && atkRollDone) {
         setDefendReady(true);
       } else {
-        setDefendReady(false);
+        setDefendReady((prev) => (prev ? true : false));
       }
     } else {
       setDefendReady(false);
@@ -457,7 +488,12 @@ export default function BattleHUD({
     // Dodge D4: 50% → 2 winning faces
     const winFaces = (!isMyDefend && turn.dodgeWinFaces?.length) ? turn.dodgeWinFaces : getWinningFaces(50);
 
-    if (isMyDefend) {
+    /** Play-all: myId stays attacker during RESOLVING replay but host must still set up dodge like the defender. */
+    const embodyDefenderForDodgeSetup =
+      isMyDefend ||
+      (!!devPlayAllFightersSelf && isPlaybackDriver && !isViewer && !!turn.defenderId);
+
+    if (embodyDefenderForDodgeSetup) {
       dodgeRef.current = { winFaces, isDodged: false, roll: 0 };
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { dodgeWinFaces: winFaces });
       setDodgeEligible(true);
@@ -478,7 +514,7 @@ export default function BattleHUD({
       setDodgeRollResult(roll);
       setDodgeEligible(true);
     }
-  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend, isViewer, isDefenderNpc, isPlaybackDriver]);
+  }, [turn, resolveReady, attacker, defender, battle.activeEffects, arenaId, isMyDefend, isViewer, isDefenderNpc, isPlaybackDriver, devPlayAllFightersSelf]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time
   const handleDodgeRollStart = useCallback(() => {
@@ -846,7 +882,10 @@ export default function BattleHUD({
     if (!caster || caster.currentHp <= 0) { setCoAttackReady(true); return; }
 
     coAttackRef.current = { casterId, hit: false, damage: 0, roll: 0 };
-    const isMyCaster = casterId === myId;
+    /** Caster rolls (not the spirit-bearer attacking). myId often follows turn.attackerId in RESOLVING; play-all host must still roll for the oath caster. */
+    const isMyCaster =
+      casterId === myId ||
+      (!!devPlayAllFightersSelf && isPlaybackDriver && !isViewer);
 
     if (isMyCaster) {
       if (arenaId) update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { coAttackerId: casterId });
@@ -872,7 +911,7 @@ export default function BattleHUD({
       setCoAttackRollResult(roll);
       setCoAttackEligible(true);
     }
-  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer, isAttackerNpc, isPlaybackDriver]);
+  }, [turn, resolveReady, dodgeReady, critReady, chainReady, attacker, defender, battle.activeEffects, teamA, teamB, arenaId, myId, isViewer, isAttackerNpc, isPlaybackDriver, devPlayAllFightersSelf]);
 
   // Player clicks → generate roll, write immediately so viewer sees dice start at same time
   const handleCoAttackRollStart = useCallback(() => {
@@ -953,11 +992,12 @@ export default function BattleHUD({
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING || !resolveReady || !critReady || !chainReady || coAttackReady || !coAttackEligible) return;
     if (coAttackRef.current.casterId === myId) return;
+    if (devPlayAllFightersSelf && isPlaybackDriver && !isViewer) return;
     if (coAttackRollResult > 0) return;
     if (turn?.coAttackRoll == null) return;
     coAttackRef.current = { ...coAttackRef.current, hit: !!turn.coAttackHit, damage: turn.coAttackDamage ?? 0, roll: turn.coAttackRoll };
     setCoAttackRollResult(turn.coAttackRoll);
-  }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage]);
+  }, [turn?.phase, resolveReady, critReady, chainReady, coAttackReady, coAttackEligible, myId, coAttackRollResult, turn?.coAttackRoll, turn?.coAttackHit, turn?.coAttackDamage, devPlayAllFightersSelf, isPlaybackDriver, isViewer]);
 
   /* ── Heal crit (Floral / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
   const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
@@ -1396,7 +1436,7 @@ export default function BattleHUD({
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
   const [showResurrecting, setShowResurrecting] = useState(false);
-  const selfResurrectShown = useRef('');
+  const resurrectOverlayShownKey = useRef('');
 
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_ACTION && showResolve) {
@@ -1412,19 +1452,19 @@ export default function BattleHUD({
     }
   }, [turn?.phase, turn?.attackerId, showResolve, actionReady, showResurrecting, battle?.log]);
 
-  // Self-resurrect: trigger overlay only after DamageCard is gone
+  // Death Keeper (self or ally) / queue resurrect: brief overlay; ally wake uses resurrectTargetId !== attackerId
   useEffect(() => {
-    if (turn?.phase === PHASE.SELECT_ACTION && turn.resurrectTargetId === turn.attackerId && !showResolve) {
-      const key = `${turn.attackerId}:${battle.roundNumber}`;
-      if (selfResurrectShown.current !== key) {
-        selfResurrectShown.current = key;
+    if (turn?.phase === PHASE.SELECT_ACTION && turn.resurrectTargetId && !showResolve) {
+      const key = `${turn.resurrectTargetId}:${battle.roundNumber}`;
+      if (resurrectOverlayShownKey.current !== key) {
+        resurrectOverlayShownKey.current = key;
         setActionReady(false);
         setShowResurrecting(true);
       }
     }
-  }, [turn?.phase, turn?.resurrectTargetId, turn?.attackerId, battle.roundNumber, showResolve]);
+  }, [turn?.phase, turn?.resurrectTargetId, battle.roundNumber, showResolve]);
 
-  // Self-resurrect: timer to dismiss overlay (separate effect so cleanup works with Strict Mode)
+  // Resurrect overlay: timer to dismiss (separate effect so cleanup works with Strict Mode)
   useEffect(() => {
     if (!showResurrecting) return;
     const timer = setTimeout(() => { setShowResurrecting(false); setActionReady(true); }, 1000);
@@ -1467,6 +1507,10 @@ export default function BattleHUD({
     attackerName: '', attackerTheme: '', defenderName: '', defenderTheme: '',
     side: PANEL_SIDE.RIGHT,
   });
+  const joltResolveKey =
+    turn?.usedPowerName === POWER_NAMES.JOLT_ARC
+      ? `${(turn as any).joltArcResolveIndex ?? 0}|${(turn as any).joltArcTargetIds?.join(',') ?? ''}`
+      : '';
   const masterDamageCardKey = [
     battle.roundNumber,
     battle.currentTurnIndex,
@@ -1479,6 +1523,7 @@ export default function BattleHUD({
     resolveCache.current.isDodged ? 'dodged' : 'live',
     resolveCache.current.isCrit ? 'crit' : 'plain',
     resolveCacheMergeTick,
+    joltResolveKey,
   ].join('|');
   // Don't fill resolve cache for Shadow Camouflage D4 (no damage/HP to show — only D4 roll for refill)
   // Don't fill when turn has passed to NPC (SELECT_ACTION && !isMyTurn): avoid overwriting cache with next turn's data before bar hides (stops jitter at end + D4: auto flipping to D4: -)
@@ -1508,8 +1553,11 @@ export default function BattleHUD({
           side: turn.attackerTeam === BATTLE_TEAM.A ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT,
         };
       } else if (turn.usedPowerName === POWER_NAMES.JOLT_ARC && attacker) {
-        // Jolt Arc: เติมจาก client (caster damage); ใช้ defender หรือ turn.defenderId เพื่อชื่อ (อาจยังไม่มี defender ตอนแรก)
-        const def = defender ?? (turn.defenderId ? find(teamA, teamB, turn.defenderId) : undefined);
+        // Jolt Arc: one card per shocked enemy — defender follows joltArcResolveIndex / defenderId
+        const joltIds = (turn as any).joltArcTargetIds as string[] | undefined;
+        const joltIdx = (turn as any).joltArcResolveIndex ?? 0;
+        const joltDefId = joltIds?.[joltIdx] ?? turn.defenderId;
+        const def = (joltDefId ? find(teamA, teamB, joltDefId) : undefined) ?? defender ?? (turn.defenderId ? find(teamA, teamB, turn.defenderId) : undefined);
         const activeEffects = battle.activeEffects || [];
         const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
         const baseDmg = Math.max(0, attacker.damage + dmgBuff);
@@ -1902,6 +1950,47 @@ export default function BattleHUD({
     attackerAllyIds,
   });
 
+  const isDefenderDodgeInteractive =
+    !!isMyDefend ||
+    (!!devPlayAllFightersSelf &&
+      isPlaybackDriver &&
+      !isViewer &&
+      !!turn.defenderId &&
+      turn.phase === PHASE.RESOLVING &&
+      resolveReady &&
+      !dodgeReady &&
+      dodgeEligible);
+
+  /** battleUiMyId follows attacker in RESOLVING — keep defender D12 mounted until defRollDone (showMyDefendReplay). */
+  const embodyDefenderForDefReplay =
+    !!devUiActAsAttacker &&
+    isPlaybackDriver &&
+    !isViewer &&
+    turn?.phase === PHASE.RESOLVING &&
+    (turn.defendRoll != null || preRolledDefend != null) &&
+    !defRollDone &&
+    !!turn?.defenderId;
+
+  /** Play-all: myId follows defender in ROLLING_DEFEND — keep atk-my-roll until atkRollDone (showMyAttackReplay). */
+  const embodyAttackerForAttackReplay =
+    !!devUiActAsAttacker &&
+    isPlaybackDriver &&
+    !isViewer &&
+    turn?.phase === PHASE.ROLLING_DEFEND &&
+    !atkRollDone &&
+    !!turn?.attackerId;
+
+  /** Play-all host already sees attack in atk-my-roll — hide duplicate atk-defend-phase auto replay. */
+  const playbackHostHideEchoAttackReplay = !!devUiActAsAttacker && isPlaybackDriver && !isViewer;
+
+  const coAttackCasterFighter = coAttackRef.current.casterId
+    ? find(teamA, teamB, coAttackRef.current.casterId)
+    : undefined;
+  const isMyCoAttackRoll =
+    !!coAttackCasterFighter &&
+    (coAttackCasterFighter.characterId === myId ||
+      (!!devPlayAllFightersSelf && isPlaybackDriver && !isViewer));
+
   return (
     <div className="bhud">
       {/* Round & turn indicator */}
@@ -2046,10 +2135,10 @@ export default function BattleHUD({
         </div>
       )}
 
-      {/* Self-resurrect Hades overlay */}
-      {showResurrecting && !showResolve && attacker && (
+      {/* Death Keeper / self-resurrect queue: brief overlay (name = resurrected fighter) */}
+      {showResurrecting && !showResolve && turn?.resurrectTargetId && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <ResurrectingModal name={attacker.nicknameEng} />
+          <ResurrectingModal name={find(teamA, teamB, turn.resurrectTargetId)?.nicknameEng ?? attacker?.nicknameEng} />
         </div>
       )}
 
@@ -2417,6 +2506,10 @@ export default function BattleHUD({
           defender={defender}
           isMyTurn={!!isMyTurn}
           isMyDefend={!!isMyDefend}
+          isDefenderDodgeInteractive={isDefenderDodgeInteractive}
+          embodyDefenderForDefReplay={embodyDefenderForDefReplay}
+          embodyAttackerForAttackReplay={embodyAttackerForAttackReplay}
+          playbackHostHideEchoAttackReplay={playbackHostHideEchoAttackReplay}
           atkSide={atkSide}
           defSide={defSide}
           preRolledAttack={preRolledAttack}
@@ -2475,7 +2568,8 @@ export default function BattleHUD({
           onCoAttackRollResult={handleCoAttackRollResult}
           onCoAttackRollStart={handleCoAttackRollStart}
           onCoAttackReplayEnd={onCoAttackReplayEnd}
-          coAttackCaster={coAttackRef.current.casterId ? find(teamA, teamB, coAttackRef.current.casterId) : undefined}
+          coAttackCaster={coAttackCasterFighter}
+          isMyCoAttack={isMyCoAttackRoll}
           atkBuffMod={getStatModifier(battle.activeEffects || [], turn.attackerId, MOD_STAT.ATTACK_DICE_UP)}
           defBuffMod={turn.defenderId ? getStatModifier(battle.activeEffects || [], turn.defenderId, MOD_STAT.DEFEND_DICE_UP) : 0}
           skeletonHitActive={!!(transientSkeletonCard || activePlaybackStep?.isMinionHit)}

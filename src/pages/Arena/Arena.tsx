@@ -33,6 +33,7 @@ import {
   advanceToNextRapidFireStep,
   resolveTurn,
   normalizeFighter,
+  teamMembersFromFirebase,
   advanceAfterShadowCamouflageD4,
   advanceAfterDisorientedD4,
   advanceAfterFloralHealD4,
@@ -416,6 +417,15 @@ function Arena(props?: ArenaDemoProps) {
     }
   }, [room?.battle?.turn?.phase]);
 
+  /* ── Death Keeper free action: server goes to SELECT_ACTION without usedPowerName; phase never left SELECT_ACTION so lastConfirmed would block ActionSelectModal ── */
+  useEffect(() => {
+    const t = room?.battle?.turn;
+    if (!t || t.phase !== PHASE.SELECT_ACTION) return;
+    if (t.resurrectTargetId && t.usedPowerName == null) {
+      setLastConfirmedPowerName(null);
+    }
+  }, [room?.battle?.turn?.phase, room?.battle?.turn?.resurrectTargetId, room?.battle?.turn?.usedPowerName]);
+
   /* ── Clear floral heal result card flag when leaving D4 phase ── */
   useEffect(() => {
     if (room?.battle?.turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) {
@@ -446,8 +456,8 @@ function Arena(props?: ArenaDemoProps) {
     if (!room || !user || !arenaId || joined) return;
 
     const myId = user.characterId;
-    const teamAMembers = room.teamA?.members || [];
-    const teamBMembers = room.teamB?.members || [];
+    const teamAMembers = teamMembersFromFirebase(room.teamA?.members);
+    const teamBMembers = teamMembersFromFirebase(room.teamB?.members);
 
     // Already in team A
     if (teamAMembers.some(m => m.characterId === myId)) {
@@ -591,11 +601,15 @@ function Arena(props?: ArenaDemoProps) {
     const teamBIds = new Set(toArr(room.teamB?.members).map(m => m.characterId));
     const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
 
-    // Same phase already being handled — let the pending timer fire
-    if (npcPhaseRef.current === phaseKey) return;
+    // Same phase already scheduled and timer still pending — duplicate effect run (e.g. Strict Mode) must not return early or defend never fires
+    if (npcPhaseRef.current === phaseKey && npcTimerRef.current !== null) return;
 
     // New phase — cancel any pending timer from old phase
-    if (npcTimerRef.current) { clearTimeout(npcTimerRef.current); npcTimerRef.current = null; }
+    if (npcTimerRef.current) {
+      clearTimeout(npcTimerRef.current);
+      npcTimerRef.current = null;
+      npcPhaseRef.current = null;
+    }
 
     const schedule = (fn: () => void, delay: number) => {
       npcPhaseRef.current = phaseKey;
@@ -911,35 +925,70 @@ function Arena(props?: ArenaDemoProps) {
   }
 
   const viewerCount = effectiveRoom.viewers ? Object.keys(effectiveRoom.viewers).length : 0;
-  const teamAMembers = (effectiveRoom.teamA?.members || []).map(m => normalizeFighter(m));
-  const teamBMembers = (effectiveRoom.teamB?.members || []).map(m => normalizeFighter(m));
+  const teamAMembers = teamMembersFromFirebase<FighterState>(
+    effectiveRoom.teamA?.members as FighterState[] | Record<string, FighterState> | undefined,
+  ).map((m: FighterState) => normalizeFighter(m));
+  const teamBMembers = teamMembersFromFirebase<FighterState>(
+    effectiveRoom.teamB?.members as FighterState[] | Record<string, FighterState> | undefined,
+  ).map((m: FighterState) => normalizeFighter(m));
   const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
   const teamBIds = new Set(teamBMembers.map((m) => m.characterId));
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
+  const playAllHostCharacterId =
+    effectiveRoom.devPlayAllFightersSelf
+      ? (effectiveRoom.devPlayAllHostCharacterId ?? teamAMembers[0]?.characterId)
+      : null;
+  const isPlayAllHost = !!(
+    effectiveRoom.devPlayAllFightersSelf &&
+    user?.characterId &&
+    playAllHostCharacterId &&
+    user.characterId.toLowerCase() === playAllHostCharacterId.toLowerCase()
+  );
+  /** Play-all-fighters: only the configurated host drives; embedded teammates watch like viewers. */
+  const playAllNonHostViewer = !!(effectiveRoom.devPlayAllFightersSelf && !isPlayAllHost);
   const battle = effectiveRoom.battle;
-  /** Dev test: treat current attacker as local player for HUD/TeamPanel (full manual or NPC-auto off). */
+  /** Dev test: treat current attacker as local player for HUD/TeamPanel (full manual or any turn when NPC auto is off). */
   const devUiActAsAttacker =
     !!(
       effectiveRoom.testMode &&
-      isCreator &&
+      (effectiveRoom.devPlayAllFightersSelf ? isPlayAllHost : isCreator) &&
       battle?.turn?.attackerId &&
       (effectiveRoom.devPlayAllFightersSelf ||
-        (effectiveRoom.devNpcAutoPlay === false && teamBIds.has(battle.turn.attackerId)))
+        effectiveRoom.devNpcAutoPlay === false)
     );
-  const battleUiMyId =
-    devUiActAsAttacker && battle?.turn?.attackerId ? battle.turn.attackerId : user?.characterId;
+  const battleUiMyId = (() => {
+    if (!devUiActAsAttacker || !battle?.turn) return user?.characterId;
+    const t = battle.turn;
+    /* You control attacker for attack phases; during defend roll myId must be defender or isMyDefend stays false. */
+    if (t.phase === PHASE.ROLLING_DEFEND && t.defenderId) return t.defenderId;
+    return t.attackerId ?? user?.characterId;
+  })();
+  const battleHudMyId = playAllNonHostViewer ? undefined : battleUiMyId;
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
-  const isNpcPlaybackDriver = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) && isCreator);
-  const isPlaybackDriver = !!(battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver);
-  /** When true, attacker is NPC (PvE test mode); D4 crit/chain must be simulated on this client. When false (PvP), wait for opponent's roll. */
-  const isAttackerNpc = !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId));
-  /** When true, defender is NPC; dodge D4 must be simulated here. When false (PvP), wait for opponent's roll. */
-  const isDefenderNpc = !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId));
+  const isNpcPlaybackDriver = !!(
+    effectiveRoom.testMode &&
+    battle?.turn?.attackerId &&
+    teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) &&
+    (effectiveRoom.devPlayAllFightersSelf ? isPlayAllHost : isCreator)
+  );
+  const isPlaybackDriver = !!(
+    effectiveRoom.devPlayAllFightersSelf
+      ? isPlayAllHost
+      : (battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver || devUiActAsAttacker)
+  );
+  /** When true, attacker is NPC (PvE test mode); D4 crit/chain must be simulated on this client. Play-all mode: always false so the host gets modals for every fighter. */
+  const isAttackerNpc =
+    !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId)) &&
+    !effectiveRoom.devPlayAllFightersSelf;
+  /** When true, defender is NPC; dodge D4 must be simulated here. Play-all: false so dodge/crit are manual. */
+  const isDefenderNpc =
+    !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId)) &&
+    !effectiveRoom.devPlayAllFightersSelf;
 
   /** Disoriented + player's turn: target must be chosen via modal (Random → Confirm), not by clicking panel. */
-  const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === battleUiMyId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+  const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === battleHudMyId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
 
   /** In demo mode use demoSeason; otherwise use battle-driven activeSeason. */
   const effectiveSeason = isDemo ? (demoSeason ?? undefined) : (activeSeason ?? undefined);
@@ -1183,7 +1232,7 @@ function Arena(props?: ArenaDemoProps) {
             side={PANEL_SIDE.LEFT}
             battle={battle}
             teamMinions={effectiveRoom.teamA?.minions}
-            myId={battleUiMyId}
+            myId={battleHudMyId}
             resolveShown={resolveShown}
             transientEffectsActive={transientEffectsActive}
             soulDevourerHealReady={soulDevourerHealReady}
@@ -1192,7 +1241,7 @@ function Arena(props?: ArenaDemoProps) {
             minionPulseMap={minionPulseMap}
             currentSkeletonHitTargetId={currentSkeletonHitTargetId}
             currentSkeletonPulseKey={currentSkeletonPulseKey}
-            onSelectTarget={isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
+            onSelectTarget={playAllNonHostViewer || isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
             suppressHitAfterBack={suppressHitAfterBack}
@@ -1223,7 +1272,7 @@ function Arena(props?: ArenaDemoProps) {
               side={PANEL_SIDE.RIGHT}
               battle={battle}
               teamMinions={effectiveRoom.teamB?.minions}
-              myId={battleUiMyId}
+              myId={battleHudMyId}
               resolveShown={resolveShown}
               transientEffectsActive={transientEffectsActive}
               soulDevourerHealReady={soulDevourerHealReady}
@@ -1232,7 +1281,7 @@ function Arena(props?: ArenaDemoProps) {
               minionPulseMap={minionPulseMap}
               currentSkeletonHitTargetId={currentSkeletonHitTargetId}
               currentSkeletonPulseKey={currentSkeletonPulseKey}
-              onSelectTarget={isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
+              onSelectTarget={playAllNonHostViewer || isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
               floralHealResultCardVisible={floralHealResultCardVisible}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
@@ -1328,7 +1377,7 @@ function Arena(props?: ArenaDemoProps) {
             teamB={teamBMembers}
             teamMinionsA={effectiveRoom.teamA?.minions}
             teamMinionsB={effectiveRoom.teamB?.minions}
-            myId={battleUiMyId}
+            myId={battleHudMyId}
             transientEffectsActive={transientEffectsActive}
             confirmedPowerName={selectedPowerName}
             onSelectTarget={onSelectTargetDeferred}
@@ -1356,9 +1405,11 @@ function Arena(props?: ArenaDemoProps) {
             }}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
-            isViewer={role === ARENA_ROLE.VIEWER}
+            isViewer={role === ARENA_ROLE.VIEWER || playAllNonHostViewer}
             isAttackerNpc={isAttackerNpc}
             isDefenderNpc={isDefenderNpc}
+            devPlayAllFightersSelf={!!effectiveRoom.devPlayAllFightersSelf}
+            devUiActAsAttacker={devUiActAsAttacker}
             onResolveVisible={setResolveShown}
             onTransientEffectsActive={setTransientEffectsActive}
             onSoulDevourerHealReady={setSoulDevourerHealReady}

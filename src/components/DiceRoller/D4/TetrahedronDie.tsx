@@ -80,6 +80,8 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
   const groupRef = useRef<THREE.Group>(null);
   const prevTrigger = useRef(0);
   const hasReported = useRef(false);
+  const fixedResultRef = useRef(fixedResult);
+  fixedResultRef.current = fixedResult;
 
   const spinning = useRef(false);
   const spinStart = useRef(0);
@@ -142,10 +144,10 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResult ?? (Math.floor(Math.random() * 4) + 1);
+    targetResult.current = fixedResultRef.current ?? (Math.floor(Math.random() * 4) + 1);
     const faceIndex = FACE_RESULTS.indexOf(targetResult.current);
     targetQuat.current.copy(TARGET_QUATS[faceIndex]);
-  }, [rollTrigger, fixedResult]);
+  }, [rollTrigger]);
 
   // Tint faces: front-facing = true color, others darken + flash & scale punch
   const tintFaces = () => {

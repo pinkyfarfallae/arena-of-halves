@@ -209,6 +209,13 @@ export interface TurnState {
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
+
+  /** Jolt Arc: shocked enemies in roster order — one DamageCard per ID (sequential resolve). */
+  joltArcTargetIds?: string[];
+  joltArcAoeDamageMap?: Record<string, number>;
+  joltArcResolveIndex?: number;
+  /** After the last Jolt card is dismissed, next resolveTurn() only advances turn (HP already applied). */
+  joltArcAwaitingAdvance?: boolean;
   /** When current player started rolling attack dice (timestamp) — so viewers can show rolling state in sync */
   attackRollStartedAt?: number;
   /** When current player started rolling defend dice (timestamp) — so viewers can show rolling state in sync */
@@ -312,6 +319,8 @@ export interface BattleRoom {
   devNpcAutoPlay?: boolean;
   /** Dev arena: host acts every fighter (disables NPC auto script; UI treats current attacker as you) */
   devPlayAllFightersSelf?: boolean;
+  /** When devPlayAllFightersSelf: configurating player's characterId (authoritative host for HUD; avoids teamA[0] / casing drift). */
+  devPlayAllHostCharacterId?: string | null;
   npcId?: string;
   /** When set, matching characterId joins the given team (see joinRoom) */
   inviteReservations?: InviteReservation[];

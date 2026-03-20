@@ -4,7 +4,7 @@ import './ResurrectingModal.scss';
 /**
  * Modal for the self-resurrect overlay (Hades Death Keeper):
  * Contains the sigil, flames, title, and name.
- * Styles are in BattleHUD.scss under .bhud__resurrect-overlay, .bhud__resurrect-sigil, etc.
+ * Styles: ResurrectingModal.scss (.bhud__resurrect-*).
  */
 export default function ResurrectingModal({ name }: { name?: string }) {
   return (
