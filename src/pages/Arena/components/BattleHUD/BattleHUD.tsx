@@ -1526,8 +1526,10 @@ export default function BattleHUD({
     };
   }, []);
   useEffect(() => {
-    /* Only hide master when a *playback* card owns resolve (Keraunos/Jolt step, etc.). Do not use playbackFlowReady here — it tracks mainResolveChecksDone and was forcing hide/show/hide on every normal attack. */
-    if (playbackStep || activePlaybackStep || playbackPendingAck) {
+    /* Only hide master when *master* playback owns the card (Keraunos/Jolt). Minion `playbackStep` is server-side only — client shows skeleton hits from buffer; hiding master here caused the card to unmount when hit VFX ran then remount when playbackStep cleared. */
+    const masterPlaybackOwnsCard =
+      activePlaybackStep || playbackPendingAck || !!(playbackStep && !playbackStep.isMinionHit);
+    if (masterPlaybackOwnsCard) {
       masterDamageCardTurnKeyRef.current = null;
       setShowMasterDamageCard(false);
       return;
@@ -1568,7 +1570,11 @@ export default function BattleHUD({
   // Signal parent when resolve becomes visible (for hit effects). Only call when value changes to avoid update loops.
   // Pomegranate co log often lands as phase flips to SELECT_ACTION — still drive hit VFX while co card is up.
   const lastResolveVisibleRef = useRef<boolean | null>(null);
-  const hitEffectsResolveVisible = resolveVisible || !!pomegranateCoResolve || pomCoLogPlaybackPending;
+  const hitEffectsResolveVisible =
+    resolveVisible ||
+    !!pomegranateCoResolve ||
+    pomCoLogPlaybackPending ||
+    transientDamageActive;
   useEffect(() => {
     if (lastResolveVisibleRef.current === hitEffectsResolveVisible) return;
     lastResolveVisibleRef.current = hitEffectsResolveVisible;
@@ -1593,7 +1599,7 @@ export default function BattleHUD({
   // Exclude ROLLING_RAPID_FIRE_EXTRA_SHOT so Rapid Fire D4 modal is not covered; extra-shot DamageCard renders in that phase (arrow VFX is separate in Arena).
   // When turn has passed to NPC (SELECT_ACTION && !isMyTurn), hide resolve chrome to avoid jitter — unless pom co card is still showing (server often leaves RESOLVING before co log plays).
   const hideResolveBarForHandoffJitter =
-    turn?.phase === PHASE.SELECT_ACTION && !isMyTurn && !pomegranateCoResolve;
+    turn?.phase === PHASE.SELECT_ACTION && !isMyTurn && !pomegranateCoResolve && !pomCoLogPlaybackPending;
   const resolveBarVisible =
     !hideResolveBarForHandoffJitter &&
     turn?.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT &&
@@ -1601,7 +1607,8 @@ export default function BattleHUD({
       !!activePlaybackStep ||
       transientDamageActive ||
       pendingSkeletonCount > 0 ||
-      !!pomegranateCoResolve);
+      !!pomegranateCoResolve ||
+      pomCoLogPlaybackPending);
   const [showResolve, resolveExiting] = useFadeTransition(resolveBarVisible, 250);
   /* Pomegranate co: no useFadeTransition — initial show=false caused a 1-frame flash; co bar+DamageCard gate on data only (same as main master card). */
   // Prevent re-processing the same `lastSkeletonHits` buffer repeatedly
@@ -1733,8 +1740,7 @@ export default function BattleHUD({
       const hitTargetIdRaw = (entry as any).hitTargetId ?? entry.defenderId ?? turn?.defenderId;
       const hitTargetId = hitTargetIdRaw != null ? String(hitTargetIdRaw) : undefined;
 
-      // One setState in Arena: card + hit target so they paint together (same as player hit)
-      onResolveVisible?.(true);
+      // resolveShown is driven by hitEffectsResolveVisible (+ transientDamageActive) so it stays in sync with TeamPanel during chained hits
       if (onSkeletonCardShow) {
         try {
           onSkeletonCardShow({
@@ -1753,7 +1759,6 @@ export default function BattleHUD({
         const finishedBuffer = index >= skHits.length;
         if (finishedBuffer && isPlaybackDriver) {
           try { onSkeletonCardClear?.(); } catch (e) { }
-          onResolveVisible?.(false);
           try { scheduleLastHitUpdate({ lastHitMinionId: null, lastHitTargetId: null }); } catch (e) { }
           onResolve();
         } else if (!finishedBuffer) {
@@ -3259,7 +3264,7 @@ export default function BattleHUD({
 
       {/* Damage breakdown card — on defender side. Volley arrow VFX uses volleyArrowHitActive in Arena only; do not unmount this card when the arrow ends or it flashes off then on for the full displayMs. */}
       {!activePlaybackStep &&
-        !playbackStep &&
+        !(playbackStep && !playbackStep.isMinionHit) &&
         !playbackPendingAck &&
         showMasterDamageCard &&
         turn?.phase === PHASE.RESOLVING &&
