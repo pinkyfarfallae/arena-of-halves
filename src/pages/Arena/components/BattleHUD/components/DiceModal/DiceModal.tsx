@@ -134,6 +134,8 @@ export default function DiceModal({
   const viewerAttackReplayShownRef = useRef(false);
   /** True once this client showed "my defend" in ROLLING_DEFEND; keeps def-my-roll mounted across RESOLVING before server echoes defendRoll (avoids unmount → remount → replay). */
   const wasRollingDefendAsMeRef = useRef(false);
+  /** Same for attacker when server jumps ROLLING_DEFEND → RESOLVING before attack die finishes (mirror defend replay). */
+  const wasRollingAttackAsMeRef = useRef(false);
   const wasRollingPomCoDefendAsMeRef = useRef(false);
   if (turnKey !== turnKeyRef.current) {
     turnKeyRef.current = turnKey;
@@ -142,7 +144,11 @@ export default function DiceModal({
     latchedDefendRollRef.current = turn.defendRoll ?? null;
     viewerAttackReplayShownRef.current = false;
     wasRollingDefendAsMeRef.current = false;
+    wasRollingAttackAsMeRef.current = false;
     wasRollingPomCoDefendAsMeRef.current = false;
+  }
+  if ((phase === PHASE.ROLLING_ATTACK || phase === PHASE.ROLLING_DEFEND) && (isMyTurn || embodyAttackerForAttackReplay)) {
+    wasRollingAttackAsMeRef.current = true;
   }
   if (phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) {
     wasRollingDefendAsMeRef.current = true;
@@ -255,6 +261,18 @@ export default function DiceModal({
     phase === PHASE.ROLLING_DEFEND &&
     !atkRollDone &&
     (isMyTurn || embodyAttackerForAttackReplay);
+  const hasAttackResultForMyReplay =
+    turn.attackRoll != null ||
+    preRolledAttack != null ||
+    ((isMyTurn || embodyAttackerForAttackReplay) && wasRollingAttackAsMeRef.current);
+  const showMyAttackResolvingReplay =
+    phase === PHASE.RESOLVING &&
+    !atkRollDone &&
+    (isMyTurn || embodyAttackerForAttackReplay) &&
+    hasAttackResultForMyReplay &&
+    !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) &&
+    !(turn as any).soulDevourerDrain;
+  const isMyAttackReplaySegment = showMyAttackReplay || showMyAttackResolvingReplay;
   // After I (defender) clicked: phase is already RESOLVING but keep showing my defend dice replay until animation ends.
   // Do not require turn.defendRoll immediately — phase can flip before Firebase echoes the roll; use preRolledDefend / wasRollingDefendAsMeRef so DiceRoller never unmounts in that gap.
   const hasDefendResultForReplay =
@@ -299,8 +317,13 @@ export default function DiceModal({
       showPomCoAttackOppReplay);
 
   useEffect(() => {
-    if (!showMyAttackReplay && !showMyPomCoAttackReplay && !showPomCoAttackOppReplay) setAtkReplayLanded(false);
-  }, [showMyAttackReplay, showMyPomCoAttackReplay, showPomCoAttackOppReplay]);
+    if (!showMyAttackReplay && !showMyAttackResolvingReplay && !showMyPomCoAttackReplay && !showPomCoAttackOppReplay) {
+      setAtkReplayLanded(false);
+    }
+  }, [showMyAttackReplay, showMyAttackResolvingReplay, showMyPomCoAttackReplay, showPomCoAttackOppReplay]);
+  useEffect(() => {
+    if (atkRollDone) wasRollingAttackAsMeRef.current = false;
+  }, [atkRollDone]);
   useEffect(() => {
     if (!showMyDefendReplay && !showMyPomCoDefendReplay) setDefReplayLanded(false);
   }, [showMyDefendReplay, showMyPomCoDefendReplay]);
@@ -462,33 +485,37 @@ export default function DiceModal({
       )}
 
       {/* ── ROLLING ATTACK ── */}
-      {/* My attack: one block so DiceRoller never remounts; show from ROLLING_ATTACK until atkRollDone after submit */}
-      {((phase === PHASE.ROLLING_ATTACK && isMyTurn) || showMyAttackReplay) && (
+      {/* My attack: one block so DiceRoller never remounts; through ROLLING_DEFEND or straight to RESOLVING (fast NPC) until atkRollDone */}
+      {((phase === PHASE.ROLLING_ATTACK && isMyTurn) || isMyAttackReplaySegment) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={atkTheme}>
             <span className="bhud__dice-label">Attack Roll</span>
             <span className="bhud__dice-sub">
-              {showMyAttackReplay ? attacker?.nicknameEng : `${attacker?.nicknameEng} → ${defender?.nicknameEng}`}
+              {isMyAttackReplaySegment ? attacker?.nicknameEng : `${attacker?.nicknameEng} → ${defender?.nicknameEng}`}
             </span>
             <DiceRoller
               key="atk-my-roll"
               className="bhud__dice-roller"
               lockedDie={12}
-              fixedResult={showMyAttackReplay ? (turn.attackRoll ?? preRolledAttack ?? undefined) : (preRolledAttack ?? undefined)}
+              fixedResult={
+                isMyAttackReplaySegment
+                  ? (turn.attackRoll ?? preRolledAttack ?? undefined)
+                  : (preRolledAttack ?? undefined)
+              }
               autoRoll={false}
               accentColor={attacker?.theme[9]}
               themeColors={dieColors(attacker)}
-              onRollResult={showMyAttackReplay ? undefined : onAttackRoll}
-              onRollStart={showMyAttackReplay ? undefined : onAttackRollStart}
+              onRollResult={isMyAttackReplaySegment ? undefined : onAttackRoll}
+              onRollStart={isMyAttackReplaySegment ? undefined : onAttackRollStart}
               onRollEnd={() => {
-                if (showMyAttackReplay) setAtkReplayLanded(true);
+                if (isMyAttackReplaySegment) setAtkReplayLanded(true);
                 onAtkRollDone();
               }}
               hidePrompt
             />
             <span className="bhud__dice-bonus">
-              {showMyAttackReplay
-                ? (!(atkRollDone || atkReplayLanded) ? 'rolling...' : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0 ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(turn.attackRoll ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}` : String(turn.attackRoll))
+              {isMyAttackReplaySegment
+                ? (!(atkRollDone || atkReplayLanded) ? 'rolling...' : ((attacker?.attackDiceUp ?? 0) + atkBuffMod) > 0 ? `+${(attacker?.attackDiceUp ?? 0) + atkBuffMod} → ${(turn.attackRoll ?? preRolledAttack ?? 0) + (attacker?.attackDiceUp ?? 0) + atkBuffMod}` : String(turn.attackRoll ?? preRolledAttack))
                 : `dice up: ${(attacker?.attackDiceUp ?? 0) + atkBuffMod}`}
             </span>
           </div>

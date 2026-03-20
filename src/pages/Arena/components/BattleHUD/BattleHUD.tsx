@@ -322,6 +322,7 @@ export default function BattleHUD({
   /* ── Dice submit: pre-roll when entering phase, send result when player clicks so viewer gets it in sync ── */
   const atkSubmitted = useRef(false);
   const defSubmitted = useRef(false);
+  const prevPhaseForAtkHoldRef = useRef<typeof PHASE[keyof typeof PHASE] | undefined>(undefined);
 
   // Pre-roll so we can send result on click (viewer gets result when player clicks, not when animation ends)
   const [preRolledAttack, setPreRolledAttack] = useState<number | null>(null);
@@ -337,10 +338,17 @@ export default function BattleHUD({
       (turn?.attackerId === myId || (devUiActAsAttacker && preRolledAttack != null))
     ) {
       /* Keep through phase flip; play-all switches myId to defender before atkRollDone. */
+    } else if (
+      turn?.phase === PHASE.RESOLVING &&
+      !atkRollDone &&
+      (turn?.attackerId === myId || (devUiActAsAttacker && preRolledAttack != null)) &&
+      (turn?.attackRoll != null || preRolledAttack != null)
+    ) {
+      /* NPC / fast server can skip ROLLING_DEFEND — keep pre-roll through RESOLVING like preRolledDefend until atkRollDone. */
     } else {
       setPreRolledAttack(null);
     }
-  }, [turn?.phase, turn?.attackerId, myId, atkRollDone, devUiActAsAttacker]);
+  }, [turn?.phase, turn?.attackerId, myId, atkRollDone, devUiActAsAttacker, turn?.attackRoll]);
   useEffect(() => {
     if (turn?.phase === PHASE.ROLLING_DEFEND && turn?.defenderId === myId) {
       setPreRolledDefend(Math.floor(Math.random() * 12) + 1);
@@ -389,25 +397,45 @@ export default function BattleHUD({
   const handleAttackRollResult = useCallback((n: number) => {
     if (atkSubmitted.current) return;
     atkSubmitted.current = true;
-    onSubmitAttackRoll(n);
-  }, [onSubmitAttackRoll]);
+    void (async () => {
+      try {
+        await Promise.resolve(onSubmitAttackRoll(n));
+        if (arenaId) await ackAttackDiceShown(arenaId);
+      } catch { /* noop */ }
+    })();
+  }, [arenaId, onSubmitAttackRoll]);
 
   const handleDefendRollResult = useCallback((n: number) => {
     if (defSubmitted.current) return;
     defSubmitted.current = true;
-    onSubmitDefendRoll(n);
-  }, [onSubmitDefendRoll]);
+    void (async () => {
+      try {
+        await Promise.resolve(onSubmitDefendRoll(n));
+        if (arenaId) await ackDefendDiceShown(arenaId);
+      } catch { /* noop */ }
+    })();
+  }, [arenaId, onSubmitDefendRoll]);
 
   const handleAttackRollStart = useCallback(() => {
     if (atkSubmitted.current || preRolledAttack == null) return;
     atkSubmitted.current = true;
-    onSubmitAttackRoll(preRolledAttack);
-  }, [onSubmitAttackRoll, preRolledAttack]);
+    void (async () => {
+      try {
+        await Promise.resolve(onSubmitAttackRoll(preRolledAttack));
+        if (arenaId) await ackAttackDiceShown(arenaId);
+      } catch { /* noop */ }
+    })();
+  }, [arenaId, onSubmitAttackRoll, preRolledAttack]);
   const handleDefendRollStart = useCallback(() => {
     if (defSubmitted.current || preRolledDefend == null) return;
     defSubmitted.current = true;
-    onSubmitDefendRoll(preRolledDefend);
-  }, [onSubmitDefendRoll, preRolledDefend]);
+    void (async () => {
+      try {
+        await Promise.resolve(onSubmitDefendRoll(preRolledDefend));
+        if (arenaId) await ackDefendDiceShown(arenaId);
+      } catch { /* noop */ }
+    })();
+  }, [arenaId, onSubmitDefendRoll, preRolledDefend]);
 
   /* ── Track when opponent auto-roll animations finish (for bonus text) ── */
   /** Delay before hiding player dice after animation ends — match viewer/NPC (2s after roll ends). Shorter for viewer so dice don't overlap damage card. */
@@ -423,12 +451,48 @@ export default function BattleHUD({
   replayResultViewMsRef.current = isViewer ? VIEWER_ROLL_RESULT_VIEW_MS : PLAYER_ROLL_RESULT_VIEW_MS;
 
   useEffect(() => {
-    if (turn?.phase === PHASE.RESOLVING && isViewer) return;
+    const phase = turn?.phase;
+    const prev = prevPhaseForAtkHoldRef.current;
+
+    if (phase === PHASE.RESOLVING && isViewer) {
+      prevPhaseForAtkHoldRef.current = phase;
+      return;
+    }
+
+    /** New planning / target / fresh attack step — always drop attack-dice latch */
+    const hardReset =
+      phase === PHASE.SELECT_ACTION ||
+      phase === PHASE.SELECT_TARGET ||
+      (phase === PHASE.ROLLING_ATTACK &&
+        prev !== PHASE.ROLLING_DEFEND &&
+        prev !== PHASE.ROLLING_POMEGRANATE_CO_ATTACK &&
+        prev !== PHASE.RESOLVING);
+
+    const preserveByTransition =
+      (prev === PHASE.ROLLING_ATTACK &&
+        (phase === PHASE.ROLLING_DEFEND ||
+          phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ||
+          phase === PHASE.RESOLVING)) ||
+      (prev === PHASE.ROLLING_DEFEND && phase === PHASE.RESOLVING);
+
+    const preservePendingViewDelay =
+      !hardReset && atkRollDoneTimeoutRef.current != null;
+
+    if (!hardReset && (preserveByTransition || preservePendingViewDelay)) {
+      prevPhaseForAtkHoldRef.current = phase;
+      return;
+    }
+
     if (atkRollDoneTimeoutRef.current) {
       clearTimeout(atkRollDoneTimeoutRef.current);
       atkRollDoneTimeoutRef.current = null;
     }
-    setAtkRollDone(false);
+    // After attack read-delay finished, stay true through RESOLVING (NPC skip, fast server) — don’t wipe here
+    if (hardReset || phase !== PHASE.RESOLVING) {
+      setAtkRollDone(false);
+    }
+
+    prevPhaseForAtkHoldRef.current = phase;
   }, [turn?.phase, isViewer]);
   // Don't reset defRollDone when entering RESOLVING if player defended — we use defRollDone (animation end) to trigger resolve
   useEffect(() => {
@@ -498,19 +562,14 @@ export default function BattleHUD({
   const [defendReady, setDefendReady] = useState(false);
   const [resolveReady, setResolveReady] = useState(false);
 
-  // Reset defendReady when phase changes. When I am defender, wait for attack dice animation — set defendReady after atkRollDone.
-  // Once true, never flip back to false while still in ROLLING_DEFEND (atkRollDone can jitter briefly and would remount DiceRoller).
+  // When I am defender, unlock defend dice only after attack roll is on the wire and attack animation + read delay finished (atkRollDone).
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_DEFEND) {
       setDefendReady(false);
       return;
     }
     if (turn.defenderId === myId) {
-      if (turn.attackRoll != null && atkRollDone) {
-        setDefendReady(true);
-      } else {
-        setDefendReady((prev) => (prev ? true : false));
-      }
+      setDefendReady(turn.attackRoll != null && atkRollDone);
     } else {
       setDefendReady(false);
     }
@@ -531,13 +590,7 @@ export default function BattleHUD({
     }
   }, [turn?.phase, targets.length]);
 
-  // If I attacked, no attack replay to wait for → short delay
-  useEffect(() => {
-    if (turn?.phase === PHASE.ROLLING_DEFEND && turn.attackerId === myId) {
-      const t = setTimeout(() => setDefendReady(true), 500);
-      return () => clearTimeout(t);
-    }
-  }, [turn?.phase, turn?.attackerId, myId]);
+  // If I am defender: sequencing is atkRollDone + effect above. Attack-only player is not isMyDefend — no separate shortcut.
 
   // If I am defender (NPC attacked): show defend roller only after attack dice animation (atkRollDone) — handled in the ROLLING_DEFEND effect above
   // If opponent attacked and we're not defender: wait for their roll animation to end + 2s viewing time
