@@ -157,8 +157,10 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     if (!atk || !def) return false;
     const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
     const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
-    const atkTotal = (turn.attackRoll ?? 0) + atk.attackDiceUp + atkBuff;
-    const defTotal = (turn.defendRoll ?? 0) + def.defendDiceUp + defBuff;
+    const atkRecovery = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.RECOVERY_DICE_UP);
+    const defRecovery = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.RECOVERY_DICE_UP);
+    const atkTotal = (turn.attackRoll ?? 0) + atk.attackDiceUp + atkBuff + atkRecovery;
+    const defTotal = (turn.defendRoll ?? 0) + def.defendDiceUp + defBuff + defRecovery;
     return atkTotal > defTotal;
   }, [turn, resolveShown, fighterMap, activeEffects]);
 

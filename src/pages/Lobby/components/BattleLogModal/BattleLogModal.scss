@@ -281,6 +281,13 @@ $ink-faint: #9a8b76;
   color: #0d6b0d;
 }
 
+.blm__applied {
+  font-weight: 700;
+  font-size: 0.58rem;
+  color: $ink-faint;
+  font-style: italic;
+}
+
 .blm__empty {
   font-family: 'Inter', sans-serif;
   font-size: 0.7rem;

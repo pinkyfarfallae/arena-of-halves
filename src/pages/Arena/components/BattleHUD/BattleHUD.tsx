@@ -1,9 +1,9 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
-import type { BattleState, FighterState } from '../../../../types/battle';
+import type { BattleLogEntry, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown } from '../../../../services/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -92,6 +92,8 @@ interface Props {
   isPlaybackDriver?: boolean;
   transientEffectsActive?: boolean;
   onSelectTarget: (defenderId: string) => void;
+  /** Keraunos Voltage: confirm two 2-damage targets at once when ≥3 enemies. */
+  onSelectKeraunosTier2Batch?: (defenderIds: string[]) => void;
   onSelectAction: (action: TurnAction, powerName?: string, allyTargetId?: string) => void;
   onSelectSeason: (season: SeasonKey) => void;
   onPreviewSeason?: (season: SeasonKey | null) => void;
@@ -213,7 +215,8 @@ export default function BattleHUD({
   devPlayAllFightersSelf = false, 
   devUiActAsAttacker = false, 
   transientEffectsActive,
-  onSelectTarget, 
+  onSelectTarget,
+  onSelectKeraunosTier2Batch,
   onSelectAction, 
   onSelectSeason, 
   onPreviewSeason, 
@@ -830,8 +833,10 @@ export default function BattleHUD({
     const ae = battle.activeEffects || [];
     const atkBuff = getStatModifier(ae, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
     const defBuff = getStatModifier(ae, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
-    const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
-    const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+    const atkRecovery = getStatModifier(ae, turn.attackerId, MOD_STAT.RECOVERY_DICE_UP);
+    const defRecovery = getStatModifier(ae, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
+    const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
+    const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
 
     if (atkTotal <= defTotal || atkTotal < 10) {
       setCritReady(true);
@@ -1695,8 +1700,10 @@ export default function BattleHUD({
       const activeEffects = battle.activeEffects || [];
       const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
       const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
-      const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff;
-      const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff;
+      const atkRecovery = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.RECOVERY_DICE_UP);
+      const defRecovery = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.RECOVERY_DICE_UP);
+      const at = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
+      const dt = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
       const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
       const baseDmg = Math.max(0, attacker.damage + dmgBuff);
       let damage = baseDmg;
@@ -1748,7 +1755,8 @@ export default function BattleHUD({
 
       resolveCache.current = {
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
-        atkBonus: attacker.attackDiceUp + atkBuff, defBonus: defender.defendDiceUp + defBuff,
+        atkBonus: attacker.attackDiceUp + atkBuff + atkRecovery,
+        defBonus: defender.defendDiceUp + defBuff + defRecovery,
         atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
         isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
         critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll, critRollLabel,
@@ -1920,8 +1928,24 @@ export default function BattleHUD({
         const secondaryIdsK = (turn as any).keraunosSecondaryTargetIds as string[] | undefined;
         const keraunosTierFromDefender =
           isKeraunosEntry && mainIdK
-            ? (entry.defenderId === mainIdK ? 0 : secondaryIdsK?.[0] === entry.defenderId ? 1 : secondaryIdsK?.[1] === entry.defenderId ? 2 : 0)
+            ? (() => {
+                if (entry.defenderId === mainIdK) return 0 as const;
+                const idx = secondaryIdsK?.indexOf(entry.defenderId) ?? -1;
+                if (idx < 0) return 0 as const;
+                return (idx < 2 ? 1 : 2) as 0 | 1 | 2;
+              })()
             : undefined;
+        const aePlayback = battle.activeEffects || [];
+        const atkBuffP = getStatModifier(aePlayback, entry.attackerId, MOD_STAT.ATTACK_DICE_UP);
+        const defBuffP = getStatModifier(aePlayback, entry.defenderId!, MOD_STAT.DEFEND_DICE_UP);
+        const atkRecP = getStatModifier(aePlayback, entry.attackerId, MOD_STAT.RECOVERY_DICE_UP);
+        const defRecP = getStatModifier(aePlayback, entry.defenderId!, MOD_STAT.RECOVERY_DICE_UP);
+        const atkRollNum = (entry.attackRoll as number) || 0;
+        const defRollNum = (entry.defendRoll as number) || 0;
+        const atkDiceUpF = atk?.attackDiceUp ?? 0;
+        const defDiceUpF = def?.defendDiceUp ?? 0;
+        const atkTotalLog = (entry as BattleLogEntry).atkTotal ?? atkRollNum + atkDiceUpF + atkBuffP + atkRecP;
+        const defTotalLog = (entry as BattleLogEntry).defTotal ?? defRollNum + defDiceUpF + defBuffP + defRecP;
         const rc = {
           isHit: !entry.missed,
           // Beyond the Nimbus attack (after confirm): show in resolve bar as normal attack (ATK vs DEF, damage)
@@ -1932,7 +1956,12 @@ export default function BattleHUD({
           baseDmg: (Number((entry as any).baseDmg) || 0) as number,
           damage: (entry.damage as number) || 0,
           shockBonus: (entry.shockDamage as number) || 0,
-          atkRoll: (entry.attackRoll as number) || 0,
+          atkRoll: atkRollNum,
+          defRoll: defRollNum,
+          atkBonus: atkTotalLog - atkRollNum,
+          defBonus: defTotalLog - defRollNum,
+          atkTotal: atkTotalLog,
+          defTotal: defTotalLog,
           isDodged: !!entry.isDodged,
           coAttackHit: !!entry.coAttackDamage,
           coAttackDamage: (entry.coAttackDamage as number) || 0,
@@ -2244,16 +2273,52 @@ export default function BattleHUD({
                 (IMPRECATED_POEM_VERSE_TAGS as readonly string[]).includes(selectedPoem)
                   ? selectedPoem
                   : null;
+              const isKeraunosPick =
+                turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && !turn.keraunosAwaitingCrit;
+              const aliveOppCountK = (opposingTeam ?? []).filter((f) => f.currentHp > 0).length;
+              const keraunosSecsK = turn?.keraunosSecondaryTargetIds ?? [];
+              const keraunosStepK = turn ? effectiveKeraunosStep(turn) : 0;
+              const keraunosTier2Multi = !!(isKeraunosPick && turn && aliveOppCountK >= 3 && keraunosStepK === 1 && keraunosSecsK.length === 0 && onSelectKeraunosTier2Batch);
+              const keraunosModalTargets =
+                isKeraunosPick && turn
+                  ? (() => {
+                      const step = effectiveKeraunosStep(turn);
+                      const mainId = turn.keraunosMainTargetId;
+                      const secs = turn.keraunosSecondaryTargetIds ?? [];
+                      if (step === 0) return targets;
+                      let pool = targets.filter((t) => t.characterId !== mainId);
+                      if (aliveOppCountK >= 3 && secs.length >= 1 && !keraunosTier2Multi) {
+                        pool = pool.filter((t) => !secs.includes(t.characterId));
+                      }
+                      return pool;
+                    })()
+                  : targets;
+              const keraunosSubtitle = (() => {
+                if (!isKeraunosPick || !turn) return undefined;
+                const step = effectiveKeraunosStep(turn);
+                const secs = turn.keraunosSecondaryTargetIds ?? [];
+                if (step === 0) return 'Keraunos Voltage — Tier 1: 3 damage';
+                if (keraunosTier2Multi) return 'Keraunos Voltage — Tier 2: 2 damage (2 targets)';
+                if (aliveOppCountK >= 3 && secs.length === 1) {
+                  return 'Keraunos Voltage — Tier 2: 2 damage (1 target)';
+                }
+                return 'Keraunos Voltage — Tier 2: 1 damage (rest)';
+              })();
               return (
                 <TargetSelectModal
                   attackerName={attacker?.nicknameEng ?? ''}
-                  targets={targets}
+                  targets={keraunosModalTargets}
                   themeColor={attacker?.theme[0]}
                   themeColorDark={attacker?.theme[18]}
                   onSelect={(id) => setTimeout(() => (isAllyHealTargetSelect && onSelectAllyTarget ? onSelectAllyTarget(id) : onSelectTarget(id)), 0)}
+                  multiSelectRequired={keraunosTier2Multi ? 2 : undefined}
+                  onSelectMulti={keraunosTier2Multi ? onSelectKeraunosTier2Batch : undefined}
                   onBack={() => setTimeout(() => onCancelTarget?.(), 0)}
                   backDisabled={backDisabled}
-                  subtitle={turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined}
+                  subtitle={
+                    keraunosSubtitle
+                    ?? (turn.usedPowerName === POWER_NAMES.IMPRECATED_POEM && turn.selectedPoem ? 'Choose target' : undefined)
+                  }
                   eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
                   activeEffects={battle?.activeEffects ?? []}
                   healTargetSelect={isAllyHealTargetSelect}
@@ -3154,7 +3219,12 @@ export default function BattleHUD({
                 {entry.missed ? (
                   <span>{atkName} missed {defName}</span>
                 ) : (
-                  <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+                  <span>
+                    {atkName} hit {defName}
+                    {(entry.damage ?? 0) > 0 ? (
+                      <> for <span className="bhud__log-hit">{entry.damage} dmg</span></>
+                    ) : null}
+                  </span>
                 )}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
               </div>
@@ -3166,7 +3236,8 @@ export default function BattleHUD({
             const isSelfTarget = power?.target === TARGET_TYPES.SELF;
             const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed?.startsWith?.('Ephemeral Season:');
             const pendingTarget = !!(entry as any).pendingTarget;
-            const noTarget = isSelfTarget || isSeasonPower || pendingTarget;
+            const logSelfTarget = entry.attackerId === entry.defenderId;
+            const noTarget = isSelfTarget || isSeasonPower || pendingTarget || logSelfTarget;
             return (
               <div className="bhud__log-entry bhud__log-entry--power" key={i}>
                 <span className="bhud__log-round">R{entry.round}</span>
@@ -3178,7 +3249,14 @@ export default function BattleHUD({
                     <span className="bhud__log-name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                   </>
                 )}
-                {entry.damage > 0 ? (
+                {entry.heal != null && entry.heal > 0 ? (
+                  <>
+                    <span className="bhud__log-sep">—</span>
+                    <span className="bhud__log-heal">
+                      +{entry.heal} heal{entry.floralHealCrit ? ' · CRIT' : ''}
+                    </span>
+                  </>
+                ) : entry.damage > 0 ? (
                   <span className="bhud__log-hit">{entry.damage} dmg</span>
                 ) : entry.isDodged && !noTarget ? (
                   <>
@@ -3190,10 +3268,19 @@ export default function BattleHUD({
                     <span className="bhud__log-sep">—</span>
                     <span>{defName} blocked {atkName}</span>
                   </>
-                ) : !noTarget ? (
+                ) : !noTarget && (entry.damage ?? 0) > 0 ? (
                   <>
                     <span className="bhud__log-sep">—</span>
                     <span className="bhud__log-hit">{entry.damage} dmg</span>
+                  </>
+                ) : !noTarget &&
+                  !(entry.damage ?? 0) &&
+                  !entry.isDodged &&
+                  !entry.missed &&
+                  power?.skipDice ? (
+                  <>
+                    <span className="bhud__log-sep">—</span>
+                    <span className="bhud__log-applied">Applied</span>
                   </>
                 ) : null}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
@@ -3215,7 +3302,12 @@ export default function BattleHUD({
                 ) : entry.missed ? (
                   <span>{defName} blocked {atkName}</span>
                 ) : (
-                  <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+                  <span>
+                    {atkName} hit {defName}
+                    {(entry.damage ?? 0) > 0 ? (
+                      <> for <span className="bhud__log-hit">{entry.damage} dmg</span></>
+                    ) : null}
+                  </span>
                 )}
                 {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
               </div>
@@ -3242,7 +3334,12 @@ export default function BattleHUD({
               ) : entry.missed ? (
                 <span>{defName} blocked {atkName}</span>
               ) : (
-                <span>{atkName} hit {defName} for <span className="bhud__log-hit">{entry.damage} dmg</span></span>
+                <span>
+                  {atkName} hit {defName}
+                  {(entry.damage ?? 0) > 0 ? (
+                    <> for <span className="bhud__log-hit">{entry.damage} dmg</span></>
+                  ) : null}
+                </span>
               )}
               {entry.eliminated && <span className="bhud__log-ko">KO!</span>}
             </div>
