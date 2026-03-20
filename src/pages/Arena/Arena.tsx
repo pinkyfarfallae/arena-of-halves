@@ -45,8 +45,6 @@ import {
   advanceAfterSoulDevourerHealSkippedAck,
   advanceAfterSpringHealSkippedAck,
   advanceToPomegranateCoAttackPhase,
-  submitPomegranateCoAttackRoll,
-  submitPomegranateCoDefendRoll,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { SEASON_ORDER, type SeasonKey } from '../../data/seasons';
@@ -295,8 +293,7 @@ function Arena(props?: ArenaDemoProps) {
         setVolleyArrowHitActive(false);
         setVolleyArrowCasterPos(null);
         setVolleyArrowDefenderPos(null);
-        /* Advance after VFX ends (damage card is hidden so onDisplayComplete never runs — advance here) */
-        if (arenaId) advanceToNextRapidFireStep(arenaId);
+        /* Turn advance: BattleHUD DamageCard onDisplayComplete → onRapidFireDamageCardComplete → advanceToNextRapidFireStep */
       }, 1850); /* arrow 0.72s + impact 0.8s + buffer */
       return () => clearTimeout(t);
     }
@@ -658,10 +655,16 @@ function Arena(props?: ArenaDemoProps) {
       }
       return;
     }
-    if (turn.phase === PHASE.ROLLING_ATTACK && teamBIds.has(turn.attackerId)) {
-      const roll = Math.floor(Math.random() * 12) + 1;
-      schedule(() => submitAttackRoll(arenaId, roll), 1200);
-      return;
+    if (turn.phase === PHASE.ROLLING_ATTACK) {
+      const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+      const npcCo =
+        awaitingPom && turn.coAttackerId && teamBIds.has(turn.coAttackerId as string);
+      const npcMain = !awaitingPom && teamBIds.has(turn.attackerId);
+      if (npcCo || npcMain) {
+        const roll = Math.floor(Math.random() * 12) + 1;
+        schedule(() => submitAttackRoll(arenaId, roll), 1200);
+        return;
+      }
     }
     if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && teamBIds.has(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
@@ -704,22 +707,9 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await selectTargetDisoriented(arenaId);
   }, [arenaId]);
 
-  /* Pomegranate co-attack: keep these useCallbacks here only — before loading/error returns — never duplicate after handleResolveTurn. */
   const handleAdvancePomegranateCoAttackPhase = useCallback(() => {
     if (arenaId) advanceToPomegranateCoAttackPhase(arenaId).catch(() => { });
   }, [arenaId]);
-  const handleSubmitPomegranateCoAttackRoll = useCallback(
-    (roll: number) => {
-      if (arenaId) submitPomegranateCoAttackRoll(arenaId, roll).catch(() => { });
-    },
-    [arenaId],
-  );
-  const handleSubmitPomegranateCoDefendRoll = useCallback(
-    (roll: number) => {
-      if (arenaId) submitPomegranateCoDefendRoll(arenaId, roll).catch(() => { });
-    },
-    [arenaId],
-  );
 
   /* ── Copy helpers ────────────────────────────── */
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
@@ -787,11 +777,12 @@ function Arena(props?: ArenaDemoProps) {
   const battleUiMyId = (() => {
     if (!devUiActAsAttacker || !battle?.turn) return user?.characterId;
     const t = battle.turn;
-    /* You control attacker for attack phases; during defend rolls myId must be defender or DiceModal isMyDefend stays false. */
-    if (
-      (t.phase === PHASE.ROLLING_DEFEND || t.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND) &&
-      t.defenderId
-    ) {
+    /* Co-attack uses ROLLING_ATTACK but roller is coAttackerId, not turn attacker. */
+    if (t.awaitingPomegranateCoAttack && t.phase === PHASE.ROLLING_ATTACK && t.coAttackerId) {
+      return t.coAttackerId;
+    }
+    /* During defend rolls myId must be defender or DiceModal isMyDefend stays false. */
+    if (t.phase === PHASE.ROLLING_DEFEND && t.defenderId) {
       return t.defenderId;
     }
     return t.attackerId ?? user?.characterId;
@@ -1249,8 +1240,6 @@ function Arena(props?: ArenaDemoProps) {
             isDefenderNpc={isDefenderNpc}
             isPomCoCasterNpc={isPomCoCasterNpc}
             onAdvancePomegranateCoAttackPhase={handleAdvancePomegranateCoAttackPhase}
-            onSubmitPomegranateCoAttackRoll={handleSubmitPomegranateCoAttackRoll}
-            onSubmitPomegranateCoDefendRoll={handleSubmitPomegranateCoDefendRoll}
             devPlayAllFightersSelf={!!effectiveRoom.devPlayAllFightersSelf}
             devUiActAsAttacker={devUiActAsAttacker}
             onResolveVisible={setResolveShown}

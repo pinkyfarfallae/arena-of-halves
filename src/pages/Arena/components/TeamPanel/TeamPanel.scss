@@ -212,6 +212,21 @@
       top: 3px;
       right: 3px;
     }
+
+    /* Apollo's Hymn — corona/border/accents use 130px vars in apollo-s-hymn; full roster frame is 88px */
+    .mchip__hymn-border,
+    .mchip__hymn-corona-rays,
+    .mchip__hymn-accents {
+      width: 88px;
+      height: 88px;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 7px;
+    }
+
+    .mchip__hymn-border {
+      padding: 1.5px;
+    }
   }
 }
 
@@ -642,6 +657,21 @@
       height: 9px;
       top: 2px;
       right: 2px;
+    }
+
+    /* Apollo's Hymn — full roster frame 60px */
+    .mchip__hymn-border,
+    .mchip__hymn-corona-rays,
+    .mchip__hymn-accents {
+      width: 60px;
+      height: 60px;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 6px;
+    }
+
+    .mchip__hymn-border {
+      padding: 1px;
     }
   }
 

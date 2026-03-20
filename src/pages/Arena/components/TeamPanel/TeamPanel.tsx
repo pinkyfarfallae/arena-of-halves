@@ -250,7 +250,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[String(min.characterId)] != null));
         const shouldAllowLegacyMinionPulse = !!(
           (hasMinionHitPulse || isSkeletonCardHitTarget) &&
-          (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive)
+          (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive || !!resolveShown)
         );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
@@ -463,16 +463,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
-        // Apollo's Hymn: heal VFX (sun/corona wave) — show on both caster and ally when log has APOLLO_S_HYMN
+        // Apollo's Hymn: heal VFX on the healed target only (log defenderId); crit buff applies to caster too but no second heal VFX
         const hymnLogIndex = (() => {
           const powerName = (POWER_NAMES.APOLLO_S_HYMN as string).trim();
           const charId = String(m.characterId);
           for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx] as { powerUsed?: string; attackerId?: string; defenderId?: string };
+            const le = floralSearchLog[idx] as { powerUsed?: string; defenderId?: string };
             const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
             const isApolloHymn = pu === powerName || (pu.includes('Apollo') && pu.includes('Hymn'));
             if (!isApolloHymn) continue;
-            if (String(le.defenderId) === charId || String(le.attackerId) === charId) return idx;
+            if (String(le.defenderId) !== charId) continue;
+            return idx;
           }
           return -1;
         })();
@@ -567,7 +568,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
+            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
             visualDefenderId={visualDefenderId}
             hitEventKey={
               (() => {
