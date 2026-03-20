@@ -16,14 +16,31 @@ import { ARENA_PATH, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../cons
 import { CHARACTER } from '../../../../constants/characters';
 import { DEITY } from '../../../../constants/deities';
 
+const ROOM_TITLE_MAX_LEN = 120;
+
+function rosterSideTitle(fighters: FighterState[]): string {
+  const s = fighters
+    .map((f) => (f.nicknameEng || f.characterId).trim())
+    .filter(Boolean)
+    .join(' & ');
+  return s.length > 0 ? s : '?';
+}
+
+function capAutoRoomTitle(title: string): string {
+  if (title.length <= ROOM_TITLE_MAX_LEN) return title;
+  return `${title.slice(0, ROOM_TITLE_MAX_LEN - 1)}…`;
+}
+
 interface Props {
   arenaId: string;
+  /** Custom title from lobby input at create time — re-written on config updates so it is not lost before entering arena. */
+  preservedRoomLabel?: string;
   player?: FighterState;
   onClose: () => void;
   onEnter: (arenaId: string) => void;
 }
 
-export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: Props) {
+export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, onClose, onEnter }: Props) {
   const [teamSizeA, setTeamSizeA] = useState(1);
   const [teamSizeB, setTeamSizeB] = useState(1);
   const [selectedAlliesA, setSelectedAlliesA] = useState<FighterState[]>([]);
@@ -61,6 +78,17 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
   );
   const isNpcFighter = (f: FighterState) => npcIdSet.has(f.characterId.toLowerCase());
 
+  const roomNamePatch = (): { roomName: string } | Record<string, never> => {
+    const t = preservedRoomLabel?.trim();
+    return t ? { roomName: t } : {};
+  };
+
+  useEffect(() => {
+    const t = preservedRoomLabel?.trim();
+    if (!t) return;
+    update(ref(db, `arenas/${arenaId}`), { roomName: t }).catch(() => {});
+  }, [arenaId, preservedRoomLabel]);
+
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
   const onDevPlayAllFightersSelfChange = (checked: boolean) => {
@@ -93,6 +121,7 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
 
   const syncRoomCaps = async (a: number, b: number) => {
     await update(ref(db, `arenas/${arenaId}`), {
+      ...roomNamePatch(),
       teamSize: Math.max(a, b),
       [teamPath(BATTLE_TEAM.A, 'maxSize')]: a,
       [teamPath(BATTLE_TEAM.B, 'maxSize')]: b,
@@ -167,7 +196,13 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
     const rosterBFull = membersB.length + invitesB >= teamSizeB;
     const canReady = rosterAFull && rosterBFull && pendingInvites === 0;
 
+    const autoTitle = `${rosterSideTitle([player, ...selectedAlliesA])} vs ${rosterSideTitle(selectedB)}`;
+    const roomTitle = preservedRoomLabel?.trim()
+      ? preservedRoomLabel.trim()
+      : capAutoRoomTitle(autoTitle);
+
     await update(ref(db, `arenas/${arenaId}`), {
+      roomName: roomTitle,
       [ARENA_PATH.STATUS]: canReady ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
       [teamPath(BATTLE_TEAM.A, 'members')]: membersA,
       [teamPath(BATTLE_TEAM.B, 'members')]: membersB,
