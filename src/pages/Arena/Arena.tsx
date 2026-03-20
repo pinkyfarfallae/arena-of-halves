@@ -4,7 +4,6 @@ import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
-import { fetchNPCs } from '../../data/npcs';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
@@ -47,7 +46,6 @@ import {
   submitPomegranateCoAttackRoll,
   submitPomegranateCoDefendRoll,
 } from '../../services/battleRoom';
-import { getAffordablePowers } from '../../services/powerEngine';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { SEASON_ORDER, type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
@@ -162,7 +160,6 @@ function Arena(props?: ArenaDemoProps) {
   const volleyMainArrowShownRef = useRef(false);
   /** Pomegranate Oath (and similar): attacker id while phase stays SELECT_ACTION — clear local confirm when turn advances. */
   const prevSelectActionAttackerIdRef = useRef<string | null>(null);
-  const npcJoining = useRef(false);
   const npcPhaseRef = useRef<string | null>(null);
   const npcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -576,47 +573,8 @@ function Arena(props?: ArenaDemoProps) {
     join();
   }, [join]);
 
-  /* ── Test mode: fetch selected NPC and auto-join to teamB ── */
-  useEffect(() => {
-    if (!room || !arenaId || !room.testMode) return;
-    if (room.status !== ROOM_STATUS.WAITING) return;
-    const teamBMembers = room.teamB?.members || [];
-    if (teamBMembers.length > 0) return;
-    if (npcJoining.current) return;
-
-    npcJoining.current = true;
-    let cancelled = false;
-
-    // Check if pre-selected NPC team exists
-    const npcTeam = (room as any).npcTeam;
-    if (npcTeam && Array.isArray(npcTeam) && npcTeam.length > 0) {
-      // Multi-fighter NPC team selected during config
-      joinRoom(arenaId, npcTeam).finally(() => { npcJoining.current = false; });
-      return () => { cancelled = true; };
-    }
-
-    // Single NPC: only when host picked an opponent via npcId (legacy / 1v1 shortcut)
-    fetchNPCs().then((npcs) => {
-      if (cancelled) return;
-      const npcId = room.npcId;
-      if (!npcId) {
-        npcJoining.current = false;
-        return;
-      }
-      const npc = npcs.find((n) => n.characterId === npcId);
-      if (!npc) {
-        npcJoining.current = false;
-        return;
-      }
-      joinRoom(arenaId, npc);
-    }).finally(() => { npcJoining.current = false; });
-    return () => { cancelled = true; };
-  }, [room, arenaId]);
-
-  /* ── Test mode: auto-play for NPC enemy ────── */
-  // Cleanup timer on unmount only
+  /* ── Normal mode: NPC auto-play (disabled when Play Every Fighters by Self) ── */
   useEffect(() => () => { if (npcTimerRef.current) clearTimeout(npcTimerRef.current); }, []);
-
   useEffect(() => {
     if (!room || !arenaId || !room.testMode) return;
     if (room.devPlayAllFightersSelf) return;
@@ -626,19 +584,14 @@ function Arena(props?: ArenaDemoProps) {
     const turn = room.battle.turn;
     const toArr = <T,>(v: T[] | Record<string, T> | undefined): T[] =>
       !v ? [] : Array.isArray(v) ? v : Object.values(v);
-    const teamBIds = new Set(toArr(room.teamB?.members).map(m => m.characterId));
+    const teamBIds = new Set(toArr(room.teamB?.members).map((m: any) => m.characterId));
     const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
-
-    // Same phase already scheduled and timer still pending — duplicate effect run (e.g. Strict Mode) must not return early or defend never fires
     if (npcPhaseRef.current === phaseKey && npcTimerRef.current !== null) return;
-
-    // New phase — cancel any pending timer from old phase
     if (npcTimerRef.current) {
       clearTimeout(npcTimerRef.current);
       npcTimerRef.current = null;
       npcPhaseRef.current = null;
     }
-
     const schedule = (fn: () => void, delay: number) => {
       npcPhaseRef.current = phaseKey;
       npcTimerRef.current = setTimeout(() => {
@@ -648,239 +601,47 @@ function Arena(props?: ArenaDemoProps) {
       }, delay);
     };
 
-    // NPC: Floral Fragrance heal skipped (e.g. target has Healing Nullified) — ack after delay, then advance
-    const floralHealSkipped = (turn as any)?.floralHealSkipped;
-    if (turn.phase === PHASE.ROLLING_FLORAL_HEAL && floralHealSkipped && teamBIds.has(turn.attackerId)) {
-      schedule(() => advanceAfterFloralHealSkippedAck(arenaId), 1500);
-      return;
-    }
-
-    // NPC: Floral Fragrance + Efflorescence Muse — roll D4 for heal crit, then advance
-    const floralWinFaces = (turn as any)?.floralHealWinFaces;
-    const floralRoll = (turn as any)?.floralHealRoll;
-    if (turn.phase === PHASE.ROLLING_FLORAL_HEAL && Array.isArray(floralWinFaces) && floralWinFaces.length > 0 && floralRoll == null && teamBIds.has(turn.attackerId)) {
-      schedule(async () => {
-        const roll = Math.ceil(Math.random() * 4);
-        try {
-          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
-          await advanceAfterFloralHealD4(arenaId);
-        } catch (e) { }
-      }, 2000);
-      return;
-    }
-
-    // NPC: Spring heal skipped — wait then ack so D4 roll for heal2 can run (flow: hit → apply heal / show skipped heal & wait for ack → roll next heal crit)
-    const springHealSkipAwaitsAck = (turn as any)?.springHealSkipAwaitsAck;
-    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && teamBIds.has(turn.attackerId)) {
-      schedule(() => advanceAfterSpringHealSkippedAck(arenaId), 1500);
-      return;
-    }
-
-    // NPC: Ephemeral Season Spring — roll D4 for heal amount (crit = 2, else 1), then advance (only when not waiting for skip ack)
-    const springWinFaces = (turn as any)?.springHealWinFaces;
-    const springRoll = (turn as any)?.springHealRoll;
-    if (turn.phase === PHASE.ROLLING_SPRING_HEAL && !springHealSkipAwaitsAck && Array.isArray(springWinFaces) && springWinFaces.length > 0 && springRoll == null && teamBIds.has(turn.attackerId)) {
-      schedule(async () => {
-        const roll = Math.ceil(Math.random() * 4);
-        try {
-          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { springHealRoll: roll });
-          await new Promise((r) => setTimeout(r, 800));
-          await advanceAfterSpringHealD4(arenaId);
-        } catch (e) { }
-      }, 2000);
-      return;
-    }
-
-    // NPC: Disoriented D4 roll (25% no effect), then advance
-    const disorientedWinFaces = (turn as any)?.disorientedWinFaces;
-    const disorientedRoll = (turn as any)?.disorientedRoll;
-    if (turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && Array.isArray(disorientedWinFaces) && disorientedWinFaces.length > 0 && disorientedRoll == null && teamBIds.has(turn.attackerId)) {
-      schedule(async () => {
-        const roll = Math.ceil(Math.random() * 4);
-        try {
-          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { disorientedRoll: roll });
-          await new Promise((r) => setTimeout(r, 800));
-          await advanceAfterDisorientedD4(arenaId);
-        } catch (e) { }
-      }, 1500);
-      return;
-    }
-
-    // NPC: Rapid Fire (Volley Arrow) D4 roll for extra shot
-    if (turn.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && teamBIds.has(turn.attackerId)) {
-      schedule(async () => {
-        const roll = Math.ceil(Math.random() * 4);
-        if (arenaId) await submitRapidFireD4Roll(arenaId, roll);
-      }, 1800);
-      return;
-    }
-
-    // NPC cast Shadow Camouflaging: roll D4 for refill SP, then advance
-    const scWinFaces = (turn as any)?.shadowCamouflageRefillWinFaces;
-    const scRoll = (turn as any)?.shadowCamouflageRefillRoll;
-    if (turn.phase === PHASE.RESOLVING && Array.isArray(scWinFaces) && scWinFaces.length > 0 && scRoll == null && teamBIds.has(turn.attackerId)) {
-      schedule(async () => {
-        const roll = Math.ceil(Math.random() * 4);
-        try {
-          await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { shadowCamouflageRefillRoll: roll });
-          await advanceAfterShadowCamouflageD4(arenaId);
-        } catch (e) { }
-      }, 2000);
-      return;
-    }
-
-    // NPC's turn to select target → pick random alive opponent (filtered by power requirements and Shadow Camouflage)
-    // Disoriented: skip here; BattleHUD effect calls selectTargetDisoriented so server does 25% no-effect flow
-    const battle = room.battle;
-    const npcHasDisoriented = !!(turn.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
-    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId) && !npcHasDisoriented) {
-      let teamAAlive = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
-
-      if (turn.usedPowerIndex != null && battle) {
-        const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
-        if (npcFighter) {
-          const power = npcFighter.powers[turn.usedPowerIndex];
-          const effects = battle.activeEffects || [];
-          // If power requires specific effect on target, filter valid targets
-          if (power?.requiresTargetHasEffect) {
-            const requiredTag = power.requiresTargetHasEffect;
-            teamAAlive = teamAAlive.filter(enemy =>
-              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
-            );
-          }
-        }
-      }
-      // Shadow Camouflage: exclude shadow-camouflaged enemies unless current action is area attack
-      if (battle) {
-        const effects = battle.activeEffects || [];
-        const isAreaAttack = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && (() => {
-          const npcF = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
-          const p = npcF?.powers?.[turn.usedPowerIndex!];
-          return p?.target === TARGET_TYPES.AREA;
-        })();
-        teamAAlive = teamAAlive.filter(enemy =>
-          !effects.some(e => e.targetId === enemy.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED) || isAreaAttack
-        );
-      }
-
-      if (teamAAlive.length > 0) {
-        const target = teamAAlive[Math.floor(Math.random() * teamAAlive.length)];
-        // Extra delay after Floral Fragrance so fragrance wave visual plays
-        const delay = turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2000;
-        // Show client-side visual selection immediately so NPC appears to aim (e.g., at skeletons)
-        setNpcVisualTarget(target.characterId);
-        // Preserve any known used power name (server may set turn.usedPowerName when arriving at select-target).
-        // This ensures Floral powers have their visual name set so TeamPanel can show the fragrance VFX.
-        setNpcVisualPowerName(turn?.usedPowerName ?? null);
-        schedule(() => selectTarget(arenaId, target.characterId), delay);
-        // Clear the client-side visual after the scheduled action completes (+ small buffer)
-        setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, delay + 2500);
-      } else {
-        // No valid target (e.g. all enemies under Shadow Camouflage) — skip turn; modal will show when log updates
-        schedule(() => skipTurnNoValidTarget(arenaId), 1500);
-      }
-      return;
-    }
-
-    // NPC chooses action (attack or power)
     if (turn.phase === PHASE.SELECT_ACTION && teamBIds.has(turn.attackerId)) {
-      // Death Keeper: always resurrect if available + dead allies exist
-      const npcEffects = battle?.activeEffects || [];
-      const hasDeathKeeper = npcEffects.some(e => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
-      const deadAllies = toArr(room.teamB?.members).filter(m => m.currentHp <= 0);
-      if (hasDeathKeeper && deadAllies.length > 0 && !turn.resurrectTargetId) {
-        const target = deadAllies[Math.floor(Math.random() * deadAllies.length)];
-        // Death Keeper is always index 0 (Passive)
-        schedule(() => selectAction(arenaId, TURN_ACTION.POWER, 0, target.characterId), 1500);
+      schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 700);
+      return;
+    }
+    if (turn.phase === PHASE.SELECT_TARGET && teamBIds.has(turn.attackerId)) {
+      const battle = room.battle;
+      const npcHasDisoriented = !!(turn.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
+      if (npcHasDisoriented) {
+        schedule(() => { selectTargetDisoriented(arenaId).catch(() => { }); }, 800);
         return;
       }
-
-      const npcFighter = toArr(room.teamB?.members).find(m => m.characterId === turn.attackerId);
-      if (npcFighter) {
-        const affordable = getAffordablePowers(npcFighter);
-
-        // Filter out powers that require specific target conditions but no valid targets exist
-        const usablePowers = affordable.filter(({ power }) => {
-          // If power requires target to have specific effect, check if any enemy has it
-          if (power.requiresTargetHasEffect && battle) {
-            const requiredTag = power.requiresTargetHasEffect;
-            const enemies = toArr(room.teamA?.members).filter(m => m.currentHp > 0);
-            const effects = battle.activeEffects || [];
-            return enemies.some(enemy =>
-              effects.some(e => e.targetId === enemy.characterId && e.tag === requiredTag)
-            );
-          }
-          return true;
-        });
-
-        if (usablePowers.length > 0 && Math.random() < 0.8) {
-          const pick = usablePowers[Math.floor(Math.random() * usablePowers.length)];
-          // Ally-targeting power: pick a random alive teammate
-          if (pick.power.target === TARGET_TYPES.ALLY) {
-            const teammates = toArr(room.teamB?.members).filter(m => m.currentHp > 0);
-            if (teammates.length > 0) {
-              // Pomegranate's Oath: prefer other allies, self only if no others alive
-              let pool = teammates;
-              if (pick.power.name === POWER_NAMES.POMEGRANATES_OATH) {
-                const others = teammates.filter(m => m.characterId !== turn.attackerId);
-                if (others.length > 0) pool = others;
-              }
-              const ally = pool[Math.floor(Math.random() * pool.length)];
-              // Show client-side visual for NPC ally-targeting powers (e.g., Floral Fragrance)
-              setNpcVisualTarget(ally.characterId);
-              setNpcVisualPowerName(pick.power.name);
-              const actionDelay = 1000;
-              // If Floral Fragrance, keep visual longer to allow fragrance VFX to play
-              const keepMs = pick.power.name === POWER_NAMES.FLORAL_FRAGRANCE ? 5000 : 2500;
-              schedule(() => selectAction(arenaId, TURN_ACTION.POWER, pick.index, ally.characterId), actionDelay);
-              setTimeout(() => { setNpcVisualTarget(null); setNpcVisualPowerName(null); }, actionDelay + keepMs);
-            } else {
-              schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
-            }
-          } else {
-            schedule(() => selectAction(arenaId, TURN_ACTION.POWER, pick.index), 1000);
-          }
-        } else {
-          schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
-        }
+      const isAreaAttack = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null && (() => {
+        const npcF = toArr(room.teamB?.members).find((m: any) => m.characterId === turn.attackerId);
+        const p = npcF?.powers?.[turn.usedPowerIndex!];
+        return p?.target === TARGET_TYPES.AREA;
+      })();
+      const teamAAlive = toArr(room.teamA?.members).filter((m: any) => m.currentHp > 0);
+      const effects = battle?.activeEffects || [];
+      const validTargets = teamAAlive.filter((enemy: any) =>
+        !effects.some((e: any) => e.targetId === enemy.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED) || isAreaAttack
+      );
+      if (validTargets.length === 0) {
+        schedule(() => skipTurnNoValidTarget(arenaId), 700);
       } else {
-        schedule(() => selectAction(arenaId, TURN_ACTION.ATTACK), 800);
+        const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+        schedule(() => selectTarget(arenaId, target.characterId), 900);
       }
       return;
     }
-
-    // NPC needs to select season (Ephemeral Season)
-    if (turn.phase === PHASE.SELECT_SEASON && teamBIds.has(turn.attackerId)) {
-      const seasons: SeasonKey[] = SEASON_ORDER;
-      const pick = seasons[Math.floor(Math.random() * seasons.length)];
-      schedule(() => handleSelectSeason(pick), 1500);
-      return;
-    }
-
-    // NPC needs to select poem verse (Imprecated Poem)
-    if (turn.phase === PHASE.SELECT_POEM && teamBIds.has(turn.attackerId)) {
-      const verses = [...IMPRECATED_POEM_VERSE_TAGS];
-      const pick = verses[Math.floor(Math.random() * verses.length)];
-      schedule(() => handleSelectPoem(pick), 1500);
-      return;
-    }
-
-    // NPC needs to roll attack dice (D12)
     if (turn.phase === PHASE.ROLLING_ATTACK && teamBIds.has(turn.attackerId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
-      schedule(() => submitAttackRoll(arenaId, roll), 1800);
+      schedule(() => submitAttackRoll(arenaId, roll), 1200);
       return;
     }
-
-    // NPC needs to roll defend dice (D12)
     if (turn.phase === PHASE.ROLLING_DEFEND && turn.defenderId && teamBIds.has(turn.defenderId)) {
       const roll = Math.floor(Math.random() * 12) + 1;
-      schedule(() => submitDefendRoll(arenaId, roll), 4500);
+      schedule(() => submitDefendRoll(arenaId, roll), 1200);
       return;
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- battle/handleSelectSeason from room; omit to avoid extra NPC auto-actions
   }, [room, arenaId]);
+
 
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
@@ -988,16 +749,12 @@ function Arena(props?: ArenaDemoProps) {
   /** Play-all-fighters: only the configurated host drives; embedded teammates watch like viewers. */
   const playAllNonHostViewer = !!(effectiveRoom.devPlayAllFightersSelf && !isPlayAllHost);
   const battle = effectiveRoom.battle;
-  /** Dev test: treat current attacker as local player for HUD/TeamPanel (full manual or any turn when NPC auto is off).
-   *  Play-all-camp must not require testMode: rooms can omit it while devPlayAllFightersSelf is set — otherwise myId stays
-   *  on the logged-in character and embedded allies' turns never get isMyTurn (no action/dice modals). */
+  /** Play-all-camp: host controls whichever fighter is acting. */
   const devUiActAsAttacker =
     !!(
       (effectiveRoom.testMode || !!effectiveRoom.devPlayAllFightersSelf) &&
       (effectiveRoom.devPlayAllFightersSelf ? isPlayAllHost : isCreator) &&
-      battle?.turn?.attackerId &&
-      (effectiveRoom.devPlayAllFightersSelf ||
-        effectiveRoom.devNpcAutoPlay === false)
+      battle?.turn?.attackerId
     );
   const battleUiMyId = (() => {
     if (!devUiActAsAttacker || !battle?.turn) return user?.characterId;
@@ -1015,22 +772,14 @@ function Arena(props?: ArenaDemoProps) {
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
-  const isNpcPlaybackDriver = !!(
-    effectiveRoom.testMode &&
-    battle?.turn?.attackerId &&
-    teamBMembers.some((m) => m.characterId === battle.turn?.attackerId) &&
-    (effectiveRoom.devPlayAllFightersSelf ? isPlayAllHost : isCreator)
-  );
   const isPlaybackDriver = !!(
     effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
-      : (battle?.turn?.attackerId === user?.characterId || isNpcPlaybackDriver || devUiActAsAttacker)
+      : (battle?.turn?.attackerId === user?.characterId || devUiActAsAttacker)
   );
-  /** When true, attacker is NPC (PvE test mode); D4 crit/chain must be simulated on this client. Play-all mode: always false so the host gets modals for every fighter. */
   const isAttackerNpc =
     !!(effectiveRoom.testMode && battle?.turn?.attackerId && teamBIds.has(battle.turn.attackerId)) &&
     !effectiveRoom.devPlayAllFightersSelf;
-  /** When true, defender is NPC; dodge D4 must be simulated here. Play-all: false so dodge/crit are manual. */
   const isDefenderNpc =
     !!(effectiveRoom.testMode && battle?.turn?.defenderId && teamBIds.has(battle.turn.defenderId)) &&
     !effectiveRoom.devPlayAllFightersSelf;

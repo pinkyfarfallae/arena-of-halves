@@ -31,7 +31,6 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
   const [copied, setCopied] = useState<CopyType | null>(null);
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [playerCharacters, setPlayerCharacters] = useState<FighterState[]>([]);
-  const [devNpcAutoPlay, setDevNpcAutoPlay] = useState(true);
   const [devPlayAllFightersSelf, setDevPlayAllFightersSelf] = useState(false);
 
   useEffect(() => {
@@ -64,14 +63,8 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
 
   const viewerLink = `${window.location.origin}${window.location.pathname}#/arena/${arenaId}?watch=true`;
 
-  const onDevNpcAutoPlayChange = (checked: boolean) => {
-    setDevNpcAutoPlay(checked);
-    if (checked) setDevPlayAllFightersSelf(false);
-  };
-
   const onDevPlayAllFightersSelfChange = (checked: boolean) => {
     setDevPlayAllFightersSelf(checked);
-    if (checked) setDevNpcAutoPlay(false);
   };
 
   const handleCopy = async (type: CopyType) => {
@@ -182,7 +175,7 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
       npcId: null,
       npcTeam: null,
       inviteReservations: inviteReservations.length > 0 ? inviteReservations : null,
-      devNpcAutoPlay,
+      devNpcAutoPlay: true,
       devPlayAllFightersSelf,
       devPlayAllHostCharacterId: embedAllRoster ? player.characterId : null,
     });
@@ -306,17 +299,6 @@ export default function ConfigArenaModal({ arenaId, player, onClose, onEnter }: 
 
           <div className="cam__dev-config">
             <label className="cam__label">Developer Config</label>
-            <label className="cam__dev-row">
-              <input
-                type="checkbox"
-                checked={devNpcAutoPlay}
-                onChange={(e) => onDevNpcAutoPlayChange(e.target.checked)}
-              />
-              <span className="cam__dev-row-text">
-                <span className="cam__dev-row-title">NPC &amp; Other Player Auto Play</span>
-                <span className="cam__dev-row-desc">Default: On — Your character is the player; others run as NPC / auto.</span>
-              </span>
-            </label>
             <label className="cam__dev-row">
               <input
                 type="checkbox"
