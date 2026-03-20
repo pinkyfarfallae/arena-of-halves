@@ -156,6 +156,12 @@ export interface TurnState {
   keraunosSecondaryTargetIds?: string[];
   /** 0 = main (3 dmg), 1 = choosing 2-dmg target(s). Third bolt targets are auto-filled. Legacy 2/3 still read via effectiveKeraunosStep. */
   keraunosTargetStep?: number;
+  /** Keraunos Voltage: bolt targets in order (main, then secondaries) — one resolve card / log line each (see Jolt Arc). */
+  keraunosResolveTargetIds?: string[];
+  keraunosAoeDamageMap?: Record<string, number>;
+  keraunosResolveIndex?: number;
+  /** Masters whose bolt was absorbed by skeleton — no shock on that master (persists across sequential bolts). */
+  keraunosShockExcludeTargetIds?: string[];
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
   isDodged?: boolean;
