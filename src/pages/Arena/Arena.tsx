@@ -652,7 +652,7 @@ function Arena(props?: ArenaDemoProps) {
       const battle = room.battle;
       const npcHasDisoriented = !!(turn.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
       if (npcHasDisoriented) {
-        schedule(() => { selectTargetDisoriented(arenaId).catch(() => { }); }, 800);
+        schedule(() => { selectTargetDisoriented(arenaId).catch(() => { }); }, 2000);
         return;
       }
       const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
@@ -672,7 +672,7 @@ function Arena(props?: ArenaDemoProps) {
         schedule(() => skipTurnNoValidTarget(arenaId), 700);
       } else {
         const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-        schedule(() => selectTarget(arenaId, target.characterId), 900);
+        schedule(() => selectTarget(arenaId, target.characterId), 3000);
       }
       return;
     }
