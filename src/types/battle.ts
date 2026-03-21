@@ -1,4 +1,4 @@
-import { PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey } from '../constants/battle';
+import { ArenaRole, PHASE, ROOM_STATUS, TURN_ACTION, type BattleTeamKey, type TurnAction } from '../constants/battle';
 import { SeasonKey } from '../data/seasons';
 import { Theme25 } from './character';
 import { Deity } from './deity';
@@ -134,6 +134,8 @@ export interface TurnState {
   action?: (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
   usedPowerIndex?: number;
   usedPowerName?: string;
+  /** True after SP/quota was deducted for this power commit (used for idempotency and cancel refunds). */
+  powerQuotaApplied?: boolean;
 
   /* Critical hit (written by BattleHUD before resolve) */
   isCrit?: boolean;
@@ -152,16 +154,24 @@ export interface TurnState {
   keraunosMainTargetId?: string;
   /** Up to 2 targets (2 then 1 damage). */
   keraunosSecondaryTargetIds?: string[];
-  /** 0 = need main, 2 = need first secondary, 3 = need second secondary. */
+  /** 0 = main (3 dmg), 1 = choosing 2-dmg target(s). Third bolt targets are auto-filled. Legacy 2/3 still read via effectiveKeraunosStep. */
   keraunosTargetStep?: number;
+  /** Keraunos Voltage: bolt targets in order (main, then secondaries) — one resolve card / log line each (see Jolt Arc). */
+  keraunosResolveTargetIds?: string[];
+  keraunosAoeDamageMap?: Record<string, number>;
+  keraunosResolveIndex?: number;
+  /** Masters whose bolt was absorbed by skeleton — no shock on that master (persists across sequential bolts). */
+  keraunosShockExcludeTargetIds?: string[];
 
   /* Pomegranate's Oath — dodge D4 (written by BattleHUD before resolve) */
   isDodged?: boolean;
   dodgeRoll?: number;
   dodgeWinFaces?: number[];
 
-  /* Pomegranate's Oath — co-attack D12 (written by BattleHUD before resolve) */
+  /* Pomegranate's Oath — co-attack dice (server + client; own attack → defend → resolving like main hit) */
   coAttackRoll?: number;
+  /** Defender's roll for the co-attack hit line only (main turn still uses defendRoll). */
+  coDefendRoll?: number;
   coAttackerId?: string;
   coAttackHit?: boolean;
   coAttackDamage?: number;
@@ -209,10 +219,34 @@ export interface TurnState {
   resolvingHitIndex?: number;
   /** Server-driven resolve playback: client renders this step, then calls resolveTurn() to acknowledge VFX completion. */
   playbackStep?: BattlePlaybackStep | null;
+
+  /** Jolt Arc: shocked enemies in roster order — one DamageCard per ID (sequential resolve). */
+  joltArcTargetIds?: string[];
+  joltArcAoeDamageMap?: Record<string, number>;
+  joltArcResolveIndex?: number;
+  /** After the last Jolt card is dismissed, next resolveTurn() only advances turn (HP already applied). */
+  joltArcAwaitingAdvance?: boolean;
   /** When current player started rolling attack dice (timestamp) — so viewers can show rolling state in sync */
   attackRollStartedAt?: number;
   /** When current player started rolling defend dice (timestamp) — so viewers can show rolling state in sync */
   defendRollStartedAt?: number;
+
+  /** Main hit committed; waiting for Pomegranate co-attack D12 (ally spirit only; self-target oath has no co-attack) */
+  awaitingPomegranateCoAttack?: boolean;
+  /** Snapshot for continuing resolve after deferred co-attack (same turn) */
+  pomegranateDeferredCtx?: {
+    hit: boolean;
+    isDodged: boolean;
+    soulDevourerDrain: boolean;
+    baseDmg: number;
+    defenderHpAfter: number;
+    dmg: number;
+    attackerHasRapidFire: boolean;
+    action?: TurnAction;
+    isSelfBuffPower: boolean;
+    defTotal: number;
+    isCrit: boolean;
+  };
 }
 
 /** A log entry for the battle feed */
@@ -226,6 +260,9 @@ export interface BattleLogEntry {
   defenderTheme?: string;
   attackRoll: number;
   defendRoll: number;
+  /** Compare totals used for hit vs block (die + character dice-up + effect modifiers incl. recovery). Omitted on legacy log rows. */
+  atkTotal?: number;
+  defTotal?: number;
   damage: number;
   defenderHpAfter: number;
   eliminated: boolean;
@@ -263,6 +300,11 @@ export interface BattleLogEntry {
   hitTargetId?: string;
   /** True when this entry is from attacker's skeleton/minion hit (not main or co-attack). */
   isMinionHit?: boolean;
+  /** Pomegranate's Oath: separate log line for spirit co-attack (after main hit line). */
+  isPomegranateCoAttack?: boolean;
+  /** Co-attack vs same defense total used for the main hit (for resolve bar ATK vs DEF). */
+  coAtkTotal?: number;
+  coDefTotal?: number;
   /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
   rapidFire?: boolean;
   /** ช็อตเสริมดีเฟ้นใหม่ไม่ได้ — log มี attackRoll/defendRoll 0 */
@@ -288,6 +330,12 @@ export interface BattleState {
   springHealRollActive?: boolean | null;
 }
 
+/** Host assigns a player slot to a specific demigod; join by code places them on that team */
+export interface InviteReservation {
+  characterId: string;
+  team: ArenaRole;
+}
+
 /** The battle room stored in Firebase */
 export interface BattleRoom {
   arenaId: string;
@@ -302,7 +350,15 @@ export interface BattleRoom {
 
   battle?: BattleState;
   testMode?: boolean;
+  /** Dev arena (config modal): auto-run NPC / other-side turns; default true */
+  devNpcAutoPlay?: boolean;
+  /** Dev arena: host acts every fighter (disables NPC auto script; UI treats current attacker as you) */
+  devPlayAllFightersSelf?: boolean;
+  /** When devPlayAllFightersSelf: configurating player's characterId (authoritative host for HUD; avoids teamA[0] / casing drift). */
+  devPlayAllHostCharacterId?: string | null;
   npcId?: string;
+  /** When set, matching characterId joins the given team (see joinRoom) */
+  inviteReservations?: InviteReservation[];
 
   createdAt: number;
 }

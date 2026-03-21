@@ -12,6 +12,7 @@ export const EFFECT_TAGS = {
   STUN: 'stun',
 
   // Apollo
+  SUNBORN_SOVEREIGN: 'sunborn-sovereign',
   APOLLO_S_HYMN: 'apollo-s-hymn',
   RAPID_FIRE: 'rapid-fire',
   IMPRECATED_POEM: 'imprecated-poem',
@@ -20,6 +21,7 @@ export const EFFECT_TAGS = {
   ETERNAL_AGONY: 'eternal-agony',
 
   // Hades
+  RESURRECTING: 'resurrecting',
   RESURRECTED: 'resurrected',
   DEATH_KEEPER: 'death-keeper',
   SHADOW_CAMOUFLAGING: 'shadow-camouflaging',

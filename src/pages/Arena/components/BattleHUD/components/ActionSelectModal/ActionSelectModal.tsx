@@ -276,12 +276,13 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
               <button
                 key={m.characterId}
                 className={`bhud__ally-btn ${selected ? 'bhud__ally-btn--selected' : ''}`}
+                style={{ '--t-color': m.theme[0], '--t-text': m.theme[9] } as React.CSSProperties}
                 onClick={() => setSelectedAllyId(selected ? null : m.characterId)}
               >
                 {m.image ? (
                   <img className="bhud__ally-avatar" src={m.image} alt="" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="bhud__ally-avatar bhud__ally-avatar--placeholder" style={{ background: m.theme[0], color: m.theme[9] }}>
+                  <div className="bhud__ally-avatar bhud__ally-avatar--placeholder">
                     {m.nicknameEng.charAt(0)}
                   </div>
                 )}

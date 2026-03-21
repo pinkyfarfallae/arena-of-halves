@@ -43,7 +43,12 @@ const SUNBORN_SOVEREIGN_RECOVERY_MAX = 2;
 
 /** True if the receiver has Healing Nullified (Imprecated Poem) — heals do nothing. */
 export function isHealingNullified(activeEffects: ActiveEffect[], receiverId: string): boolean {
-  return activeEffects.some(e => e.targetId === receiverId && e.tag === EFFECT_TAGS.HEALING_NULLIFIED);
+  return activeEffects.some((e) => {
+    if (String(e.targetId) !== String(receiverId)) return false;
+    if (e.tag !== EFFECT_TAGS.HEALING_NULLIFIED) return false;
+    // Expired effects may still exist briefly in activeEffects; treat only active durations as blocking.
+    return e.turnsRemaining == null || e.turnsRemaining > 0;
+  });
 }
 
 /** Effective heal amount for a receiver (e.g. +1 when receiver has a passive that boosts received healing). HEALING_NULLIFIED → 0. */
@@ -540,7 +545,7 @@ export function applyLightningReflexPassive(
   const attacker = findFighter(room, attackerId);
   if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return { updates, bonusDamage: 0 };
 
-  const passive = attacker.powers.find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
+  const passive = (attacker.powers ?? []).find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
   if (!passive) return { updates, bonusDamage: 0 };
 
   const effects = [...(battle.activeEffects || [])];
@@ -740,6 +745,42 @@ export function applyKeraunosVoltageShock(
   return updates;
 }
 
+/**
+ * Keraunos Voltage: shock/bonus for a single bolt target (sequential resolve).
+ * Same rules as applyKeraunosVoltageShock but one target — use between bolts so effects stay in sync.
+ */
+export function applyKeraunosVoltageShockSingleTarget(
+  room: BattleRoom,
+  attackerId: string,
+  battle: BattleState,
+  casterDamage: number,
+  targetId: string,
+  currentHpOverride: number | undefined,
+  excludeTargetIds?: string[],
+): { updates: Record<string, unknown>; bonusDamage: number } {
+  const out: Record<string, unknown> = {};
+  if (excludeTargetIds?.includes(targetId)) return { updates: out, bonusDamage: 0 };
+  if (currentHpOverride !== undefined && currentHpOverride <= 0) return { updates: out, bonusDamage: 0 };
+
+  let effects = [...(battle.activeEffects || [])];
+  const result = applyShockedEffectToTarget(
+    room,
+    attackerId,
+    targetId,
+    effects,
+    casterDamage,
+    POWER_NAMES.KERAUNOS_VOLTAGE,
+    {
+      skipIfEfflorescenceMuse: true,
+      ...(currentHpOverride !== undefined && { currentHp: currentHpOverride }),
+    },
+  );
+  effects = result.effects;
+  if (result.hpUpdate) out[result.hpUpdate.path] = result.hpUpdate.value;
+  out[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+  return { updates: out, bonusDamage: result.bonusDamage };
+}
+
 /* ── Persephone: Efflorescence Muse passive ────────────────── */
 
 /**
@@ -759,8 +800,8 @@ export function applySecretOfDryadPassive(
   // Do not apply unless passive skill is unlocked
   if (attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
 
-  // Only if fighter has Secret of Dryad in their powers list
-  const passive = attacker.powers.find(
+  // Only if fighter has Secret of Dryad in their powers list (members from Firebase may omit `powers`)
+  const passive = (attacker.powers ?? []).find(
     p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.SECRET_OF_DRYAD,
   );
   if (!passive) return {};
@@ -832,7 +873,7 @@ export function onEfflorescenceMuseTurnStart(
  * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.
  */
 /**
- * Apollo's Hymn: heal self and selected ally 2 HP each (once); grant +25% crit to both for 2 rounds (no stack), then end turn.
+ * Apollo's Hymn: heal the chosen ally (once, 2 HP incl. Sunborn); +25% crit on caster and target for 2 rounds (no stack), then end turn.
  */
 export function applyApolloHymn(
   room: BattleRoom,
@@ -851,23 +892,15 @@ export function applyApolloHymn(
   const HEAL_AMOUNT = 2;
   const CRIT_VALUE = 25;
 
-  // Heal self
-  const selfPath = findFighterPath(room, attackerId);
-  const selfHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, attacker, attackerId, effects);
-  if (selfPath) {
-    const selfHp = (updates[`${selfPath}/currentHp`] as number | undefined) ?? attacker.currentHp;
-    updates[`${selfPath}/currentHp`] = Math.min(attacker.maxHp, selfHp + selfHeal);
+  // Single heal: selected ally only (ally picker can be self)
+  const targetPath = findFighterPath(room, allyTargetId);
+  const healAmount = getEffectiveHealForReceiver(HEAL_AMOUNT, ally, allyTargetId, effects);
+  if (targetPath) {
+    const prevHp = (updates[`${targetPath}/currentHp`] as number | undefined) ?? ally.currentHp;
+    updates[`${targetPath}/currentHp`] = Math.min(ally.maxHp, prevHp + healAmount);
   }
   addSunbornSovereignRecoveryStack(room, effects, attackerId);
-
-  // Heal ally (if different from self)
   if (allyTargetId !== attackerId) {
-    const allyPath = findFighterPath(room, allyTargetId);
-    const allyHeal = getEffectiveHealForReceiver(HEAL_AMOUNT, ally, allyTargetId, effects);
-    if (allyPath) {
-      const allyHp = (updates[`${allyPath}/currentHp`] as number | undefined) ?? ally.currentHp;
-      updates[`${allyPath}/currentHp`] = Math.min(ally.maxHp, allyHp + allyHeal);
-    }
     addSunbornSovereignRecoveryStack(room, effects, allyTargetId);
   }
 

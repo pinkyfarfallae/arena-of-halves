@@ -5,6 +5,7 @@ import './BattleLogModal.scss';
 import { BATTLE_TEAM } from '../../../../constants/battle';
 import { POWER_NAMES } from '../../../../constants/powers';
 import { DEFAULT_THEME } from '../../../../constants/theme';
+import { getPowers } from '../../../../data/powers';
 
 interface Props {
   room: BattleRoom;
@@ -126,8 +127,10 @@ export default function BattleLogModal({ room, onClose }: Props) {
                   <span className="blm__sep">&mdash;</span>
                   {entry.missed ? (
                     <span className="blm__block">{atkName} missed {defName}</span>
-                  ) : (
+                  ) : (entry.damage ?? 0) > 0 ? (
                     <span className="blm__hit">{atkName} hit {defName} for <strong>{entry.damage}</strong> dmg</span>
+                  ) : (
+                    <span className="blm__applied">{atkName} hit {defName}</span>
                   )}
                   {entry.eliminated && <span className="blm__ko">KO</span>}
                 </div>
@@ -169,6 +172,14 @@ export default function BattleLogModal({ room, onClose }: Props) {
               const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed.startsWith(POWER_NAMES.EPHEMERAL_SEASON + ':');
               const isSelfTarget = entry.defenderId === entry.attackerId;
               const noTarget = isSeasonPower || isSelfTarget;
+              const powMeta = atk ? getPowers(atk.deityBlood).find((p) => p.name === entry.powerUsed) : undefined;
+              const skipApplied =
+                !noTarget &&
+                !(entry.damage ?? 0) &&
+                !(entry.heal != null && entry.heal > 0) &&
+                !entry.isDodged &&
+                !entry.missed &&
+                !!powMeta?.skipDice;
               return (
                 <div className="blm__entry blm__entry--power" key={i}>
                   <span className="blm__round">R{entry.round}</span>
@@ -180,36 +191,82 @@ export default function BattleLogModal({ room, onClose }: Props) {
                       <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                     </>
                   )}
-                  {entry.damage > 0 && (
-                    <span className="blm__sep">&mdash;</span>
-                  )}
-                  {entry.damage > 0 && <span className="blm__hit">-{entry.damage} dmg</span>}
+                  {entry.heal != null && entry.heal > 0 ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__heal">
+                        +{entry.heal} heal{entry.floralHealCrit ? ' · CRIT' : ''}
+                      </span>
+                    </>
+                  ) : entry.damage > 0 ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__hit">-{entry.damage} dmg</span>
+                    </>
+                  ) : entry.isDodged && !noTarget ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__block">Dodged</span>
+                    </>
+                  ) : entry.missed && !noTarget ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__block">Blocked</span>
+                    </>
+                  ) : skipApplied ? (
+                    <>
+                      <span className="blm__sep">&mdash;</span>
+                      <span className="blm__applied">Applied</span>
+                    </>
+                  ) : null}
                   {entry.eliminated && <span className="blm__ko">KO</span>}
                 </div>
               );
             }
 
-            // Default: normal attack (dice vs dice)
+            // Default: normal attack (dice vs dice). Server totals include effect modifiers (e.g. recovery dice) not shown on character sheet.
+            const atkDiceUp = atk?.attackDiceUp ?? 0;
+            const defDiceUp = def?.defendDiceUp ?? 0;
+            const baseAtk = entry.attackRoll + atkDiceUp;
+            const baseDef = entry.defendRoll + defDiceUp;
+            const effAtk =
+              entry.atkTotal != null && entry.atkTotal !== baseAtk ? entry.atkTotal - baseAtk : 0;
+            const effDef =
+              entry.defTotal != null && entry.defTotal !== baseDef ? entry.defTotal - baseDef : 0;
             return (
               <div className="blm__entry" key={i}>
                 <span className="blm__round">R{entry.round}</span>
                 <span className="blm__name" style={atkColor ? { color: atkColor } : undefined}>{atkName}</span>
                 <span className="blm__dice">{entry.attackRoll}</span>
-                {(atk?.attackDiceUp ?? 0) > 0 && (
-                  <span className="blm__bonus">+{atk!.attackDiceUp}</span>
+                {atkDiceUp > 0 && (
+                  <span className="blm__bonus">+{atkDiceUp}</span>
+                )}
+                {effAtk !== 0 && (
+                  <span className="blm__bonus">{effAtk > 0 ? `+${effAtk}` : `${effAtk}`}</span>
+                )}
+                {entry.atkTotal != null && effAtk !== 0 && (
+                  <span className="blm__bonus">={entry.atkTotal}</span>
                 )}
                 <span className="blm__vs-sm">vs</span>
                 <span className="blm__name" style={defColor ? { color: defColor } : undefined}>{defName}</span>
                 <span className="blm__dice">{entry.defendRoll}</span>
-                {(def?.defendDiceUp ?? 0) > 0 && (
-                  <span className="blm__bonus">+{def!.defendDiceUp}</span>
+                {defDiceUp > 0 && (
+                  <span className="blm__bonus">+{defDiceUp}</span>
+                )}
+                {effDef !== 0 && (
+                  <span className="blm__bonus">{effDef > 0 ? `+${effDef}` : `${effDef}`}</span>
+                )}
+                {entry.defTotal != null && effDef !== 0 && (
+                  <span className="blm__bonus">={entry.defTotal}</span>
                 )}
                 <span className="blm__sep">&mdash;</span>
-                {entry.missed ? (
+                {entry.isDodged ? (
+                  <span className="blm__block">Dodged</span>
+                ) : entry.missed ? (
                   <span className="blm__block">Blocked</span>
-                ) : (
+                ) : entry.damage > 0 ? (
                   <span className="blm__hit">-{entry.damage} dmg</span>
-                )}
+                ) : null}
                 {entry.critRoll != null && entry.critRoll > 0 && (
                   <span className={entry.isCrit ? 'blm__crit' : 'blm__crit-miss'}>
                     D4:{entry.critRoll} {entry.isCrit ? 'CRIT' : 'NO'}

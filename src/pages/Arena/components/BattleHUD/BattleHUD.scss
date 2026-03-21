@@ -90,6 +90,10 @@ $crimson-bright: #c41e3a;
   background: transparent;
   pointer-events: none;
   animation: bhud-fade-in 0.2s ease-out;
+  /* Keep modals (resurrect, dice, actions) inside safe area on notched devices */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  box-sizing: border-box;
 
   &--left {
     left: $sidebar-width;
@@ -476,6 +480,19 @@ $crimson-bright: #c41e3a;
 .bhud__log-hit {
   font-weight: 800;
   color: $crimson-bright;
+}
+
+.bhud__log-heal {
+  font-weight: 800;
+  color: #0d6b0d;
+  font-size: 0.58rem;
+}
+
+.bhud__log-applied {
+  font-weight: 700;
+  color: $ink-faint;
+  font-size: 0.58rem;
+  font-style: italic;
 }
 
 .bhud__log-ko {

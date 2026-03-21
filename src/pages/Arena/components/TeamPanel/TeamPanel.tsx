@@ -147,26 +147,21 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     return map;
   }, [battle?.turnQueue, fighterMap]);
 
-  // Pre-compute whether the current attack actually landed (atkTotal > defTotal)
-  const attackLanded = useMemo(() => {
-    if (!turn || turn.phase !== PHASE.RESOLVING || !resolveShown) return false;
-    // skipDice powers always hit
-    if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return true;
-    const atk = turn.attackerId ? fighterMap.get(turn.attackerId) : undefined;
-    const def = turn.defenderId ? fighterMap.get(turn.defenderId) : undefined;
-    if (!atk || !def) return false;
-    const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
-    const atkTotal = (turn.attackRoll ?? 0) + atk.attackDiceUp + atkBuff;
-    const defTotal = (turn.defendRoll ?? 0) + def.defendDiceUp + defBuff;
-    return atkTotal > defTotal;
-  }, [turn, resolveShown, fighterMap, activeEffects]);
+  // (attack landed computation removed — currently unused)
+
+  // Apply 'team-panel--full' when either team has 3+ members
+  const thisTeamCount = members.length;
+  const otherTeamCount = (allMembers?.length ?? members.length) - members.length;
+  const shouldUseFull = thisTeamCount >= 3 || otherTeamCount >= 3;
 
   return (
     <div
-      className={`team-panel team-panel--${side} ${members.length >= 3 ? 'team-panel--full' : ''}`}
+      className={`team-panel team-panel--${side} ${shouldUseFull ? 'team-panel--full' : ''}`}
       data-count={members.length}
-      style={buildPanelBg(members)}
+      style={{
+        ...buildPanelBg(members),
+        '--member-count': members.length,
+      } as React.CSSProperties}
     >
       {members.map((m) => {
         // Who is shown as "target" (defender): the one actually targeted, not the skeleton that dealt the hit.
@@ -216,12 +211,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Only consider a persistent log entry a "hit" if it's not flagged as missed
         // and either has positive damage or is a minion hit marker. This avoids
         // treating blocked (0 damage) entries as hits that trigger visuals.
-        const lastHitEntry = !!(
-          lastEntry &&
-          lastEntry.defenderId === m.characterId &&
-          lastEntry.missed !== true &&
-          ((lastEntry.damage as number) > 0 || (lastEntry as any).isMinionHit)
-        );
+        
         const playbackStep = (turn as any)?.playbackStep as BattlePlaybackStep | undefined;
         const playbackStepActive = !!playbackStep && turn?.phase === PHASE.RESOLVING;
         const playbackDrivenResolve = turn?.phase === PHASE.RESOLVING;
@@ -248,7 +238,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasMinionPulseInChip = !!(minionPulseMap && minionsForMember.some((min: { characterId: string }) => minionPulseMap[String(min.characterId)] != null));
         const shouldAllowLegacyMinionPulse = !!(
           (hasMinionHitPulse || isSkeletonCardHitTarget) &&
-          (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive)
+          (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || (playbackStepActive && !!playbackStep?.isMinionHit) || hasBufferedMinionPlayback || !!transientEffectsActive || !!resolveShown)
         );
         // Only show hit effects on the opposing team (normal hits). For the
         // attacker's own side, only show hit effects for AoE/co-attack cases
@@ -276,7 +266,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const lastEntryIsRapidFireHitOnMe = !!(lastEntry && (lastEntry as { rapidFire?: boolean }).rapidFire === true && lastEntry.defenderId === m.characterId);
         const pastRapidFireChain = turn?.phase === PHASE.RESOLVING_AFTER_RAPID_FIRE || (turn?.phase !== PHASE.RESOLVING && turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT);
         const suppressHitFromRapidFireLog = lastEntryIsRapidFireHitOnMe && pastRapidFireChain;
-        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion && isCurrentDefenderOrAoeResolving && !suppressHitAfterRapidFire && !suppressHitFromRapidFireLog;
+        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion && isCurrentDefenderOrAoeResolving && !suppressHitAfterRapidFire && !suppressHitFromRapidFireLog && !isEliminated;
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
@@ -284,35 +274,48 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           attacker?.passiveSkillPoint === SKILL_UNLOCK &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
-        const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
-          || !!tagBasedProps.isShockHit;
+        const isShockHit = !isEliminated && (!!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
+          || !!tagBasedProps.isShockHit);
 
         // Keraunos Voltage hit: massive lightning strike effect
-        const isKeraunosVoltageHit = !!(
+        const isKeraunosVoltageHit = !isEliminated && (!!(
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
-        ) || !!tagBasedProps.isKeraunosVoltageHit;
+        ) || !!tagBasedProps.isKeraunosVoltageHit);
 
         // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration).
         // During effect phase (before log): show arc on shocked enemies so effect plays before skeleton destroy / damage.
-        const isJoltArcAttackHit = !!(
+        const isJoltArcAttackHit = !isEliminated && (!!( 
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
           (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC) ||
           (turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.JOLT_ARC && isOpposing && tagBasedProps.isShocked)
-        ) || !!tagBasedProps.isJoltArcAttackHit;
+        ) || !!tagBasedProps.isJoltArcAttackHit);
 
-        const isShocked = tagBasedProps.isShocked;
-        const hasJoltArcDeceleration = tagBasedProps.hasJoltArcDeceleration;
-        const isEfflorescenceMuse = tagBasedProps.isEfflorescenceMuse;
-        const hasPomegranateEffect = tagBasedProps.hasPomegranateEffect;
-        const isSpiritForm = tagBasedProps.isSpiritForm;
-        const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
-        const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
-        const hasDeathKeeper = tagBasedProps.hasDeathKeeper;
+        const isShocked = !isEliminated && tagBasedProps.isShocked;
+        const hasJoltArcDeceleration = !isEliminated && tagBasedProps.hasJoltArcDeceleration;
+        const isEfflorescenceMuse = !isEliminated && tagBasedProps.isEfflorescenceMuse;
+        const hasPomegranateEffect = !isEliminated && tagBasedProps.hasPomegranateEffect;
+        const isSpiritForm = !isEliminated && tagBasedProps.isSpiritForm;
+        const hasSoulDevourer = !isEliminated && tagBasedProps.hasSoulDevourer;
+        const hasBeyondNimbus = !isEliminated && tagBasedProps.hasBeyondNimbus;
+        const hasResurrectedSelf = activeEffects.some(
+          (e) =>
+            String(e.targetId) === String(m.characterId) &&
+            e.tag === EFFECT_TAGS.RESURRECTED &&
+            (e.turnsRemaining == null || e.turnsRemaining > 0),
+        );
+        const hasResurrectedAlly = activeEffects.some(
+          (e) =>
+            String(e.sourceId) === String(m.characterId) &&
+            e.tag === EFFECT_TAGS.RESURRECTED &&
+            String(e.targetId) !== String(m.characterId) &&
+            (e.turnsRemaining == null || e.turnsRemaining > 0),
+        );
+        const hasDeathKeeper = !!tagBasedProps.hasDeathKeeper && !hasResurrectedSelf && !hasResurrectedAlly;
         const hasSunbornSovereign = (m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign;
         const isResurrected = tagBasedProps.isResurrected;
-        const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
-        const isImprecatedPoemCursed = tagBasedProps.isImprecatedPoemCursed;
-        const imprecatedPoemVerseTags = (() => {
+        const isImprecatedPoemHealingNullified = !isEliminated && tagBasedProps.isImprecatedPoemHealingNullified;
+        const isImprecatedPoemCursed = !isEliminated && tagBasedProps.isImprecatedPoemCursed;
+        const imprecatedPoemVerseTags = isEliminated ? [] : (() => {
           const tags: string[] = [];
           const seen = new Set<string>();
           const charId = String(m.characterId);
@@ -333,7 +336,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
 
         // Active effect pips (deduplicate same power from same source; group by tag). Show ETERNAL_AGONY even when turnsRemaining is 0 (display-only, removed after 3s).
+        // Hide effect pips on eliminated characters except for resurrection-related effects.
         const effectPips: EffectPip[] = (() => {
+          if (isEliminated && !hasResurrectedSelf && !tagBasedProps.isResurrecting && !tagBasedProps.hasDeathKeeper) {
+            return [];
+          }
           const charId = String(m.characterId);
           const raw = activeEffects.filter(e => String(e.targetId) === charId && (e.turnsRemaining > 0 || e.tag === EFFECT_TAGS.ETERNAL_AGONY));
           const grouped = new Map<string, { count: number; maxTurns: number; sourceId: string; powerName: string; tag?: string }>();
@@ -370,7 +377,23 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               count: g.count,
             };
           });
-        })();
+        })().filter(
+          (pip) => {
+            if (
+              pip.powerName === POWER_NAMES.UNDEAD_ARMY &&
+              !hasMasterMinions &&
+              (m.skeletonCount ?? 0) <= 0
+            ) {
+              return false;
+            }
+            // Death Keeper pip should disappear once resurrection has already happened
+            // (self-resurrected, or this member already resurrected an ally).
+            if (pip.powerName === POWER_NAMES.DEATH_KEEPER) {
+              if (hasResurrectedSelf || hasResurrectedAlly) return false;
+            }
+            return true;
+          },
+        );
 
         // Resurrecting: mid-resurrection visual (self-resurrect overlay active), or from demo tag-based
         const isResurrecting = !!(
@@ -381,7 +404,6 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Floral Fragrance: brief trigger when just applied (real battle + demo)
         // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
         const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-24) : [];
-        const recentLog = rawRecent.filter((le) => le.round === battle?.roundNumber);
         const floralSearchLog = rawRecent;
         const floralLogIndex = (() => {
           const powerName = (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
@@ -397,6 +419,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
         const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
+        /** Same rule as Apollo's Hymn: only the newest log row may drive heal VFX (avoids floral wave / +HP repeating on every render). */
+        
 
         // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
@@ -430,16 +454,17 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
-        // Apollo's Hymn: heal VFX (sun/corona wave) — show on both caster and ally when log has APOLLO_S_HYMN
+        // Apollo's Hymn: heal VFX on the healed target only (log defenderId); crit buff applies to caster too but no second heal VFX
         const hymnLogIndex = (() => {
           const powerName = (POWER_NAMES.APOLLO_S_HYMN as string).trim();
           const charId = String(m.characterId);
           for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx] as { powerUsed?: string; attackerId?: string; defenderId?: string };
+            const le = floralSearchLog[idx] as { powerUsed?: string; defenderId?: string };
             const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
             const isApolloHymn = pu === powerName || (pu.includes('Apollo') && pu.includes('Hymn'));
             if (!isApolloHymn) continue;
-            if (String(le.defenderId) === charId || String(le.attackerId) === charId) return idx;
+            if (String(le.defenderId) !== charId) continue;
+            return idx;
           }
           return -1;
         })();
@@ -450,6 +475,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
         const soulDevourerHealFromLog = (() => {
+          if (isEliminated) return null;
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
           if (!turnDrain || !soulDevourerHealReady) return null;
           if (isImprecatedPoemHealingNullified) return null;
@@ -462,26 +488,20 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return { amount, key: `soul_devourer_heal_turn_${r}_${ti}_${m.characterId}` };
         })();
 
-        const phaseOk = turn?.phase != null && ([PHASE.SELECT_TARGET, PHASE.SELECT_ACTION, PHASE.ROLLING_ATTACK, PHASE.ROLLING_DEFEND] as readonly string[]).includes(turn.phase);
-        const clientFragrance = clientVisualDefenderId === m.characterId && typeof clientVisualPowerName === 'string' && clientVisualPowerName === POWER_NAMES.FLORAL_FRAGRANCE;
         const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
         const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
         // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
-        // Never use client state for Floral Fragrance — avoids jitter (flash before D4). Show only from server: roll result or log.
-        const clientFragranceOk = !!clientFragrance && clientVisualPowerName !== POWER_NAMES.FLORAL_FRAGRANCE;
-        // Post-heal phase: SELECT_TARGET + allyTargetId = picking enemy for follow-up attack
-        const postHealFollowUp = !!(turn?.phase === PHASE.SELECT_TARGET && turn?.allyTargetId);
 
-        const isFragranceWaved =
-          (!!clientFragranceOk && turn?.phase !== PHASE.ROLLING_FLORAL_HEAL)
-          || (!!serverFragranceOnTarget && phaseOk && !postHealFollowUp && !isImprecatedPoemHealingNullified)
-          || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
-          || !!logHasFloral
+        const isFragranceWaved = !isEliminated && (
+          // Floral should behave like text-boost one-shot: trigger by concrete event only, not broad turn-state.
+          (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
+          || !!useFloralForThisMember
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
-          || !!tagBasedProps.isFragranceWaved;
+          || !!tagBasedProps.isFragranceWaved
+        );
 
-        const isHymnWaved = (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
+        const isHymnWaved = !isEliminated && (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -541,7 +561,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
+            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
             visualDefenderId={visualDefenderId}
             hitEventKey={
               (() => {
@@ -577,6 +597,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               battle != null && battle.roundNumber != null
                 ? (useFloralForThisMember && floralLogIndex >= 0)
                   ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
+                  : (floralHealRollDone && battle.currentTurnIndex != null)
+                    ? `floral_live_${battle.roundNumber}_${battle.currentTurnIndex}_${m.characterId}`
                   : (useSpringForThisMember && springLogIndex >= 0)
                     ? `spring_shown_${battle.roundNumber}_${springLogIndex}_${m.characterId}`
                     : (springFromPhase ? `spring_phase_${battle.roundNumber}_caster_${m.characterId}` : undefined)
@@ -620,7 +642,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                     ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
                     : isDemo && isFragranceWaved
                       ? 2
-                      : (clientFragrance || floralHealRollDone) && turn?.attackerId && allMembers?.length
+                      : floralHealRollDone && turn?.attackerId && allMembers?.length
                         ? (() => {
                           const caster = allMembers.find((a) => a.characterId === turn.attackerId);
                           if (!caster) return undefined;
@@ -642,8 +664,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
             volleyArrowHitActive={volleyArrowHitActive}
-            isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender}
-            isVolleyArrowHitAttacker={hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker}
+            isVolleyArrowHitDefender={!isEliminated && (volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender)}
+            isVolleyArrowHitAttacker={!isEliminated && (hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker)}
           />
         );
       })}

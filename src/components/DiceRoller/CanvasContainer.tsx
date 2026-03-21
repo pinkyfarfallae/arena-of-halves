@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 
 /**
  * Wraps React Three Fiber Canvas so it only mounts after the container is in the DOM.
