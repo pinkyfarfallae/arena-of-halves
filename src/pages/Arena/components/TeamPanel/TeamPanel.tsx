@@ -9,7 +9,7 @@ import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
-import { BATTLE_TEAM, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
+import { BATTLE_TEAM, effectivePomCoAttackerId, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
 import { REFILL_DICE_VIEW_MS } from '../BattleHUD/components/RefillSPDiceModal/RefillSPDiceModal';
 import './TeamPanel.scss';
@@ -169,6 +169,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // use lastHitTargetId (the defender who was hit) — never lastHitMinionId (skeleton/attacker).
         const visualDefenderId = (turn as any)?.visualDefenderId ?? (clientVisualDefenderId ?? ((turn?.phase === PHASE.RESOLVING || resolveShown) ? (battle as any)?.lastHitTargetId : undefined));
         const isAttacker = turn?.attackerId === m.characterId;
+        const pomCoAtkSpotlight = turn ? effectivePomCoAttackerId(turn) : undefined;
+        const isPomCoCaster = pomCoAtkSpotlight != null && pomCoAtkSpotlight === m.characterId;
 
         // Check if this master has any minions (skeletons)
         const masterMinions = minionsMap.get(m.characterId) || [];
@@ -189,8 +191,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })());
         const isTargetable = !!(canSelectTarget && !isEliminated && (!isShadowCamouflaged || isAreaAttack));
         const isSpotlight =
-          (isAttacker && (turn?.phase === PHASE.SELECT_TARGET || turn?.phase === PHASE.ROLLING_ATTACK)) ||
-          (isDefender && turn?.phase === PHASE.ROLLING_DEFEND);
+          (isAttacker &&
+            (turn?.phase === PHASE.SELECT_TARGET || turn?.phase === PHASE.ROLLING_ATTACK)) ||
+          (isPomCoCaster && turn?.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK) ||
+          (isDefender &&
+            (turn?.phase === PHASE.ROLLING_DEFEND || turn?.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND));
 
         const log = battle?.log;
         const lastEntry = log && log.length > 0 ? log[log.length - 1] : undefined;
@@ -222,7 +227,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           turn?.phase !== PHASE.SELECT_SEASON &&
           turn?.phase !== PHASE.SELECT_ACTION &&
           turn?.phase !== PHASE.ROLLING_ATTACK &&
-          turn?.phase !== PHASE.ROLLING_DEFEND
+          turn?.phase !== PHASE.ROLLING_DEFEND &&
+          turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_ATTACK &&
+          turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_DEFEND
         ) && (m.skeletonCount ?? 0) <= 0
           && !suppressHitAfterSelect && !suppressHitAfterBack;
         const playbackHit = !!playbackStepActive && playbackStep?.defenderId === m.characterId;
@@ -561,7 +568,26 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             battleLive={!!battle && !battle.winner}
             onSelect={isTargetable && onSelectTarget ? () => onSelectTarget(m.characterId) : undefined}
             minions={minions}
-            allowTransientHits={(turn?.phase !== PHASE.ROLLING_DEFEND && turn?.phase !== PHASE.ROLLING_ATTACK) && (allowHitVisuals || (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) || isSkeletonCardHitTarget || (hasMinionHitPulse && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || (hasMinionPulseInChip && (turn?.phase === PHASE.RESOLVING || turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT || !!resolveShown)) || !!(battle as { _demoVfxKey?: string })?._demoVfxKey || typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' || typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')}
+            allowTransientHits={
+              (turn?.phase !== PHASE.ROLLING_DEFEND &&
+                turn?.phase !== PHASE.ROLLING_ATTACK &&
+                turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_ATTACK &&
+                turn?.phase !== PHASE.ROLLING_POMEGRANATE_CO_DEFEND) &&
+              (allowHitVisuals ||
+                (turn?.phase === PHASE.RESOLVING && !!transientEffectsActive) ||
+                isSkeletonCardHitTarget ||
+                (hasMinionHitPulse &&
+                  (turn?.phase === PHASE.RESOLVING ||
+                    turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT ||
+                    !!resolveShown)) ||
+                (hasMinionPulseInChip &&
+                  (turn?.phase === PHASE.RESOLVING ||
+                    turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT ||
+                    !!resolveShown)) ||
+                !!(battle as { _demoVfxKey?: string })?._demoVfxKey ||
+                typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' ||
+                typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')
+            }
             visualDefenderId={visualDefenderId}
             hitEventKey={
               (() => {

@@ -23,7 +23,19 @@ import {
 import { getPowers } from '../data/powers';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../constants/effectTags';
 import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../constants/powers';
-import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, teamPath, type BattleTeamKey } from '../constants/battle';
+import {
+  ARENA_PATH,
+  ARENA_ROLE,
+  BATTLE_TEAM,
+  PHASE,
+  ROOM_STATUS,
+  TURN_ACTION,
+  TurnAction,
+  effectivePomCoAttackerId,
+  effectivePomCoDefenderId,
+  teamPath,
+  type BattleTeamKey,
+} from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
 import { SKILL_UNLOCK } from '../constants/character';
 import { SEASON_KEYS, SeasonKey } from '../data/seasons';
@@ -151,6 +163,8 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
     coAttackRoll: null,
     coDefendRoll: null,
     coAttackerId: null,
+    pomCoAttackerId: null,
+    pomCoDefenderId: null,
     coAttackHit: null,
     coAttackDamage: null,
     floralHealWinFaces: null,
@@ -177,6 +191,7 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
     attackRollStartedAt: null,
     defendRollStartedAt: null,
     awaitingPomegranateCoAttack: null,
+    pomegranateCoSkippedAwaitsAck: null,
     pomegranateDeferredCtx: null,
     visualDefenderId: null,
     rapidFireStep: null,
@@ -717,14 +732,15 @@ export async function applyNpcResolvingCritIfPending(
   if (turn.isDodged === true) return;
 
   const awaitingPom = !!turn.awaitingPomegranateCoAttack;
+  const pomCoAtkId = effectivePomCoAttackerId(turn);
   const pomCoCritPhase =
     awaitingPom &&
-    !!turn.coAttackerId &&
+    !!pomCoAtkId &&
     turn.coAttackRoll != null &&
     turn.coAttackRoll > 0 &&
     turn.coDefendRoll != null &&
     turn.coDefendRoll >= 1 &&
-    npcCharacterIdsLower.has(String(turn.coAttackerId).toLowerCase());
+    npcCharacterIdsLower.has(String(pomCoAtkId).toLowerCase());
 
   const writeCrit = async (isCrit: boolean, critRoll: number, winFaces: number[]) => {
     await update(roomRef(arenaId), {
@@ -735,17 +751,17 @@ export async function applyNpcResolvingCritIfPending(
   };
 
   if (pomCoCritPhase) {
-    const coCaster = findFighter(room, turn.coAttackerId!);
+    const coCaster = findFighter(room, pomCoAtkId!);
     const defender = turn.defenderId ? findFighter(room, turn.defenderId) : undefined;
     if (!coCaster || !defender || !turn.defenderId) return;
-    const coBuff = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.ATTACK_DICE_UP);
-    const coRecovery = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.RECOVERY_DICE_UP);
+    const coBuff = getStatModifier(effects, pomCoAtkId!, MOD_STAT.ATTACK_DICE_UP);
+    const coRecovery = getStatModifier(effects, pomCoAtkId!, MOD_STAT.RECOVERY_DICE_UP);
     const defBuff = getStatModifier(effects, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
     const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
     const coTotal = (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
     const coDefTotal = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
     if (coTotal <= coDefTotal || coTotal < 10) return;
-    const critBuffCo = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.CRITICAL_RATE);
+    const critBuffCo = getStatModifier(effects, pomCoAtkId!, MOD_STAT.CRITICAL_RATE);
     const effectiveCrit = Math.max(coCaster.criticalRate, coCaster.criticalRate + critBuffCo);
     if (effectiveCrit <= 0) return;
     if (effectiveCrit >= 100) {
@@ -3689,6 +3705,134 @@ export async function advanceAfterSoulDevourerHealSkippedAck(arenaId: string): P
   await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithoutAck });
 }
 
+/** Shared tail after Pomegranate co resolves or co is skipped (Rapid Fire chain, skeleton playback, or runBattleResolveTailFromEffectSync). */
+async function runDeferredPomegranateTail(
+  arenaId: string,
+  room: BattleRoom,
+  battle: BattleState,
+  attacker: FighterState,
+  defender: FighterState,
+  clearedTurn: TurnState,
+  ctx: NonNullable<TurnState['pomegranateDeferredCtx']>,
+  updates: Record<string, unknown>,
+  activeEffectsBaseline: ActiveEffect[],
+): Promise<void> {
+  const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = clearedTurn;
+  if (!attackerId || !defenderId) return;
+  updates[ARENA_PATH.BATTLE_TURN] = clearedTurn;
+
+  if (ctx.attackerHasRapidFire && ctx.baseDmg > 0 && ctx.defenderHpAfter > 0) {
+    const rapidFireWinFacesFirst = [2, 3, 4];
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      ...clearedTurn,
+      phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
+      rapidFireStep: 0,
+      rapidFireWinFaces: rapidFireWinFacesFirst,
+      rapidFireBaseDmg: ctx.baseDmg,
+      rapidFireIsCrit: !!ctx.isCrit,
+      rapidFireDefTotal: ctx.defTotal,
+    };
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  let skeletonsForAttack: any[] = [];
+  const attackerTeam = findFighterTeam(room, attackerId);
+  if (attackerTeam) {
+    const minions = room[attackerTeam]?.minions || [];
+    skeletonsForAttack = minions.filter((m: any) => m.masterId === attackerId);
+  }
+  if (!ctx.isDodged && ctx.hit && skeletonsForAttack.length > 0) {
+    const defPath = findFighterPath(room, defenderId);
+    const defenderHpAfterMain = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
+    if (defenderHpAfterMain > 0) {
+      const battleForStep = { ...battle, turn: clearedTurn };
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...clearedTurn,
+        resolvingHitIndex: 1,
+        playbackStep: buildMinionPlaybackStep(room, battleForStep, attackerId, defenderId, 1),
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+  }
+
+  let battleMutable: BattleState = { ...battle, turn: clearedTurn };
+  if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
+    battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
+  }
+  if (updates[ARENA_PATH.BATTLE_LOG]) {
+    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
+  }
+  delete updates[ARENA_PATH.BATTLE_TURN];
+  await runBattleResolveTailFromEffectSync(arenaId, room, battleMutable, updates, {
+    attackerId,
+    defenderId,
+    attackRoll,
+    defendRoll,
+    action,
+    turn: clearedTurn,
+    activeEffectsBaseline: activeEffectsBaseline,
+  });
+}
+
+/**
+ * After co-attacker acknowledges Pomegranate co-attack was skipped (main hit eliminated the target).
+ * Clears ack and runs deferred tail (Rapid Fire / skeleton / turn advance).
+ */
+export async function advanceAfterPomegranateCoSkippedAck(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESOLVING || !(turn as any).pomegranateCoSkippedAwaitsAck) return;
+
+  const ctx = turn.pomegranateDeferredCtx;
+  const attackerId = turn.attackerId;
+  const defenderId = turn.defenderId;
+  if (!ctx || !attackerId || !defenderId) {
+    const tObj = { ...turn } as Record<string, unknown>;
+    delete tObj.pomegranateCoSkippedAwaitsAck;
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: tObj });
+    return;
+  }
+
+  const attacker = findFighter(room, attackerId);
+  const defender = findFighter(room, defenderId);
+  if (!attacker || !defender) return;
+
+  const tBase = { ...turn } as Record<string, unknown>;
+  delete tBase.pomegranateCoSkippedAwaitsAck;
+  const clearedTurn = {
+    ...tBase,
+    awaitingPomegranateCoAttack: false,
+    pomegranateDeferredCtx: null,
+    coAttackRoll: null,
+    coDefendRoll: null,
+    pomCoAttackerId: null,
+    pomCoDefenderId: null,
+    coAttackerId: null,
+    playbackStep: null,
+    resolvingHitIndex: null,
+    pomegranateCoSkippedAwaitsAck: null,
+  } as unknown as TurnState;
+
+  const updates: Record<string, unknown> = {};
+  await runDeferredPomegranateTail(
+    arenaId,
+    room,
+    battle,
+    attacker,
+    defender,
+    clearedTurn,
+    ctx,
+    updates,
+    battle.activeEffects || [],
+  );
+}
+
 /* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
 
 export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
@@ -4086,19 +4230,29 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
 
   const turn = battle.turn;
 
-  // Pomegranate co-attack: same phases as main (ROLLING_ATTACK → ROLLING_DEFEND) but rolls stored in coAttackRoll / coDefendRoll
-  if (
-    turn.awaitingPomegranateCoAttack &&
-    turn.phase === PHASE.ROLLING_ATTACK &&
-    (turn.coAttackRoll == null || turn.coAttackRoll <= 0)
-  ) {
+  // Pomegranate co-attack: dedicated phases (co D12 → co defend); rolls in coAttackRoll / coDefendRoll (not attackRoll/defendRoll).
+  const pomCoAttackPhase =
+    (turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ||
+      (turn.awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_ATTACK)) &&
+    (turn.coAttackRoll == null || turn.coAttackRoll <= 0);
+  if (pomCoAttackPhase) {
     const r = Math.max(1, Math.min(12, Math.floor(roll)));
     await update(roomRef(arenaId), {
       [ARENA_PATH.BATTLE_TURN]: {
         ...turn,
         coAttackRoll: r,
-        phase: PHASE.ROLLING_DEFEND,
+        phase: PHASE.ROLLING_POMEGRANATE_CO_DEFEND,
         coDefendRoll: null,
+        // Nested co chain must not reuse main-hit dodge / crit / chain (stale isCrit caused ×2 in HUD before co D4).
+        dodgeRoll: null,
+        isDodged: null,
+        dodgeWinFaces: null,
+        critRoll: null,
+        isCrit: null,
+        critWinFaces: null,
+        chainRoll: null,
+        chainSuccess: null,
+        chainWinFaces: null,
       },
     });
     return;
@@ -4126,21 +4280,42 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
 
   const turn = battle.turn;
 
-  if (
-    turn.awaitingPomegranateCoAttack &&
-    turn.phase === PHASE.ROLLING_DEFEND &&
+  const pomCoDefendPhase =
+    (turn.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ||
+      (turn.awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_DEFEND)) &&
     turn.coAttackRoll != null &&
     turn.coAttackRoll > 0 &&
-    (turn.coDefendRoll == null || turn.coDefendRoll < 1)
-  ) {
+    (turn.coDefendRoll == null || turn.coDefendRoll < 1);
+  if (pomCoDefendPhase) {
     const r = Math.max(1, Math.min(12, Math.floor(roll)));
     await update(roomRef(arenaId), {
       [ARENA_PATH.BATTLE_TURN]: {
         ...turn,
         coDefendRoll: r,
         phase: PHASE.RESOLVING,
+        // Fresh dodge → crit for co; clear in case any client wrote stale fields during co-defend phase.
+        dodgeRoll: null,
+        isDodged: null,
+        dodgeWinFaces: null,
+        critRoll: null,
+        isCrit: null,
+        critWinFaces: null,
+        chainRoll: null,
+        chainSuccess: null,
+        chainWinFaces: null,
       },
     });
+    return;
+  }
+
+  // Do not merge main defendRoll + RESOLVING while pomegranate co still needs coDefendRoll (dedicated phase or legacy ROLLING_DEFEND+awaiting).
+  if (turn.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND) return;
+  if (
+    turn.awaitingPomegranateCoAttack &&
+    turn.coAttackRoll != null &&
+    turn.coAttackRoll > 0 &&
+    (turn.coDefendRoll == null || turn.coDefendRoll < 1)
+  ) {
     return;
   }
 
@@ -4163,15 +4338,39 @@ export async function advanceToPomegranateCoAttackPhase(arenaId: string): Promis
   if (!turn.awaitingPomegranateCoAttack || !turn.pomegranateDeferredCtx) return;
   if (turn.phase !== PHASE.RESOLVING) return;
   if (turn.coAttackRoll != null && turn.coAttackRoll > 0) return;
+
+  const defIdEarly = turn.defenderId;
+  if (defIdEarly) {
+    const defEarly = findFighter(room, defIdEarly);
+    if (defEarly && defEarly.currentHp <= 0 && turn.attackerId) {
+      const attEarly = findFighter(room, turn.attackerId);
+      if (attEarly && battle) {
+        await applyDeferredPomegranateCoContinue(arenaId, room, battle, attEarly, defEarly, turn);
+      }
+      return;
+    }
+  }
+
+  const pomAtk = effectivePomCoAttackerId(turn) ?? turn.coAttackerId ?? null;
+  const pomDef = effectivePomCoDefenderId(turn) ?? null;
+
   await update(roomRef(arenaId), {
     [ARENA_PATH.BATTLE_TURN]: {
       ...turn,
-      phase: PHASE.ROLLING_ATTACK,
-      coAttackerId: turn.coAttackerId ?? null,
+      phase: PHASE.ROLLING_POMEGRANATE_CO_ATTACK,
+      coAttackerId: pomAtk,
+      pomCoAttackerId: pomAtk,
+      pomCoDefenderId: pomDef,
       // Main hit already consumed critRoll/isCrit — clear so co-attacker gets a fresh D4 if co atk total ≥ 10.
       critRoll: null,
       isCrit: null,
       critWinFaces: null,
+      dodgeRoll: null,
+      isDodged: null,
+      dodgeWinFaces: null,
+      chainRoll: null,
+      chainSuccess: null,
+      chainWinFaces: null,
     },
   });
 }
@@ -4851,6 +5050,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
  * Second resolveTurn pass after deferred Pomegranate co (main hit already applied).
  * Co-attack only applies when spirit `sourceId !== attackerId` (ally buff). Self-target oath
  * (caster === spirit-bearer) never reaches defer or this path — no co-attack in that case.
+ * If the defender was eliminated by the main hit (`currentHp <= 0`), skips co-attack and runs Rapid Fire / skeleton / tail only.
  */
 async function applyDeferredPomegranateCoContinue(
   arenaId: string,
@@ -4861,17 +5061,35 @@ async function applyDeferredPomegranateCoContinue(
   turn: TurnState,
 ): Promise<void> {
   const ctx = turn.pomegranateDeferredCtx!;
-  const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = turn;
+  const { attackerId, defenderId } = turn;
   if (!defenderId) return;
 
   const updates: Record<string, unknown> = {};
   const activeEffects = battle.activeEffects || [];
-  const coRoll = turn.coAttackRoll!;
+
+  if (defender.currentHp <= 0) {
+    const pausedTurn = {
+      ...turn,
+      awaitingPomegranateCoAttack: false,
+      pomegranateCoSkippedAwaitsAck: true,
+      coAttackRoll: null,
+      coDefendRoll: null,
+      pomCoAttackerId: null,
+      pomCoDefenderId: null,
+      playbackStep: null,
+      resolvingHitIndex: null,
+    } as unknown as TurnState;
+    updates[ARENA_PATH.BATTLE_TURN] = pausedTurn;
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
   const spiritEffect = activeEffects.find(
     e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
   );
-  if (spiritEffect && spiritEffect.sourceId !== attackerId) {
-    const casterId = turn.coAttackerId || spiritEffect.sourceId;
+  if (defender.currentHp > 0 && spiritEffect && spiritEffect.sourceId !== attackerId) {
+    const coRoll = turn.coAttackRoll!;
+    const casterId = effectivePomCoAttackerId(turn) || spiritEffect.sourceId;
     const caster = findFighter(room, casterId);
     if (caster && caster.currentHp > 0) {
       const coBuff = getStatModifier(activeEffects, casterId, MOD_STAT.ATTACK_DICE_UP);
@@ -4896,6 +5114,11 @@ async function applyDeferredPomegranateCoContinue(
         if (defPath && coDmgToMaster > 0) {
           const currentDefHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
           updates[`${defPath}/currentHp`] = Math.max(0, currentDefHp - coDmgToMaster);
+        }
+        // Ensure clients see hit VFX / damage card for co-attack: set last-hit target when master took damage
+        if (coDmgToMaster > 0) {
+          updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+          updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = defenderId;
         }
         let hpAfterCo = defender.currentHp;
         if (defPath) {
@@ -4936,72 +5159,29 @@ async function applyDeferredPomegranateCoContinue(
     }
   }
 
-  // null removes nested keys in Firebase (undefined is stripped and can leave stale ctx)
   const clearedTurn = {
     ...turn,
     awaitingPomegranateCoAttack: false,
     pomegranateDeferredCtx: null,
     coAttackRoll: null,
     coDefendRoll: null,
+    pomCoAttackerId: null,
+    pomCoDefenderId: null,
+    coAttackerId: null,
     playbackStep: null,
   } as unknown as TurnState;
-  updates[ARENA_PATH.BATTLE_TURN] = clearedTurn;
 
-  if (ctx.attackerHasRapidFire && defenderId && ctx.baseDmg > 0 && ctx.defenderHpAfter > 0) {
-    const rapidFireWinFacesFirst = [2, 3, 4];
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      ...clearedTurn,
-      phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
-      rapidFireStep: 0,
-      rapidFireWinFaces: rapidFireWinFacesFirst,
-      rapidFireBaseDmg: ctx.baseDmg,
-      rapidFireIsCrit: !!ctx.isCrit,
-      rapidFireDefTotal: ctx.defTotal,
-    };
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  let skeletonsForAttack: any[] = [];
-  const attackerTeam = findFighterTeam(room, attackerId);
-  if (attackerTeam) {
-    const minions = room[attackerTeam]?.minions || [];
-    skeletonsForAttack = minions.filter((m: any) => m.masterId === attackerId);
-  }
-  if (!ctx.isDodged && ctx.hit && skeletonsForAttack.length > 0) {
-    const defPath = findFighterPath(room, defenderId);
-    const defenderHpAfterMain = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
-    if (defenderHpAfterMain > 0) {
-      const battleForStep = { ...battle, turn: clearedTurn };
-      updates[ARENA_PATH.BATTLE_TURN] = {
-        ...clearedTurn,
-        resolvingHitIndex: 1,
-        playbackStep: buildMinionPlaybackStep(room, battleForStep, attackerId, defenderId, 1),
-      };
-      await update(roomRef(arenaId), updates);
-      return;
-    }
-  }
-
-  let battleMutable: BattleState = { ...battle, turn: clearedTurn };
-  if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
-    battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
-  }
-  if (updates[ARENA_PATH.BATTLE_LOG]) {
-    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
-  }
-  /* Tail ends with set(turn, nextTurnOnly) then update(room, updates). A stale battle/turn here (clearedTurn is still RESOLVING)
-   * would merge over nextTurnOnly and trap the client in RESOLVING → resolveTurn rebuilds master playback → “main attack again”. */
-  delete updates[ARENA_PATH.BATTLE_TURN];
-  await runBattleResolveTailFromEffectSync(arenaId, room, battleMutable, updates, {
-    attackerId,
-    defenderId,
-    attackRoll,
-    defendRoll,
-    action,
-    turn: clearedTurn,
-    activeEffectsBaseline: activeEffects,
-  });
+  await runDeferredPomegranateTail(
+    arenaId,
+    room,
+    battle,
+    attacker,
+    defender,
+    clearedTurn,
+    ctx,
+    updates,
+    activeEffects,
+  );
 }
 
 async function runBattleResolveTailFromEffectSync(
@@ -5342,6 +5522,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   // Winner is being delayed so hit effects can play; wait for delayed write
   if (battle.winnerDelayedAt != null) return;
 
+  if (turnPhase === PHASE.RESOLVING && (battle.turn as any).pomegranateCoSkippedAwaitsAck) return;
+
   // Soul Devourer heal skipped: skeleton hits and master hit can run; only block advancing to next attacker until Roger that (checked in skeleton "past last" block below)
 
   // Shadow Camouflaging: wait for player to roll D4 for refill; only advanceAfterShadowCamouflageD4 may advance
@@ -5470,11 +5652,13 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   // Pomegranate's Oath: main hit already on Firebase; apply co-attack + Rapid Fire / skeleton / advance after co attack + co defend rolls
   if (turn.awaitingPomegranateCoAttack && turn.pomegranateDeferredCtx) {
-    const coRoll = turn.coAttackRoll;
-    if (coRoll == null || coRoll <= 0) return;
-    const coDef = turn.coDefendRoll;
-    if (coDef == null || coDef < 1) return;
-    await applyDeferredPomegranateCoContinue(arenaId, room, battle, attacker!, defender!, turn);
+    if (defender.currentHp > 0) {
+      const coRoll = turn.coAttackRoll;
+      if (coRoll == null || coRoll <= 0) return;
+      const coDef = turn.coDefendRoll;
+      if (coDef == null || coDef < 1) return;
+    }
+    await applyDeferredPomegranateCoContinue(arenaId, room, battle, attacker, defender, turn);
     return;
   }
 
@@ -5914,6 +6098,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       }
       // Soul Devourer heal skipped: do not advance to next attacker until Roger that
       if ((turn as any).soulDevourerHealSkipAwaitsAck) return;
+      if ((turn as any).pomegranateCoSkippedAwaitsAck) return;
       const updatesAdvance: Record<string, unknown> = {};
       const effectUpdatesAdv = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updatesAdvance);
       Object.assign(updatesAdvance, effectUpdatesAdv);
@@ -6060,6 +6245,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         }
         // Soul Devourer heal skipped: do not advance to next attacker until Roger that
         if ((turn as any).soulDevourerHealSkipAwaitsAck) return;
+        if ((turn as any).pomegranateCoSkippedAwaitsAck) return;
         const updatedRoomAdv = { ...room, teamA: { ...room.teamA, members: teamAMembersAdv }, teamB: { ...room.teamB, members: teamBMembersAdv } } as BattleRoom;
         const updatedQueueAdv = buildTurnQueue(updatedRoomAdv, latestEffectsAdv);
         updatesAdv[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueueAdv;
@@ -6621,12 +6807,57 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         (e.turnsRemaining == null || e.turnsRemaining > 0),
     );
 
+  // Pomegranate: main hit eliminated defender — co-attack skipped; co-attacker must Roger that before tail
+  const pomCoSkipAckEligible =
+    !isDodged &&
+    hit &&
+    defenderHpAfter <= 0 &&
+    (turn.coAttackRoll == null || turn.coAttackRoll <= 0) &&
+    !turn.awaitingPomegranateCoAttack &&
+    !(turn as any).pomegranateCoSkippedAwaitsAck;
+  if (pomCoSkipAckEligible) {
+    const spiritSkip = (effectsForRapidFireCheck as ActiveEffect[]).find(
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+    );
+    if (spiritSkip && spiritSkip.sourceId !== attackerId) {
+      const casterSkip = findFighter(room, spiritSkip.sourceId);
+      if (casterSkip && casterSkip.currentHp > 0) {
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          ...turn,
+          pomegranateCoSkippedAwaitsAck: true,
+          coAttackerId: spiritSkip.sourceId,
+          pomCoAttackerId: spiritSkip.sourceId,
+          pomCoDefenderId: turn.defenderId ?? null,
+          pomegranateDeferredCtx: {
+            hit,
+            isDodged,
+            soulDevourerDrain,
+            baseDmg,
+            defenderHpAfter,
+            dmg,
+            attackerHasRapidFire,
+            action,
+            isSelfBuffPower,
+            defTotal,
+            isCrit,
+          },
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+    }
+  }
+
   // Pomegranate's Oath — co-attack rules:
   // - Self-target (spirit sourceId === attackerId): no co-attack; do not defer (guard below).
   // - Ally spirit (sourceId !== attackerId): defer until main hit is fully resolved, then D12 + co + Rapid Fire / skeleton / tail.
+  // - If main hit eliminated the defender, skip co-attack (no target to strike), same as Rapid Fire when defenderHpAfter <= 0.
   const needsPomegranateCoDefer =
     !isDodged &&
     hit &&
+    defenderHpAfter > 0 &&
     (turn.coAttackRoll == null || turn.coAttackRoll <= 0) &&
     !turn.awaitingPomegranateCoAttack;
   if (needsPomegranateCoDefer) {
@@ -6640,6 +6871,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           ...turn,
           awaitingPomegranateCoAttack: true,
           coAttackerId: spiritDefer.sourceId,
+          pomCoAttackerId: spiritDefer.sourceId,
+          pomCoDefenderId: turn.defenderId ?? null,
           coAttackRoll: null,
           coDefendRoll: null,
           pomegranateDeferredCtx: {
@@ -6683,7 +6916,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   // skipDice powers: effect + log already written in selectAction()
   // Keraunos Voltage: shock is applied inside the Keraunos block above (before writing log) so log and aoeDamageMap include shock damage.
-  // Pomegranate co-attack is applied only in applyDeferredPomegranateCoContinue (after co ROLLING_ATTACK / ROLLING_DEFEND).
+  // Pomegranate co-attack is applied only in applyDeferredPomegranateCoContinue (after co-attack / co-defend dice phases).
 
   // Sync accumulated activeEffects changes so tickEffects sees them
   // Per-hit resolve: after master (+ co-attack), write once so client sees HP; then client calls resolve again for each skeleton.
