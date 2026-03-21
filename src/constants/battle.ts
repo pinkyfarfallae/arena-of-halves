@@ -24,6 +24,10 @@ export const PHASE = {
   RESOLVING_RAPID_FIRE_EXTRA_SHOT: 'resolving-rapid-fire-extra-shot',
   /** Advance only (Rapid Fire chain done); resolveTurn skips main resolution and runs co-attack → advance. */
   RESOLVING_AFTER_RAPID_FIRE: 'resolving-after-rapid-fire',
+  /** Pomegranate's Oath co-attack: ally spirit rolls D12 (after main hit card). */
+  ROLLING_POMEGRANATE_CO_ATTACK: 'rolling-pomegranate-co-attack',
+  /** Pomegranate's Oath co-attack: defender rolls vs co (same die rules as main defend). */
+  ROLLING_POMEGRANATE_CO_DEFEND: 'rolling-pomegranate-co-defend',
   RESOLVING: 'resolving',
   DONE: 'done',
 } as const;
@@ -81,6 +85,8 @@ export const ARENA_PATH = {
   BATTLE_LAST_HIT_MINION_ID: 'battle/lastHitMinionId',
   BATTLE_LAST_HIT_TARGET_ID: 'battle/lastHitTargetId',
   BATTLE_LAST_SKELETON_HITS: 'battle/lastSkeletonHits',
+  /** Flag set when Beyond the Nimbus applies team-wide shock (used for turn advance delay) */
+  BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED: 'battle/beyondNimbusShockApplied',
   BATTLE_WINNER: 'battle/winner',
   /** Set when damage eliminated a team; winner is written after delay so hit effects can play */
   BATTLE_WINNER_DELAYED_AT: 'battle/winnerDelayedAt',
@@ -160,6 +166,10 @@ export function getPhaseLabel(
       return 'Extra shot';
     case PHASE.RESOLVING_AFTER_RAPID_FIRE:
       return 'resolving...';
+    case PHASE.ROLLING_POMEGRANATE_CO_ATTACK:
+      return "Pomegranate co-attack";
+    case PHASE.ROLLING_POMEGRANATE_CO_DEFEND:
+      return context?.defenderName ? `Co vs ${context.defenderName}` : 'co defending...';
     case PHASE.DONE:
       return 'Done';
     default:

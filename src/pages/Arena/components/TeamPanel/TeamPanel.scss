@@ -83,6 +83,150 @@
       height: 14px;
       font-size: 0.4rem;
     }
+
+    /* Zeus — voltage “shock wave” (SVG filter + -em inset bleeds past frame without clip) */
+    .mchip__shocked-voltage,
+    .mchip__nimbus-voltage,
+    .mchip__jolt-arc-voltage,
+    .mchip__keraunos-voltage {
+      width: calc(88px + 10px);
+      height: calc(88px + 35px);
+      overflow: hidden;
+      border-radius: 7px;
+      contain: paint;
+    }
+
+    .mchip__shocked-voltage .mchip__shocked-voltage-svg,
+    .mchip__nimbus-voltage .mchip__nimbus-voltage-svg,
+    .mchip__jolt-arc-voltage .mchip__jolt-arc-voltage-svg,
+    .mchip__keraunos-voltage .mchip__keraunos-voltage-svg {
+      top: -0.35em;
+      left: -0.1em;
+      width: calc(100% + 0.22em);
+      height: calc(100% + 0.75em);
+    }
+
+    /* Nimbus storm layer uses negative horizontal inset on small chips */
+    .mchip__nimbus-storm {
+      inset: 0.12rem 0 1rem 0;
+      border-radius: 8px;
+    }
+
+    /* Pomegranate's Oath — VFX uses 130px-tuned px; full roster frame is 88px */
+    .mchip__pom-pearls {
+      width: 108px;
+      height: 108px;
+    }
+
+    .mchip__pom-caster {
+      width: 122px;
+      height: 122px;
+      top: calc(0.75rem - 19px);
+    }
+
+    .mchip__pom-seeds {
+      top: calc(0.75rem - 3px);
+      left: calc(50% - 52.5px);
+      width: 105px;
+      height: 95px;
+    }
+
+    .mchip__pom-lights {
+      top: calc(0.75rem - 14px);
+      left: calc(50% - 51px);
+      width: 102px;
+      height: 102px;
+    }
+
+    .mchip__pom-canvas {
+      --pom-circle-size: 9px;
+      --pom-corner-large: 24px;
+      --pom-corner-medium: 19px;
+      --pom-corner-small: 13px;
+      --pom-meeting-size: 15px;
+    }
+
+    .mchip__spirit-wisps {
+      width: 88px;
+      height: 88px;
+    }
+
+    .mchip__spirit-caster {
+      width: 122px;
+      height: 122px;
+      top: calc(0.75rem - 19px);
+    }
+
+    .mchip__spirit-seeds {
+      top: calc(0.75rem - 3px);
+      left: calc(50% - 52.5px);
+      width: 105px;
+      height: 95px;
+    }
+
+    .mchip__spirit-lights {
+      top: calc(0.75rem - 14px);
+      left: calc(50% - 51px);
+      width: 102px;
+      height: 102px;
+    }
+
+    .mchip__spirit-canvas {
+      --spirit-circle-size: 9px;
+      --spirit-corner-large: 24px;
+      --spirit-corner-medium: 19px;
+      --spirit-corner-small: 13px;
+      --spirit-meeting-size: 15px;
+    }
+
+    /* Efflorescence Muse — wide wrap for wings; vine SVG + corners match 88px frame */
+    .mchip__frame-wrap--efflorescence-muse {
+      width: calc(88px + 72px);
+      min-width: calc(88px + 72px);
+    }
+
+    .mchip__petal-vines {
+      width: calc(88px + 16px) !important;
+      height: calc(88px + 20px) !important;
+    }
+
+    .mchip__petal-corners {
+      width: calc(88px + 16px);
+      height: calc(88px + 20px);
+    }
+
+    .mchip__petal-fairy-wing--lt,
+    .mchip__petal-fairy-wing--lb {
+      left: calc(50% + 44px);
+    }
+
+    .mchip__petal-fairy-wing--rt,
+    .mchip__petal-fairy-wing--rb {
+      left: calc(50% - 44px);
+    }
+
+    /* Efflorescence Muse shield badge — default 20px is for 130px frame */
+    .mchip__petal-badge {
+      width: 14px;
+      height: 14px;
+      top: 3px;
+      right: 3px;
+    }
+
+    /* Apollo's Hymn — corona/border/accents use 130px vars in apollo-s-hymn; full roster frame is 88px */
+    .mchip__hymn-border,
+    .mchip__hymn-corona-rays,
+    .mchip__hymn-accents {
+      width: 88px;
+      height: 88px;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 7px;
+    }
+
+    .mchip__hymn-border {
+      padding: 1.5px;
+    }
   }
 }
 
@@ -92,6 +236,7 @@
       max-height: 110px;
       min-height: 0;
       flex-shrink: 1;
+      max-width: calc(100% / var(--member-count, 3));
     }
 
     .mchip__frame-wrap {
@@ -162,16 +307,146 @@
       width: 6px;
       height: 6px;
     }
+
+    /* Zeus — voltage shock wave — match 68px full-roster frame + clip filter bleed */
+    .mchip__shocked-voltage,
+    .mchip__nimbus-voltage,
+    .mchip__jolt-arc-voltage,
+    .mchip__keraunos-voltage {
+      width: calc(68px + 10px);
+      height: calc(68px + 35px);
+      overflow: hidden;
+      border-radius: 6px;
+      contain: paint;
+    }
+
+    .mchip__shocked-voltage .mchip__shocked-voltage-svg,
+    .mchip__nimbus-voltage .mchip__nimbus-voltage-svg,
+    .mchip__jolt-arc-voltage .mchip__jolt-arc-voltage-svg,
+    .mchip__keraunos-voltage .mchip__keraunos-voltage-svg {
+      top: -0.3em;
+      left: -0.08em;
+      width: calc(100% + 0.18em);
+      height: calc(100% + 0.65em);
+    }
+
+    .mchip__nimbus-storm {
+      inset: 0.1rem 0 0.85rem 0;
+      border-radius: 6px;
+    }
+
+    /* Pomegranate's Oath — full roster frame 68px (not 100px compact chip) */
+    .mchip__pom-pearls {
+      width: 84px;
+      height: 84px;
+    }
+
+    .mchip__pom-caster {
+      width: 94px;
+      height: 94px;
+      top: calc(0.75rem - 15px);
+    }
+
+    .mchip__pom-seeds {
+      top: calc(0.5rem - 2px);
+      left: calc(100% - 48px);
+      width: 81px;
+      height: 73px;
+    }
+
+    .mchip__pom-lights {
+      top: calc(0.5rem - 10px);
+      left: calc(50% - 39px);
+      width: 78px;
+      height: 78px;
+    }
+
+    .mchip__pom-canvas {
+      --pom-circle-size: 7px;
+      --pom-corner-large: 19px;
+      --pom-corner-medium: 15px;
+      --pom-corner-small: 10px;
+      --pom-meeting-size: 12px;
+    }
+
+    .mchip__spirit-wisps {
+      width: 68px;
+      height: 68px;
+      top: 0.5rem;
+    }
+
+    .mchip__spirit-caster {
+      width: 94px;
+      height: 94px;
+      top: calc(0.75rem - 15px);
+    }
+
+    .mchip__spirit-seeds {
+      top: calc(0.5rem - 2px);
+      left: calc(50% - 40.5px);
+      width: 81px;
+      height: 73px;
+    }
+
+    .mchip__spirit-lights {
+      top: calc(0.5rem - 10px);
+      left: calc(50% - 39px);
+      width: 78px;
+      height: 78px;
+    }
+
+    .mchip__spirit-canvas {
+      --spirit-circle-size: 7px;
+      --spirit-corner-large: 19px;
+      --spirit-corner-medium: 15px;
+      --spirit-corner-small: 10px;
+      --spirit-meeting-size: 12px;
+    }
+
+    /* Efflorescence Muse — match 68px full-roster frame */
+    .mchip__frame-wrap--efflorescence-muse {
+      width: calc(68px + 72px);
+      min-width: calc(68px + 72px);
+    }
+
+    .mchip__petal-vines {
+      width: calc(68px + 16px) !important;
+      height: calc(68px + 20px) !important;
+    }
+
+    .mchip__petal-corners {
+      width: calc(68px + 16px);
+      height: calc(68px + 20px);
+    }
+
+    .mchip__petal-fairy-wing--lt,
+    .mchip__petal-fairy-wing--lb {
+      left: calc(50% + 34px);
+    }
+
+    .mchip__petal-fairy-wing--rt,
+    .mchip__petal-fairy-wing--rb {
+      left: calc(50% - 34px);
+    }
+
+    .mchip__petal-badge {
+      width: 11px;
+      height: 11px;
+      top: 2px;
+      right: 2px;
+    }
   }
 }
 
+// Full mode compact start at 
 @media (max-width: $bp-compact) {
 
   .team-panel--full {
     .mchip {
-      max-height: 110px;
+      max-height: calc(100% / var(--member-count, 3));
       min-height: 0;
       flex-shrink: 1;
+      max-width: unset;
     }
 
     .mchip__frame-wrap {
@@ -180,7 +455,7 @@
       min-width: 60px;
       min-height: 60px;
       max-height: 60px;
-      margin-top: 0.5rem;
+      margin-top: auto;
     }
 
     .mchip__frame {
@@ -235,12 +510,168 @@
     }
 
     .mchip__quota {
-      margin-top: 0.25rem;
+      margin-top: 0.4rem;
     }
 
     .mchip__quota-pip {
       width: 6px;
       height: 6px;
+    }
+
+    /* Zeus voltage shock wave — match 60px full-roster frame + clip */
+    .mchip__shocked-voltage,
+    .mchip__nimbus-voltage,
+    .mchip__jolt-arc-voltage,
+    .mchip__keraunos-voltage {
+      width: calc(60px + 10px);
+      height: calc(60px + 35px);
+      overflow: hidden;
+      border-radius: 4px;
+      contain: paint;
+    }
+
+    .mchip__shocked-voltage .mchip__shocked-voltage-svg,
+    .mchip__nimbus-voltage .mchip__nimbus-voltage-svg,
+    .mchip__jolt-arc-voltage .mchip__jolt-arc-voltage-svg,
+    .mchip__keraunos-voltage .mchip__keraunos-voltage-svg {
+      top: -0.28em;
+      left: -0.06em;
+      width: calc(100% + 0.15em);
+      height: calc(100% + 0.55em);
+    }
+
+    .mchip__nimbus-storm {
+      inset: 0.08rem 0 0.75rem 0;
+      border-radius: 5px;
+    }
+
+    /* Pomegranate's Oath — full roster 60px frame; override compact VFX (70px frame) */
+    .mchip__pom-pearls {
+      width: 74px;
+      height: 74px;
+    }
+
+    .mchip__pom-caster {
+      width: 83px;
+      height: 83px;
+    }
+
+    .mchip__pom-seeds {
+      width: 72px;
+      height: 65px;
+    }
+
+    .mchip__pom-lights {
+      width: 69px;
+      height: 69px;
+    }
+
+    .mchip__pom-canvas {
+      --pom-circle-size: 6px;
+      --pom-corner-large: 17px;
+      --pom-corner-medium: 13px;
+      --pom-corner-small: 9px;
+      --pom-meeting-size: 10px;
+    }
+
+    .mchip__pom-canvas,
+    .mchip__pom-seeds,
+    .mchip__pom-lights,
+    .mchip__pom-rise,
+    .mchip__pom-deco,
+    .mchip__pom-caster {
+      top: calc(50% - (30px - 7px - 0.65rem));
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .mchip__spirit-wisps {
+      width: 60px;
+      height: 60px;
+    }
+
+    .mchip__spirit-caster {
+      width: 83px;
+      height: 83px;
+    }
+
+    .mchip__spirit-seeds {
+      width: 72px;
+      height: 65px;
+    }
+
+    .mchip__spirit-lights {
+      width: 69px;
+      height: 69px;
+    }
+
+    .mchip__spirit-canvas {
+      --spirit-circle-size: 6px;
+      --spirit-corner-large: 17px;
+      --spirit-corner-medium: 13px;
+      --spirit-corner-small: 9px;
+      --spirit-meeting-size: 10px;
+    }
+
+    .mchip__spirit-canvas,
+    .mchip__spirit-seeds,
+    .mchip__spirit-lights,
+    .mchip__spirit-rise,
+    .mchip__spirit-deco,
+    .mchip__spirit-caster,
+    .mchip__spirit-wisps {
+      top: calc(50% - (30px - 7px - 0.65rem));
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Efflorescence Muse — match 60px full-roster frame (override compact 70px-based vines) */
+    .mchip__frame-wrap--efflorescence-muse {
+      width: calc(60px + 72px);
+      min-width: calc(60px + 72px);
+    }
+
+    .mchip__petal-vines {
+      width: calc(60px + 16px) !important;
+      height: calc(60px + 20px) !important;
+    }
+
+    .mchip__petal-corners {
+      width: calc(60px + 16px);
+      height: calc(60px + 20px);
+    }
+
+    .mchip__petal-fairy-wing--lt,
+    .mchip__petal-fairy-wing--lb {
+      left: calc(50% + 30px);
+    }
+
+    .mchip__petal-fairy-wing--rt,
+    .mchip__petal-fairy-wing--rb {
+      left: calc(50% - 30px);
+    }
+
+    /* Shield badge: compact VFX uses 14px @ 70px frame — 60px full roster is tighter */
+    .mchip__petal-badge {
+      width: 9px;
+      height: 9px;
+      top: 2px;
+      right: 2px;
+    }
+
+    /* Apollo's Hymn — full roster frame 60px */
+    .mchip__hymn-border,
+    .mchip__hymn-corona-rays,
+    .mchip__hymn-accents {
+      width: 60px;
+      height: 60px;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 6px;
+    }
+
+    .mchip__hymn-border {
+      padding: 1px;
     }
   }
 

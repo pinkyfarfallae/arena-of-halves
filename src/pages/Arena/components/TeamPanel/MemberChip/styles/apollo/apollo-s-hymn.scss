@@ -8,14 +8,20 @@ $hymn-light: #fff8dc;
 $hymn-white: rgba(255, 255, 255, 0.9);
 $hymn-corona: rgba(255, 220, 100, 0.85);
 
-/* Light radius ray corona — rays emanating from mchip__frame (conic-gradient + radial mask) */
+/* Light radius ray corona — same outer box as mchip__frame (not full expanded frame-wrap) */
 .mchip__frame-wrap .mchip__hymn-corona-rays {
   position: absolute;
-  inset: -28px;
-  border-radius: 12px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: v.$frame-size-large;
+  height: v.$frame-size-large;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
   z-index: 11;
   pointer-events: none;
-  filter: brightness(1.5) drop-shadow(0 0 12px rgba(0, 0, 0, 0.5));
   background: conic-gradient(
     from 0deg at 50% 50%,
     transparent 0deg 12deg,
@@ -74,7 +80,7 @@ $hymn-corona: rgba(255, 220, 100, 0.85);
     black 48%,
     black 100%
   );
-  filter: blur(3px);
+  filter: brightness(1.5) drop-shadow(0 0 12px rgba(0, 0, 0, 0.5)) blur(3px);
   animation: hymn-corona-rays-pulse 4s ease-in-out infinite alternate;
 }
 
@@ -83,12 +89,19 @@ $hymn-corona: rgba(255, 220, 100, 0.85);
   100% { opacity: 1; }
 }
 
-/* Hymn border ring — gold/amber gradient (sun corona), around mchip__frame only */
+/* Hymn border ring — gold/amber gradient (sun corona), sized to mchip__frame only (not full frame-wrap) */
 .mchip__frame-wrap .mchip__hymn-border {
   position: absolute;
-  inset: -2.5px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: v.$frame-size-large;
+  height: v.$frame-size-large;
+  max-width: 100%;
+  max-height: 100%;
   border-radius: 10px;
-  z-index: 12;
+  z-index: 1;
   pointer-events: none;
   padding: 2px;
   background: linear-gradient(90deg,
@@ -241,12 +254,12 @@ $hymn-corona: rgba(255, 220, 100, 0.85);
 
 @keyframes hymn-accents-drift {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translate(-50%, -50%) translateY(0) scale(1);
     opacity: 0.9;
   }
 
   100% {
-    transform: translateY(-3px) scale(1.02);
+    transform: translate(-50%, -50%) translateY(-3px) scale(1.02);
     opacity: 0.65;
   }
 }
@@ -314,14 +327,27 @@ $hymn-corona: rgba(255, 220, 100, 0.85);
   }
 }
 
+@media (max-width: v.$bp-medium) {
+  .mchip__frame-wrap .mchip__hymn-border,
+  .mchip__frame-wrap .mchip__hymn-corona-rays,
+  .mchip__frame-wrap .mchip__hymn-accents {
+    width: v.$frame-size-medium;
+    height: v.$frame-size-medium;
+    border-radius: 8px;
+  }
+}
+
 /* Compact */
 @media (max-width: v.$bp-compact) {
-  .mchip__frame-wrap .mchip__hymn-border {
-    inset: -2px;
-    padding: 1.5px;
+  .mchip__frame-wrap .mchip__hymn-border,
+  .mchip__frame-wrap .mchip__hymn-corona-rays,
+  .mchip__frame-wrap .mchip__hymn-accents {
+    width: v.$frame-size-small;
+    height: v.$frame-size-small;
+    border-radius: 7px;
   }
 
-  .mchip__frame-wrap .mchip__hymn-accents {
-    inset: -4px;
+  .mchip__frame-wrap .mchip__hymn-border {
+    padding: 1.5px;
   }
 }

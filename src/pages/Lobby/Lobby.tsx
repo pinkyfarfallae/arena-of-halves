@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,6 +45,8 @@ function Lobby() {
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
+  /** Snapshot of custom room title at create time — input state alone can drift before config modal finishes. */
+  const [createdRoomLabel, setCreatedRoomLabel] = useState<string | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
 
@@ -74,7 +77,12 @@ function Lobby() {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
       const fighter = toFighterState(user, powers);
-      const arenaId = await createRoom(fighter, roomName || undefined);
+      const trimmedTitle = roomName.trim();
+      const arenaId = await createRoom(
+        fighter,
+        trimmedTitle.length > 0 ? trimmedTitle : undefined,
+      );
+      setCreatedRoomLabel(trimmedTitle.length > 0 ? trimmedTitle : null);
       setCreatedArenaId(arenaId);
     } catch {
       setError('Failed to create room. Try again.');
@@ -97,7 +105,7 @@ function Lobby() {
         setError('Room not found. Check the code.');
         return;
       }
-      navigate(code);
+      navigate(`/arena/${code}`);
     } catch {
       setError('Failed to join room. Try again.');
     } finally {
@@ -257,12 +265,17 @@ function Lobby() {
                         <button
                           key={room.arenaId ?? `room-${index}`}
                           className="lobby__room"
-                          onClick={() => navigate(`${room.arenaId}?watch=true`)}
+                          onClick={() => navigate(`/arena/${room.arenaId}?watch=true`)}
                         >
                           <span className="lobby__room-name">{room.roomName?.trim() || 'Arena'}</span>
-                          {room.teamSize > 1 && (
-                            <span className="lobby__room-mode">{room.teamSize}v{room.teamSize}</span>
-                          )}
+                          {(() => {
+                            const a = room.teamA?.maxSize ?? room.teamSize;
+                            const b = room.teamB?.maxSize ?? room.teamSize;
+                            if (Math.max(a, b) <= 1) return null;
+                            return (
+                              <span className="lobby__room-mode">{a === b ? `${a}v${a}` : `${a}v${b}`}</span>
+                            );
+                          })()}
                           <span className={`lobby__room-status lobby__room-status--${room.status}`}>
                             {statusLabel(room.status)}
                           </span>
@@ -321,10 +334,13 @@ function Lobby() {
       {createdArenaId && (
         <ConfigArenaModal
           arenaId={createdArenaId}
-          isDev={role === ROLE.DEVELOPER}
+          preservedRoomLabel={createdRoomLabel ?? undefined}
           player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
-          onClose={() => setCreatedArenaId(null)}
-          onEnter={(id) => navigate(id)}
+          onClose={() => {
+            setCreatedArenaId(null);
+            setCreatedRoomLabel(null);
+          }}
+          onEnter={(id) => navigate(`/arena/${id}`)}
         />
       )}
 
