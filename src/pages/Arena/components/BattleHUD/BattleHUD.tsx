@@ -199,53 +199,53 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
 }
 
 export default function BattleHUD({
-  arenaId, 
-  battle, 
-  teamA, 
-  teamB, 
-  teamMinionsA, 
-  teamMinionsB, 
-  myId, 
-  isPlaybackDriver = false, 
-  isViewer = false, 
-  isAttackerNpc = false, 
-  isDefenderNpc = false, 
-  devPlayAllFightersSelf = false, 
-  devUiActAsAttacker = false, 
+  arenaId,
+  battle,
+  teamA,
+  teamB,
+  teamMinionsA,
+  teamMinionsB,
+  myId,
+  isPlaybackDriver = false,
+  isViewer = false,
+  isAttackerNpc = false,
+  isDefenderNpc = false,
+  devPlayAllFightersSelf = false,
+  devUiActAsAttacker = false,
   transientEffectsActive,
   onSelectTarget,
   onSelectKeraunosTier2Batch,
-  onSelectAction, 
-  onSelectSeason, 
-  onPreviewSeason, 
-  onCancelSeason, 
-  onSelectPoem, 
-  onCancelPoem, 
-  onCancelTarget, 
-  initialShowPowers, 
-  onSubmitAttackRoll, 
-  onSubmitDefendRoll, 
-  onSubmitRapidFireD4Roll, 
-  onRapidFireDamageCardComplete, 
-  onResolve, 
-  onResolveVisible, 
-  onTransientEffectsActive, 
+  onSelectAction,
+  onSelectSeason,
+  onPreviewSeason,
+  onCancelSeason,
+  onSelectPoem,
+  onCancelPoem,
+  onCancelTarget,
+  initialShowPowers,
+  onSubmitAttackRoll,
+  onSubmitDefendRoll,
+  onSubmitRapidFireD4Roll,
+  onRapidFireDamageCardComplete,
+  onResolve,
+  onResolveVisible,
+  onTransientEffectsActive,
   onSoulDevourerHealReady,
-  transientSkeletonCard, 
-  transientSkeletonCardKey, 
-  onSkeletonCardShow, 
-  onSkeletonCardClear, 
-  onSkeletonCardTarget, 
+  transientSkeletonCard,
+  transientSkeletonCardKey,
+  onSkeletonCardShow,
+  onSkeletonCardClear,
+  onSkeletonCardTarget,
   onMinionHitPulse,
-  confirmedPowerName, 
-  onSkipTurnNoTarget, 
+  confirmedPowerName,
+  onSkipTurnNoTarget,
   onSelectTargetDisoriented,
-  onConfirmDisorientedTarget, 
-  onSelectAllyTarget, 
-  onHealSkippedAck, 
-  onSoulDevourerHealSkippedAck, 
-  onSpringHealSkippedAck, 
-  onFloralHealResultCardVisible, 
+  onConfirmDisorientedTarget,
+  onSelectAllyTarget,
+  onHealSkippedAck,
+  onSoulDevourerHealSkippedAck,
+  onSpringHealSkippedAck,
+  onFloralHealResultCardVisible,
   onFloralHealResultCardHidden,
   volleyArrowHitActive,
   isPomCoCasterNpc = false,
@@ -1368,14 +1368,19 @@ export default function BattleHUD({
   /** Bump when we merge a main-attack log entry into resolveCache (re-render only — do not change DamageCard `key` or the card remounts and replays show → hide → show). */
   const [, bumpResolveCacheMerge] = useReducer((x: number) => x + 1, 0);
   const masterDamageCardTurnKeyRef = useRef<string | null>(null);
+  /** Track if master damage card is currently showing for a turn — once true, keep showing until onDisplayComplete (prevents jitter from transient conditions). */
+  const masterDamageCardShowingRef = useRef(false);
   /** Track which rapidFireStep we already pulsed for, so every extra shot gets hit VFX once. */
   const lastPulsedRapidFireStepRef = useRef<number | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
     setShowMasterDamageCard(false);
+    masterDamageCardShowingRef.current = false;
+    masterDamageCardTurnKeyRef.current = null;
     const aw = !!(turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack;
     if (aw && turn?.phase === PHASE.RESOLVING) {
       setPomMainMasterDamageCardDoneKey(`${battle.roundNumber}|${battle.currentTurnIndex}`);
     }
+    // If awaiting pomegranate co-attack and co-attack didn't happen, advance to co-attack phase
     if (
       aw &&
       turn?.phase === PHASE.RESOLVING &&
@@ -1383,6 +1388,10 @@ export default function BattleHUD({
       onAdvancePomegranateCoAttackPhase
     ) {
       onAdvancePomegranateCoAttackPhase();
+      return;
+    }
+    // If awaiting pomegranate co-attack and co-attack happened, wait for co-attack card to complete - don't advance yet
+    if (aw && turn?.phase === PHASE.RESOLVING && turn.coAttackRoll != null && turn.coAttackRoll > 0) {
       return;
     }
     if (!isPlaybackDriver) return;
@@ -1531,15 +1540,26 @@ export default function BattleHUD({
       activePlaybackStep || playbackPendingAck || !!(playbackStep && !playbackStep.isMinionHit);
     if (masterPlaybackOwnsCard) {
       masterDamageCardTurnKeyRef.current = null;
+      masterDamageCardShowingRef.current = false;
       setShowMasterDamageCard(false);
       return;
     }
+
+    // Once card is showing for this turn, keep it showing until onDisplayComplete (prevents jitter)
+    if (masterDamageCardShowingRef.current && turn?.phase === PHASE.RESOLVING) {
+      return;
+    }
+
+    // Check structural conditions only when deciding to show initially
     const inSkeletonFollowup = resolvingHitIndex != null && resolvingHitIndex >= 1;
     const isSkipDicePower = turn?.action === TURN_ACTION.POWER && (turn?.attackRoll == null || turn?.attackRoll === 0);
+    const isNormalAttack = turn?.action === TURN_ACTION.ATTACK || (turn?.action === TURN_ACTION.POWER && turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS);
     const lastLog = (battle.log || []).at(-1);
     const hasLogForThisTurn = !!(lastLog?.attackerId === turn?.attackerId && lastLog?.defenderId === turn?.defenderId);
     // Keraunos / Jolt Arc: card uses turn state (damage known before resolve), show immediately. Other skipDice: wait for log.
     const skipDiceReady = !isSkipDicePower || hasLogForThisTurn || turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE || turn?.usedPowerName === POWER_NAMES.JOLT_ARC;
+    // For normal attacks, also wait for log entry to ensure complete data (prevents jitter)
+    const normalAttackReady = !isNormalAttack || hasLogForThisTurn;
     const combatTurnKey = `${battle.roundNumber}|${battle.currentTurnIndex}`;
     const pomMainMasterAlreadyDismissed =
       pomMainMasterDamageCardDoneKey != null && pomMainMasterDamageCardDoneKey === combatTurnKey;
@@ -1551,17 +1571,29 @@ export default function BattleHUD({
       !hadSkeletonHitsThisTurnRef.current &&
       !inSkeletonFollowup &&
       skipDiceReady &&
+      normalAttackReady &&
       !pomMainMasterAlreadyDismissed
     );
+    // Compute turn key inline (masterDamageCardKey is defined later)
+    const joltKey =
+      turn?.usedPowerName === POWER_NAMES.JOLT_ARC
+        ? `${(turn as any).joltArcResolveIndex ?? 0}|${(turn as any).joltArcTargetIds?.join(',') ?? ''}`
+        : '';
+    const keraunosKey =
+      turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
+        ? `${(turn as any).keraunosResolveIndex ?? 0}|${(turn as any).keraunosResolveTargetIds?.join(',') ?? ''}`
+        : '';
     const turnKey = shouldShowMasterCard
-      ? `${battle.roundNumber}|${battle.currentTurnIndex}|${turn?.attackerId ?? ''}|${turn?.defenderId ?? ''}`
+      ? [battle.roundNumber, battle.currentTurnIndex, turn?.attackerId ?? '', turn?.defenderId ?? '', joltKey, keraunosKey].join('|')
       : null;
     if (turnKey && masterDamageCardTurnKeyRef.current !== turnKey) {
       masterDamageCardTurnKeyRef.current = turnKey;
+      masterDamageCardShowingRef.current = true;
       setShowMasterDamageCard(true);
     }
     if (turn?.phase !== PHASE.RESOLVING) {
       masterDamageCardTurnKeyRef.current = null;
+      masterDamageCardShowingRef.current = false;
       setShowMasterDamageCard(false);
     }
   }, [battle.roundNumber, battle.currentTurnIndex, battle.log, turn, resolveVisible, shadowCamouflageD4, transientDamageActive, playbackStep, activePlaybackStep, playbackPendingAck, resolvingHitIndex, pomMainMasterDamageCardDoneKey]);
@@ -1880,10 +1912,10 @@ export default function BattleHUD({
             ? kDefId === mainTargetId
               ? 0
               : (() => {
-                  const si = secIds?.indexOf(kDefId) ?? -1;
-                  if (si < 0) return 2;
-                  return si < 2 ? 1 : 2;
-                })()
+                const si = secIds?.indexOf(kDefId) ?? -1;
+                if (si < 0) return 2;
+                return si < 2 ? 1 : 2;
+              })()
             : 0;
         const bases = [3, 2, 1] as const;
         const baseBolt = bases[tier] * multK;
@@ -2208,15 +2240,15 @@ export default function BattleHUD({
         const keraunosTierFromDefender =
           isKeraunosEntry
             ? ((entry as { keraunosDamageTier?: number }).keraunosDamageTier != null
-                ? ((entry as { keraunosDamageTier?: number }).keraunosDamageTier as 0 | 1 | 2)
-                : mainIdK
-                  ? (() => {
-                      if (entry.defenderId === mainIdK) return 0 as const;
-                      const idx = secondaryIdsK?.indexOf(entry.defenderId) ?? -1;
-                      if (idx < 0) return 2 as const;
-                      return (idx < 2 ? 1 : 2) as 0 | 1 | 2;
-                    })()
-                  : (0 as 0 | 1 | 2))
+              ? ((entry as { keraunosDamageTier?: number }).keraunosDamageTier as 0 | 1 | 2)
+              : mainIdK
+                ? (() => {
+                  if (entry.defenderId === mainIdK) return 0 as const;
+                  const idx = secondaryIdsK?.indexOf(entry.defenderId) ?? -1;
+                  if (idx < 0) return 2 as const;
+                  return (idx < 2 ? 1 : 2) as 0 | 1 | 2;
+                })()
+                : (0 as 0 | 1 | 2))
             : undefined;
         const aePlayback = battle.activeEffects || [];
         const atkBuffP = getStatModifier(aePlayback, entry.attackerId, MOD_STAT.ATTACK_DICE_UP);
@@ -2551,8 +2583,8 @@ export default function BattleHUD({
               const selectedPoem = (turn as { selectedPoem?: string }).selectedPoem;
               const afflictionVerseTag =
                 turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM &&
-                selectedPoem &&
-                (IMPRECATED_POEM_VERSE_TAGS as readonly string[]).includes(selectedPoem)
+                  selectedPoem &&
+                  (IMPRECATED_POEM_VERSE_TAGS as readonly string[]).includes(selectedPoem)
                   ? selectedPoem
                   : null;
               const isKeraunosPick =
@@ -2564,16 +2596,16 @@ export default function BattleHUD({
               const keraunosModalTargets =
                 isKeraunosPick && turn
                   ? (() => {
-                      const step = effectiveKeraunosStep(turn);
-                      const mainId = turn.keraunosMainTargetId;
-                      const secs = turn.keraunosSecondaryTargetIds ?? [];
-                      if (step === 0) return targets;
-                      let pool = targets.filter((t) => t.characterId !== mainId);
-                      if (aliveOppCountK >= 3 && secs.length >= 1 && !keraunosTier2Multi) {
-                        pool = pool.filter((t) => !secs.includes(t.characterId));
-                      }
-                      return pool;
-                    })()
+                    const step = effectiveKeraunosStep(turn);
+                    const mainId = turn.keraunosMainTargetId;
+                    const secs = turn.keraunosSecondaryTargetIds ?? [];
+                    if (step === 0) return targets;
+                    let pool = targets.filter((t) => t.characterId !== mainId);
+                    if (aliveOppCountK >= 3 && secs.length >= 1 && !keraunosTier2Multi) {
+                      pool = pool.filter((t) => !secs.includes(t.characterId));
+                    }
+                    return pool;
+                  })()
                   : targets;
               const keraunosSubtitle = (() => {
                 if (!isKeraunosPick || !turn) return undefined;
@@ -2767,34 +2799,34 @@ export default function BattleHUD({
           : (() => { const step = Number((turn as any).rapidFireStep) ?? 0; return step === 0 ? [2, 3, 4] : step === 1 ? [3, 4] : [4]; })();
         if (winFaces.length === 0) return null;
         return (() => {
-        const pct = winFaces.length * 25;
-        const isCaster = turn.attackerId === myId;
-        return (
-          <RefillSPDiceModal
-            attacker={attacker}
-            isMyTurn={!!isCaster}
-            winFaces={winFaces}
-            roll={(turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal ?? undefined}
-            atkSide={atkSide}
-            diceViewMs={REFILL_DICE_VIEW_MS}
-            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
-            title="Rapid Fire"
-            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${pct}% extra shot)` : `D4 (${pct}%)`}
-            wonText="Extra shot"
-            lostText="End"
-            bonusLabel={`extra shot: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
-            onRollStart={arenaId && isCaster ? () => {
-              const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { rapidFireD4Roll: roll }).catch(() => { });
-              setRapidFireD4RollLocal(roll);
-            } : undefined}
-            onRoll={async () => { }}
-            onResultCardVisible={arenaId ? () => {
-              const r = (turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal;
-              if (r != null) window.setTimeout(() => onSubmitRapidFireD4Roll?.(r), REFILL_CARD_VIEW_MS);
-            } : undefined}
-          />
-        );
+          const pct = winFaces.length * 25;
+          const isCaster = turn.attackerId === myId;
+          return (
+            <RefillSPDiceModal
+              attacker={attacker}
+              isMyTurn={!!isCaster}
+              winFaces={winFaces}
+              roll={(turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal ?? undefined}
+              atkSide={atkSide}
+              diceViewMs={REFILL_DICE_VIEW_MS}
+              resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+              title="Rapid Fire"
+              subTitle={attacker ? `${attacker.nicknameEng} — D4 (${pct}% extra shot)` : `D4 (${pct}%)`}
+              wonText="Extra shot"
+              lostText="End"
+              bonusLabel={`extra shot: ${[...winFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+              onRollStart={arenaId && isCaster ? () => {
+                const roll = Math.ceil(Math.random() * 4);
+                update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { rapidFireD4Roll: roll }).catch(() => { });
+                setRapidFireD4RollLocal(roll);
+              } : undefined}
+              onRoll={async () => { }}
+              onResultCardVisible={arenaId ? () => {
+                const r = (turn as any).rapidFireD4Roll ?? rapidFireD4RollLocal;
+                if (r != null) window.setTimeout(() => onSubmitRapidFireD4Roll?.(r), REFILL_CARD_VIEW_MS);
+              } : undefined}
+            />
+          );
         })();
       })()}
 
@@ -3264,26 +3296,26 @@ export default function BattleHUD({
 
       {/* Damage breakdown card — on defender side. Volley arrow VFX uses volleyArrowHitActive in Arena only; do not unmount this card when the arrow ends or it flashes off then on for the full displayMs. */}
       {!activePlaybackStep &&
-        !(playbackStep && !playbackStep.isMinionHit) &&
         !playbackPendingAck &&
         showMasterDamageCard &&
         turn?.phase === PHASE.RESOLVING &&
+        masterDamageCardTurnKeyRef.current === masterDamageCardKey &&
         (() => {
-        const masterCardData = { ...resolveCache.current };
-        if (masterCardData.powerName === POWER_NAMES.JOLT_ARC && !masterCardData.baseDmg && attacker) {
-          masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
-        }
-        return (
-          <DamageCard
-            key={masterDamageCardKey}
-            data={masterCardData}
-            exiting={false}
-            side={resolveCache.current.side}
-            displayMs={masterResolveDisplayMs}
-            onDisplayComplete={handleMasterDamageCardComplete}
-          />
-        );
-      })()}
+          const masterCardData = { ...resolveCache.current };
+          if (masterCardData.powerName === POWER_NAMES.JOLT_ARC && !masterCardData.baseDmg && attacker) {
+            masterCardData.baseDmg = Math.max(0, attacker.damage + getStatModifier(battle.activeEffects || [], turn?.attackerId ?? '', MOD_STAT.DAMAGE));
+          }
+          return (
+            <DamageCard
+              key={masterDamageCardKey}
+              data={masterCardData}
+              exiting={false}
+              side={resolveCache.current.side}
+              displayMs={masterResolveDisplayMs}
+              onDisplayComplete={handleMasterDamageCardComplete}
+            />
+          );
+        })()}
 
       {pomegranateCoResolve && !activePlaybackStep && (
         <DamageCard
@@ -3298,7 +3330,7 @@ export default function BattleHUD({
             if (turn?.phase !== PHASE.RESOLVING && turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE) return;
             const rkTail = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn.attackerId}|${turn.defenderId ?? ''}|${(turn as any)?.resolvingHitIndex ?? 0}|pom-clear`;
             void Promise.resolve(onResolve())
-              .catch(() => {})
+              .catch(() => { })
               .finally(() => {
                 playbackRequestKeyRef.current = rkTail;
               });
