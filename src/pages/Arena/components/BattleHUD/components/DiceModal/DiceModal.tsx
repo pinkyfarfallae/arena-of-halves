@@ -255,13 +255,15 @@ export default function DiceModal({
   const serverSkippedToResolving =
     phase === PHASE.RESOLVING && turn.attackRoll != null && turn.defendRoll != null && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
   const fromRollingDefend = latchedPhase === PHASE.ROLLING_DEFEND && latchedAttackRoll != null && !isMyTurn;
-  const fromResolvingSkip = serverSkippedToResolving && !atkRollDone && !isMyTurn && latchedAttackRoll != null && !viewerAttackReplayShownRef.current && !defRollDone;
+  // Only show RESOLVING attack replay if we never showed in ROLLING_DEFEND AND we haven't already shown in RESOLVING
+  const fromResolvingSkip = serverSkippedToResolving && !atkRollDone && !isMyTurn && latchedAttackRoll != null && !viewerAttackReplayShownRef.current;
   const showAttackReplay =
     (fromRollingDefend || fromResolvingSkip) && !defRollDone && !playbackHostHideEchoAttackReplay;
 
-  useEffect(() => {
-    if (showAttackReplay) viewerAttackReplayShownRef.current = true;
-  }, [showAttackReplay]);
+  // Set ref synchronously during render to prevent double replay
+  if (showAttackReplay && !viewerAttackReplayShownRef.current) {
+    viewerAttackReplayShownRef.current = true;
+  }
 
   const defenderEligible =
     showAttackReplay &&
@@ -382,10 +384,10 @@ export default function DiceModal({
             <span className="bhud__dice-bonus">
               {isMyAttackReplaySegment
                 ? (!(atkRollDone || atkReplayLanded)
-                    ? 'rolling...'
-                    : ((displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod) > 0
-                      ? `+${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod} → ${(rolledAttackValue ?? preRolledAttack ?? 0) + (displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`
-                      : String(rolledAttackValue ?? preRolledAttack))
+                  ? 'rolling...'
+                  : ((displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod) > 0
+                    ? `+${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod} → ${(rolledAttackValue ?? preRolledAttack ?? 0) + (displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`
+                    : String(rolledAttackValue ?? preRolledAttack))
                 : `dice up: ${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`}
             </span>
           </div>
@@ -440,49 +442,49 @@ export default function DiceModal({
       {((phase === PHASE.ROLLING_DEFEND && isMyDefend && defendReady) || showMyDefendReplay) &&
         !((isMyDefend || embodyDefenderForDefReplay) && defenderCannotDefend) &&
         !(turn as any).soulDevourerDrain && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal" style={defTheme}>
-            <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">
-              {showMyDefendReplay
-                ? defender?.nicknameEng
-                : `Defending against ${(awaitingPom ? displayAttackFighter?.nicknameEng : attacker?.nicknameEng) ?? ''}`}
-            </span>
-            <DiceRoller
-              key="def-my-roll"
-              className="bhud__dice-roller"
-              lockedDie={12}
-              fixedResult={
-                pomCoDefenderDieResult ??
+          <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+            <div className="bhud__dice-modal" style={defTheme}>
+              <span className="bhud__dice-label">Defense Roll</span>
+              <span className="bhud__dice-sub">
+                {showMyDefendReplay
+                  ? defender?.nicknameEng
+                  : `Defending against ${(awaitingPom ? displayAttackFighter?.nicknameEng : attacker?.nicknameEng) ?? ''}`}
+              </span>
+              <DiceRoller
+                key="def-my-roll"
+                className="bhud__dice-roller"
+                lockedDie={12}
+                fixedResult={
+                  pomCoDefenderDieResult ??
                   (!awaitingPom && showMyDefendReplay
                     ? (preRolledDefend ?? turn.defendRoll ?? undefined)
                     : !awaitingPom
                       ? (preRolledDefend ?? undefined)
                       : undefined)
-              }
-              autoRoll={false}
-              accentColor={defender?.theme[9]}
-              themeColors={dieColors(defender)}
-              onRollResult={defendDieSubmitLocked ? undefined : onDefendRoll}
-              onRollStart={defendDieSubmitLocked ? undefined : onDefendRollStart}
-              onRollEnd={() => {
-                if (showMyDefendReplay || pomCoDefendSubmitLocked) setDefReplayLanded(true);
-                onDefRollDone();
-              }}
-              hidePrompt
-                  />
-            <span className="bhud__dice-bonus">
-              {showMyDefendReplay
-                ? (!(defRollDone || defReplayLanded)
+                }
+                autoRoll={false}
+                accentColor={defender?.theme[9]}
+                themeColors={dieColors(defender)}
+                onRollResult={defendDieSubmitLocked ? undefined : onDefendRoll}
+                onRollStart={defendDieSubmitLocked ? undefined : onDefendRollStart}
+                onRollEnd={() => {
+                  if (showMyDefendReplay || pomCoDefendSubmitLocked) setDefReplayLanded(true);
+                  onDefRollDone();
+                }}
+                hidePrompt
+              />
+              <span className="bhud__dice-bonus">
+                {showMyDefendReplay
+                  ? (!(defRollDone || defReplayLanded)
                     ? 'rolling...'
                     : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
                       ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${((awaitingPom ? turn.coDefendRoll : turn.defendRoll) ?? 0) + (defender?.defendDiceUp ?? 0) + defBuffMod}`
                       : String(awaitingPom ? turn.coDefendRoll : turn.defendRoll))
-                : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
-            </span>
+                  : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       {/* Opponent's defend — waiting: only after attack animation has ended (atkRollDone). Hide when power does not allow defend or Soul Devourer drain. */}
       {latchedPhase === PHASE.ROLLING_DEFEND && !isMyDefend && latchedAttackRoll != null && showDefenderWaiting && !defenderCannotDefend && !(turn as any).soulDevourerDrain && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
