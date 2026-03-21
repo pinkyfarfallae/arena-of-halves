@@ -191,7 +191,8 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
 
 /**
  * Deduct power SP/quota once when the turn commits (dice or resolve), after confirmations.
- * Uses turn.usedPowerIndex; merges into turnUpdate and updates fighter quota paths.
+ * Uses turn.usedPowerIndex, or usedPowerIndexOverride when the DB turn is still SELECT_ACTION
+ * (power just chosen in this request — e.g. Hades skipDice self buffs: Shadow, Undead Army).
  */
 function deductPowerQuotaIfPending(
   room: BattleRoom,
@@ -199,9 +200,10 @@ function deductPowerQuotaIfPending(
   attackerId: string,
   updates: Record<string, unknown>,
   turnUpdate: Record<string, unknown>,
+  usedPowerIndexOverride?: number | null,
 ): void {
   if (turn.powerQuotaApplied) return;
-  const idx = turn.usedPowerIndex;
+  const idx = usedPowerIndexOverride ?? turn.usedPowerIndex;
   if (idx == null) return;
   const attacker = findFighter(room, attackerId);
   if (!attacker) return;
@@ -681,6 +683,126 @@ function findFighterTeam(room: BattleRoom, characterId: string): BattleTeamKey |
   if ((room.teamA?.members || []).some(m => m.characterId === characterId)) return BATTLE_TEAM.A;
   if ((room.teamB?.members || []).some(m => m.characterId === characterId)) return BATTLE_TEAM.B;
   return null;
+}
+
+/**
+ * Test mode: write NPC crit D4 to Firebase when RESOLVING has no crit result yet.
+ * BattleHUD only rolls from the playback driver; this lets any open client (or delayed timer) unstuck PvE crit.
+ */
+export async function applyNpcResolvingCritIfPending(
+  arenaId: string,
+  npcCharacterIdsLower: Set<string>,
+): Promise<void> {
+  if (npcCharacterIdsLower.size === 0) return;
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  if (!room.testMode) return;
+  const battle = room.battle;
+  if (!battle?.turn || battle.turn.phase !== PHASE.RESOLVING) return;
+
+  const turn = battle.turn;
+  const effects = battle.activeEffects || [];
+  const tr = turn as unknown as Record<string, unknown>;
+
+  if (tr.soulDevourerDrain) return;
+  const scFaces = tr.shadowCamouflageRefillWinFaces;
+  if (Array.isArray(scFaces) && scFaces.length > 0 && tr.shadowCamouflageRefillRoll == null) return;
+
+  if ((turn.critRoll ?? 0) > 0) return;
+  if (turn.isCrit === true) return;
+
+  const dodgeFaces = tr.dodgeWinFaces;
+  if (Array.isArray(dodgeFaces) && dodgeFaces.length > 0 && tr.dodgeRoll == null) return;
+  if (turn.isDodged === true) return;
+
+  const awaitingPom = !!turn.awaitingPomegranateCoAttack;
+  const pomCoCritPhase =
+    awaitingPom &&
+    !!turn.coAttackerId &&
+    turn.coAttackRoll != null &&
+    turn.coAttackRoll > 0 &&
+    turn.coDefendRoll != null &&
+    turn.coDefendRoll >= 1 &&
+    npcCharacterIdsLower.has(String(turn.coAttackerId).toLowerCase());
+
+  const writeCrit = async (isCrit: boolean, critRoll: number, winFaces: number[]) => {
+    await update(roomRef(arenaId), {
+      [`${ARENA_PATH.BATTLE_TURN}/isCrit`]: isCrit,
+      [`${ARENA_PATH.BATTLE_TURN}/critRoll`]: critRoll,
+      [`${ARENA_PATH.BATTLE_TURN}/critWinFaces`]: winFaces,
+    });
+  };
+
+  if (pomCoCritPhase) {
+    const coCaster = findFighter(room, turn.coAttackerId!);
+    const defender = turn.defenderId ? findFighter(room, turn.defenderId) : undefined;
+    if (!coCaster || !defender || !turn.defenderId) return;
+    const coBuff = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.ATTACK_DICE_UP);
+    const coRecovery = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.RECOVERY_DICE_UP);
+    const defBuff = getStatModifier(effects, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
+    const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
+    const coTotal = (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
+    const coDefTotal = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
+    if (coTotal <= coDefTotal || coTotal < 10) return;
+    const critBuffCo = getStatModifier(effects, turn.coAttackerId!, MOD_STAT.CRITICAL_RATE);
+    const effectiveCrit = Math.max(coCaster.criticalRate, coCaster.criticalRate + critBuffCo);
+    if (effectiveCrit <= 0) return;
+    if (effectiveCrit >= 100) {
+      await writeCrit(true, 0, [1, 2, 3, 4]);
+      return;
+    }
+    const winFaces = (turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCrit)) as number[];
+    const crit = checkCritical(effectiveCrit, winFaces);
+    await writeCrit(crit.isCrit, crit.critRoll, winFaces);
+    return;
+  }
+
+  const attackerId = turn.attackerId;
+  if (!attackerId || !npcCharacterIdsLower.has(attackerId.toLowerCase())) return;
+  if (!turn.defenderId) return;
+  const attacker = findFighter(room, attackerId);
+  const defender = findFighter(room, turn.defenderId);
+  if (!attacker || !defender) return;
+
+  const isSkipDicePower =
+    turn.action === TURN_ACTION.POWER &&
+    (turn.attackRoll == null || turn.attackRoll === 0);
+  if (isSkipDicePower && turn.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE) return;
+
+  if (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
+    const critBuffK = getStatModifier(effects, attackerId, MOD_STAT.CRITICAL_RATE);
+    const effectiveCritBase = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
+    const effectiveCritK = Math.min(100, Math.max(0, effectiveCritBase + 25));
+    if (effectiveCritK <= 0) return;
+    if (effectiveCritK >= 100) {
+      await writeCrit(true, 0, [1, 2, 3, 4]);
+      return;
+    }
+    const winFaces = (turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCritK)) as number[];
+    const crit = checkCritical(effectiveCritK, winFaces);
+    await writeCrit(crit.isCrit, crit.critRoll, winFaces);
+    return;
+  }
+
+  const atkBuff = getStatModifier(effects, attackerId, MOD_STAT.ATTACK_DICE_UP);
+  const defBuff = getStatModifier(effects, turn.defenderId, MOD_STAT.DEFEND_DICE_UP);
+  const atkRecovery = getStatModifier(effects, attackerId, MOD_STAT.RECOVERY_DICE_UP);
+  const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
+  const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
+  const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
+  if (atkTotal <= defTotal || atkTotal < 10) return;
+
+  const critBuff = getStatModifier(effects, attackerId, MOD_STAT.CRITICAL_RATE);
+  const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
+  if (effectiveCrit <= 0) return;
+  if (effectiveCrit >= 100) {
+    await writeCrit(true, 0, [1, 2, 3, 4]);
+    return;
+  }
+  const winFaces = (turn.critWinFaces?.length ? turn.critWinFaces : getWinningFaces(effectiveCrit)) as number[];
+  const crit = checkCritical(effectiveCrit, winFaces);
+  await writeCrit(crit.isCrit, crit.critRoll, winFaces);
 }
 
 /**
@@ -2653,7 +2775,7 @@ export async function selectAction(
         usedPowerName: power.name,
         shadowCamouflageRefillWinFaces: winFaces,
       };
-      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnShadow);
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnShadow, effectivePowerIndex);
       updates[ARENA_PATH.BATTLE_TURN] = turnShadow;
       updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
       updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
@@ -2662,7 +2784,7 @@ export async function selectAction(
     }
 
     const pendingSkipSelf: Record<string, unknown> = {};
-    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingSkipSelf);
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingSkipSelf, effectivePowerIndex);
 
     // Sync activeEffects into battle for tickEffects
     const battleForTick = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
@@ -2780,7 +2902,7 @@ export async function selectAction(
       usedPowerIndex: effectivePowerIndex,
       usedPowerName: power.name,
     };
-    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnJolt);
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnJolt, effectivePowerIndex);
     updates[ARENA_PATH.BATTLE_TURN] = turnJolt;
     await update(roomRef(arenaId), updates);
     // After effect duration, apply damage and skeleton destruction so effect plays before skeleton destroy / damage to master.
