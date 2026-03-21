@@ -42,6 +42,7 @@ import {
   advanceAfterSoulDevourerHealSkippedAck,
   advanceAfterSpringHealSkippedAck,
   advanceToPomegranateCoAttackPhase,
+  applyNpcResolvingCritIfPending,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
@@ -123,6 +124,11 @@ function Arena(props?: ArenaDemoProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+  const [stuckContinueVisible, setStuckContinueVisible] = useState(false);
+  const stuckContinueClickRef = useRef<(() => void) | null>(null);
+  const onStuckContinueVisibleChange = useCallback((visible: boolean) => {
+    setStuckContinueVisible(visible);
+  }, []);
   const [transientEffectsActive, setTransientEffectsActive] = useState(false);
   /** True 2s after RESOLVING with Soul Devourer drain (when soul lands on caster) so heal shows */
   const [soulDevourerHealReady, setSoulDevourerHealReady] = useState(false);
@@ -696,6 +702,51 @@ function Arena(props?: ArenaDemoProps) {
     }
   }, [room, arenaId, npcCharacterIdSet]);
 
+  /* ── PvE: NPC crit D4 in RESOLVING (not covered by NPC timer above; Firebase updates would cancel a shared timer). ── */
+  useEffect(() => {
+    if (!room?.testMode || room.devPlayAllFightersSelf) return;
+    if (room.status !== ROOM_STATUS.BATTLING || !arenaId) return;
+    if (npcCharacterIdSet.size === 0) return;
+    const turn = room.battle?.turn;
+    if (!turn || turn.phase !== PHASE.RESOLVING) return;
+    const isNpcId = (id: string | undefined) =>
+      !!id && npcCharacterIdSet.has(String(id).toLowerCase());
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+    const pomCoNeedsCrit =
+      awaitingPom &&
+      isNpcId((turn as { coAttackerId?: string }).coAttackerId) &&
+      turn.coAttackRoll != null &&
+      turn.coAttackRoll > 0 &&
+      turn.coDefendRoll != null &&
+      turn.coDefendRoll >= 1;
+    const mainNpcNeedsCrit = isNpcId(turn.attackerId);
+    if (!pomCoNeedsCrit && !mainNpcNeedsCrit) return;
+    if ((turn.critRoll ?? 0) > 0 || turn.isCrit === true) return;
+    const t = window.setTimeout(() => {
+      applyNpcResolvingCritIfPending(arenaId, npcCharacterIdSet).catch(() => { });
+    }, 1600);
+    return () => window.clearTimeout(t);
+  }, [
+    room?.testMode,
+    room?.devPlayAllFightersSelf,
+    room?.status,
+    room?.battle?.turn?.phase,
+    room?.battle?.turn?.attackerId,
+    room?.battle?.turn?.defenderId,
+    room?.battle?.turn?.attackRoll,
+    room?.battle?.turn?.defendRoll,
+    room?.battle?.turn?.coAttackRoll,
+    room?.battle?.turn?.coDefendRoll,
+    room?.battle?.turn?.critRoll,
+    room?.battle?.turn?.isCrit,
+    room?.battle?.turn?.isDodged,
+    (room?.battle?.turn as { dodgeRoll?: number })?.dodgeRoll,
+    (room?.battle?.turn as { awaitingPomegranateCoAttack?: boolean })?.awaitingPomegranateCoAttack,
+    (room?.battle?.turn as { coAttackerId?: string })?.coAttackerId,
+    arenaId,
+    npcCharacterIdSet,
+  ]);
+
 
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
@@ -813,6 +864,21 @@ function Arena(props?: ArenaDemoProps) {
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
+  /**
+   * Exactly one human client should write NPC sub-phase rolls (crit D4, chain, dodge sim) to Firebase.
+   * Previously only `isCreator` (team A slot 0) drove — team-B humans (or non-slot-0) never got `isPlaybackDriver`,
+   * so NPC critical checks stuck on "waiting" with no auto-roll.
+   */
+  const npcAutomationAnchorId = (() => {
+    if (!effectiveRoom.testMode || npcCharacterIdSet.size === 0) return null;
+    const humans = [...teamAMembers, ...teamBMembers].filter(
+      (m) => m?.characterId && !npcCharacterIdSet.has(String(m.characterId).toLowerCase()),
+    );
+    if (humans.length === 0) return null;
+    return [...humans].sort((a, b) =>
+      String(a.characterId).localeCompare(String(b.characterId), undefined, { sensitivity: 'base' }),
+    )[0].characterId;
+  })();
   const isPlaybackDriver = !!(
     effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
@@ -820,10 +886,14 @@ function Arena(props?: ArenaDemoProps) {
         battle?.turn?.attackerId === user?.characterId ||
         (
           effectiveRoom.testMode &&
-          isCreator &&
+          !!user?.characterId &&
+          role !== ARENA_ROLE.VIEWER &&
+          !playAllNonHostViewer &&
           !!battle?.turn?.attackerId &&
           npcCharacterIdSet.size > 0 &&
-          npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase())
+          npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase()) &&
+          npcAutomationAnchorId != null &&
+          user.characterId.toLowerCase() === npcAutomationAnchorId.toLowerCase()
         )
       )
   );
@@ -1040,6 +1110,17 @@ function Arena(props?: ArenaDemoProps) {
           )}
         </div>
 
+        {stuckContinueVisible && (
+          <button
+            type="button"
+            className="arena__bar-stuck-continue"
+            aria-label="Continue battle"
+            onClick={() => stuckContinueClickRef.current?.()}
+          >
+            Continue battle
+          </button>
+        )}
+
         {effectiveRoom.status === ROOM_STATUS.FINISHED ? (
           <div className="arena__bar-share">
             <button
@@ -1242,6 +1323,9 @@ function Arena(props?: ArenaDemoProps) {
             teamMinionsA={effectiveRoom.teamA?.minions}
             teamMinionsB={effectiveRoom.teamB?.minions}
             myId={battleHudMyId}
+            battleParticipantCharacterId={user?.characterId}
+            onStuckContinueVisibleChange={onStuckContinueVisibleChange}
+            stuckContinueClickRef={stuckContinueClickRef}
             transientEffectsActive={transientEffectsActive}
             confirmedPowerName={selectedPowerName}
             onSelectTarget={onSelectTargetDeferred}
