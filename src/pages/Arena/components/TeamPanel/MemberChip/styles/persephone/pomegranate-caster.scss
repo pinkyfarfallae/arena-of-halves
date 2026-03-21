@@ -1356,9 +1356,9 @@ $gradient: if($is-white,
 @media (max-width: $bp-compact) {
   .mchip--pomegranate .mchip__frame {
     box-shadow:
-      0 0 0 1.5px rgba(#c62828, 0.75),
-      0 0 12px rgba(#d32f2f, 0.45),
-      0 0 20px rgba(#e53935, 0.2);
+      0 0 0 2px rgba(#c62828, 0.88),
+      0 0 18px rgba(#d32f2f, 0.55),
+      0 0 32px rgba(#e53935, 0.32);
   }
 
   .mchip__pom-pearls {
@@ -1366,11 +1366,9 @@ $gradient: if($is-white,
     height: calc($frame-size-small + 20px);
   }
 
-  .mchip__pom-canvas,
   .mchip__pom-seeds,
   .mchip__pom-lights,
   .mchip__pom-rise,
-  .mchip__pom-deco,
   .mchip__pom-caster,
   .mchip__spirit-wisps {
     top: calc(50% - ($frame-size-small / 2 - 7px - 0.65rem));
@@ -1378,8 +1376,15 @@ $gradient: if($is-white,
     transform: translate(-50%, -50%);
   }
 
+  .mchip__pom-canvas,
+  .mchip__pom-deco {
+    top: calc(100% - $frame-size-small - 0.13rem);
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .mchip__pom-tris-wrap {
-    opacity: 0.6;
+    opacity: 0.88;
   }
 
   .mchip__pom-canvas {
@@ -1389,7 +1394,7 @@ $gradient: if($is-white,
     --pom-corner-medium: 20px;
     --pom-corner-small: 14px;
     --pom-meeting-size: 16px;
-    opacity: 0.15;
+    opacity: 0.28;
     @include mask-right-side-fade
   }
 
@@ -1429,9 +1434,10 @@ $gradient: if($is-white,
     animation-duration: 6.5s;
   }
 
-  /* Slower rise + less opacity on compact */
+  /* Slower rise on compact; opacity aligned with desktop-adjacent readability */
   .mchip__pom-glow-rise {
-    opacity: 0.55;
+    opacity: 0.78;
+    max-height: 100%;
   }
 
   .mchip__pom-glow-rise-particle {
@@ -1439,7 +1445,8 @@ $gradient: if($is-white,
   }
 
   .mchip__pom-white-rise {
-    opacity: 0.6;
+    opacity: 0.82;
+    max-height: 100%;
   }
 
   .mchip__pom-white-rise-particle {
@@ -1447,20 +1454,19 @@ $gradient: if($is-white,
   }
 
   .mchip__pom-rise {
-    opacity: 0.5;
+    opacity: 0.74;
   }
 
   .mchip__pom-rise-particle {
     animation-duration: 9s;
   }
 
-  /* Less black in compact: lighter drops layer and softer black drops */
   .mchip__pom-drops {
-    opacity: 0.32;
+    opacity: 0.48;
   }
 
   .mchip__pom-drops .mchip__pom-drop:nth-child(even) {
-    background: linear-gradient(180deg, rgba(#1a0a0a, 0) 0%, rgba(#2a1515, 0.5) 26%, rgba(#1a1010, 0.6) 100%);
-    box-shadow: 0 0 5px rgba(#2a1515, 0.35);
+    background: linear-gradient(180deg, rgba(#1a0a0a, 0) 0%, rgba(#2a1515, 0.62) 26%, rgba(#1a1010, 0.72) 100%);
+    box-shadow: 0 0 6px rgba(#2a1515, 0.45);
   }
 }
