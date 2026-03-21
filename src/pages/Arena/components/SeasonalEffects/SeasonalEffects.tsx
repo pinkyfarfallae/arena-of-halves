@@ -1,7 +1,24 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { SEASON_KEYS, type SeasonKey } from '../../../../data/seasons';
 import type { PanelSide } from '../../../../constants/battle';
 import './SeasonalEffects.scss';
+
+/** Narrow viewports: fewer layers + stronger hero cues (matches `$bp-compact` / chip particle cull). */
+const BP_VFX_LEAN = 600;
+
+function subscribeVfxLean(cb: () => void) {
+  const mq = window.matchMedia(`(max-width: ${BP_VFX_LEAN}px)`);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+
+function getVfxLeanSnapshot() {
+  return window.matchMedia(`(max-width: ${BP_VFX_LEAN}px)`).matches;
+}
+
+function getServerVfxLeanSnapshot() {
+  return false;
+}
 
 const MAPLE_PATH =
   'M383.8 351.7c2.5-2.5 105.2-92.4 105.2-92.4l-17.5-7.5c-10-4.9-7.4-11.5-5-17.4 2.4-7.6 20.1-67.3 20.1-67.3s-47.7 10-57.7 12.5c-7.5 2.4-10-2.5-12.5-7.5s-15-32.4-15-32.4-52.6 59.9-55.1 62.3c-10 7.5-20.1 0-17.6-10 0-10 27.6-129.6 27.6-129.6s-30.1 17.4-40.1 22.4c-7.5 5-12.6 5-17.6-5C293.5 72.3 255.9 0 255.9 0s-37.5 72.3-42.5 79.8c-5 10-10 10-17.6 5-10-5-40.1-22.4-40.1-22.4S183.3 182 183.3 192c2.5 10-7.5 17.5-17.6 10-2.5-2.5-55.1-62.3-55.1-62.3S98.1 167 95.6 172s-5 9.9-12.5 7.5C73 177 25.4 167 25.4 167s17.6 59.7 20.1 67.3c2.4 6 5 12.5-5 17.4L23 259.3s102.6 89.9 105.2 92.4c5.1 5 10 7.5 5.1 22.5-5.1 15-10.1 35.1-10.1 35.1s95.2-20.1 105.3-22.6c8.7-.9 18.3 2.5 18.3 12.5S241 512 241 512h30s-5.8-102.7-5.8-112.8 9.5-13.4 18.4-12.5c10 2.5 105.2 22.6 105.2 22.6s-5-20.1-10-35.1 0-17.5 5-22.5z';
@@ -26,6 +43,8 @@ interface Props {
  * Appears on both sides of the arena field during Ephemeral Season power duration
  */
 export default function SeasonalEffects({ season, side, isActive }: Props) {
+  const vfxLean = useSyncExternalStore(subscribeVfxLean, getVfxLeanSnapshot, getServerVfxLeanSnapshot);
+
   const effectClass = useMemo(() => {
     if (!season || !isActive) return '';
     return `seasonal-effects--${season}`;
@@ -33,11 +52,31 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
 
   if (!isActive || !season) return null;
 
+  const nParticles = vfxLean ? 6 : 12;
+  const nAutumnLeaves = vfxLean ? 7 : 15;
+  const nAutumnSpores = vfxLean ? 4 : 8;
+  const nSummerMotes = vfxLean ? 5 : 10;
+  const nSummerEmbers = vfxLean ? 4 : 8;
+  const nWinterSparkles = vfxLean ? 5 : 8;
+  const nSpringPetals = vfxLean ? 7 : 14;
+  const nSpringSparkles = vfxLean ? 10 : 20;
+  const nSpringSunDrops = vfxLean ? 10 : 20;
+  const nSpringPollen = vfxLean ? 5 : 10;
+
   return (
-    <div className={`seasonal-effects ${effectClass} seasonal-effects--${side}`}>
+    <div
+      className={[
+        'seasonal-effects',
+        effectClass,
+        `seasonal-effects--${side}`,
+        vfxLean ? 'seasonal-effects--vfx-lean' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {/* Animated particles/effects based on season */}
       <div className="seasonal-effects__particles">
-        {Array.from({ length: 12 }).map((_, i) => (
+        {Array.from({ length: nParticles }).map((_, i) => (
           <div
             key={i}
             className="seasonal-effects__particle"
@@ -55,7 +94,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
         <>
           {/* Falling maple leaf SVGs */}
           <div className="seasonal-effects__leaves">
-            {Array.from({ length: 15 }).map((_, i) => (
+            {Array.from({ length: nAutumnLeaves }).map((_, i) => (
               <svg
                 key={i}
                 className="seasonal-effects__leaf"
@@ -64,7 +103,9 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
                   '--leaf-delay': `${i * 0.9 + (i % 3) * 0.4}s`,
                   '--leaf-duration': `${8 + (i % 4) * 2}s`,
                   '--leaf-x': `${4 + (i * 9) % 88}%`,
-                  '--leaf-size': `${15 + (i % 3) * 4}px`,
+                  '--leaf-size': vfxLean
+                    ? `${20 + (i % 3) * 5}px`
+                    : `${15 + (i % 3) * 4}px`,
                   color: AUTUMN_COLORS[i % AUTUMN_COLORS.length],
                 } as React.CSSProperties}
               >
@@ -73,15 +114,19 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
             ))}
           </div>
 
-          {/* Wind gust — sweeping streak */}
-          <div className="seasonal-effects__wind" />
+          {!vfxLean && (
+            <>
+              {/* Wind gust — sweeping streak */}
+              <div className="seasonal-effects__wind" />
 
-          {/* Ground leaf pile — accumulated leaves at the bottom */}
-          <div className="seasonal-effects__leaf-pile" />
+              {/* Ground leaf pile — accumulated leaves at the bottom */}
+              <div className="seasonal-effects__leaf-pile" />
+            </>
+          )}
 
           {/* Floating warm spores / dust */}
           <div className="seasonal-effects__spores">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: nAutumnSpores }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__spore"
@@ -107,18 +152,22 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
           <div className="seasonal-effects__shafts">
             <div className="seasonal-effects__shaft seasonal-effects__shaft--1" />
             <div className="seasonal-effects__shaft seasonal-effects__shaft--2" />
-            <div className="seasonal-effects__shaft seasonal-effects__shaft--3" />
+            {!vfxLean && <div className="seasonal-effects__shaft seasonal-effects__shaft--3" />}
           </div>
 
-          {/* Sweeping light beam */}
-          <div className="seasonal-effects__beam" />
+          {!vfxLean && (
+            <>
+              {/* Sweeping light beam */}
+              <div className="seasonal-effects__beam" />
 
-          {/* Heat distortion at the ground */}
-          <div className="seasonal-effects__heat" />
+              {/* Heat distortion at the ground */}
+              <div className="seasonal-effects__heat" />
+            </>
+          )}
 
           {/* Floating dust motes — lazy golden particles */}
           <div className="seasonal-effects__motes">
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: nSummerMotes }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__mote"
@@ -134,7 +183,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
 
           {/* Rising embers / sparks */}
           <div className="seasonal-effects__embers">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: nSummerEmbers }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__ember"
@@ -164,7 +213,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
 
           {/* Rising white sparkles */}
           <div className="seasonal-effects__sparkles">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: nWinterSparkles }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__sparkle"
@@ -184,7 +233,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
         <>
           {/* Falling cherry blossom petals */}
           <div className="seasonal-effects__petals">
-            {Array.from({ length: 14 }).map((_, i) => (
+            {Array.from({ length: nSpringPetals }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__petal"
@@ -192,7 +241,9 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
                   '--petal-delay': `${i * 0.8 + (i % 3) * 0.3}s`,
                   '--petal-duration': `${7 + (i % 4) * 2}s`,
                   '--petal-x': `${3 + (i * 7) % 90}%`,
-                  '--petal-size': `${10 + (i % 3) * 3}px`,
+                  '--petal-size': vfxLean
+                    ? `${13 + (i % 3) * 4}px`
+                    : `${10 + (i % 3) * 3}px`,
                   '--petal-color': PETAL_COLORS[i % PETAL_COLORS.length],
                 } as React.CSSProperties}
               />
@@ -202,12 +253,11 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
           {/* Flower bloom — pulsing pink glow */}
           <div className="seasonal-effects__bloom" />
 
-          {/* Ground flower carpet */}
-          <div className="seasonal-effects__carpet" />
+          {!vfxLean && <div className="seasonal-effects__carpet" aria-hidden="true" />}
 
           {/* Rising pink & white sparkles */}
           <div className="seasonal-effects__spring-sparkles">
-            {Array.from({ length: 20 }).map((_, i) => (
+            {Array.from({ length: nSpringSparkles }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__spring-sparkle"
@@ -225,7 +275,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
 
           {/* Yellow sparkles falling from top */}
           <div className="seasonal-effects__sun-drops">
-            {Array.from({ length: 20 }).map((_, i) => (
+            {Array.from({ length: nSpringSunDrops }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__sun-drop"
@@ -245,7 +295,7 @@ export default function SeasonalEffects({ season, side, isActive }: Props) {
 
           {/* Floating pollen */}
           <div className="seasonal-effects__pollen">
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: nSpringPollen }).map((_, i) => (
               <div
                 key={i}
                 className="seasonal-effects__pollen-dot"
