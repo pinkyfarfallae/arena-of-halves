@@ -349,7 +349,7 @@
 
     .mchip__pom-seeds {
       top: calc(0.5rem - 2px);
-      left: calc(100% - 48px);
+      left: calc(50% - 3.25px);
       width: 81px;
       height: 73px;
     }
@@ -613,7 +613,12 @@
       --spirit-meeting-size: 10px;
     }
 
-    .mchip__spirit-canvas,
+    .mchip__spirit-canvas {
+      top: calc(100% - 0.15rem);
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
     .mchip__spirit-seeds,
     .mchip__spirit-lights,
     .mchip__spirit-rise,

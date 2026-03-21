@@ -127,6 +127,53 @@ export const PANEL_SIDE = {
 export type PanelSide = (typeof PANEL_SIDE)[keyof typeof PANEL_SIDE];
 
 /**
+ * Pomegranate co-attack D12 (after main hit). Distinct from main {@link PHASE.ROLLING_ATTACK}.
+ * Legacy rooms may still use `ROLLING_ATTACK` + `awaitingPomegranateCoAttack` until migrated.
+ */
+export function isPomegranateCoAttackDicePhase(
+  phase: string | undefined | null,
+  awaitingPomegranateCoAttack: boolean,
+): boolean {
+  if (phase == null) return false;
+  /** Dedicated phase always means co D12 — do not require `awaitingPomegranateCoAttack` (avoids Firebase flag/phase ordering glitches). */
+  if (phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK) return true;
+  return awaitingPomegranateCoAttack && phase === PHASE.ROLLING_ATTACK;
+}
+
+/**
+ * Pomegranate co-defend D12 — same `defenderId` as the main strike, separate roll from main defend.
+ * Legacy: `ROLLING_DEFEND` while awaiting co.
+ */
+export function isPomegranateCoDefendDicePhase(
+  phase: string | undefined | null,
+  awaitingPomegranateCoAttack: boolean,
+): boolean {
+  if (phase == null) return false;
+  if (phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND) return true;
+  return awaitingPomegranateCoAttack && phase === PHASE.ROLLING_DEFEND;
+}
+
+/** Oath ally rolling co D12 — prefers `pomCoAttackerId`, falls back to legacy `coAttackerId`. */
+export function effectivePomCoAttackerId(turn: {
+  pomCoAttackerId?: string | null;
+  coAttackerId?: string | null;
+} | null | undefined): string | undefined {
+  if (!turn) return undefined;
+  const id = turn.pomCoAttackerId ?? turn.coAttackerId;
+  return id == null || id === '' ? undefined : id;
+}
+
+/** Target rolling co-defend D12 — prefers `pomCoDefenderId`, falls back to `defenderId`. */
+export function effectivePomCoDefenderId(turn: {
+  pomCoDefenderId?: string | null;
+  defenderId?: string | null;
+} | null | undefined): string | undefined {
+  if (!turn) return undefined;
+  const id = turn.pomCoDefenderId ?? turn.defenderId;
+  return id == null || id === '' ? undefined : id;
+}
+
+/**
  * Phase label for HUD (short status text).
  * Pass treatAsNormalAttack: true when the turn is a self-buff+attack (e.g. Beyond the Nimbus) so the label shows as normal attack, not power name.
  */
@@ -161,13 +208,13 @@ export function getPhaseLabel(
     case PHASE.ROLLING_DISORIENTED_NO_EFFECT:
       return 'Disoriented';
     case PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT:
-      return 'Rapid Fire D4';
+      return 'Rapid Fire';
     case PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT:
       return 'Extra shot';
     case PHASE.RESOLVING_AFTER_RAPID_FIRE:
       return 'resolving...';
     case PHASE.ROLLING_POMEGRANATE_CO_ATTACK:
-      return "Pomegranate co-attack";
+      return "Pomegranate Co-Attack";
     case PHASE.ROLLING_POMEGRANATE_CO_DEFEND:
       return context?.defenderName ? `Co vs ${context.defenderName}` : 'co defending...';
     case PHASE.DONE:
