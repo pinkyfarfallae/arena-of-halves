@@ -184,6 +184,9 @@ export default function DiceModal({
     !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) &&
     !(awaitingPom && turn.coDefendRoll != null);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn || iAmCoAttacker;
+  const turnAction = turn.action;
+  const turnAttackRoll = turn.attackRoll;
+  const turnSoulDevourerDrain = (turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
   useEffect(() => {
     if (!resolvingWithNpcDefend) {
       if (!isViewer) {
@@ -192,8 +195,8 @@ export default function DiceModal({
           phase === PHASE.RESOLVING &&
           !isMyDefend &&
           !embodyDefenderForDefReplay &&
-          !(turn as any).soulDevourerDrain &&
-          !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
+          !turnSoulDevourerDrain &&
+          !(turnAction === TURN_ACTION.POWER && !turnAttackRoll);
         if (!holdNpcDefendDiceUi) setShowNpcDefendDice(false);
       }
       return;
@@ -208,17 +211,7 @@ export default function DiceModal({
     }
     const t = window.setTimeout(() => setShowNpcDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS);
     return () => clearTimeout(t);
-  }, [
-    resolvingWithNpcDefend,
-    attackDoneOrPlayerRolled,
-    isViewer,
-    phase,
-    isMyDefend,
-    turn.action,
-    turn.attackRoll,
-    (turn as { soulDevourerDrain?: boolean }).soulDevourerDrain,
-    embodyDefenderForDefReplay,
-  ]);
+  }, [resolvingWithNpcDefend, attackDoneOrPlayerRolled, isViewer, phase, isMyDefend, turnAction, turnAttackRoll, turnSoulDevourerDrain, embodyDefenderForDefReplay]);
 
   // Latch phase/rolls forward only
   if (phase === PHASE.ROLLING_ATTACK) {

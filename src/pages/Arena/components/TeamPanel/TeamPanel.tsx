@@ -147,22 +147,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     return map;
   }, [battle?.turnQueue, fighterMap]);
 
-  // Pre-compute whether the current attack actually landed (atkTotal > defTotal)
-  const attackLanded = useMemo(() => {
-    if (!turn || turn.phase !== PHASE.RESOLVING || !resolveShown) return false;
-    // skipDice powers always hit
-    if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return true;
-    const atk = turn.attackerId ? fighterMap.get(turn.attackerId) : undefined;
-    const def = turn.defenderId ? fighterMap.get(turn.defenderId) : undefined;
-    if (!atk || !def) return false;
-    const atkBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.ATTACK_DICE_UP);
-    const defBuff = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.DEFEND_DICE_UP);
-    const atkRecovery = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.RECOVERY_DICE_UP);
-    const defRecovery = getStatModifier(activeEffects, turn.defenderId!, MOD_STAT.RECOVERY_DICE_UP);
-    const atkTotal = (turn.attackRoll ?? 0) + atk.attackDiceUp + atkBuff + atkRecovery;
-    const defTotal = (turn.defendRoll ?? 0) + def.defendDiceUp + defBuff + defRecovery;
-    return atkTotal > defTotal;
-  }, [turn, resolveShown, fighterMap, activeEffects]);
+  // (attack landed computation removed — currently unused)
 
   // Apply 'team-panel--full' when either team has 3+ members
   const thisTeamCount = members.length;
@@ -226,12 +211,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Only consider a persistent log entry a "hit" if it's not flagged as missed
         // and either has positive damage or is a minion hit marker. This avoids
         // treating blocked (0 damage) entries as hits that trigger visuals.
-        const lastHitEntry = !!(
-          lastEntry &&
-          lastEntry.defenderId === m.characterId &&
-          lastEntry.missed !== true &&
-          ((lastEntry.damage as number) > 0 || (lastEntry as any).isMinionHit)
-        );
+        
         const playbackStep = (turn as any)?.playbackStep as BattlePlaybackStep | undefined;
         const playbackStepActive = !!playbackStep && turn?.phase === PHASE.RESOLVING;
         const playbackDrivenResolve = turn?.phase === PHASE.RESOLVING;
@@ -424,7 +404,6 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Floral Fragrance: brief trigger when just applied (real battle + demo)
         // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
         const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-24) : [];
-        const recentLog = rawRecent.filter((le) => le.round === battle?.roundNumber);
         const floralSearchLog = rawRecent;
         const floralLogIndex = (() => {
           const powerName = (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
@@ -441,7 +420,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
         const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
         /** Same rule as Apollo's Hymn: only the newest log row may drive heal VFX (avoids floral wave / +HP repeating on every render). */
-        const floralLogIsLatestEntry = floralLogIndex >= 0 && floralLogIndex === floralSearchLog.length - 1;
+        
 
         // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {

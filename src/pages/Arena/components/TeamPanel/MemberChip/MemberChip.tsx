@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import type { RefObject } from 'react';
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';

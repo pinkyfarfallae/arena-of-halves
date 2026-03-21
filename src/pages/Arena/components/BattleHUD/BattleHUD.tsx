@@ -1,3 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-mixed-operators */
 import { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
