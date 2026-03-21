@@ -498,8 +498,8 @@ export default function DiceModal({
         </div>
       )}
 
-      {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). ── */}
-      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(awaitingPom && turn.coDefendRoll != null) && (
+      {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). Only show for the actual defender, not during shock application to other team members. ── */}
+      {phase === PHASE.RESOLVING && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(awaitingPom && turn.coDefendRoll != null) && defender?.characterId === turn.defenderId && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>

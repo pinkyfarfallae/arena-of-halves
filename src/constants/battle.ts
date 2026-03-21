@@ -85,6 +85,8 @@ export const ARENA_PATH = {
   BATTLE_LAST_HIT_MINION_ID: 'battle/lastHitMinionId',
   BATTLE_LAST_HIT_TARGET_ID: 'battle/lastHitTargetId',
   BATTLE_LAST_SKELETON_HITS: 'battle/lastSkeletonHits',
+  /** Flag set when Beyond the Nimbus applies team-wide shock (used for turn advance delay) */
+  BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED: 'battle/beyondNimbusShockApplied',
   BATTLE_WINNER: 'battle/winner',
   /** Set when damage eliminated a team; winner is written after delay so hit effects can play */
   BATTLE_WINNER_DELAYED_AT: 'battle/winnerDelayedAt',

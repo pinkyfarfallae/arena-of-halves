@@ -5178,13 +5178,22 @@ async function runBattleResolveTailFromEffectSync(
     const SOUL_DEVOURER_CHAIN_START_MS = 800;
     const isSoulDevourerDrain = !!(turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
     const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
+    
+    // Check if Beyond the Nimbus shock was applied (needs delay for visual effects)
+    const beyondNimbusShockApplied = !!updates[ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED];
+    const BEYOND_NIMBUS_SHOCK_DELAY_MS = 2500; // Delay for shock application visual effects
+    
+    // Calculate total delay (skeleton hits + shock application)
+    const totalEffectDelay = SKELETON_PLAYBACK_DELAY_MS + (beyondNimbusShockApplied ? BEYOND_NIMBUS_SHOCK_DELAY_MS : 0);
+    
     const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
 
-    if (hasSkeletonHits && SKELETON_PLAYBACK_DELAY_MS > 0) {
+    if ((hasSkeletonHits || beyondNimbusShockApplied) && totalEffectDelay > 0) {
       const advancePayload = {
         [ARENA_PATH.BATTLE_CURRENT_TURN_INDEX]: updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX],
         [ARENA_PATH.BATTLE_ROUND_NUMBER]: updates[ARENA_PATH.BATTLE_ROUND_NUMBER],
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
+        [ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED]: null,
       };
       delete updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX];
       delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
@@ -5192,7 +5201,7 @@ async function runBattleResolveTailFromEffectSync(
       setTimeout(() => {
         set(turnRef, nextTurnOnly).catch(() => { });
         update(roomRef(arenaId), advancePayload).catch(() => { });
-      }, SKELETON_PLAYBACK_DELAY_MS);
+      }, totalEffectDelay);
     } else {
       await set(turnRef, nextTurnOnly);
       await update(roomRef(arenaId), updates);
@@ -6341,6 +6350,8 @@ export async function resolveTurn(arenaId: string): Promise<void> {
               skeletonBlocksHit ? defenderId : undefined,
             );
             Object.assign(updates, nimbusShockUpdates);
+            // Mark that Beyond the Nimbus shock was applied (for turn advance delay)
+            updates[ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED] = true;
             if (defenderHadShock) {
               rawDmg += baseDmg;
               shockBonusDamage = baseDmg;

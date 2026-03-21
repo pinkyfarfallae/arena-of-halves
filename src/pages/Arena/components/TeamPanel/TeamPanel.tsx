@@ -286,7 +286,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const lastEntryIsRapidFireHitOnMe = !!(lastEntry && (lastEntry as { rapidFire?: boolean }).rapidFire === true && lastEntry.defenderId === m.characterId);
         const pastRapidFireChain = turn?.phase === PHASE.RESOLVING_AFTER_RAPID_FIRE || (turn?.phase !== PHASE.RESOLVING && turn?.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT);
         const suppressHitFromRapidFireLog = lastEntryIsRapidFireHitOnMe && pastRapidFireChain;
-        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion && isCurrentDefenderOrAoeResolving && !suppressHitAfterRapidFire && !suppressHitFromRapidFireLog;
+        const isHit = (isHitFromTurn || !!tagBasedProps.isHit) && !hitLandedOnMyMinion && isCurrentDefenderOrAoeResolving && !suppressHitAfterRapidFire && !suppressHitFromRapidFireLog && !isEliminated;
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
@@ -294,29 +294,29 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           attacker?.passiveSkillPoint === SKILL_UNLOCK &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
-        const isShockHit = !!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
-          || !!tagBasedProps.isShockHit;
+        const isShockHit = !isEliminated && (!!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
+          || !!tagBasedProps.isShockHit);
 
         // Keraunos Voltage hit: massive lightning strike effect
-        const isKeraunosVoltageHit = !!(
+        const isKeraunosVoltageHit = !isEliminated && (!!(
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
-        ) || !!tagBasedProps.isKeraunosVoltageHit;
+        ) || !!tagBasedProps.isKeraunosVoltageHit);
 
         // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration).
         // During effect phase (before log): show arc on shocked enemies so effect plays before skeleton destroy / damage.
-        const isJoltArcAttackHit = !!(
+        const isJoltArcAttackHit = !isEliminated && (!!( 
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
           (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC) ||
           (turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.JOLT_ARC && isOpposing && tagBasedProps.isShocked)
-        ) || !!tagBasedProps.isJoltArcAttackHit;
+        ) || !!tagBasedProps.isJoltArcAttackHit);
 
-        const isShocked = tagBasedProps.isShocked;
-        const hasJoltArcDeceleration = tagBasedProps.hasJoltArcDeceleration;
-        const isEfflorescenceMuse = tagBasedProps.isEfflorescenceMuse;
-        const hasPomegranateEffect = tagBasedProps.hasPomegranateEffect;
-        const isSpiritForm = tagBasedProps.isSpiritForm;
-        const hasSoulDevourer = tagBasedProps.hasSoulDevourer;
-        const hasBeyondNimbus = tagBasedProps.hasBeyondNimbus;
+        const isShocked = !isEliminated && tagBasedProps.isShocked;
+        const hasJoltArcDeceleration = !isEliminated && tagBasedProps.hasJoltArcDeceleration;
+        const isEfflorescenceMuse = !isEliminated && tagBasedProps.isEfflorescenceMuse;
+        const hasPomegranateEffect = !isEliminated && tagBasedProps.hasPomegranateEffect;
+        const isSpiritForm = !isEliminated && tagBasedProps.isSpiritForm;
+        const hasSoulDevourer = !isEliminated && tagBasedProps.hasSoulDevourer;
+        const hasBeyondNimbus = !isEliminated && tagBasedProps.hasBeyondNimbus;
         const hasResurrectedSelf = activeEffects.some(
           (e) =>
             String(e.targetId) === String(m.characterId) &&
@@ -333,9 +333,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const hasDeathKeeper = !!tagBasedProps.hasDeathKeeper && !hasResurrectedSelf && !hasResurrectedAlly;
         const hasSunbornSovereign = (m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign;
         const isResurrected = tagBasedProps.isResurrected;
-        const isImprecatedPoemHealingNullified = tagBasedProps.isImprecatedPoemHealingNullified;
-        const isImprecatedPoemCursed = tagBasedProps.isImprecatedPoemCursed;
-        const imprecatedPoemVerseTags = (() => {
+        const isImprecatedPoemHealingNullified = !isEliminated && tagBasedProps.isImprecatedPoemHealingNullified;
+        const isImprecatedPoemCursed = !isEliminated && tagBasedProps.isImprecatedPoemCursed;
+        const imprecatedPoemVerseTags = isEliminated ? [] : (() => {
           const tags: string[] = [];
           const seen = new Set<string>();
           const charId = String(m.characterId);
@@ -356,7 +356,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
 
         // Active effect pips (deduplicate same power from same source; group by tag). Show ETERNAL_AGONY even when turnsRemaining is 0 (display-only, removed after 3s).
+        // Hide effect pips on eliminated characters except for resurrection-related effects.
         const effectPips: EffectPip[] = (() => {
+          if (isEliminated && !hasResurrectedSelf && !tagBasedProps.isResurrecting && !tagBasedProps.hasDeathKeeper) {
+            return [];
+          }
           const charId = String(m.characterId);
           const raw = activeEffects.filter(e => String(e.targetId) === charId && (e.turnsRemaining > 0 || e.tag === EFFECT_TAGS.ETERNAL_AGONY));
           const grouped = new Map<string, { count: number; maxTurns: number; sourceId: string; powerName: string; tag?: string }>();
@@ -492,6 +496,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
         const soulDevourerHealFromLog = (() => {
+          if (isEliminated) return null;
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
           if (!turnDrain || !soulDevourerHealReady) return null;
           if (isImprecatedPoemHealingNullified) return null;
@@ -509,14 +514,15 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
 
-        const isFragranceWaved =
+        const isFragranceWaved = !isEliminated && (
           // Floral should behave like text-boost one-shot: trigger by concrete event only, not broad turn-state.
           (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
           || !!useFloralForThisMember
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
-          || !!tagBasedProps.isFragranceWaved;
+          || !!tagBasedProps.isFragranceWaved
+        );
 
-        const isHymnWaved = (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
+        const isHymnWaved = !isEliminated && (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -679,8 +685,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             casterFrameRef={turn?.attackerId === m.characterId ? casterFrameRef : undefined}
             defenderFrameRef={turn?.defenderId === m.characterId ? defenderFrameRef : undefined}
             volleyArrowHitActive={volleyArrowHitActive}
-            isVolleyArrowHitDefender={volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender}
-            isVolleyArrowHitAttacker={hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker}
+            isVolleyArrowHitDefender={!isEliminated && (volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender)}
+            isVolleyArrowHitAttacker={!isEliminated && (hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker)}
           />
         );
       })}
