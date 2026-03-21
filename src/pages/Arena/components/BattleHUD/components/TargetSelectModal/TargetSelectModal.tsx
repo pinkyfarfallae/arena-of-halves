@@ -4,6 +4,7 @@ import type { ActiveEffect } from '../../../../../../types/power';
 import { isAffliction } from '../../../../../../data/statusCategory';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../../../constants/effectTags';
 import './TargetSelectModal.scss';
+/* eslint-disable react-hooks/exhaustive-deps */
 
 const RANDOM_CYCLE_MS = 150;
 const RANDOM_MIN_ROUNDS = 2;

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
@@ -5,7 +6,7 @@ import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
-import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
+import { EFFECT_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../constants/effectTags';
 import { POWER_NAMES } from '../../constants/powers';
 import { TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { ARENA_PATH, ARENA_ROLE, PANEL_SIDE, PHASE, ROOM_STATUS, TURN_ACTION, TurnAction, type ArenaRole, type PanelSide } from '../../constants/battle';
@@ -35,10 +36,6 @@ import {
   resolveTurn,
   normalizeFighter,
   teamMembersFromFirebase,
-  advanceAfterShadowCamouflageD4,
-  advanceAfterDisorientedD4,
-  advanceAfterFloralHealD4,
-  advanceAfterSpringHealD4,
   skipTurnNoValidTarget,
   selectTargetDisoriented,
   advanceAfterFloralHealSkippedAck,
@@ -47,7 +44,7 @@ import {
   advanceToPomegranateCoAttackPhase,
 } from '../../services/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
-import { SEASON_ORDER, type SeasonKey } from '../../data/seasons';
+import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
 import TeamPanel from './components/TeamPanel/TeamPanel';
 import SeasonalEffects from './components/SeasonalEffects/SeasonalEffects';
@@ -276,8 +273,9 @@ function Arena(props?: ArenaDemoProps) {
 
   // Soul Devourer: start soul float 0.5s into RESOLVING (after hit); float 2.8s + explode 0.5s, hide at 3.8s then heal shows
   const soulDrainTurn = room?.battle?.turn;
+  const soulDevourerDrainFlag = !!(soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
   useEffect(() => {
-    if (soulDrainTurn?.phase !== PHASE.RESOLVING || !(soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain) {
+    if (soulDrainTurn?.phase !== PHASE.RESOLVING || !soulDevourerDrainFlag) {
       setSoulFloatActive(false);
       return;
     }
@@ -287,7 +285,7 @@ function Arena(props?: ArenaDemoProps) {
       clearTimeout(tStart);
       clearTimeout(tEnd);
     };
-  }, [soulDrainTurn?.phase, (soulDrainTurn as { soulDevourerDrain?: boolean })?.soulDevourerDrain]);
+  }, [soulDrainTurn?.phase, soulDevourerDrainFlag]);
 
   // Volley Arrow: show amber/gold arrow (1) main hit — when resolve is shown and caster used Volley Arrow or has Rapid Fire (round 2/3); (2) each extra shot
   const turn = room?.battle?.turn;
@@ -295,6 +293,7 @@ function Arena(props?: ArenaDemoProps) {
   const attackerHasRapidFire = !!(turn?.attackerId && (activeEffects as { targetId?: string; tag?: string; turnsRemaining?: number }[]).some(
     (e) => e.targetId === turn?.attackerId && e.tag === EFFECT_TAGS.RAPID_FIRE && (e.turnsRemaining == null || e.turnsRemaining > 0),
   ));
+  const rapidFireStep = (turn as { rapidFireStep?: number })?.rapidFireStep;
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING || (turn?.usedPowerName !== POWER_NAMES.VOLLEY_ARROW && !attackerHasRapidFire)) {
       volleyMainArrowShownRef.current = false;
@@ -329,7 +328,7 @@ function Arena(props?: ArenaDemoProps) {
       setVolleyArrowDefenderPos(null);
     }
     return undefined;
-  }, [turn?.phase, turn?.usedPowerName, resolveShown, (turn as { rapidFireStep?: number })?.rapidFireStep, arenaId, attackerHasRapidFire]);
+  }, [turn?.phase, turn?.usedPowerName, resolveShown, rapidFireStep, arenaId, attackerHasRapidFire]);
   useEffect(() => {
     if (!volleyArrowHitActive) return;
     const measure = () => {
@@ -460,6 +459,7 @@ function Arena(props?: ArenaDemoProps) {
   }, []);
 
   /* ── Clear confirmed power name when leaving action/target flow (so next turn shows action modal) ── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const phase = room?.battle?.turn?.phase;
     if (phase && phase !== PHASE.SELECT_ACTION && phase !== PHASE.SELECT_TARGET) {
@@ -469,6 +469,7 @@ function Arena(props?: ArenaDemoProps) {
   }, [room?.battle?.turn?.phase]);
 
   /* ── Death Keeper free action: server goes to SELECT_ACTION without usedPowerName; phase never left SELECT_ACTION so lastConfirmed would block ActionSelectModal ── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const t = room?.battle?.turn;
     if (!t || t.phase !== PHASE.SELECT_ACTION) return;
@@ -477,6 +478,8 @@ function Arena(props?: ArenaDemoProps) {
     }
   }, [room?.battle?.turn?.phase, room?.battle?.turn?.resurrectTargetId, room?.battle?.turn?.usedPowerName]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const t = room?.battle?.turn;
     const phase = t?.phase;

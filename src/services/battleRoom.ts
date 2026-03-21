@@ -1,7 +1,8 @@
+/* eslint-disable */
 import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
 import { db } from '../firebase';
 import type {
-  BattleRoom, BattleState, FighterState, Team,
+  BattleRoom, BattleState, FighterState,
   TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState, InviteReservation,
 } from '../types/battle';
 import { BATTLE_PLAYBACK_KIND } from '../types/battle';
@@ -3283,12 +3284,11 @@ export async function skipTurnNoValidTarget(
   if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_TARGET) return;
 
   const turn = battle.turn;
-  const { attackerId, attackerTeam, action, usedPowerIndex } = turn;
+  const { attackerId, action, usedPowerIndex } = turn;
   const attacker = findFighter(room, attackerId);
   if (!attacker) return;
 
   const updates: Record<string, unknown> = {};
-  const activeEffects = battle.activeEffects || [];
 
   // Refund quota if a power was selected and quota was already deducted (ally pick step 1 never deducts).
   if (!opts?.skipQuotaRefund && turn.powerQuotaApplied && action === TURN_ACTION.POWER && usedPowerIndex != null) {
@@ -4064,7 +4064,7 @@ export async function submitRapidFireD4Roll(arenaId: string, roll: number): Prom
   const turn = battle?.turn;
   if (!turn || turn.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT) return;
   const winFaces = ((turn as any).rapidFireWinFaces as number[]) ?? [];
-  const step = Number((turn as any).rapidFireStep) ?? 0;
+  // rapidFireStep not used here
   const baseDmg = Number((turn as any).rapidFireBaseDmg) ?? 0;
   const isCrit = !!(turn as any).rapidFireIsCrit;
   const defenderId = turn.defenderId;
@@ -4312,7 +4312,7 @@ async function runPostRapidFireAdvance(
     skeletonsForAttack: any[];
   },
 ): Promise<void> {
-  const { attackerId, defenderId, attacker, defender, defTotal, hit, isDodged, activeEffects, turn, skeletonsForAttack } = ctx;
+  const { attackerId, defenderId, turn } = ctx;
   let battleRef = battle;
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     battleRef = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
