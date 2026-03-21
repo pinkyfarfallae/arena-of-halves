@@ -791,71 +791,56 @@
     gap: 0.5rem;
   }
 
-  /* ── Compact battle states — thinner borders & smaller glows ── */
+  /* ── Compact battle states — match desktop glow strength (frame is smaller; visibility suffers if toned down) ── */
   .mchip--attacker .mchip__frame {
     box-shadow:
-      0 0 0 1px var(--chip-primary, $gold),
-      0 0 10px color-mix(in srgb, var(--chip-primary, $gold) 25%, transparent);
+      0 0 0 2px var(--chip-primary, $gold),
+      0 0 20px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent);
   }
 
   .mchip--defender .mchip__frame {
     box-shadow:
-      0 0 0 1px $crimson-bright,
-      0 0 8px rgba($crimson-bright, 0.25);
+      0 0 0 2px $crimson-bright,
+      0 0 16px rgba($crimson-bright, 0.3);
   }
 
   .mchip--spotlight .mchip__frame {
     box-shadow:
-      0 0 0 1px var(--chip-primary, $gold),
-      0 0 12px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent),
-      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 15%, transparent);
-    animation: spotlight-pulse-compact 1.8s ease-in-out infinite;
+      0 0 0 2px var(--chip-primary, $gold),
+      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
+      0 0 48px color-mix(in srgb, var(--chip-primary, $gold) 20%, transparent);
+    animation: spotlight-pulse 1.8s ease-in-out infinite;
   }
 
   .mchip--targetable .mchip__frame {
-    animation: target-pulse-compact 1.2s ease-in-out infinite;
+    animation: target-pulse 1.2s ease-in-out infinite;
   }
 
   .mchip--targetable.mchip--hovered .mchip__frame {
     box-shadow:
-      0 0 0 1px $crimson-bright,
-      0 0 12px rgba($crimson-bright, 0.3);
+      0 0 0 2px $crimson-bright,
+      0 0 24px rgba($crimson-bright, 0.4);
     animation: none;
   }
 
 }
 
-/* ── Compact keyframe variants ── */
-@keyframes target-pulse-compact {
+/* ── Compact: cull dense particle fields so hero VFX read clearly (less GPU + mud) ── */
+@media (max-width: $bp-compact) {
 
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0.5px rgba($crimson-bright, 0.3),
-      0 0 4px rgba($crimson-bright, 0.1);
+  .mchip__nimbus-rise-particle:nth-child(n + 21),
+  .mchip__petal-rise-particle:nth-child(n + 21),
+  .mchip__jolt-decel-rise-particle:nth-child(n + 22) {
+    display: none !important;
   }
 
-  50% {
-    box-shadow:
-      0 0 0 1px rgba($crimson-bright, 0.5),
-      0 0 10px rgba($crimson-bright, 0.2);
-  }
-}
-
-@keyframes spotlight-pulse-compact {
-
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 1px var(--chip-primary, $gold),
-      0 0 12px color-mix(in srgb, var(--chip-primary, $gold) 35%, transparent),
-      0 0 24px color-mix(in srgb, var(--chip-primary, $gold) 15%, transparent);
+  .mchip__petal-wind-drift:nth-child(n + 13),
+  .mchip__jolt-decel-spark-point:nth-child(n + 13) {
+    display: none !important;
   }
 
-  50% {
-    box-shadow:
-      0 0 0 1.5px var(--chip-primary, $gold),
-      0 0 16px color-mix(in srgb, var(--chip-primary, $gold) 45%, transparent),
-      0 0 32px color-mix(in srgb, var(--chip-primary, $gold) 22%, transparent);
+  .mchip__petal-drop:nth-child(n + 10),
+  .mchip__jolt-decel-rain-drop:nth-child(n + 10) {
+    display: none !important;
   }
 }

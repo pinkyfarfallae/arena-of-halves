@@ -1,0 +1,120 @@
+@use 'vars' as *;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPACT (max-width: $bp-compact) — VFX layers hidden by design
+
+   Scoped with mchip--* modifiers so only the active power’s extras are culled.
+   Keeps the main readable silhouette (frame, pearls, core rain/bolts, badges).
+
+   Add new hides with a short comment; prefer whole subtrees over nth-child here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: $bp-compact) {
+
+  /* ── Persephone — Pomegranate's Oath ── */
+  .mchip--pomegranate .mchip__pom-tris-wrap,
+  .mchip--pomegranate .mchip__pom-deco,
+  .mchip--pomegranate .mchip__pom-white-rise,
+  .mchip--pomegranate .mchip__pom-oath-particles {
+    display: none !important;
+  }
+
+  /* ── Persephone — Spirit form (mirrors pomegranate policy) ── */
+  .mchip--spirit-form .mchip__spirit-tris-wrap,
+  .mchip--spirit-form .mchip__spirit-deco,
+  .mchip--spirit-form .mchip__spirit-white-rise,
+  .mchip--spirit-form .mchip__spirit-oath-particles {
+    display: none !important;
+  }
+
+  /* ── Persephone — Efflorescence Muse (dense ambient + wind; keep rise/rain) ── */
+  .mchip--efflorescence-muse .mchip__wavy-line.mchip__wavy-line--petal,
+  .mchip--efflorescence-muse .mchip__petal-fall,
+  .mchip--efflorescence-muse .mchip__petal-wind,
+  .mchip--efflorescence-muse .mchip__dryad-lights,
+  .mchip--efflorescence-muse .mchip__petal-yellow-sparks,
+  .mchip--efflorescence-muse .mchip__petal-green-pink-sparks,
+  .mchip--efflorescence-muse .mchip__petal-flower-fall {
+    display: none !important;
+  }
+
+  /* ── Persephone — Floral Fragrance splash emission (heavy flower/leaf/dust) ── */
+  .mchip--fragrance-waved .mchip__fragrance-petal-emission {
+    display: none !important;
+  }
+
+  /* ── Zeus — Beyond the Nimbus (full-screen flashes + rise column) ── */
+  .mchip--beyond-the-nimbus .mchip__nimbus-overlay,
+  .mchip--beyond-the-nimbus .mchip__nimbus-rise {
+    display: none !important;
+  }
+
+  /* ── Zeus — Jolt Arc Deceleration (smoke + scatter sparks) ── */
+  .mchip--jolt-arc-deceleration .mchip__jolt-decel-smoke,
+  .mchip--jolt-arc-deceleration .mchip__jolt-decel-sparks,
+  .mchip--jolt-arc-deceleration .mchip__jolt-decel-spark-points {
+    display: none !important;
+  }
+
+  /* ── Zeus — Shocked (frame spark shell) ── */
+  .mchip--shocked .mchip__shock-sparks {
+    display: none !important;
+  }
+
+  /* ── Zeus — Keraunos Voltage (splash/scatter/blue rise + extra rays + frame sparks) ── */
+  .mchip--keraunos-voltage .mchip__keraunos-splash,
+  .mchip--keraunos-voltage .mchip__keraunos-scatter,
+  .mchip--keraunos-voltage .mchip__keraunos-rise-blue,
+  .mchip--keraunos-voltage .mchip__keraunos-ray--3,
+  .mchip--keraunos-voltage .mchip__keraunos-ray--4,
+  .mchip--keraunos-voltage .mchip__keraunos-ray--5,
+  .mchip--keraunos-voltage .mchip__keraunos-ray--6,
+  .mchip--keraunos-voltage .mchip__keraunos-spark {
+    display: none !important;
+  }
+
+  /* ── Hades — Soul Devourer (wisps + floating motes; keep bg grid + float + overlay) ── */
+  .mchip--soul-devourer .mchip__soul-devourer-wisps,
+  .mchip--soul-devourer .mchip__soul-devourer-particles {
+    display: none !important;
+  }
+
+  /* ── Hades — Shadow Camouflage (wisp + particle fields; keep conic veil) ── */
+  .mchip--shadow-camouflaged .mchip__shadow-wisps,
+  .mchip--shadow-camouflaged .mchip__shadow-particles {
+    display: none !important;
+  }
+
+  /* ── Hades — Death Keeper (mist particle column) ── */
+  .mchip--death-keeper .mchip__death-mist {
+    display: none !important;
+  }
+
+  /* ── Apollo — Hymn (ECG-style wave behind chip) ── */
+  .mchip--hymn-waved .mchip__hymn-wave {
+    display: none !important;
+  }
+
+  /* ── Apollo — Volley Arrow defender (ray fan + double ring) ── */
+  .mchip--volley-arrow-hit-defender .mchip__volley-arrow-rays,
+  .mchip--volley-arrow-hit-defender .mchip__volley-arrow-ring--outer,
+  .mchip--volley-arrow-hit-defender .mchip__volley-arrow-ring--inner {
+    display: none !important;
+  }
+
+  /* ── Apollo — Volley Arrow attacker (rain, rise, rays, triple ring) ── */
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-rain,
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-rise,
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-rays,
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-ring--outer,
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-ring--inner,
+  .mchip--volley-arrow-hit-attacker .mchip__volley-arrow-attacker-ring--mid {
+    display: none !important;
+  }
+
+  /* ── Apollo — Imprecated Poem curse (rising gold/white columns; frame styling stays) ── */
+  .mchip--imprecated-poem-cursed .mchip__imprecated-poem-rise-particles,
+  .mchip--imprecated-poem-cursed .mchip__imprecated-poem-rise-particles--white {
+    display: none !important;
+  }
+}

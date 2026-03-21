@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-mixed-operators */
-import { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState } from 'react';
+import { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState, type MutableRefObject } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import type { BattleLogEntry, BattleState, FighterState } from '../../../../types/battle';
@@ -92,6 +92,8 @@ interface Props {
   teamMinionsA?: any[];
   teamMinionsB?: any[];
   myId: string | undefined;
+  /** Logged-in fighter id when `myId` is unset; used only for stuck Continue scheduling (not dice ownership). */
+  battleParticipantCharacterId?: string;
   isPlaybackDriver?: boolean;
   transientEffectsActive?: boolean;
   onSelectTarget: (defenderId: string) => void;
@@ -159,6 +161,9 @@ interface Props {
   isPomCoCasterNpc?: boolean;
   /** After main hit card when server deferred Pomegranate co — enter co attack phase. */
   onAdvancePomegranateCoAttackPhase?: () => void;
+  /** Stuck RESOLVING: parent renders Continue in top bar */
+  onStuckContinueVisibleChange?: (visible: boolean) => void;
+  stuckContinueClickRef?: MutableRefObject<(() => void) | null>;
 }
 
 /** Find a fighter across both teams */
@@ -201,6 +206,10 @@ function find(teamA: FighterState[], teamB: FighterState[], id: string): Fighter
   return undefined;
 }
 
+/** Dodge/crit/chain sometimes never complete locally (e.g. playback driver mismatch); server resolveTurn can still fall back on missing crit. */
+const RESOLVING_UNSTICK_AUTO_MS = 20000;
+const RESOLVING_UNSTICK_BUTTON_MS = 5000;
+
 export default function BattleHUD({
   arenaId,
   battle,
@@ -209,6 +218,7 @@ export default function BattleHUD({
   teamMinionsA,
   teamMinionsB,
   myId,
+  battleParticipantCharacterId,
   isPlaybackDriver = false,
   isViewer = false,
   isAttackerNpc = false,
@@ -253,8 +263,19 @@ export default function BattleHUD({
   volleyArrowHitActive,
   isPomCoCasterNpc = false,
   onAdvancePomegranateCoAttackPhase,
+  onStuckContinueVisibleChange,
+  stuckContinueClickRef,
 }: Props) {
   const { turn, roundNumber, log = [], winner } = battle;
+
+  const turnRefForUnstick = useRef(turn);
+  turnRefForUnstick.current = turn;
+  const isPlaybackDriverRefUnstick = useRef(isPlaybackDriver);
+  isPlaybackDriverRefUnstick.current = isPlaybackDriver;
+  const onResolveRefUnstick = useRef(onResolve);
+  onResolveRefUnstick.current = onResolve;
+
+  const stuckScheduleUserId = myId ?? battleParticipantCharacterId;
 
   const attacker = turn ? find(teamA, teamB, turn.attackerId) : undefined;
   // Keep canonical defender for HUD: even if a minion visually intercepted, the HUD should
@@ -1453,6 +1474,23 @@ export default function BattleHUD({
     !!defender &&
     (mainResolveChecksDone || playbackStep || activePlaybackStep || playbackPendingAck)
   );
+
+  const unstickAutoTimerRef = useRef<number | null>(null);
+  const unstickBtnTimerRef = useRef<number | null>(null);
+  const unstickScheduledKeyRef = useRef<string>('');
+  const [stuckContinueVisible, setStuckContinueVisible] = useState(false);
+
+  const clearResolvingUnstickTimers = useCallback(() => {
+    if (unstickAutoTimerRef.current != null) {
+      window.clearTimeout(unstickAutoTimerRef.current);
+      unstickAutoTimerRef.current = null;
+    }
+    if (unstickBtnTimerRef.current != null) {
+      window.clearTimeout(unstickBtnTimerRef.current);
+      unstickBtnTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!playbackStep) {
       completedPlaybackStepKeyRef.current = null;
@@ -1529,6 +1567,146 @@ export default function BattleHUD({
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING) playbackRequestKeyRef.current = null;
   }, [turn?.phase]);
+
+  /**
+   * Bump local resolve gates, clear dedupe key, then call resolveTurn.
+   * `allowAnyFighter`: manual Continue — any in-battle human can call `resolveTurn` (e.g. NPC turn: anchor may be AFK).
+   * Auto-unstick (20s) passes false so only the playback driver fires `resolveTurn` (avoids duplicate server work from every tab).
+   */
+  const runUnstickResolving = useCallback((allowAnyFighter: boolean) => {
+    clearResolvingUnstickTimers();
+    unstickScheduledKeyRef.current = '';
+    setStuckContinueVisible(false);
+    setDodgeReady(true);
+    setCritReady(true);
+    setChainReady(true);
+    setDefRollDone(true);
+    playbackRequestKeyRef.current = null;
+    window.setTimeout(() => {
+      if (!allowAnyFighter && !isPlaybackDriverRefUnstick.current) return;
+      const t = turnRefForUnstick.current;
+      if (!t || t.phase !== PHASE.RESOLVING) return;
+      const shadowWait =
+        Array.isArray((t as { shadowCamouflageRefillWinFaces?: number[] }).shadowCamouflageRefillWinFaces) &&
+        ((t as { shadowCamouflageRefillWinFaces?: number[] }).shadowCamouflageRefillWinFaces?.length ?? 0) > 0 &&
+        (t as { shadowCamouflageRefillRoll?: number | null }).shadowCamouflageRefillRoll == null;
+      if (shadowWait) return;
+      if ((t as { soulDevourerHealSkipAwaitsAck?: boolean }).soulDevourerHealSkipAwaitsAck) return;
+      try {
+        onResolveRefUnstick.current();
+      } catch {
+        /* ignore */
+      }
+    }, 150);
+  }, [clearResolvingUnstickTimers]);
+
+  useLayoutEffect(() => {
+    if (!stuckContinueClickRef) return;
+    stuckContinueClickRef.current = () => runUnstickResolving(true);
+    return () => {
+      stuckContinueClickRef.current = null;
+    };
+  }, [stuckContinueClickRef, runUnstickResolving]);
+
+  useEffect(() => {
+    onStuckContinueVisibleChange?.(stuckContinueVisible);
+  }, [stuckContinueVisible, onStuckContinueVisibleChange]);
+
+  useEffect(() => {
+    return () => {
+      onStuckContinueVisibleChange?.(false);
+    };
+  }, [onStuckContinueVisibleChange]);
+
+  useEffect(() => {
+    const clearUnstickSchedule = () => {
+      clearResolvingUnstickTimers();
+      unstickScheduledKeyRef.current = '';
+      setStuckContinueVisible(false);
+    };
+
+    if (isViewer || !stuckScheduleUserId || turn?.phase !== PHASE.RESOLVING) {
+      clearUnstickSchedule();
+      return;
+    }
+    if (!resolveReady || !attacker || !defender) {
+      clearUnstickSchedule();
+      return;
+    }
+    if (soulDevourerDrain || shadowCamouflageD4 || soulDevourerHealSkipAwaitsAck) {
+      clearUnstickSchedule();
+      return;
+    }
+    if (activePlaybackStep || playbackPendingAck) {
+      clearUnstickSchedule();
+      return;
+    }
+    if (
+      awaitingPomegranateCoAttack &&
+      turn.coAttackRoll != null &&
+      turn.coAttackRoll > 0 &&
+      (turn.coDefendRoll == null || turn.coDefendRoll < 1)
+    ) {
+      clearUnstickSchedule();
+      return;
+    }
+    if (mainResolveChecksDone) {
+      clearUnstickSchedule();
+      return;
+    }
+
+    const rk = `${battle.roundNumber}|${battle.currentTurnIndex}|${turn.attackerId}|${turn.defenderId ?? ''}|${(turn as { resolvingHitIndex?: number }).resolvingHitIndex ?? 0}`;
+    if (unstickScheduledKeyRef.current === rk) {
+      return;
+    }
+    clearResolvingUnstickTimers();
+    unstickScheduledKeyRef.current = rk;
+    unstickBtnTimerRef.current = window.setTimeout(() => {
+      unstickBtnTimerRef.current = null;
+      setStuckContinueVisible(true);
+    }, RESOLVING_UNSTICK_BUTTON_MS);
+    unstickAutoTimerRef.current = window.setTimeout(() => {
+      unstickAutoTimerRef.current = null;
+      if (isPlaybackDriverRefUnstick.current) {
+        runUnstickResolving(false);
+      }
+    }, RESOLVING_UNSTICK_AUTO_MS);
+  }, [
+    isViewer,
+    stuckScheduleUserId,
+    turn?.phase,
+    turn?.attackerId,
+    turn?.defenderId,
+    turn?.coAttackRoll,
+    turn?.coDefendRoll,
+    (turn as { resolvingHitIndex?: number })?.resolvingHitIndex,
+    battle.roundNumber,
+    battle.currentTurnIndex,
+    resolveReady,
+    attacker,
+    defender,
+    soulDevourerDrain,
+    shadowCamouflageD4,
+    soulDevourerHealSkipAwaitsAck,
+    awaitingPomegranateCoAttack,
+    mainResolveChecksDone,
+    activePlaybackStep,
+    playbackPendingAck,
+    clearResolvingUnstickTimers,
+    runUnstickResolving,
+  ]);
+
+  useEffect(() => () => {
+    if (unstickAutoTimerRef.current != null) {
+      window.clearTimeout(unstickAutoTimerRef.current);
+      unstickAutoTimerRef.current = null;
+    }
+    if (unstickBtnTimerRef.current != null) {
+      window.clearTimeout(unstickBtnTimerRef.current);
+      unstickBtnTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (playbackAckTimerRef.current != null) {
