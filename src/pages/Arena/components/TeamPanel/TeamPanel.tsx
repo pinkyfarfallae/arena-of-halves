@@ -164,11 +164,19 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
     return atkTotal > defTotal;
   }, [turn, resolveShown, fighterMap, activeEffects]);
 
+  // Apply 'team-panel--full' when either team has 3+ members
+  const thisTeamCount = members.length;
+  const otherTeamCount = (allMembers?.length ?? members.length) - members.length;
+  const shouldUseFull = thisTeamCount >= 3 || otherTeamCount >= 3;
+
   return (
     <div
-      className={`team-panel team-panel--${side} ${members.length >= 3 ? 'team-panel--full' : ''}`}
+      className={`team-panel team-panel--${side} ${shouldUseFull ? 'team-panel--full' : ''}`}
       data-count={members.length}
-      style={buildPanelBg(members)}
+      style={{
+        ...buildPanelBg(members),
+        '--member-count': members.length,
+      } as React.CSSProperties}
     >
       {members.map((m) => {
         // Who is shown as "target" (defender): the one actually targeted, not the skeleton that dealt the hit.
