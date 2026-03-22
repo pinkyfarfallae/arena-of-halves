@@ -165,6 +165,7 @@ export default function DiceModal({
   const latchedDefendRollRef = useRef<number | null>(null);
   const [showDefenderWaiting, setShowDefenderWaiting] = useState(false);
   const [showNpcDefendDice, setShowNpcDefendDice] = useState(false);
+  const npcDefendDiceScheduledRef = useRef(false);
   /** Player replay: show result text as soon as die lands; parent delays atkRollDone/defRollDone so modal stays visible */
   const [atkReplayLanded, setAtkReplayLanded] = useState(false);
   const [defReplayLanded, setDefReplayLanded] = useState(false);
@@ -216,6 +217,7 @@ export default function DiceModal({
   useEffect(() => {
     setShowDefenderWaiting(false);
     setShowNpcDefendDice(false);
+    npcDefendDiceScheduledRef.current = false;
   }, [turnKey]);
 
   // When RESOLVING with defend roll — show defender dice after attack animation (atkRollDone) or immediately if player rolled attack. In viewer: same flow, show defender dice content without 1s delay.
@@ -241,7 +243,10 @@ export default function DiceModal({
           !embodyDefenderForDefReplay &&
           !turnSoulDevourerDrain &&
           !(turnAction === TURN_ACTION.POWER && !turnAttackRoll);
-        if (!holdNpcDefendDiceUi) setShowNpcDefendDice(false);
+        if (!holdNpcDefendDiceUi) {
+          setShowNpcDefendDice(false);
+          npcDefendDiceScheduledRef.current = false;
+        }
       }
       return;
     }
@@ -249,10 +254,17 @@ export default function DiceModal({
       setShowNpcDefendDice(true);
       return;
     }
+    // Once we schedule showing NPC defend dice, don't reset the timer on re-renders
+    if (npcDefendDiceScheduledRef.current) return;
+    
     if (!attackDoneOrPlayerRolled) {
-      setShowNpcDefendDice(false);
-      return;
+      // Schedule dice to show anyway after a longer delay if attack animation hasn't completed yet
+      // This prevents stuck turns when NPC defense happens very quickly after attack
+      npcDefendDiceScheduledRef.current = true;
+      const t = window.setTimeout(() => setShowNpcDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS + 1000);
+      return () => clearTimeout(t);
     }
+    npcDefendDiceScheduledRef.current = true;
     const t = window.setTimeout(() => setShowNpcDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS);
     return () => clearTimeout(t);
   }, [resolvingWithNpcDefend, attackDoneOrPlayerRolled, isViewer, phase, isMyDefend, turnAction, turnAttackRoll, turnSoulDevourerDrain, embodyDefenderForDefReplay]);
