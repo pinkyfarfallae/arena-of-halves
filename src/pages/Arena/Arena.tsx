@@ -167,6 +167,8 @@ function Arena(props?: ArenaDemoProps) {
   const [currentSkeletonHitTargetId, setCurrentSkeletonHitTargetId] = useState<string | null>(null);
   const skeletonPulseKeyRef = useRef(0);
   const [currentSkeletonPulseKey, setCurrentSkeletonPulseKey] = useState(0);
+  /** True while pomegranate co-resolve card is showing (from BattleHUD) — allows transient hit effects even after phase changes */
+  const [pomegranateCoResolveActive, setPomegranateCoResolveActive] = useState(false);
   // Local visual override: NPC schedules a target, or human selects ally for Floral Fragrance (show heal effect immediately)
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -1101,6 +1103,7 @@ function Arena(props?: ArenaDemoProps) {
               volleyArrowHitActive={volleyArrowHitActive}
               volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
               volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
+              pomegranateCoResolveActive={pomegranateCoResolveActive}
             />
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
           </div>
@@ -1136,6 +1139,7 @@ function Arena(props?: ArenaDemoProps) {
                 volleyArrowHitActive={volleyArrowHitActive}
                 volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
                 volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
+                pomegranateCoResolveActive={pomegranateCoResolveActive}
               />
             ) : (
               <div className="arena__empty-slot">
@@ -1274,6 +1278,7 @@ function Arena(props?: ArenaDemoProps) {
             volleyArrowHitActive={volleyArrowHitActive}
             volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
             volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
+            pomegranateCoResolveActive={pomegranateCoResolveActive}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -1314,6 +1319,7 @@ function Arena(props?: ArenaDemoProps) {
               volleyArrowHitActive={volleyArrowHitActive}
               volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
               volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
+              pomegranateCoResolveActive={pomegranateCoResolveActive}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -1458,6 +1464,7 @@ function Arena(props?: ArenaDemoProps) {
               queueMicrotask(() => setMinionPulseMap((m) => ({ ...m, [key]: pulseId })));
             }}
             volleyArrowHitActive={volleyArrowHitActive}
+            onPomegranateCoResolveActive={setPomegranateCoResolveActive}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
             onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}
           />

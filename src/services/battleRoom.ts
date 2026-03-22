@@ -2442,11 +2442,11 @@ export async function selectAction(
     // ── Pomegranate's Oath: apply buff + end turn immediately (like confirmSeason) ──
     if (power.name === POWER_NAMES.POMEGRANATES_OATH) {
       const pendingTurnPom: Record<string, unknown> = {};
-      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingTurnPom);
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingTurnPom, effectivePowerIndex);
       const oathUpdates = applyPomegranateOath(room, attackerId, allyTargetId, battle);
       Object.assign(updates, oathUpdates);
 
-      // Sync activeEffects into battle for tickEffects
+      // Sync activeEffects into battle fo
       const battleForTick = updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]
         ? { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] }
         : battle;
@@ -2562,12 +2562,9 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Fragrance: if target has Efflorescence Muse (and not Healing Nullified), roll D4 for heal crit first ──
+    // ── Floral Fragrance: always roll D4 for heal crit (player & NPC), unless Healing Nullified ──
     const ally = findFighter(room, allyTargetId);
     const attacker = findFighter(room, attackerId);
-    const allyHasEfflorescenceMuse = (battle.activeEffects || []).some(
-      (e) => e.targetId === allyTargetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
-    );
     const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
 
     // Heal skipped (e.g. สูญสิ้นเยียวยา): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
@@ -2589,66 +2586,29 @@ export async function selectAction(
       return;
     }
 
-    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasEfflorescenceMuse && ally && attacker) {
-      // Heal crit rate = target's critical rate (same as attack crit)
-      const baseCritRate = typeof ally.criticalRate === 'number' ? ally.criticalRate : 25;
-      const critMod = getStatModifier(battle.activeEffects || [], allyTargetId, MOD_STAT.CRITICAL_RATE);
+    // Floral Fragrance: always show D4 roll for heal crit (use target's crit rate)
+    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && ally && attacker) {
+      // Heal crit rate = caster's current critical rate (base + buffs/debuffs)
+      const baseCritRate = typeof attacker.criticalRate === 'number' ? attacker.criticalRate : 25;
+      const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);
       const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
       const winFaces = getWinningFaces(healCritRate);
-      // 0% crit → no D4 phase (empty winFaces would strand the turn)
-      if (winFaces.length > 0) {
-        const turnFloralD4: Record<string, unknown> = {
-          ...nullStaleFieldsForFloralHealTurn(),
-          attackerId,
-          attackerTeam: battle.turn.attackerTeam,
-          phase: PHASE.ROLLING_FLORAL_HEAL,
-          action: TURN_ACTION.POWER,
-          usedPowerIndex: effectivePowerIndex,
-          usedPowerName: power.name,
-          allyTargetId,
-          floralHealWinFaces: winFaces,
-        };
-        deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralD4);
-        updates[ARENA_PATH.BATTLE_TURN] = turnFloralD4;
-        await update(roomRef(arenaId), updates);
-        return;
-      }
+      const turnFloralD4: Record<string, unknown> = {
+        ...nullStaleFieldsForFloralHealTurn(),
+        attackerId,
+        attackerTeam: battle.turn.attackerTeam,
+        phase: PHASE.ROLLING_FLORAL_HEAL,
+        action: TURN_ACTION.POWER,
+        usedPowerIndex: effectivePowerIndex,
+        usedPowerName: power.name,
+        allyTargetId,
+        floralHealWinFaces: winFaces,
+      };
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralD4);
+      updates[ARENA_PATH.BATTLE_TURN] = turnFloralD4;
+      await update(roomRef(arenaId), updates);
+      return;
     }
-
-    // ── Floral Fragrance (no Muse) or other ally powers: apply heal/buff, then follow-up normal attack ──
-    const floralFragranceUpdates = applyFloralFragranced(room, attackerId, allyTargetId, battle, power);
-    Object.assign(updates, floralFragranceUpdates);
-
-    const floralHeal = attacker ? Math.ceil(0.2 * attacker.maxHp) : 0;
-    const defenderHpAfterFloral = ally ? Math.min(ally.currentHp + floralHeal, ally.maxHp) : 0;
-    const logEntry = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId: allyTargetId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: 0,
-      heal: floralHeal,
-      defenderHpAfter: defenderHpAfterFloral,
-      eliminated: false,
-      missed: false,
-      powerUsed: power.name,
-    };
-    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
-    const turnFloralAttack: Record<string, unknown> = {
-      attackerId,
-      attackerTeam: battle.turn.attackerTeam,
-      phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.ATTACK,
-      usedPowerIndex: effectivePowerIndex,
-      usedPowerName: power.name,
-      allyTargetId,
-    };
-    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralAttack);
-    updates[ARENA_PATH.BATTLE_TURN] = turnFloralAttack;
-    await update(roomRef(arenaId), updates);
-    return;
   }
 
   // ── Self-buff power (non-skipDice): apply buff now, then select target for dice ──
@@ -2661,6 +2621,7 @@ export async function selectAction(
 
     // Beyond the Nimbus: log "Caster Beyond the Nimbus" at confirm (here); other self-buffs log in selectTarget
     if (power.name === POWER_NAMES.BEYOND_THE_NIMBUS) {
+      if (!attacker) return;
       const nimbusEntry: Record<string, unknown> = {
         round: battle.roundNumber,
         attackerId,
@@ -2714,11 +2675,13 @@ export async function selectAction(
     updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = newEffects;
 
     // Cast Undead Army immediately (summon skeleton; max 2)
-    const undeadArmyPower = attacker.powers?.find(p => p.name === POWER_NAMES.UNDEAD_ARMY);
-    if (undeadArmyPower) {
-      const battleWithSoul = { ...battle, activeEffects: newEffects };
-      const uaUpdates = applyPowerEffect(room, attackerId, attackerId, undeadArmyPower, battleWithSoul);
-      Object.assign(updates, uaUpdates);
+    if (attacker) {
+      const undeadArmyPower = attacker.powers?.find(p => p.name === POWER_NAMES.UNDEAD_ARMY);
+      if (undeadArmyPower) {
+        const battleWithSoul = { ...battle, activeEffects: newEffects };
+        const uaUpdates = applyPowerEffect(room, attackerId, attackerId, undeadArmyPower, battleWithSoul);
+        Object.assign(updates, uaUpdates);
+      }
     }
 
     // Log using Soul Devourer after confirm, before going to select target
@@ -2729,7 +2692,7 @@ export async function selectAction(
       attackRoll: 0,
       defendRoll: 0,
       damage: 0,
-      defenderHpAfter: attacker.currentHp ?? 0,
+      defenderHpAfter: attacker?.currentHp ?? 0,
       eliminated: false,
       missed: false,
       powerUsed: power.name,
@@ -3757,6 +3720,14 @@ async function runDeferredPomegranateTail(
     }
   }
 
+  // No Rapid Fire or skeletons - write co-attack updates and stay in RESOLVING.
+  // Client will show DamageCard, then call resolve to advance turn.
+  updates[ARENA_PATH.BATTLE_TURN] = {
+    ...clearedTurn,
+    phase: PHASE.RESOLVING,
+    pomegranateCoTailReady: true,
+  };
+  
   let battleMutable: BattleState = { ...battle, turn: clearedTurn };
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
@@ -3764,16 +3735,8 @@ async function runDeferredPomegranateTail(
   if (updates[ARENA_PATH.BATTLE_LOG]) {
     battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
   }
-  delete updates[ARENA_PATH.BATTLE_TURN];
-  await runBattleResolveTailFromEffectSync(arenaId, room, battleMutable, updates, {
-    attackerId,
-    defenderId,
-    attackRoll,
-    defendRoll,
-    action,
-    turn: clearedTurn,
-    activeEffectsBaseline: activeEffectsBaseline,
-  });
+  
+  await update(roomRef(arenaId), updates);
 }
 
 /**
@@ -3867,6 +3830,8 @@ export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
   addSunbornSovereignRecoveryStack(room, effectsFloral, allyTargetId);
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effectsFloral;
 
+  // Note: VFX is triggered via log entry (log-based system), not activeEffect
+  
   const logEntry = {
     round: battle.roundNumber,
     attackerId,
@@ -4581,6 +4546,45 @@ export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
+/** เรียกเมื่อ Pomegranate co-attack animation เต๋าโจมตีจบแล้ว — refill co-attacker quota ถ้าโรลรวม >= 11 */
+export async function ackPomegranateCoAttackDiceShown(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.coAttackRoll == null) return;
+  if ((turn as unknown as Record<string, unknown>).coAttackQuotaRefilled) {
+    return;
+  }
+
+  const coAttackerId = effectivePomCoAttackerId(turn);
+  if (!coAttackerId) {
+    return;
+  }
+  const coAttacker = findFighter(room, coAttackerId);
+  if (!coAttacker) {
+    return;
+  }
+
+  const activeEffects = battle?.activeEffects || [];
+  const coAtkBuff = getStatModifier(activeEffects, coAttackerId, MOD_STAT.ATTACK_DICE_UP);
+  const coAtkRecovery = getStatModifier(activeEffects, coAttackerId, MOD_STAT.RECOVERY_DICE_UP);
+  const total = (turn.coAttackRoll ?? 0) + coAttacker.attackDiceUp + coAtkBuff + coAtkRecovery;
+  const turnWithFlag = { ...turn, coAttackQuotaRefilled: true } as Record<string, unknown>;
+  if (total < 11 || coAttacker.quota >= (coAttacker.maxQuota ?? 0)) {
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
+    return;
+  }
+
+  const coAtkPath = findFighterPath(room, coAttackerId);
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
+  };
+  if (coAtkPath) updates[`${coAtkPath}/quota`] = Math.min(coAttacker.quota + 1, coAttacker.maxQuota ?? 0);
+  await update(roomRef(arenaId), updates);
+}
+
 /** เรียกเมื่อ animation เต๋าป้องกันจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
 export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
@@ -4601,6 +4605,46 @@ export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   const defRecovery = getStatModifier(activeEffects, defenderId, MOD_STAT.RECOVERY_DICE_UP);
   const total = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
   const turnWithFlag = { ...turn, defendQuotaRefilled: true } as Record<string, unknown>;
+  if (total < 11 || defender.quota >= (defender.maxQuota ?? 0)) {
+    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
+    return;
+  }
+
+  const defPath = findFighterPath(room, defenderId);
+  const updates: Record<string, unknown> = {
+    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
+  };
+  if (defPath) updates[`${defPath}/quota`] = Math.min(defender.quota + 1, defender.maxQuota ?? 0);
+  await update(roomRef(arenaId), updates);
+}
+
+/** เรียกเมื่อ Pomegranate co-attack animation เต๋าป้องกันจบแล้ว — refill defender quota ถ้าโรลรวม >= 11 */
+export async function ackPomegranateCoDefendDiceShown(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESOLVING || turn.coDefendRoll == null) return;
+  if ((turn as unknown as Record<string, unknown>).coDefendQuotaRefilled) {
+    return;
+  }
+
+  const defenderId = turn.defenderId;
+  if (!defenderId) {
+    ('[CO_DEFEND_QUOTA] No defenderId');
+    return;
+  }
+  const defender = findFighter(room, defenderId);
+  if (!defender) {
+    return;
+  }
+
+  const activeEffects = battle?.activeEffects || [];
+  const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
+  const defRecovery = getStatModifier(activeEffects, defenderId, MOD_STAT.RECOVERY_DICE_UP);
+  const total = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
+  const turnWithFlag = { ...turn, coDefendQuotaRefilled: true } as Record<string, unknown>;
   if (total < 11 || defender.quota >= (defender.maxQuota ?? 0)) {
     await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
     return;
@@ -5659,6 +5703,30 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       if (coDef == null || coDef < 1) return;
     }
     await applyDeferredPomegranateCoContinue(arenaId, room, battle, attacker, defender, turn);
+    return;
+  }
+
+  // Pomegranate co-attack tail: client showed DamageCard and called resolve. Now advance turn.
+  if ((turn as any).pomegranateCoTailReady) {
+    const updates: Record<string, unknown> = {};
+    const clearedTurn = { ...turn };
+    delete (clearedTurn as any).pomegranateCoTailReady;
+    
+    let battleMutable: BattleState = battle;
+    if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
+      battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
+    }
+    
+    // Advance to next turn
+    await runBattleResolveTailFromEffectSync(arenaId, room, battleMutable, updates, {
+      attackerId,
+      defenderId,
+      attackRoll: turn.attackRoll ?? 0,
+      defendRoll: turn.defendRoll ?? 0,
+      action: turn.action,
+      turn: clearedTurn as TurnState,
+      activeEffectsBaseline: battle.activeEffects || [],
+    });
     return;
   }
 

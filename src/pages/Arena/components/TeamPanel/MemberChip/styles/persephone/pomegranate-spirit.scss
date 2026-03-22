@@ -1369,7 +1369,12 @@ $gradient: if($tone ==1,
     opacity: 0.6;
   }
 
-  .mchip__spirit-canvas,
+  .mchip__spirit-canvas {
+    top: calc(50% - ($frame-size-small / 2 - 7px - 1.8rem));
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .mchip__spirit-seeds,
   .mchip__spirit-lights,
   .mchip__spirit-rise,
