@@ -562,6 +562,12 @@ export default function BattleHUD({
   const dodgeReplayDoneTimeoutRef = useRef<number | null>(null);
   const critReplayDoneTimeoutRef = useRef<number | null>(null);
   const chainReplayDoneTimeoutRef = useRef<number | null>(null);
+  /** NPC attacker fallback timer and key to prevent multiple schedules per turn */
+  const npcAtkFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const npcAtkFallbackKeyRef = useRef<string>('');
+  /** NPC defender fallback timer and key to prevent multiple schedules per turn */
+  const npcDefFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const npcDefFallbackKeyRef = useRef<string>('');
   /** Viewer uses shorter delay so dice don't overlap damage card */
   const replayResultViewMsRef = useRef(PLAYER_ROLL_RESULT_VIEW_MS);
   replayResultViewMsRef.current = isViewer ? VIEWER_ROLL_RESULT_VIEW_MS : PLAYER_ROLL_RESULT_VIEW_MS;
@@ -852,6 +858,65 @@ export default function BattleHUD({
     }
   }, [defRollDone, turn?.phase]);
 
+  // Extract these values to ensure dependency array size remains constant
+  const battleRoundNumber = battle?.roundNumber;
+  const battleCurrentTurnIndex = battle?.currentTurnIndex;
+
+  // RESOLVING NPC attacker fallback: ensure atkRollDone gets set even if attack replay doesn't show
+  // This is critical for NPC vs NPC because defend dice need atkRollDone to be true before they can show
+  useEffect(() => {
+    const clearFallback = () => {
+      if (npcAtkFallbackTimerRef.current) {
+        clearTimeout(npcAtkFallbackTimerRef.current);
+        npcAtkFallbackTimerRef.current = null;
+      }
+    };
+
+    if (turn?.phase !== PHASE.RESOLVING) {
+      clearFallback();
+      npcAtkFallbackKeyRef.current = '';
+      return;
+    }
+    
+    if (turn.attackRoll == null || atkRollDone || !isAttackerNpc) {
+      return;
+    }
+    
+    if ((turn as any).soulDevourerDrain) return;
+    if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return;
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+    if (awaitingPom && turn.coAttackRoll != null) return;
+
+    // Use a key to ensure we only schedule once per turn
+    const fallbackKey = `atk-fallback:${battleRoundNumber}:${battleCurrentTurnIndex}:${turn.attackerId}`;
+    if (npcAtkFallbackKeyRef.current === fallbackKey) return;
+    
+    clearFallback();
+    npcAtkFallbackKeyRef.current = fallbackKey;
+    
+    // For NPC vs NPC: use shorter timer since we don't need to show animations
+    // For NPC vs Player: give normal time for player to see the attack
+    const isNpcVsNpc = isAttackerNpc && isDefenderNpc;
+    const fallbackDelay = isNpcVsNpc ? 1000 : 5000;
+    
+    npcAtkFallbackTimerRef.current = setTimeout(() => {
+      npcAtkFallbackTimerRef.current = null;
+      setAtkRollDone(true);
+    }, fallbackDelay);
+  }, [
+    turn?.phase,
+    turn?.attackRoll,
+    turn?.action,
+    turn?.attackerId,
+    turn?.coAttackRoll,
+    battleRoundNumber,
+    battleCurrentTurnIndex,
+    awaitingPomegranateCoAttack,
+    atkRollDone,
+    isAttackerNpc,
+    isDefenderNpc,
+  ]);
+
   // RESOLVING defense replay skipped (shock apply): still mark def roll done so dodge/crit/resolve chain runs
   useEffect(() => {
     if (turn?.phase !== PHASE.RESOLVING || !hideResolvingDefenseDiceForShockApply) return;
@@ -900,25 +965,47 @@ export default function BattleHUD({
   // RESOLVING NPC defender fallback: if DiceModal doesn't render NPC defend dice (e.g. atkRollDone not set yet),
   // still mark defRollDone so resolve chain runs. This prevents stuck turns when NPC defense happens too fast.
   useEffect(() => {
-    if (turn?.phase !== PHASE.RESOLVING) return;
-    if (turn.defendRoll == null) return;
-    if (defRollDone) return;
-    if (!isDefenderNpc) return;
+    const clearFallback = () => {
+      if (npcDefFallbackTimerRef.current) {
+        clearTimeout(npcDefFallbackTimerRef.current);
+        npcDefFallbackTimerRef.current = null;
+      }
+    };
+
+    if (turn?.phase !== PHASE.RESOLVING) {
+      clearFallback();
+      npcDefFallbackKeyRef.current = '';
+      return;
+    }
+    
+    if (turn.defendRoll == null || defRollDone || !isDefenderNpc) {
+      return;
+    }
+    
     if (turn.defenderId === myId) return;
-    if (hideResolvingDefenseDiceForShockApply) return; // Handled by effect above
+    if (hideResolvingDefenseDiceForShockApply) return; // Handled by shock apply effect
     if ((turn as any).soulDevourerDrain) return;
     if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return;
     const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
     if (awaitingPom && turn.coDefendRoll != null) return;
-    // Give DiceModal time to render and call onDefRollDone normally
-    // NPC_DEFEND_ROLL_DELAY_MS (1000) + fallback delay (1000) + dice animation (~2300) + buffer
-    // Total: ~4.5 seconds which is enough for the normal flow to complete if it's going to
-    const delayMs = 4500;
-    const t = setTimeout(() => {
+
+    // Use a key to ensure we only schedule once per turn
+    const fallbackKey = `def-fallback:${battleRoundNumber}:${battleCurrentTurnIndex}:${turn.defenderId}`;
+    if (npcDefFallbackKeyRef.current === fallbackKey) return;
+    
+    clearFallback();
+    npcDefFallbackKeyRef.current = fallbackKey;
+    
+    // For NPC vs NPC: use much shorter timer since animations can be skipped
+    // For NPC vs Player: give normal time for player to see the defense
+    const isNpcVsNpc = isAttackerNpc && isDefenderNpc;
+    const fallbackDelay = isNpcVsNpc ? 2500 : 12500;
+    
+    npcDefFallbackTimerRef.current = setTimeout(() => {
+      npcDefFallbackTimerRef.current = null;
       if (arenaId) ackDefendDiceShown(arenaId).catch(() => { });
       setDefRollDone(true);
-    }, delayMs);
-    return () => clearTimeout(t);
+    }, fallbackDelay);
   }, [
     turn?.phase,
     turn?.defendRoll,
@@ -926,6 +1013,8 @@ export default function BattleHUD({
     turn?.action,
     turn?.attackRoll,
     turn?.coDefendRoll,
+    battleRoundNumber,
+    battleCurrentTurnIndex,
     awaitingPomegranateCoAttack,
     hideResolvingDefenseDiceForShockApply,
     defRollDone,
@@ -1757,17 +1846,19 @@ export default function BattleHUD({
     const coHit = coTotal > coDefTotal;
     const dmgBuff = getStatModifier(ae, casterId, MOD_STAT.DAMAGE);
     const baseDmg = Math.max(0, caster.damage + dmgBuff);
-    // Same breakdown as main resolve cache: critRef/dodgeRef from DiceModal flow (not raw turn.isCrit).
+    // Use stable turn.isCrit/critRoll once they're set (critReady), else fall back to critRef which updates during animation
     const cdr = critRef.current;
     const dgd = dodgeRef.current.isDodged;
+    const stableIsCrit = critReady && turn.isCrit != null ? turn.isCrit : cdr.isCrit;
+    const stableCritRoll = critReady && turn.critRoll != null ? turn.critRoll : cdr.critRoll;
     let damage = baseDmg;
-    if (cdr.isCrit) damage *= 2;
+    if (stableIsCrit) damage *= 2;
     const displayDmg = !coHit || dgd ? 0 : damage;
     const critBuffForLabel = getStatModifier(ae, casterId, MOD_STAT.CRITICAL_RATE);
     const effectiveCritForLabel = Math.max(caster.criticalRate ?? 0, (caster.criticalRate ?? 0) + critBuffForLabel);
     const critRollLabel =
       !dgd && critEligible
-        ? (effectiveCritForLabel >= 100 ? 'D4: auto' : (cdr.critRoll > 0 ? `D4: ${cdr.critRoll}` : 'D4: -'))
+        ? (effectiveCritForLabel >= 100 ? 'D4: auto' : (stableCritRoll > 0 ? `D4: ${stableCritRoll}` : 'D4: -'))
         : undefined;
     const attackerIsTeamA = !!(teamA || []).some((f) => f.characterId === casterId);
     const powerLabel = 'Co-attack';
@@ -1785,8 +1876,8 @@ export default function BattleHUD({
       isPower: true,
       powerName: powerLabel,
       critEligible: !dgd && critEligible,
-      isCrit: cdr.isCrit,
-      critRoll: cdr.critRoll,
+      isCrit: stableIsCrit,
+      critRoll: stableCritRoll,
       critRollLabel,
       isDodged: dgd,
       coAttackHit: false,
