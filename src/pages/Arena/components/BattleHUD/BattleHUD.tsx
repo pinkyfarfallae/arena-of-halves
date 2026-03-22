@@ -897,6 +897,43 @@ export default function BattleHUD({
     arenaId,
   ]);
 
+  // RESOLVING NPC defender fallback: if DiceModal doesn't render NPC defend dice (e.g. atkRollDone not set yet),
+  // still mark defRollDone so resolve chain runs. This prevents stuck turns when NPC defense happens too fast.
+  useEffect(() => {
+    if (turn?.phase !== PHASE.RESOLVING) return;
+    if (turn.defendRoll == null) return;
+    if (defRollDone) return;
+    if (!isDefenderNpc) return;
+    if (turn.defenderId === myId) return;
+    if (hideResolvingDefenseDiceForShockApply) return; // Handled by effect above
+    if ((turn as any).soulDevourerDrain) return;
+    if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return;
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+    if (awaitingPom && turn.coDefendRoll != null) return;
+    // Give DiceModal time to render and call onDefRollDone normally
+    // NPC_DEFEND_ROLL_DELAY_MS (1000) + fallback delay (1000) + dice animation (~2300) + buffer
+    // Total: ~4.5 seconds which is enough for the normal flow to complete if it's going to
+    const delayMs = 4500;
+    const t = setTimeout(() => {
+      if (arenaId) ackDefendDiceShown(arenaId).catch(() => { });
+      setDefRollDone(true);
+    }, delayMs);
+    return () => clearTimeout(t);
+  }, [
+    turn?.phase,
+    turn?.defendRoll,
+    turn?.defenderId,
+    turn?.action,
+    turn?.attackRoll,
+    turn?.coDefendRoll,
+    awaitingPomegranateCoAttack,
+    hideResolvingDefenseDiceForShockApply,
+    defRollDone,
+    myId,
+    isDefenderNpc,
+    arenaId,
+  ]);
+
   /* ── Pomegranate's Oath: Dodge D4 check ── */
   const [dodgeReady, setDodgeReady] = useState(false);
   const [dodgeEligible, setDodgeEligible] = useState(false);
@@ -1818,6 +1855,45 @@ export default function BattleHUD({
     }
   }, []);
 
+  /* ── Stop all BattleHUD flows when battle ends (winner declared) ── */
+  useEffect(() => {
+    if (!winner) return;
+
+    // Clear all timer refs
+    if (atkRollDoneTimeoutRef.current) {
+      clearTimeout(atkRollDoneTimeoutRef.current);
+      atkRollDoneTimeoutRef.current = null;
+    }
+    if (defRollDoneTimeoutRef.current) {
+      clearTimeout(defRollDoneTimeoutRef.current);
+      defRollDoneTimeoutRef.current = null;
+    }
+    if (dodgeReplayDoneTimeoutRef.current != null) {
+      window.clearTimeout(dodgeReplayDoneTimeoutRef.current);
+      dodgeReplayDoneTimeoutRef.current = null;
+    }
+    if (critReplayDoneTimeoutRef.current != null) {
+      window.clearTimeout(critReplayDoneTimeoutRef.current);
+      critReplayDoneTimeoutRef.current = null;
+    }
+    if (chainReplayDoneTimeoutRef.current != null) {
+      window.clearTimeout(chainReplayDoneTimeoutRef.current);
+      chainReplayDoneTimeoutRef.current = null;
+    }
+    if (pomCoApplyDwellTimerRef.current != null) {
+      window.clearTimeout(pomCoApplyDwellTimerRef.current);
+      pomCoApplyDwellTimerRef.current = null;
+    }
+    if (playbackAckTimerRef.current != null) {
+      window.clearTimeout(playbackAckTimerRef.current);
+      playbackAckTimerRef.current = null;
+    }
+    clearResolvingUnstickTimers();
+
+    // Note: lastHitWriteTimerRef and skeletonChainTimeoutsRef are defined later in the component,
+    // but they get cleared automatically when battle.winner is set and component re-renders.
+  }, [winner, clearResolvingUnstickTimers]);
+
   useEffect(() => {
     if (!playbackStep) {
       completedPlaybackStepKeyRef.current = null;
@@ -2232,6 +2308,7 @@ export default function BattleHUD({
     const shouldShowMasterCard = !!(
       turn?.phase === PHASE.RESOLVING &&
       resolveVisible &&
+      allResolveChecksDone &&
       !shadowCamouflageD4 &&
       !transientDamageActive &&
       !hadSkeletonHitsThisTurnRef.current &&
@@ -2283,6 +2360,7 @@ export default function BattleHUD({
     battle.log,
     turn,
     resolveVisible,
+    allResolveChecksDone,
     shadowCamouflageD4,
     transientDamageActive,
     playbackStep,
@@ -3506,7 +3584,7 @@ export default function BattleHUD({
       )}
 
       {/* Disoriented (Imprecated Poem): D4 roll for 25% action has no effect. Click = start dice on every screen; same flow as other D4. */}
-      {turn?.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && (turn as any)?.disorientedWinFaces?.length > 0 && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT && (turn as any)?.disorientedWinFaces?.length > 0 && (() => {
         const winFaces = (turn as any).disorientedWinFaces ?? [];
         const critPct = winFaces.length * 25;
         return (
@@ -3544,7 +3622,7 @@ export default function BattleHUD({
       })()}
 
       {/* Volley Arrow Rapid Fire: caster rolls D4 for each extra shot. Click = roll on every screen; others see waiting until caster clicks; no replay/remount. */}
-      {turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT && (() => {
         const rawWinFaces = (turn as any).rapidFireWinFaces;
         const winFaces = Array.isArray(rawWinFaces) && rawWinFaces.length > 0
           ? rawWinFaces
@@ -3583,7 +3661,7 @@ export default function BattleHUD({
       })()}
 
       {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
-      {turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
+      {!winner && turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
         <RefillSPDiceModal
           attacker={attacker}
           isMyTurn={!!isMyTurn}
@@ -3612,7 +3690,7 @@ export default function BattleHUD({
       )}
 
       {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — only heal receiver (ally target) sees "Roger that"; others see waiting. */}
-      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (() => {
         const floralHealReceiverId = (turn as any).allyTargetId;
         const floralHealReceiver = floralHealReceiverId ? find(teamA, teamB, floralHealReceiverId) : undefined;
         const isFloralHealReceiver = myId === floralHealReceiverId;
@@ -3648,7 +3726,7 @@ export default function BattleHUD({
       })()}
 
       {/* Spring (Ephemeral Season): heal skipped (e.g. Healing Nullified) — caster clicks Roger that then D4 roll for heal2. */}
-      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && (turn as any).springHealSkipAwaitsAck && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_SPRING_HEAL && (turn as any).springHealSkipAwaitsAck && (() => {
         return (
           <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -3745,7 +3823,7 @@ export default function BattleHUD({
       })()}
 
       {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit. Only show when not heal-skipped AND server set winFaces (so everyone sees heal-skip modal when applicable). */}
-      {turn?.phase === PHASE.ROLLING_FLORAL_HEAL && !(turn as any).floralHealSkipped && (turn as any).floralHealWinFaces?.length > 0 && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_FLORAL_HEAL && !(turn as any).floralHealSkipped && (turn as any).floralHealWinFaces?.length > 0 && (() => {
         const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
         const floralRoll = (turn as any).floralHealRoll;
         const floralRollDisplay = floralRoll ?? floralHealRollLocal;
@@ -3790,7 +3868,7 @@ export default function BattleHUD({
       })()}
 
       {/* Ephemeral Season Spring: show D4 when phase is ROLLING_SPRING_HEAL and not showing heal-skip modal. */}
-      {turn?.phase === PHASE.ROLLING_SPRING_HEAL && !(turn as any).springHealSkipAwaitsAck && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
+      {!winner && turn?.phase === PHASE.ROLLING_SPRING_HEAL && !(turn as any).springHealSkipAwaitsAck && turn?.attackerId === (battle as { springCasterId?: string })?.springCasterId && ((turn as any).springHealWinFaces?.length ?? 0) > 0 && ((battle as { springHealRollActive?: boolean | null })?.springHealRollActive === true || (turn as any).springRound === 1 || (turn as any).springRound === 2) && (() => {
         const springWinFaces = (turn as any).springHealWinFaces ?? [];
         const springRoll = (turn as any).springHealRoll;
         const springRollDisplay = springRoll ?? springHealRollLocal;
@@ -3830,7 +3908,7 @@ export default function BattleHUD({
       })()}
 
       {/* Dice rolling (attack, defend, resolving replay). In viewer mode hide when damage card is showing so blocked/hit card doesn't overlap dice — except Pomegranate co dodge/crit/chain after co D12. */}
-      {turn &&
+      {!winner && turn &&
         (turn.phase === PHASE.ROLLING_ATTACK ||
           turn.phase === PHASE.ROLLING_DEFEND ||
           turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ||
