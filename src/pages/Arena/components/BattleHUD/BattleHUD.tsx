@@ -46,7 +46,7 @@ import { SKILL_UNLOCK } from '../../../../constants/character';
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
 /** PvE NPC defend (main + pom co): same as `Arena.tsx` NPC_AUTO_DEFEND_DELAY_MS. */
-const NPC_AUTO_DEFEND_ROLL_DELAY_MS = 5200;
+const NPC_AUTO_DEFEND_ROLL_DELAY_MS = 5400;
 
 /** Keep element rendered during a fade-out exit animation. useLayoutEffect avoids a visible frame where show is still false while visible became true (resolve bar / damage zone flash). */
 function useFadeTransition(visible: boolean, ms = 250) {

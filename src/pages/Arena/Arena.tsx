@@ -79,7 +79,7 @@ import { fetchNPCs } from '../../data/npcs';
  * but the attack D12 + read delay in BattleHUD is ~2.3s anim + 2s PLAYER_ROLL_RESULT_VIEW_MS — scheduling
  * defend at 1200ms made resolution start before the attack “finished” on screen.
  */
-const NPC_AUTO_DEFEND_DELAY_MS = 5200;
+const NPC_AUTO_DEFEND_DELAY_MS = 5400;
 
 /* ── Build gradient background from all members' theme colors ── */
 function buildHalfStyle(
