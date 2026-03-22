@@ -491,8 +491,11 @@ export function applyShockedEffectToTarget(
   const nextEffects = [...effects];
 
   if (skipIfEfflorescenceMuse && targetHasEfflorescenceMuse(nextEffects, targetId)) {
-    // Prevent new affliction (shock); do not consume Efflorescence Muse
-    return { effects: nextEffects, bonusDamage: 0, hpUpdate: null };
+    // Prevent new affliction (shock); consume Efflorescence Muse
+    const withoutEfflorescenceMuse = nextEffects.filter(
+      e => !(e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
+    );
+    return { effects: withoutEfflorescenceMuse, bonusDamage: 0, hpUpdate: null };
   }
 
   const hasShock = nextEffects.some(
@@ -806,9 +809,10 @@ export function applySecretOfDryadPassive(
   );
   if (!passive) return {};
 
-  // Already has Efflorescence Muse? Skip (don't stack)
-  const effects = [...(battle.activeEffects || [])];
-  if (effects.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE)) return {};
+  // Remove old Efflorescence Muse (if any) and apply fresh one every turn (no stack; always full duration)
+  const effects = [...(battle.activeEffects || [])].filter(
+    e => !(e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
+  );
 
   // 1 round: duration = one full turn cycle (tickEffects decrements once per resolve)
   const queueLen = battle.turnQueue?.length || 1;
@@ -1015,6 +1019,8 @@ export function applyFloralFragranced(
   const healValue = getEffectiveHealForReceiver(baseHeal, ally, allyTargetId, battle.activeEffects || []);
   const newCurrentHp = Math.min(ally.currentHp + healValue, ally.maxHp);
   updates[`${allyPath}/currentHp`] = newCurrentHp;
+  
+  // Note: VFX is triggered via log entry (log-based system), not activeEffect
   return updates;
 }
 

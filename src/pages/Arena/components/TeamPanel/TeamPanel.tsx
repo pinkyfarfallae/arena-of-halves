@@ -52,6 +52,8 @@ interface Props {
   volleyArrowHitDefenderId?: string | null;
   /** CharacterId of the Volley Arrow hit attacker (caster). When set, TeamPanel passes isVolleyArrowHitAttacker to the matching chip. */
   volleyArrowHitAttackerId?: string | null;
+  /** True while pomegranate co-attack resolve card is showing (even if phase changed) — allows transient hit effects */
+  pomegranateCoResolveActive?: boolean;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -71,7 +73,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId }: Props) {
+export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -426,8 +428,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
         const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
-        /** Same rule as Apollo's Hymn: only the newest log row may drive heal VFX (avoids floral wave / +HP repeating on every render). */
-        
+        /** Floral Fragrance: show VFX if entry is within the last 5 log entries to handle NPC auto-select + other logs */
+        const floralIsRecentEntry = floralLogIndex >= 0 && floralLogIndex >= floralSearchLog.length - 5;
 
         // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
@@ -459,7 +461,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Spring โชว์เฉพาะเมื่อ heal เป็น entry ล่าสุดใน log หรืออยู่ phase D4 — ไม่โชว์ซ้ำตอนเริ่มเทิร์นถัดไป (เทิร์นสุดท้ายก่อน Spring หมด)
         const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
-        const useFloralForThisMember = logHasFloral && (springLogIndex < 0 || floralLogIndex > springLogIndex);
+        // Floral Fragrance: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
+        const useFloralForThisMember = floralIsRecentEntry && floralHealFromLog > 0 && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
         // Apollo's Hymn: heal VFX on the healed target only (log defenderId); crit buff applies to caster too but no second heal VFX
         const hymnLogIndex = (() => {
@@ -499,13 +502,16 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
         // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
         const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
+        // isFloralHealTarget: only true while still in D4 phase (prevents hiding VFX after phase advances)
+        const isFloralHealTarget = Boolean(serverFragranceOnTarget && turn?.phase === PHASE.ROLLING_FLORAL_HEAL);
 
         const isFragranceWaved = !isEliminated && (
-          // Floral should behave like text-boost one-shot: trigger by concrete event only, not broad turn-state.
-          (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
-          || !!useFloralForThisMember
+          // Floral Fragrance: log-based (latest entry)
+          (!!useFloralForThisMember && !isImprecatedPoemHealingNullified)
+          // Floral Fragrance: live phase (D4 roll done, before log written)
+          || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
+          // Spring heal: same VFX as Floral Fragrance; requires latest entry or phase condition
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
-          || !!tagBasedProps.isFragranceWaved
         );
 
         const isHymnWaved = !isEliminated && (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
@@ -579,11 +585,13 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                 (hasMinionHitPulse &&
                   (turn?.phase === PHASE.RESOLVING ||
                     turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT ||
-                    !!resolveShown)) ||
+                    !!resolveShown ||
+                    !!pomegranateCoResolveActive)) ||
                 (hasMinionPulseInChip &&
                   (turn?.phase === PHASE.RESOLVING ||
                     turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT ||
-                    !!resolveShown)) ||
+                    !!resolveShown ||
+                    !!pomegranateCoResolveActive)) ||
                 !!(battle as { _demoVfxKey?: string })?._demoVfxKey ||
                 typeof (battle as { _demoReplayTargetKey?: number })?._demoReplayTargetKey === 'number' ||
                 typeof (battle as { _demoShockHitReplayKey?: number })?._demoShockHitReplayKey === 'number')
@@ -620,9 +628,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             minionHitPulseDurationMs={isSkeletonCardHitTarget ? 2500 : 1500}
             minionPulseMap={minionPulseMap}
             floralLogKey={
-              battle != null && battle.roundNumber != null
+              battle != null && battle.roundNumber != null && battle.log != null
                 ? (useFloralForThisMember && floralLogIndex >= 0)
-                  ? `floral_shown_${battle.roundNumber}_${floralLogIndex}_${m.characterId}`
+                  ? `floral_shown_${battle.roundNumber}_${battle.log.length - rawRecent.length + floralLogIndex}_${m.characterId}`
                   : (floralHealRollDone && battle.currentTurnIndex != null)
                     ? `floral_live_${battle.roundNumber}_${battle.currentTurnIndex}_${m.characterId}`
                   : (useSpringForThisMember && springLogIndex >= 0)
@@ -632,7 +640,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             }
             floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
             floralHealResultCardVisible={floralHealResultCardVisible}
-            isFloralHealTarget={!!serverFragranceOnTarget}
+            isFloralHealTarget={isFloralHealTarget}
             floralFragranceCasterIsRosabella={
               (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim() &&
                 turn?.attackerId
@@ -665,7 +673,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                 : useSpringForThisMember && springLogIndex >= 0
                   ? (floralSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (floralSearchLog[springLogIndex] as { heal?: number })?.heal
                   : useFloralForThisMember && floralLogIndex >= 0
-                    ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
+                    ? floralHealFromLog || (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
                     : isDemo && isFragranceWaved
                       ? 2
                       : floralHealRollDone && turn?.attackerId && allMembers?.length

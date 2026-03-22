@@ -179,6 +179,8 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     label: 'Floral Fragrance (affected)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.PERSEPHONE,
+    tag: EFFECT_TAGS.FLORAL_FRAGRANCE,
+    applyTo: 'both',
     props: { isFragranceWaved: true }
   },
   // —— Apollo ——
