@@ -749,6 +749,8 @@ function Arena(props?: ArenaDemoProps) {
     room?.testMode,
     room?.devPlayAllFightersSelf,
     room?.status,
+    room?.battle?.roundNumber,
+    room?.battle?.currentTurnIndex,
     room?.battle?.turn?.phase,
     room?.battle?.turn?.attackerId,
     room?.battle?.turn?.defenderId,
