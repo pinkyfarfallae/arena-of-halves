@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
-import { deleteRoom, toFighterState } from '../../../../services/battleRoom';
+import { deleteRoom, toFighterState } from '../../../../services/battleRoom/battleRoom';
 import { fetchNPCs } from '../../../../data/npcs';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { getPowers } from '../../../../data/powers';

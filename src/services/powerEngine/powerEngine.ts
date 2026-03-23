@@ -1,14 +1,13 @@
-import type { BattleRoom, BattleState, FighterState } from '../types/battle';
-import { createSkeletonMinion } from '../data/minions';
-import type { ActiveEffect, PowerDefinition, ModStat } from '../types/power';
-import { getQuotaCost } from '../types/power';
-import { EFFECT_TAGS, isSeasonTag } from '../constants/effectTags';
-import { POWER_NAMES, POWER_TYPES } from '../constants/powers';
-import { SKILL_UNLOCK } from '../constants/character';
-import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../constants/battle';
-import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { SEASON_KEYS } from '../data/seasons';
-import { isHealingNullified, addSunbornSovereignRecoveryStack } from './powerEngine/services/apollo/helpers';
+import type { BattleRoom, BattleState, FighterState } from '../../types/battle';
+import { createSkeletonMinion } from '../../data/minions';
+import type { ActiveEffect, PowerDefinition, ModStat } from '../../types/power';
+import { getQuotaCost } from '../../types/power';
+import { EFFECT_TAGS } from '../../constants/effectTags';
+import { POWER_NAMES, POWER_TYPES } from '../../constants/powers';
+import { SKILL_UNLOCK } from '../../constants/character';
+import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../../constants/battle';
+import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
+import { isHealingNullified, addSunbornSovereignRecoveryStack } from './services/apollo/helpers';
 
 // Zeus deity services
 export {
@@ -20,7 +19,7 @@ export {
   applyKeraunosVoltageShock,
   applyKeraunosVoltageShockSingleTarget,
   type ApplyShockedEffectOptions,
-} from './powerEngine/services/zeus/zeus';
+} from './services/zeus/zeus';
 
 // Apollo deity services
 export {
@@ -28,7 +27,19 @@ export {
   applyImprecatedPoem,
   isHealingNullified,
   addSunbornSovereignRecoveryStack,
-} from './powerEngine/services/apollo/apollo';
+} from './services/apollo/apollo';
+
+// Hades deity services
+export { } from './services/hades/hades';
+
+// Persephone deity services
+export {
+  applySecretOfDryadPassive,
+  onEfflorescenceMuseTurnStart,
+  applyFloralFragranced,
+  applySeasonEffects,
+  applyPomegranateOath,
+} from './services/persephone/persephone';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -437,288 +448,6 @@ export function tickEffects(
 
   // Consume 1 stun turn (stun prevents action, then wears off)
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = remaining;
-  return updates;
-}
-
-/* ── Persephone: Efflorescence Muse passive ────────────────── */
-
-/**
- * When advancing to a fighter's turn (before select action): grant Efflorescence Muse (status immunity + 25% crit)
- * only if Secret of Dryad is unlocked and the fighter has Secret of Dryad in their powers list.
- * Lasts one full round. Does not stack; re-applied on turn start when still active (see onEfflorescenceMuseTurnStart).
- */
-export function applySecretOfDryadPassive(
-  room: BattleRoom,
-  attackerId: string,
-  battle: BattleState,
-  _atkTotal: number,
-): Record<string, unknown> {
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return {};
-
-  // Do not apply unless passive skill is unlocked
-  if (attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
-
-  // Only if fighter has Secret of Dryad in their powers list (members from Firebase may omit `powers`)
-  const passive = (attacker.powers ?? []).find(
-    p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.SECRET_OF_DRYAD,
-  );
-  if (!passive) return {};
-
-  // Remove old Efflorescence Muse (if any) and apply fresh one every turn (no stack; always full duration)
-  const effects = [...(battle.activeEffects || [])].filter(
-    e => !(e.targetId === attackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE),
-  );
-
-  // 1 round: duration = one full turn cycle (tickEffects decrements once per resolve)
-  const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen;
-  effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.SECRET_OF_DRYAD),
-    powerName: POWER_NAMES.SECRET_OF_DRYAD,
-    effectType: EFFECT_TYPES.SHIELD,
-    sourceId: attackerId,
-    targetId: attackerId,
-    value: 0,
-    turnsRemaining: duration,
-    tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
-  });
-  // +25% critical hit chance while in Efflorescence Muse (same duration; removed when Efflorescence Muse is consumed)
-  effects.push({
-    id: makeEffectId(attackerId, `${POWER_NAMES.SECRET_OF_DRYAD}_crit`),
-    powerName: POWER_NAMES.SECRET_OF_DRYAD,
-    effectType: EFFECT_TYPES.BUFF,
-    sourceId: attackerId,
-    targetId: attackerId,
-    value: 25,
-    turnsRemaining: duration,
-    tag: EFFECT_TAGS.EFFLORESCENCE_MUSE,
-    modStat: MOD_STAT.CRITICAL_RATE,
-  });
-
-  return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: effects };
-}
-
-/**
- * When it's the fighter's turn again while still in Efflorescence Muse: refresh duration only.
- * Does not remove afflictions; Efflorescence Muse prevents new afflictions from being applied instead.
- */
-export function onEfflorescenceMuseTurnStart(
-  room: BattleRoom,
-  battle: BattleState,
-  nextAttackerId: string,
-): Record<string, unknown> | null {
-  const effects = [...(battle.activeEffects || [])];
-  const hasEfflorescenceMuse = effects.some(
-    e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,
-  );
-  if (!hasEfflorescenceMuse) return null;
-
-  const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen;
-
-  const next = effects.map(e => {
-    if (e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE) {
-      return { ...e, turnsRemaining: duration };
-    }
-    return e;
-  });
-
-  return { [ARENA_PATH.BATTLE_ACTIVE_EFFECTS]: next };
-}
-
-/* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
-
-/* ── Persephone: Floral Fragrance (1st Skill) ──────────── */
-
-/**
- * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.
- */
-export function applyFloralFragranced(
-  room: BattleRoom,
-  attackerId: string,
-  allyTargetId: string,
-  battle: BattleState,
-  _power: PowerDefinition,
-): Record<string, unknown> {
-  const updates: Record<string, unknown> = {};
-  const caster = findFighter(room, attackerId);
-  const ally = findFighter(room, allyTargetId);
-  const allyPath = findFighterPath(room, allyTargetId);
-  if (!caster || !ally || !allyPath) return {};
-
-  const baseHeal = Math.ceil(0.2 * caster.maxHp);
-  const healValue = getEffectiveHealForReceiver(baseHeal, ally, allyTargetId, battle.activeEffects || []);
-  const newCurrentHp = Math.min(ally.currentHp + healValue, ally.maxHp);
-  updates[`${allyPath}/currentHp`] = newCurrentHp;
-
-  // Note: VFX is triggered via log entry (log-based system), not activeEffect
-  return updates;
-}
-
-/* ── Persephone: Ephemeral Season — apply season effects to team ── */
-
-/**
- * Apply season-based effects to all alive teammates of the attacker.
- * Returns Firebase update paths relative to `arenas/{arenaId}`.
- *
- * Summer  → +2 attack dice (buff)
- * Autumn  → +2 maxHp AND +2 currentHp (immediate + tracking effect)
- * Winter  → +2 defense dice (buff)
- * Spring  → heal-over-time tag (1 HP per tick in tickEffects)
- */
-export function applySeasonEffects(
-  room: BattleRoom,
-  attackerId: string,
-  season: string,
-  battle: BattleState,
-): Record<string, unknown> {
-  const updates: Record<string, unknown> = {};
-  let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
-
-  // Identify attacker's team
-  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-  const teammates = isTeamA ? (room.teamA?.members || []) : (room.teamB?.members || []);
-
-  // ── Remove existing season effects before applying new ones ──
-  // Reverse autumn maxHp/currentHp changes first
-  const oldAutumn = effects.filter(e => e.tag === EFFECT_TAGS.SEASON_AUTUMN);
-  for (const e of oldAutumn) {
-    const target = findFighter(room, e.targetId);
-    if (target) {
-      const path = findFighterPath(room, e.targetId);
-      if (path) {
-        const curMax = (updates[`${path}/maxHp`] as number | undefined) ?? target.maxHp;
-        const curHp = (updates[`${path}/currentHp`] as number | undefined) ?? target.currentHp;
-        updates[`${path}/maxHp`] = Math.max(1, curMax - e.value);
-        updates[`${path}/currentHp`] = Math.max(1, Math.min(curHp - e.value, curMax - e.value));
-      }
-    }
-  }
-  // Strip all season effects
-  effects = effects.filter(e => !isSeasonTag(e.tag ?? ''));
-
-  // Duration: 2 full rounds (every fighter gets 2 action cycles)
-  const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen * 2 + 1; // *2 for 2 rounds, +1 compensates for tick in confirmSeason
-
-  for (const fighter of teammates) {
-    if (fighter.currentHp <= 0) continue;
-
-    const fighterId = fighter.characterId;
-
-    switch (season) {
-      case SEASON_KEYS.SUMMER: {
-        effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: fighterId,
-          value: 2,
-          modStat: MOD_STAT.ATTACK_DICE_UP,
-          turnsRemaining: duration,
-          tag: EFFECT_TAGS.SEASON_SUMMER,
-        });
-        break;
-      }
-
-      case SEASON_KEYS.AUTUMN: {
-        // Increase maxHp and currentHp immediately (read from updates in case old autumn was just reversed)
-        const path = findFighterPath(room, fighterId);
-        if (path) {
-          const baseMax = (updates[`${path}/maxHp`] as number | undefined) ?? fighter.maxHp;
-          const baseHp = (updates[`${path}/currentHp`] as number | undefined) ?? fighter.currentHp;
-          updates[`${path}/maxHp`] = baseMax + 2;
-          updates[`${path}/currentHp`] = baseHp + 2;
-        }
-        // Tracking effect for reversal on expiry
-        effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: fighterId,
-          value: 2,
-          modStat: MOD_STAT.MAX_HP,
-          turnsRemaining: duration,
-          tag: EFFECT_TAGS.SEASON_AUTUMN,
-        });
-        break;
-      }
-
-      case SEASON_KEYS.WINTER: {
-        effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: fighterId,
-          value: 2,
-          modStat: MOD_STAT.DEFEND_DICE_UP,
-          turnsRemaining: duration,
-          tag: EFFECT_TAGS.SEASON_WINTER,
-        });
-        break;
-      }
-
-      case SEASON_KEYS.SPRING: {
-        // Spring heal is applied in resolveTurn; add effect so pip/SeasonalEffects show Spring
-        effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
-          effectType: EFFECT_TYPES.BUFF,
-          sourceId: attackerId,
-          targetId: fighterId,
-          value: 0,
-          turnsRemaining: duration,
-          tag: EFFECT_TAGS.SEASON_SPRING,
-        });
-        break;
-      }
-    }
-  }
-
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
-  return updates;
-}
-
-/* ── Persephone: Pomegranate's Oath (Ultimate) ────────── */
-
-/**
- * Grant "pomegranate-spirit" effect to an ally (or self if no allies alive).
- * Removes any existing pomegranate-spirit effects first (only one active).
- * Returns Firebase update paths relative to `arenas/{arenaId}`.
- */
-export function applyPomegranateOath(
-  room: BattleRoom,
-  attackerId: string,
-  allyTargetId: string,
-  battle: BattleState,
-): Record<string, unknown> {
-  const updates: Record<string, unknown> = {};
-  let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
-
-  // Remove any existing pomegranate-spirit effects (only one oath active at a time)
-  effects = effects.filter(e => e.tag !== EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT);
-
-  // Duration: 3 full rounds (each fighter acts once per round)
-  // tickEffects decrements once per turn, so 3 rounds = 3 * queueLen ticks
-  const queueLen = battle.turnQueue?.length || 1;
-  const duration = queueLen * 3;
-
-  effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.POMEGRANATES_OATH),
-    powerName: POWER_NAMES.POMEGRANATES_OATH,
-    effectType: EFFECT_TYPES.BUFF,
-    sourceId: attackerId,
-    targetId: allyTargetId,
-    value: 0,
-    turnsRemaining: duration,
-    tag: EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT,
-  });
-
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
   return updates;
 }
 

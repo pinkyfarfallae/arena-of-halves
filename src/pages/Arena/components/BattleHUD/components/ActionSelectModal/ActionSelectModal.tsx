@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../../types/battle';
 import { getQuotaCost } from '../../../../../../types/power';
-import { getAffordablePowers } from '../../../../../../services/powerEngine';
+import { getAffordablePowers } from '../../../../../../services/powerEngine/powerEngine';
 import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCK } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';

@@ -12,7 +12,7 @@ import RoseIcon from '../../../../data/icons/seasons/RoseIcon';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { fetchNPCs } from '../../../../data/npcs';
 import { getPowers } from '../../../../data/powers';
-import { toFighterState } from '../../../../services/battleRoom';
+import { toFighterState } from '../../../../services/battleRoom/battleRoom';
 import { POWER_OVERRIDES } from '../../../CharacterInfo/constants/overrides';
 import EffectStackModal from './components/EffectStackModal/EffectStackModal';
 import {

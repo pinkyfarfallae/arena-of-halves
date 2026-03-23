@@ -1,28 +1,28 @@
 /* eslint-disable */
 import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 import type {
   BattleRoom, BattleState, FighterState,
   TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState, InviteReservation,
-} from '../types/battle';
-import { BATTLE_PLAYBACK_KIND } from '../types/battle';
-import type { Character } from '../types/character';
-import type { PowerDefinition, ActiveEffect } from '../types/power';
-import { getQuotaCost } from '../types/power';
+} from '../../types/battle';
+import { BATTLE_PLAYBACK_KIND } from '../../types/battle';
+import type { Character } from '../../types/character';
+import type { PowerDefinition, ActiveEffect } from '../../types/power';
+import { getQuotaCost } from '../../types/power';
 import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageShockSingleTarget,
+  applyLightningSparkPassive, applyJoltArc, applyKeraunosVoltageShockSingleTarget,
   applySecretOfDryadPassive, onEfflorescenceMuseTurnStart, applyFloralFragranced, applyApolloHymn, applySeasonEffects, applyImprecatedPoem,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
   addSunbornSovereignRecoveryStack,
   getEffectiveHealForReceiver,
   isHealingNullified,
-} from './powerEngine';
-import { getPowers } from '../data/powers';
-import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../constants/effectTags';
-import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../constants/powers';
+} from '../powerEngine/powerEngine';
+import { getPowers } from '../../data/powers';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../constants/effectTags';
+import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../../constants/powers';
 import {
   ARENA_PATH,
   ARENA_ROLE,
@@ -36,11 +36,11 @@ import {
   teamPath,
   TEAM_SUB_PATH,
   type BattleTeamKey,
-} from '../constants/battle';
-import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { SKILL_UNLOCK, DEFAULT_NAMES } from '../constants/character';
-import { FIREBASE_PATHS, FIREBASE_EVENTS } from '../constants/firebase';
-import { SEASON_KEYS, SeasonKey } from '../data/seasons';
+} from '../../constants/battle';
+import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
+import { SKILL_UNLOCK, DEFAULT_NAMES } from '../../constants/character';
+import { FIREBASE_PATHS, FIREBASE_EVENTS } from '../../constants/firebase';
+import { SEASON_KEYS, SeasonKey } from '../../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -5468,7 +5468,7 @@ async function runBattleResolveTailFromEffectSync(
   },
 ): Promise<void> {
   const { attackerId, defenderId, attackRoll, defendRoll, action, turn, activeEffectsBaseline: activeEffects } = tail;
-    // (applyPowerEffect, applyLightningReflexPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
+    // (applyPowerEffect, applyLightningSparkPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
     //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
     if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
       battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
@@ -6998,7 +6998,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             }
           } else {
             if (!skeletonBlocksHit) {
-              const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+              const shockResult = applyLightningSparkPassive(room, attackerId, defenderId, battle, baseDmg);
               rawDmg += shockResult.bonusDamage;
               shockBonusDamage = shockResult.bonusDamage;
               Object.assign(updates, shockResult.updates);
