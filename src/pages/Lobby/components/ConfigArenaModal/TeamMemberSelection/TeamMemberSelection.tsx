@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchAllCharacters } from '../../../../../data/characters';
 import { getPowers } from '../../../../../data/powers';
-import { toFighterState } from '../../../../../services/battleRoom';
+import { toFighterState } from '../../../../../services/battleRoom/battleRoom';
 import { POWER_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import type { FighterState } from '../../../../../types/battle';
 

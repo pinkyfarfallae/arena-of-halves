@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BattlePlaybackStep, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
-import { getStatModifier } from '../../../../services/powerEngine';
+import { getStatModifier } from '../../../../services/powerEngine/powerEngine';
 import { getTagBasedChipProps, getEffectDisplayNameForTag } from '../../../../data/powerVfxRegistry';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
