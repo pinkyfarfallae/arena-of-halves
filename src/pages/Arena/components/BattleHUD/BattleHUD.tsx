@@ -495,7 +495,7 @@ export default function BattleHUD({
       turn?.phase === PHASE.RESOLVING &&
       !defRollDone &&
       (turn?.defenderId === myId ||
-        (devUiActAsAttacker && (preRolledDefend != null || pomCoDefCommitted)))
+        (devUiActAsAttacker && pomCoDefCommitted))
     ) {
       /* RESOLVING replay: play-all switches myId to attacker before defRollDone — keep pre-roll for fixedResult. */
     } else {
@@ -510,7 +510,6 @@ export default function BattleHUD({
     isPlaybackDriver,
     turn?.coDefendRoll,
     awaitingPomegranateCoAttack,
-    preRolledDefend,
   ]);
 
   // Reset submitted flags when phase changes
