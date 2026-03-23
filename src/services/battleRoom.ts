@@ -3858,6 +3858,7 @@ async function runDeferredPomegranateTail(
     battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
   }
   if (updates[ARENA_PATH.BATTLE_LOG]) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
   }
   

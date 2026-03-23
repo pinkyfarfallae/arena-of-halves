@@ -426,7 +426,6 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return -1;
         })();
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
-        const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
         /** Floral Fragrance: show VFX if entry is within the last 5 log entries to handle NPC auto-select + other logs */
         const floralIsRecentEntry = floralLogIndex >= 0 && floralLogIndex >= floralSearchLog.length - 5;
 
