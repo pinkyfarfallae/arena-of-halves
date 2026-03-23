@@ -2750,7 +2750,11 @@ export async function selectAction(
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), soulDevourerConfirmLog]);
 
-    // Then go to select target (quota deducted when drain resolves in selectTarget)
+    // Deduct quota now (Ultimate costs 3)
+    const soulDevourerQuotaPatch: Record<string, unknown> = {};
+    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, soulDevourerQuotaPatch, effectivePowerIndex);
+
+    // Then go to select target
     updates[ARENA_PATH.BATTLE_TURN] = {
       attackerId,
       attackerTeam: battle.turn.attackerTeam,
