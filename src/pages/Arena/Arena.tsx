@@ -57,6 +57,7 @@ import {
   advanceAfterPomegranateCoSkippedAck,
   advanceAfterRapidFireSkippedAck,
   advanceAfterSpringHealSkippedAck,
+  advanceAfterResurrection,
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
 } from '../../services/battleRoom';
@@ -879,6 +880,10 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await advanceAfterSpringHealSkippedAck(arenaId);
   }, [arenaId]);
 
+  const handleResurrectionComplete = useCallback(async () => {
+    if (arenaId) await advanceAfterResurrection(arenaId);
+  }, [arenaId]);
+
   const handleSelectTargetDisoriented = useCallback(async () => {
     if (arenaId) await selectTargetDisoriented(arenaId);
   }, [arenaId]);
@@ -1489,6 +1494,7 @@ function Arena(props?: ArenaDemoProps) {
             onPomegranateCoSkippedAck={handlePomegranateCoSkippedAck}
             onRapidFireSkippedAck={handleRapidFireSkippedAck}
             onSpringHealSkippedAck={handleSpringHealSkippedAck}
+            onResurrectionComplete={handleResurrectionComplete}
             initialShowPowers={returnFromSeason || returnFromTargetCancel}
             onSubmitAttackRoll={handleSubmitAttackRoll}
             onSubmitDefendRoll={handleSubmitDefendRoll}

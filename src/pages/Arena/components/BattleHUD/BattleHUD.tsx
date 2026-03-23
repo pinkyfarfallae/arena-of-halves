@@ -172,6 +172,8 @@ interface Props {
   onRapidFireSkippedAck?: () => void;
   /** When Spring heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → advance to D4 roll for heal2 */
   onSpringHealSkippedAck?: () => void;
+  /** After immediate resurrection modal dismisses, advance from RESURRECTING phase to next turn */
+  onResurrectionComplete?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
   onFloralHealResultCardVisible?: () => void;
   /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
@@ -285,6 +287,7 @@ export default function BattleHUD({
   onPomegranateCoSkippedAck,
   onRapidFireSkippedAck,
   onSpringHealSkippedAck,
+  onResurrectionComplete,
   onFloralHealResultCardVisible,
   onFloralHealResultCardHidden,
   volleyArrowHitActive,
@@ -305,6 +308,9 @@ export default function BattleHUD({
   isPlaybackDriverRefUnstick.current = isPlaybackDriver;
   const onResolveRefUnstick = useRef(onResolve);
   onResolveRefUnstick.current = onResolve;
+
+  // Resurrection modal state - needs to be early for callback dependencies
+  const [showResurrecting, setShowResurrecting] = useState(false);
 
   const stuckScheduleUserId = myId ?? battleParticipantCharacterId;
 
@@ -1753,8 +1759,11 @@ export default function BattleHUD({
     if (turn?.phase !== PHASE.RESOLVING) return;
     const shadowCamouflageD4Wait = !!(turn as any)?.shadowCamouflageRefillWinFaces?.length && (turn as any).shadowCamouflageRefillRoll == null;
     if (shadowCamouflageD4Wait) return;
+    // Don't advance while resurrection modal is showing
+    if (showResurrecting) return;
+    
     onResolve();
-  }, [isPlaybackDriver, turn, battle.roundNumber, battle.currentTurnIndex, onResolve, onAdvancePomegranateCoAttackPhase]);
+  }, [isPlaybackDriver, turn, battle.roundNumber, battle.currentTurnIndex, onResolve, onAdvancePomegranateCoAttackPhase, showResurrecting]);
 
   /* ── Floral Fragrance: target modal shows immediately for ally pick. A previous 3s hide (floralDelay) caused jitter: first paint had delay=false → modal flashed, then effect hid it. VFX still runs from TeamPanel / client visual. ── */
 
@@ -2712,7 +2721,6 @@ export default function BattleHUD({
 
   // Delay action modal until DamageCard exit animation finishes + 750ms pause
   const [actionReady, setActionReady] = useState(true);
-  const [showResurrecting, setShowResurrecting] = useState(false);
   const resurrectOverlayShownKey = useRef('');
 
   useEffect(() => {
@@ -2741,12 +2749,35 @@ export default function BattleHUD({
     }
   }, [turn?.phase, turn?.resurrectTargetId, battle.roundNumber, showResolve]);
 
+  // Immediate resurrection (Hades son auto-resurrect): show overlay during RESURRECTING phase
+  useEffect(() => {
+    const immediateRes = (turn as { immediateResurrections?: string[] })?.immediateResurrections;
+    if (turn?.phase === PHASE.RESURRECTING && immediateRes && immediateRes.length > 0) {
+      const key = `immediate:${immediateRes.join(',')}:${battle.roundNumber}`;
+      if (resurrectOverlayShownKey.current !== key) {
+        resurrectOverlayShownKey.current = key;
+        setActionReady(false);
+        setShowResurrecting(true);
+      }
+    }
+  }, [turn?.phase, (turn as { immediateResurrections?: string[] })?.immediateResurrections, battle.roundNumber]);
+
   // Resurrect overlay: timer to dismiss (separate effect so cleanup works with Strict Mode)
   useEffect(() => {
     if (!showResurrecting) return;
-    const timer = setTimeout(() => { setShowResurrecting(false); setActionReady(true); }, 1000);
+    const timer = setTimeout(() => {
+      setShowResurrecting(false);
+      setActionReady(true);
+      
+      // After resurrection modal dismisses, if we're in RESURRECTING phase, advance turn
+      if (turn?.phase === PHASE.RESURRECTING && onResurrectionComplete) {
+        setTimeout(() => {
+          onResurrectionComplete();
+        }, 50);
+      }
+    }, 1000);
     return () => clearTimeout(timer);
-  }, [showResurrecting]);
+  }, [showResurrecting, turn?.phase, onResurrectionComplete]);
 
   const joltResolveKey =
     turn?.usedPowerName === POWER_NAMES.JOLT_ARC
@@ -3609,11 +3640,32 @@ export default function BattleHUD({
       )}
 
       {/* Death Keeper / self-resurrect queue: brief overlay (name = resurrected fighter) */}
-      {showResurrecting && !showResolve && turn?.resurrectTargetId && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
-          <ResurrectingModal name={find(teamA, teamB, turn.resurrectTargetId)?.nicknameEng ?? attacker?.nicknameEng} />
-        </div>
-      )}
+      {showResurrecting && (() => {
+        // For immediate resurrections during RESOLVING, show name of first resurrected fighter
+        const immediateRes = (turn as { immediateResurrections?: string[] })?.immediateResurrections;
+        const targetId = turn?.resurrectTargetId || (immediateRes && immediateRes.length > 0 ? immediateRes[0] : null);
+        if (!targetId) return null;
+        const resurrectedFighter = find(teamA, teamB, targetId);
+        
+        // Determine which side to show the modal on:
+        // - Immediate resurrections during RESOLVING: show on defender side
+        // - SELECT_ACTION manual resurrections: show on resurrected fighter's side
+        let resurrectingSide = atkSide;
+        if (immediateRes && immediateRes.length > 0) {
+          // Immediate resurrection during combat - show on defender side
+          resurrectingSide = defSide;
+        } else if (resurrectedFighter) {
+          // Manual resurrection at SELECT_ACTION - show on resurrected fighter's team side
+          const resurrectedTeam = teamA.some(f => f.characterId === resurrectedFighter.characterId) ? BATTLE_TEAM.A : BATTLE_TEAM.B;
+          resurrectingSide = resurrectedTeam === BATTLE_TEAM.A ? PANEL_SIDE.LEFT : PANEL_SIDE.RIGHT;
+        }
+        
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${resurrectingSide}`}>
+            <ResurrectingModal name={resurrectedFighter?.nicknameEng ?? attacker?.nicknameEng} />
+          </div>
+        );
+      })()}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). Hide when skip card is showing (card before next attacker turn). */}
       {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && !pomCoLogPlaybackPending && !pomegranateCoResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
@@ -4308,7 +4360,7 @@ export default function BattleHUD({
         );
       })()}
 
-      {activePlaybackStep && (() => {
+      {activePlaybackStep && !showResurrecting && (() => {
         const cardData = { ...resolveCache.current, ...activePlaybackStep, side: activePlaybackStep.__side } as any;
         if (cardData.powerName === POWER_NAMES.KERAUNOS_VOLTAGE) {
           cardData.isCritForKeraunos = !!cardData.isCrit;
@@ -4332,6 +4384,10 @@ export default function BattleHUD({
               if (!isPlaybackDriver) return;
               setPlaybackPendingAck(true);
               if (playbackAckTimerRef.current != null) clearTimeout(playbackAckTimerRef.current);
+              
+              // Don't advance while resurrection modal is showing - modal dismissal will handle it
+              if (showResurrecting) return;
+              
               playbackAckTimerRef.current = window.setTimeout(() => {
                 playbackAckTimerRef.current = null;
                 if (turn?.phase !== PHASE.RESOLVING) return;
@@ -4345,6 +4401,7 @@ export default function BattleHUD({
       {/* Damage breakdown card — on defender side. Volley arrow VFX uses volleyArrowHitActive in Arena only; do not unmount this card when the arrow ends or it flashes off then on for the full displayMs. */}
       {!activePlaybackStep &&
         !playbackPendingAck &&
+        !showResurrecting &&
         showMasterDamageCard &&
         turn?.phase === PHASE.RESOLVING &&
         masterDamageCardTurnKeyRef.current === masterDamageCardKey &&
@@ -4365,7 +4422,7 @@ export default function BattleHUD({
           );
         })()}
 
-      {pomegranateCoResolve && !activePlaybackStep && (
+      {pomegranateCoResolve && !activePlaybackStep && !showResurrecting && (
         <DamageCard
           key={`pom-co-${String((pomegranateCoResolve as any).pomCoLogRound ?? battle.roundNumber)}-${String((pomegranateCoResolve as ResolveCacheRow).attackerId ?? '')}-${String((pomegranateCoResolve as ResolveCacheRow).defenderId ?? '')}-${(pomegranateCoResolve as ResolveCacheRow).atkRoll}-${(pomegranateCoResolve as ResolveCacheRow).defRoll}`}
           data={pomegranateCoResolve as any}
@@ -4389,6 +4446,14 @@ export default function BattleHUD({
               playbackRequestKeyRef.current = rkTail;
               return;
             }
+            
+            // Don't advance while resurrection modal is showing - modal dismissal will handle it
+            if (showResurrecting) {
+              setPomegranateCoResolve(null);
+              playbackRequestKeyRef.current = rkTail;
+              return;
+            }
+            
             void Promise.resolve(onResolve())
               .catch(() => { })
               .finally(() => {
@@ -4401,7 +4466,7 @@ export default function BattleHUD({
       )}
 
       {/* Transient DamageCard for minion/skeleton hits — show whenever we have skeleton card data during resolve (buffer drives card+hit) */}
-      {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && (
+      {transientSkeletonCard && turn?.phase === PHASE.RESOLVING && !activePlaybackStep && !showResurrecting && (
         <DamageCard
           key={transientSkeletonCardKey || 'transient-minion-card'}
           data={transientSkeletonCard as any}
@@ -4413,7 +4478,7 @@ export default function BattleHUD({
       )}
 
       {/* Rapid Fire extra shot: arrow VFX is separate; card stays mounted for full displayMs then onDisplayComplete advances. */}
-      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && (() => {
+      {turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && !showResurrecting && (() => {
         const dmg = Number((turn as any).rapidFireExtraShotDamage) ?? 0;
         const baseDmg = Number((turn as any).rapidFireExtraShotBaseDmg) ?? 0;
         const isCrit = !!(turn as any).rapidFireExtraShotIsCrit;

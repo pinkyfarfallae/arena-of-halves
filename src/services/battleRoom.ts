@@ -3732,12 +3732,18 @@ async function runDeferredPomegranateTail(
 ): Promise<void> {
   const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = clearedTurn;
   if (!attackerId || !defenderId) return;
+  
+  // Clean up any undefined properties to prevent Firebase errors
+  if ((clearedTurn as any).immediateResurrections === undefined) {
+    delete (clearedTurn as any).immediateResurrections;
+  }
+  
   updates[ARENA_PATH.BATTLE_TURN] = clearedTurn;
 
   if (ctx.attackerHasRapidFire && ctx.baseDmg > 0) {
     if (ctx.defenderHpAfter > 0) {
       const rapidFireWinFacesFirst = [2, 3, 4];
-      updates[ARENA_PATH.BATTLE_TURN] = {
+      const turnForRapidFire: Record<string, unknown> = {
         ...clearedTurn,
         phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
         rapidFireStep: 0,
@@ -3746,11 +3752,19 @@ async function runDeferredPomegranateTail(
         rapidFireIsCrit: !!ctx.isCrit,
         rapidFireDefTotal: ctx.defTotal,
       };
+      // Preserve immediateResurrections if set
+      if ((clearedTurn as any).immediateResurrections) {
+        turnForRapidFire.immediateResurrections = (clearedTurn as any).immediateResurrections;
+      } else {
+        // Explicitly ensure no undefined value
+        delete turnForRapidFire.immediateResurrections;
+      }
+      updates[ARENA_PATH.BATTLE_TURN] = turnForRapidFire;
       await update(roomRef(arenaId), updates);
       return;
     } else {
       // Defender eliminated by main hit: show "Rapid Fire skipped" modal
-      updates[ARENA_PATH.BATTLE_TURN] = {
+      const turnForRapidFireSkip: Record<string, unknown> = {
         ...clearedTurn,
         phase: PHASE.RESOLVING,
         rapidFireSkippedAwaitsAck: true,
@@ -3758,6 +3772,14 @@ async function runDeferredPomegranateTail(
         rapidFireIsCrit: !!ctx.isCrit,
         rapidFireDefTotal: ctx.defTotal,
       };
+      // Preserve immediateResurrections if set
+      if ((clearedTurn as any).immediateResurrections) {
+        turnForRapidFireSkip.immediateResurrections = (clearedTurn as any).immediateResurrections;
+      } else {
+        // Explicitly ensure no undefined value
+        delete turnForRapidFireSkip.immediateResurrections;
+      }
+      updates[ARENA_PATH.BATTLE_TURN] = turnForRapidFireSkip;
       await update(roomRef(arenaId), updates);
       return;
     }
@@ -3774,23 +3796,58 @@ async function runDeferredPomegranateTail(
     const defenderHpAfterMain = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
     if (defenderHpAfterMain > 0) {
       const battleForStep = { ...battle, turn: clearedTurn };
-      updates[ARENA_PATH.BATTLE_TURN] = {
+      const turnForSkeleton: Record<string, unknown> = {
         ...clearedTurn,
         resolvingHitIndex: 1,
         playbackStep: buildMinionPlaybackStep(room, battleForStep, attackerId, defenderId, 1),
       };
+      // Preserve immediateResurrections if set
+      if ((clearedTurn as any).immediateResurrections) {
+        turnForSkeleton.immediateResurrections = (clearedTurn as any).immediateResurrections;
+      } else {
+        // Explicitly ensure no undefined value
+        delete turnForSkeleton.immediateResurrections;
+      }
+      updates[ARENA_PATH.BATTLE_TURN] = turnForSkeleton;
       await update(roomRef(arenaId), updates);
       return;
     }
   }
 
-  // No Rapid Fire or skeletons - write co-attack updates and stay in RESOLVING.
+  // No Rapid Fire or skeletons - check if defender is actually dead in the room
+  // (ctx.defenderHpAfter might be stale if defender was resurrected and updates were already written)
+  const defPath = findFighterPath(room, defenderId);
+  const currentDefenderHp = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
+  
+  if (currentDefenderHp <= 0) {
+    // Defender is truly dead: advance turn directly without showing damage card
+    await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
+      attackerId,
+      defenderId,
+      attackRoll,
+      defendRoll,
+      action,
+      turn: clearedTurn,
+      activeEffectsBaseline,
+    });
+    return;
+  }
+
+  // Defender alive after co-attack - write co-attack updates and stay in RESOLVING.
   // Client will show DamageCard, then call resolve to advance turn.
-  updates[ARENA_PATH.BATTLE_TURN] = {
+  const turnForTail: Record<string, unknown> = {
     ...clearedTurn,
     phase: PHASE.RESOLVING,
     pomegranateCoTailReady: true,
   };
+  // Preserve immediateResurrections if set
+  if ((clearedTurn as any).immediateResurrections) {
+    turnForTail.immediateResurrections = (clearedTurn as any).immediateResurrections;
+  } else {
+    // Explicitly ensure no undefined value
+    delete turnForTail.immediateResurrections;
+  }
+  updates[ARENA_PATH.BATTLE_TURN] = turnForTail;
   
   let battleMutable: BattleState = { ...battle, turn: clearedTurn };
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
@@ -3828,7 +3885,7 @@ export async function advanceAfterRapidFireSkippedAck(arenaId: string): Promise<
 
 /**
  * After co-attacker acknowledges Pomegranate co-attack was skipped (main hit eliminated the target).
- * Clears ack and runs deferred tail (Rapid Fire / skeleton / turn advance).
+ * Clears ack and advances turn directly (no need to run tail logic since main attack already did).
  */
 export async function advanceAfterPomegranateCoSkippedAck(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
@@ -3839,48 +3896,68 @@ export async function advanceAfterPomegranateCoSkippedAck(arenaId: string): Prom
   const turn = battle?.turn;
   if (!turn || turn.phase !== PHASE.RESOLVING || !(turn as any).pomegranateCoSkippedAwaitsAck) return;
 
-  const ctx = turn.pomegranateDeferredCtx;
-  const attackerId = turn.attackerId;
-  const defenderId = turn.defenderId;
-  if (!ctx || !attackerId || !defenderId) {
-    const tObj = { ...turn } as Record<string, unknown>;
-    delete tObj.pomegranateCoSkippedAwaitsAck;
-    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: tObj });
+  // Clear the acknowledgment flag and set pomegranateCoTailReady to advance turn
+  const tBase = { ...turn } as Record<string, unknown>;
+  delete tBase.pomegranateCoSkippedAwaitsAck;
+  delete tBase.pomegranateDeferredCtx;
+  delete tBase.awaitingPomegranateCoAttack;
+  delete tBase.coAttackRoll;
+  delete tBase.coDefendRoll;
+  delete tBase.pomCoAttackerId;
+  delete tBase.pomCoDefenderId;
+  delete tBase.coAttackerId;
+  delete tBase.playbackStep;
+  delete tBase.resolvingHitIndex;
+  
+  // Set pomegranateCoTailReady so resolveTurn advances the turn
+  tBase.pomegranateCoTailReady = true;
+  
+  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: tBase });
+  await resolveTurn(arenaId);
+}
+
+/**
+ * Advance from RESURRECTING phase to next fighter's turn.
+ * Called after resurrection modal has been shown for 1 second (or acknowledged).
+ */
+export async function advanceAfterResurrection(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESURRECTING) return;
+
+  const resurrectContext = (turn as any).resurrectContext;
+  if (!resurrectContext) {
+    // Fallback: just advance to next turn
+    const updates: Record<string, unknown> = {};
+    await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
+      attackerId: turn.attackerId,
+      defenderId: turn.attackerId, // fallback
+      attackRoll: 0,
+      defendRoll: 0,
+      turn: turn as TurnState,
+      activeEffectsBaseline: battle.activeEffects || [],
+    });
     return;
   }
 
-  const attacker = findFighter(room, attackerId);
-  const defender = findFighter(room, defenderId);
-  if (!attacker || !defender) return;
-
-  const tBase = { ...turn } as Record<string, unknown>;
-  delete tBase.pomegranateCoSkippedAwaitsAck;
-  const clearedTurn = {
-    ...tBase,
-    awaitingPomegranateCoAttack: false,
-    pomegranateDeferredCtx: null,
-    coAttackRoll: null,
-    coDefendRoll: null,
-    pomCoAttackerId: null,
-    pomCoDefenderId: null,
-    coAttackerId: null,
-    playbackStep: null,
-    resolvingHitIndex: null,
-    pomegranateCoSkippedAwaitsAck: null,
-  } as unknown as TurnState;
-
+  // Continue with turn advance using preserved context
+  const { attackerId, defenderId, attackRoll, defendRoll, action } = resurrectContext;
   const updates: Record<string, unknown> = {};
-  await runDeferredPomegranateTail(
-    arenaId,
-    room,
-    battle,
-    attacker,
-    defender,
-    clearedTurn,
-    ctx,
-    updates,
-    battle.activeEffects || [],
-  );
+  
+  // Continue from where we left off (Spring heals, win check, turn advance)
+  await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
+    attackerId,
+    defenderId,
+    attackRoll,
+    defendRoll,
+    action,
+    turn: turn as TurnState,
+    activeEffectsBaseline: battle.activeEffects || [],
+  });
 }
 
 /* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
@@ -4562,7 +4639,39 @@ export async function advanceToNextRapidFireStep(arenaId: string): Promise<void>
   const defender = defenderId ? findFighter(room, defenderId) : null;
   const defenderDead = eliminated || (defender != null && defender.currentHp <= 0);
 
-  if (defenderDead) {
+  if (defenderDead && defender && defenderId) {
+    // Check if defender can be immediately resurrected before skipping extra shots
+    const updates: Record<string, unknown> = {};
+    let activeEffects = battle.activeEffects || [];
+    const wasResurrected = applyImmediateResurrection(defenderId, room, activeEffects, updates, battle);
+    
+    if (wasResurrected) {
+      // Defender was resurrected! Continue with next rapid fire step
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = activeEffects;
+      
+      const step = Number((turn as any).rapidFireStep) ?? 0;
+      const rapidFireChances = [0.75, 0.5, 0.25];
+      const nextStep = step + 1;
+      const nextChance = nextStep < rapidFireChances.length ? rapidFireChances[nextStep] : 0.25;
+      const nextWinFaces = nextChance >= 0.75 ? [2, 3, 4] : nextChance >= 0.5 ? [3, 4] : [4];
+
+      const turnUpdates: Record<string, unknown> = {
+        ...turn,
+        phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
+        rapidFireStep: nextStep,
+        rapidFireWinFaces: nextWinFaces,
+        rapidFireD4Roll: null,
+        rapidFireExtraShotDamage: null,
+        rapidFireExtraShotBaseDmg: null,
+        rapidFireExtraShotIsCrit: null,
+        immediateResurrections: [defenderId],
+      };
+      updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+    
+    // Defender stays dead - skip and await acknowledgment
     const turnUpdates: Record<string, unknown> = {
       ...turn,
       phase: PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT,
@@ -5196,23 +5305,43 @@ async function applyDeferredPomegranateCoContinue(
   if (!defenderId) return;
 
   const updates: Record<string, unknown> = {};
-  const activeEffects = battle.activeEffects || [];
+  let activeEffects = battle.activeEffects || [];
+  let immediateResurrections: string[] = [];
 
+  // Check if defender can be immediately resurrected before skipping co-attack
   if (defender.currentHp <= 0) {
-    const pausedTurn = {
-      ...turn,
-      awaitingPomegranateCoAttack: false,
-      pomegranateCoSkippedAwaitsAck: true,
-      coAttackRoll: null,
-      coDefendRoll: null,
-      pomCoAttackerId: null,
-      pomCoDefenderId: null,
-      playbackStep: null,
-      resolvingHitIndex: null,
-    } as unknown as TurnState;
-    updates[ARENA_PATH.BATTLE_TURN] = pausedTurn;
-    await update(roomRef(arenaId), updates);
-    return;
+    const wasResurrected = applyImmediateResurrection(defenderId, room, activeEffects, updates, battle);
+    
+    if (wasResurrected) {
+      // Defender was resurrected! Mark it and continue with co-attack
+      immediateResurrections = [defenderId];
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = activeEffects;
+      
+      // Update defender object and context to reflect resurrection
+      const defPath = findFighterPath(room, defenderId);
+      if (defPath) {
+        const newHp = updates[`${defPath}/currentHp`] as number;
+        defender = { ...defender, currentHp: newHp };
+        // Update context so Rapid Fire and other checks see the resurrected HP
+        ctx.defenderHpAfter = newHp;
+      }
+    } else {
+      // Defender stays dead - skip co-attack and await acknowledgment
+      const pausedTurn = {
+        ...turn,
+        awaitingPomegranateCoAttack: false,
+        pomegranateCoSkippedAwaitsAck: true,
+        coAttackRoll: null,
+        coDefendRoll: null,
+        pomCoAttackerId: null,
+        pomCoDefenderId: null,
+        playbackStep: null,
+        resolvingHitIndex: null,
+      } as unknown as TurnState;
+      updates[ARENA_PATH.BATTLE_TURN] = pausedTurn;
+      await update(roomRef(arenaId), updates);
+      return;
+    }
   }
 
   const spiritEffect = activeEffects.find(
@@ -5300,6 +5429,7 @@ async function applyDeferredPomegranateCoContinue(
     pomCoDefenderId: null,
     coAttackerId: null,
     playbackStep: null,
+    ...(immediateResurrections.length > 0 ? { immediateResurrections } : {}),
   } as unknown as TurnState;
 
   await runDeferredPomegranateTail(
@@ -5336,6 +5466,10 @@ async function runBattleResolveTailFromEffectSync(
     if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
       battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
     }
+    // Also update battle.log if it was modified in updates (e.g., by resurrection)
+    if (updates[ARENA_PATH.BATTLE_LOG]) {
+      battle = { ...battle, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
+    }
 
     // Tick active effects (DOT damage, decrement durations)
     // Pass current updates so DOT processing reads latest HP; DOT damage via resolveHitAtDefender
@@ -5355,15 +5489,40 @@ async function runBattleResolveTailFromEffectSync(
     let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
 
     // Apply immediate auto-resurrection for any Hades son (Death Keeper holder) who just died
+    const immediateResurrections: string[] = [];
     for (const member of [...teamAMembers, ...teamBMembers]) {
       if (member.currentHp <= 0) {
-        applyImmediateResurrection(member.characterId, room, latestEffects, updates, battle);
+        const resurrected = applyImmediateResurrection(member.characterId, room, latestEffects, updates, battle);
+        if (resurrected) {
+          immediateResurrections.push(member.characterId);
+        }
       }
     }
     
     // Rebuild team member lists after resurrection
     teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
     teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+    // If immediate resurrections occurred, transition to RESURRECTING phase to show modal
+    if (immediateResurrections.length > 0) {
+      const resurrectingTurn: Record<string, unknown> = {
+        attackerId,
+        attackerTeam: turn.attackerTeam,
+        phase: PHASE.RESURRECTING,
+        immediateResurrections,
+        // Preserve context needed for turn advance after resurrection modal
+        resurrectContext: {
+          attackerId,
+          defenderId,
+          attackRoll,
+          defendRoll,
+          action,
+        },
+      };
+      updates[ARENA_PATH.BATTLE_TURN] = resurrectingTurn;
+      await update(roomRef(arenaId), updates);
+      return;
+    }
 
     // ── Spring (Ephemeral Season): ตีก่อนค่อยฮีล — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
     const springCasterId = (battle as { springCasterId?: string }).springCasterId;

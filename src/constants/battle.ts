@@ -29,6 +29,8 @@ export const PHASE = {
   /** Pomegranate's Oath co-attack: defender rolls vs co (same die rules as main defend). */
   ROLLING_POMEGRANATE_CO_DEFEND: 'rolling-pomegranate-co-defend',
   RESOLVING: 'resolving',
+  /** Show immediate resurrection modal (Death Keeper auto-resurrect) before advancing to next turn */
+  RESURRECTING: 'resurrecting',
   DONE: 'done',
 } as const;
 
