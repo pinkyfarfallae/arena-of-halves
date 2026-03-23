@@ -1871,10 +1871,11 @@ export default function BattleHUD({
     const dgd = dodgeRef.current.isDodged;
     const stableIsCrit = critReady && turn.isCrit != null ? turn.isCrit : cdr.isCrit;
     const stableCritRoll = critReady && turn.critRoll != null ? turn.critRoll : cdr.critRoll;
-    // Use stable critEligible: check turn.critWinFaces (set before critReady) or turn.isCrit (after complete)
-    // This prevents jitter from critEligible state changes during animation
+    // Use stable critEligible: show badge whenever hit lands (coHit && !dgd), use turn data to prevent jitter
+    // Check turn.critWinFaces (set before critReady) or turn.isCrit (after complete) for stable roll display
     const hasCritCheck = !dgd && (turn.critWinFaces?.length ?? 0) > 0;
-    const stableCritEligible = hasCritCheck || (critReady && (stableCritRoll > 0 || turn.isCrit != null));
+    const hasCritData = critReady && (stableCritRoll > 0 || turn.isCrit != null);
+    const stableCritEligible = !dgd && coHit && (hasCritCheck || hasCritData || turn.critWinFaces == null);
     let damage = baseDmg;
     if (stableIsCrit) damage *= 2;
     const displayDmg = !coHit || dgd ? 0 : damage;
