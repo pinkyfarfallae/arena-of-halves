@@ -11,7 +11,6 @@ import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../constants/e
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { BATTLE_TEAM, effectivePomCoAttackerId, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
-import { REFILL_DICE_VIEW_MS } from '../BattleHUD/components/RefillSPDiceModal/RefillSPDiceModal';
 import './TeamPanel.scss';
 import { SKILL_UNLOCK } from '../../../../constants/character';
 import { CHARACTER } from '../../../../constants/characters';
@@ -508,8 +507,8 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const isFragranceWaved = !isEliminated && (
           // Floral Fragrance: log-based (latest entry)
           (!!useFloralForThisMember && !isImprecatedPoemHealingNullified)
-          // Floral Fragrance: live phase (D4 roll done, before log written)
-          || (!!floralHealRollDone && !isImprecatedPoemHealingNullified)
+          // Floral Fragrance: live phase (D4 roll done AND result card visible so VFX shows with card)
+          || (!!floralHealRollDone && floralHealResultCardVisible && !isImprecatedPoemHealingNullified)
           // Spring heal: same VFX as Floral Fragrance; requires latest entry or phase condition
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
         );
@@ -638,7 +637,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
                     : (springFromPhase ? `spring_phase_${battle.roundNumber}_caster_${m.characterId}` : undefined)
                 : undefined
             }
-            floralFragranceDelayMs={floralHealResultCardVisible ? 0 : (floralHealRollDone ? REFILL_DICE_VIEW_MS : undefined)}
+            floralFragranceDelayMs={0}
             floralHealResultCardVisible={floralHealResultCardVisible}
             isFloralHealTarget={isFloralHealTarget}
             floralFragranceCasterIsRosabella={
