@@ -198,7 +198,7 @@ export function applyPowerEffect(
   // Efflorescence Muse immunity: block debuff/stun/dot on shielded target; when negated, consume Efflorescence Muse
   if (
     (power.effect === EFFECT_TYPES.DEBUFF || power.effect === EFFECT_TYPES.STUN || power.effect === EFFECT_TYPES.DOT) &&
-    power.target !== 'self' &&
+    power.target !== TARGET_TYPES.SELF &&
     effects.some(e => e.targetId === targetId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE)
   ) {
     const withoutEfflorescenceMuse = effects.filter(

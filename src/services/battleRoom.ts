@@ -34,10 +34,12 @@ import {
   effectivePomCoAttackerId,
   effectivePomCoDefenderId,
   teamPath,
+  TEAM_SUB_PATH,
   type BattleTeamKey,
 } from '../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { SKILL_UNLOCK } from '../constants/character';
+import { SKILL_UNLOCK, DEFAULT_NAMES } from '../constants/character';
+import { FIREBASE_PATHS, FIREBASE_EVENTS } from '../constants/firebase';
 import { SEASON_KEYS, SeasonKey } from '../data/seasons';
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -413,7 +415,7 @@ function hasShadowCamouflage(activeEffects: ActiveEffect[], characterId: string)
  */
 function getValidTargetIds(
   room: BattleRoom,
-  turn: BattleState['turn'],
+  turn: BattleState["turn"],
   activeEffects: ActiveEffect[],
 ): string[] {
   if (!turn?.attackerId) return [];
@@ -551,8 +553,8 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
       (r) => r.characterId.toLowerCase() !== single.characterId.toLowerCase(),
     );
     await update(roomRef(arenaId), {
-      [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
-      [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
+      [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)]: newTeamA,
+      [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: newTeamB,
       [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
       inviteReservations: remainingReservations.length > 0 ? remainingReservations : null,
     });
@@ -577,8 +579,8 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
   const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
 
   await update(roomRef(arenaId), {
-    [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
-    [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
+    [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)]: newTeamA,
+    [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: newTeamB,
     [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
   });
 
@@ -612,7 +614,7 @@ export async function getRoom(arenaId: string): Promise<BattleRoom | null> {
 /* ── list all active rooms (for viewer lobby) ─────────── */
 
 export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void {
-  const arenasRef = ref(db, 'arenas');
+  const arenasRef = ref(db, FIREBASE_PATHS.ARENAS);
   const handler = onValue(arenasRef, (snap) => {
     const rooms = !snap.exists()
       ? []
@@ -622,7 +624,7 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
     setTimeout(() => callback(rooms), 0);
   });
 
-  return () => off(arenasRef, 'value', handler);
+  return () => off(arenasRef, FIREBASE_EVENTS.VALUE, handler);
 }
 
 /* ── listen to room changes (realtime) ────────────────── */
@@ -636,7 +638,7 @@ export function onRoomChange(arenaId: string, callback: (room: BattleRoom | null
   });
 
   // return unsubscribe function
-  return () => off(r, 'value', handler);
+  return () => off(r, FIREBASE_EVENTS.VALUE, handler);
 }
 
 /* ── delete room ──────────────────────────────────────── */
@@ -647,7 +649,7 @@ export async function deleteRoom(arenaId: string): Promise<void> {
 
 /** Delete every arena room on the server (entire `arenas` node). Use with caution. */
 export async function deleteAllArenaRooms(): Promise<void> {
-  await remove(ref(db, 'arenas'));
+  await remove(ref(db, FIREBASE_PATHS.ARENAS));
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -688,9 +690,9 @@ function findFighter(room: BattleRoom, characterId: string): FighterState | unde
 /** Find the index of a fighter in teamA or teamB members array */
 function findFighterPath(room: BattleRoom, characterId: string): string | null {
   const teamAIdx = (room.teamA?.members || []).findIndex((m) => m.characterId === characterId);
-  if (teamAIdx !== -1) return `${teamPath(BATTLE_TEAM.A, 'members')}/${teamAIdx}`;
+  if (teamAIdx !== -1) return `${teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)}/${teamAIdx}`;
   const teamBIdx = (room.teamB?.members || []).findIndex((m) => m.characterId === characterId);
-  if (teamBIdx !== -1) return `${teamPath(BATTLE_TEAM.B, 'members')}/${teamBIdx}`;
+  if (teamBIdx !== -1) return `${teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)}/${teamBIdx}`;
   return null;
 }
 
@@ -838,7 +840,7 @@ async function resolveHitAtDefender(
 ): Promise<{ damageToMaster: number; hitTargetId: string; skippedMinionsPath?: string }> {
   const defenderTeam = findFighterTeam(room, defenderId);
   if (!defenderTeam) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
-  const currentMinions = (updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []);
+  const currentMinions = (updates[teamPath(defenderTeam, TEAM_SUB_PATH.MINIONS)] as any[]) ?? (room[defenderTeam]?.minions || []);
   const defenderSkeletons = currentMinions.filter((m: any) => m.masterId === defenderId);
   if (defenderSkeletons.length === 0) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
 
@@ -850,7 +852,7 @@ async function resolveHitAtDefender(
     updates[`${defPath}/skeletonCount`] = Math.max(0, currentCount - 1);
   }
   // So next call in same turn (e.g. co-attack) sees updated list; actual removal is in setTimeout so client can show hit VFX
-  const minionsPath = teamPath(defenderTeam, 'minions');
+  const minionsPath = teamPath(defenderTeam, TEAM_SUB_PATH.MINIONS);
   updates[minionsPath] = remainingMinions;
 
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = blocker.characterId;
@@ -1026,7 +1028,7 @@ async function applyJoltArcDamagePhase(
     // Master must not take damage if they have at least one skeleton (skeleton blocks Jolt Arc)
     const defenderTeam = findFighterTeam(room, targetId);
     const currentMinionsForTarget = defenderTeam
-      ? ((updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []))
+      ? ((updates[teamPath(defenderTeam, TEAM_SUB_PATH.MINIONS)] as any[]) ?? (room[defenderTeam]?.minions || []))
       : [];
     const hasSkeleton = currentMinionsForTarget.filter((m: any) => m.masterId === targetId).length > 0;
     const damageToMaster = hasSkeleton ? 0 : resolve.damageToMaster;
@@ -1377,7 +1379,7 @@ function buildMinionPlaybackStep(
     isDodged: false,
     coAttackHit: false,
     coAttackDamage: 0,
-    attackerName: sk.nicknameEng?.toLowerCase?.() || 'skeleton',
+    attackerName: sk.nicknameEng?.toLowerCase?.() || DEFAULT_NAMES.SKELETON,
     attackerTheme: sk.theme?.[0] || '#666',
     defenderName: defender?.nicknameEng || defenderId,
     defenderTheme: defender?.theme?.[0] || '#666',
@@ -1440,12 +1442,12 @@ function applySelfResurrect(
   effects.push({
     id: `${nextCharId}::Death Keeper Risen`,
     powerName: POWER_NAMES.DEATH_KEEPER,
-    effectType: 'buff',
+    effectType: EFFECT_TYPES.BUFF,
     sourceId: nextCharId,
     targetId: nextCharId,
     value: 0,
     turnsRemaining: 999,
-    tag: 'resurrected',
+    tag: EFFECT_TAGS.RESURRECTED,
   });
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
 
@@ -1491,12 +1493,12 @@ function applyImmediateResurrection(
   effects.push({
     id: `${characterId}::Death Keeper Risen`,
     powerName: POWER_NAMES.DEATH_KEEPER,
-    effectType: 'buff',
+    effectType: EFFECT_TYPES.BUFF,
     sourceId: characterId,
     targetId: characterId,
     value: 0,
     turnsRemaining: 999,
-    tag: 'resurrected',
+    tag: EFFECT_TAGS.RESURRECTED,
   });
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
 
@@ -2310,7 +2312,7 @@ export async function selectAction(
     const activeEffectsForDisoriented = battle.activeEffects || [];
     const hasDisorientedPower = activeEffectsForDisoriented.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.DISORIENTED);
     if (hasDisorientedPower) {
-      const validIds = getValidTargetIds(room, { ...battle.turn, ...turnPayload } as BattleState['turn'], activeEffectsForDisoriented);
+      const validIds = getValidTargetIds(room, { ...battle.turn, ...turnPayload } as BattleState["turn"], activeEffectsForDisoriented);
       if (validIds.length === 0) {
         updates[ARENA_PATH.BATTLE_TURN] = turnPayload;
         await update(roomRef(arenaId), updates);
@@ -2344,12 +2346,12 @@ export async function selectAction(
       cleaned.push({
         id: `${attackerId}::Death Keeper Risen`,
         powerName: POWER_NAMES.DEATH_KEEPER,
-        effectType: 'buff' as const,
+        effectType: EFFECT_TYPES.BUFF,
         sourceId: attackerId,
         targetId: allyTargetId,
         value: 0,
         turnsRemaining: 999,
-        tag: 'resurrected',
+        tag: EFFECT_TAGS.RESURRECTED,
       });
       updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
 
@@ -3308,7 +3310,7 @@ export async function advanceAfterDisorientedD4(arenaId: string): Promise<void> 
       defenderHpAfter: findFighter(room, defenderId)?.currentHp ?? 0,
       eliminated: false,
       missed: false,
-      powerUsed: power?.name ?? 'Attack',
+      powerUsed: power?.name ?? DEFAULT_NAMES.ATTACK,
       skipReason: 'Disoriented (action had no effect)',
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
@@ -3859,7 +3861,7 @@ async function runDeferredPomegranateTail(
   }
   if (updates[ARENA_PATH.BATTLE_LOG]) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
+    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState["log"] };
   }
   
   await update(roomRef(arenaId), updates);
@@ -5473,7 +5475,7 @@ async function runBattleResolveTailFromEffectSync(
     }
     // Also update battle.log if it was modified in updates (e.g., by resurrection)
     if (updates[ARENA_PATH.BATTLE_LOG]) {
-      battle = { ...battle, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
+      battle = { ...battle, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState["log"] };
     }
 
     // Tick active effects (DOT damage, decrement durations)
@@ -6049,7 +6051,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       });
       const battleAfterLog2: BattleState = {
         ...battle,
-        log: updatesK2[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+        log: updatesK2[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
       };
       const nextDef = findFighter(room, nextId);
       if (!nextDef) {
@@ -6159,7 +6161,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         });
         const battleAfterEmpty: BattleState = {
           ...battle,
-          log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+          log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
         };
         await runBattleResolveTailFromEffectSync(arenaId, room, battleAfterEmpty, updatesKv, {
           attackerId,
@@ -6198,7 +6200,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
       const battleAfterLog: BattleState = {
         ...battle,
-        log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+        log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
       };
       const turnKv: Record<string, unknown> = {
         ...turn,
@@ -6646,7 +6648,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           round: battle.roundNumber,
           attackerId: sk.characterId,
           defenderId,
-          attackerName: sk.nicknameEng?.toLowerCase?.() || 'skeleton',
+          attackerName: sk.nicknameEng?.toLowerCase?.() || DEFAULT_NAMES.SKELETON,
           attackerTheme: sk.theme?.[0] || '#666',
           defenderName: defender.nicknameEng,
           defenderTheme: defender.theme[0],
@@ -6966,7 +6968,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         // Rule: hit on skeleton → no shock (or other affliction) on master. Applied for normal attack (Lightning Reflex), Nimbus, and Keraunos.
         const defenderTeamForBlock = findFighterTeam(room, defenderId);
         const currentMinionsForBlock = defenderTeamForBlock
-          ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
+          ? ((updates[teamPath(defenderTeamForBlock, TEAM_SUB_PATH.MINIONS)] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
           : [];
         const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
         const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
