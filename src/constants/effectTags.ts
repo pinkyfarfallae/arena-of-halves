@@ -34,7 +34,7 @@ export const EFFECT_TAGS = {
   SEASON_AUTUMN: 'season-autumn',
   SEASON_WINTER: 'season-winter',
   SEASON_SUMMER: 'season-summer',
-  POMEGRANATE_SPIRIT: 'pomegranate-spirit',
+  POMEGRANATE_S_OATH_SPIRIT: 'pomegranate-s-oath-spirit',
 } as const;
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];

@@ -5352,7 +5352,7 @@ async function applyDeferredPomegranateCoContinue(
   }
 
   const spiritEffect = activeEffects.find(
-    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT,
   );
   if (defender.currentHp > 0 && spiritEffect && spiritEffect.sourceId !== attackerId) {
     const coRoll = turn.coAttackRoll!;
@@ -7149,7 +7149,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     !(turn as any).pomegranateCoSkippedAwaitsAck;
   if (pomCoSkipAckEligible) {
     const spiritSkip = (effectsForRapidFireCheck as ActiveEffect[]).find(
-      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT,
     );
     if (spiritSkip && spiritSkip.sourceId !== attackerId) {
       const casterSkip = findFighter(room, spiritSkip.sourceId);
@@ -7194,7 +7194,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     !turn.awaitingPomegranateCoAttack;
   if (needsPomegranateCoDefer) {
     const spiritDefer = activeEffects.find(
-      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT,
     );
     if (spiritDefer && spiritDefer.sourceId !== attackerId) {
       const casterDefer = findFighter(room, spiritDefer.sourceId);

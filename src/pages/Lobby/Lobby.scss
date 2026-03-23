@@ -345,7 +345,7 @@ $ink-faint: #9a8b76;
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.65rem;
   font-weight: 500;
   color: $ink-faint;
@@ -536,7 +536,7 @@ $ink-faint: #9a8b76;
   }
 
   p {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.6rem;
     font-weight: 600;
     color: $ink-faint;
@@ -802,7 +802,7 @@ $ink-faint: #9a8b76;
   text-align: left;
 
   h2 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.82rem;
     font-weight: 700;
     color: $ink;
@@ -811,7 +811,7 @@ $ink-faint: #9a8b76;
   }
 
   p {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.6rem;
     color: $ink-faint;
     margin: 0.15rem 0 0;
@@ -944,7 +944,7 @@ $ink-faint: #9a8b76;
 
 /* ── Error ── */
 .lobby__error {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   color: $crimson-bright;
@@ -1047,7 +1047,7 @@ $ink-faint: #9a8b76;
 
 .lobby__room-name {
   flex: 1;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   color: $ink;
@@ -1057,7 +1057,7 @@ $ink-faint: #9a8b76;
 }
 
 .lobby__room-mode {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.5rem;
   font-weight: 700;
   padding: 0.12rem 0.4rem;
@@ -1068,7 +1068,7 @@ $ink-faint: #9a8b76;
 }
 
 .lobby__room-status {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1133,7 +1133,7 @@ $ink-faint: #9a8b76;
   border-radius: 2px;
   border: 1px solid rgba($gold, 0.2);
   background: $gold-pale;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.5rem;
   font-weight: 700;
   color: $gold-dark;

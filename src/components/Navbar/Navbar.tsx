@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../hooks/useTranslation';
 import { updateTheme } from '../../data/characters';
 import { THEME_LABELS, CSS_VAR_KEYS, DEITY_THEMES, DEFAULT_THEME } from '../../constants/theme';
 import CloseIcon from '../../icons/Close';
@@ -10,10 +11,12 @@ import People from './icons/People';
 import MapIcon from './icons/MapIcon';
 import Palette from './icons/Palette';
 import Shield from './icons/Shield';
+import Settings from './icons/Settings';
 import Logout from './icons/Logout';
 import Undo from './icons/Undo';
 import Reset from './icons/Reset';
 import { ROLE } from '../../constants/role';
+import SettingsModal from '../SettingsModal/SettingsModal';
 import './Navbar.scss';
 
 /* ── Theme Picker Panel ── */
@@ -23,6 +26,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
   onClose: () => void;
   onSave: (colors: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<string[]>([...colors]);
   const [saving, setSaving] = useState(false);
   const [height, setHeight] = useState<number | null>(null);
@@ -108,17 +112,17 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
         <span className="tp__drag-bar" />
       </div>
       <div className="tp__header">
-        <h3 className="tp__title">Theme Colors</h3>
+        <h3 className="tp__title">{t('THEME_COLORS')}</h3>
         <div className="tp__header-actions">
-          <button className="tp__reset" onClick={handleUndoAll} data-tooltip="Undo all changes" data-tooltip-pos="bottom">
+          <button className="tp__reset" onClick={handleUndoAll} data-tooltip={t('UNDO_ALL_CHANGES')} data-tooltip-pos="bottom">
             <Undo width={14} height={14} />
-            Undo All
+            {t('UNDO_ALL')}
           </button>
-          <button className="tp__reset" onClick={handleReset} data-tooltip="Reset to deity theme" data-tooltip-pos="bottom">
+          <button className="tp__reset" onClick={handleReset} data-tooltip={t('RESET_TO_DEITY_THEME')} data-tooltip-pos="bottom">
             <Reset width={14} height={14} />
-            Reset
+            {t('RESET')}
           </button>
-          <button className="tp__close" onClick={handleClose} data-tooltip="Close" data-tooltip-pos="left">
+          <button className="tp__close" onClick={handleClose} data-tooltip={t('CLOSE')} data-tooltip-pos="left">
             <CloseIcon width="16" height="16" />
           </button>
         </div>
@@ -142,7 +146,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
                   type="button"
                   className="tp__undo"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUndo(i); }}
-                  data-tooltip="Undo" data-tooltip-pos="top"
+                  data-tooltip={t('UNDO')} data-tooltip-pos="top"
                 >
                   <Undo width={10} height={10} />
                 </button>
@@ -152,7 +156,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
         })}
       </div>
       <button className="tp__save" onClick={handleSave} disabled={saving}>
-        {saving ? 'Saving...' : 'Save Theme'}
+        {saving ? t('SAVING') : t('SAVE_THEME')}
       </button>
     </div>
   );
@@ -161,9 +165,11 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
 /* ── Navbar ── */
 function Navbar() {
   const { user, role, logout, updateUser } = useAuth();
+  const { t } = useTranslation();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const isViewingMember = location.pathname.startsWith('/character/');
   const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge';
   const isAdmin = role === ROLE.ADMIN || role === ROLE.DEVELOPER;
@@ -188,68 +194,76 @@ function Navbar() {
         {isAdmin && (
           <NavLink to="/admin" className={({ isActive }) => `topbar-menu__item topbar-menu__item--admin ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
             <Shield />
-            <span>Admin Manager</span>
+            <span>{t('ADMIN_MANAGER')}</span>
           </NavLink>
         )}
         {user?.characterId && (
           <NavLink to="/" end className={({ isActive }) => `topbar-menu__item ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
             <Person />
-            <span>Character</span>
+            <span>{t('CHARACTER')}</span>
           </NavLink>
         )}
         <NavLink to="/camp" className={({ isActive }) => `topbar-menu__item ${isActive || isViewingMember ? 'topbar-menu__item--active' : ''}`} onClick={close}>
           <People />
-          <span>Camp Members</span>
+          <span>{t('CAMP_MEMBERS')}</span>
         </NavLink>
         <NavLink to="/life" className={({ isActive }) => `topbar-menu__item ${isActive || isLifeSubPage ? 'topbar-menu__item--active' : ''}`} onClick={close}>
           <MapIcon />
-          <span>Life in the Camp</span>
+          <span>{t('LIFE_IN_CAMP')}</span>
         </NavLink>
         <button className="topbar-menu__item" onClick={() => { setShowThemePicker(p => !p); close(); }}>
           <Palette />
-          <span>Theme Colors</span>
+          <span>{t('THEME_COLORS')}</span>
+        </button>
+        <button className="topbar-menu__item" onClick={() => { setShowSettings(p => !p); close(); }}>
+          <Settings />
+          <span>{t('SETTINGS')}</span>
         </button>
         <button className="topbar-menu__item topbar-menu__item--logout" onClick={() => { logout(); close(); }}>
           <Logout />
-          <span>Logout</span>
+          <span>{t('LOGOUT')}</span>
         </button>
       </div>
 
       {/* Desktop sidebar */}
       <nav className="sidebar">
-        <NavLink to="/" end className="sidebar__avatar" data-tooltip="Character Info" data-tooltip-pos="right">
+        <NavLink to="/" end className="sidebar__avatar" data-tooltip={t('CHARACTER_INFO')} data-tooltip-pos="right">
           {user?.nicknameEng?.[0]?.toUpperCase() ?? '?'}
         </NavLink>
 
         <div className="sidebar__divider" />
 
         {isAdmin && (
-          <NavLink to="/admin" className={({ isActive }) => `sidebar__icon sidebar__icon--admin ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip="Admin Manager" data-tooltip-pos="right">
+          <NavLink to="/admin" className={({ isActive }) => `sidebar__icon sidebar__icon--admin ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t('ADMIN_MANAGER')} data-tooltip-pos="right">
             <Shield />
           </NavLink>
         )}
 
         {user?.characterId && (
-          <NavLink to="/" end className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip="Character" data-tooltip-pos="right">
+          <NavLink to="/" end className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t('CHARACTER')} data-tooltip-pos="right">
             <Person />
           </NavLink>
         )}
 
-        <NavLink to="/camp" className={({ isActive }) => `sidebar__icon ${isActive || isViewingMember ? 'sidebar__icon--active' : ''}`} data-tooltip="Camp Members" data-tooltip-pos="right">
+        <NavLink to="/camp" className={({ isActive }) => `sidebar__icon ${isActive || isViewingMember ? 'sidebar__icon--active' : ''}`} data-tooltip={t('CAMP_MEMBERS')} data-tooltip-pos="right">
           <People />
         </NavLink>
 
-        <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPage ? 'sidebar__icon--active' : ''}`} data-tooltip="Life in Camp" data-tooltip-pos="right">
+        <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPage ? 'sidebar__icon--active' : ''}`} data-tooltip={t('LIFE_IN_CAMP')} data-tooltip-pos="right">
           <MapIcon />
         </NavLink>
 
         <div className="sidebar__spacer" />
 
-        <button className={`sidebar__icon ${showThemePicker ? 'sidebar__icon--active' : ''}`} onClick={() => setShowThemePicker(p => !p)} data-tooltip="Theme Colors" data-tooltip-pos="right">
+        <button className={`sidebar__icon ${showThemePicker ? 'sidebar__icon--active' : ''}`} onClick={() => setShowThemePicker(p => !p)} data-tooltip={t('THEME_COLORS')} data-tooltip-pos="right">
           <Palette strokeWidth="1.5" />
         </button>
 
-        <button className="sidebar__icon sidebar__icon--logout" onClick={logout} data-tooltip="Logout" data-tooltip-pos="right">
+        <button className={`sidebar__icon ${showSettings ? 'sidebar__icon--active' : ''}`} onClick={() => setShowSettings(p => !p)} data-tooltip={t('SETTINGS')} data-tooltip-pos="right">
+          <Settings strokeWidth="1.5" />
+        </button>
+
+        <button className="sidebar__icon sidebar__icon--logout" onClick={logout} data-tooltip={t('LOGOUT')} data-tooltip-pos="right">
           <Logout />
         </button>
       </nav>
@@ -267,6 +281,11 @@ function Navbar() {
             setShowThemePicker(false);
           }}
         />
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
       )}
     </>
   );

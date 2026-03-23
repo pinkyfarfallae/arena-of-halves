@@ -206,7 +206,7 @@
   float: left;
   width: 100%;
   padding: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -262,7 +262,7 @@
 }
 
 .cs__edit-err-msg {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.62rem;
   color: #b94a48;
 }
@@ -320,7 +320,7 @@
 }
 
 .cs__edit-hint {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.6rem;
   color: var(--ci-muted, #8a8a9a);
   margin-top: 0.15rem;
@@ -372,7 +372,7 @@
   justify-content: center;
   gap: 0.35rem;
   padding: 0.38rem 0.75rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--ci-muted, #8a8a9a);
@@ -603,7 +603,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--ci-muted, #8a8a9a);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   cursor: pointer;
   transition: all 0.15s;
@@ -633,7 +633,7 @@
 .cs__edit-cancel {
   min-width: 112px;
   padding: 0.45rem 0.6rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--ci-muted, #8a8a9a);
@@ -657,7 +657,7 @@
   justify-content: center;
   gap: 0.35rem;
   padding: 0.45rem 0.8rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--ci-bg, #faf7f0);

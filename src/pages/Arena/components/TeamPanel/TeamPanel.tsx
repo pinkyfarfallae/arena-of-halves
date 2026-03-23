@@ -372,6 +372,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               : isDemo && oppositeMemberIds.has(g.sourceId)
                 ? (side === PANEL_SIDE.LEFT ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
                 : (source?.nicknameEng || '?');
+            const sourceNameTh = isSelfTarget
+              ? TARGET_TYPES.SELF
+              : isDemo && oppositeMemberIds.has(g.sourceId)
+                ? (side === PANEL_SIDE.LEFT ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
+                : (source?.nicknameThai || undefined);
             const turnsLeft = g.tag === EFFECT_TAGS.ETERNAL_AGONY && g.maxTurns === 0
               ? 1
               : Math.ceil(g.maxTurns / queueLen);
@@ -379,10 +384,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               powerName: g.powerName,
               ...(displayName && { displayName }),
               sourceName,
+              ...(sourceNameTh && { sourceNameTh }),
               ...(source?.deityBlood != null && { sourceDeity: source.deityBlood }),
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
               turnsLeft,
               count: g.count,
+              ...(g.tag && { tag: g.tag }),
             };
           });
         })().filter(
