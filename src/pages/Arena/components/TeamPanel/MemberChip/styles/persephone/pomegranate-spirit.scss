@@ -1369,7 +1369,12 @@ $gradient: if($tone ==1,
     opacity: 0.6;
   }
 
-  .mchip__spirit-canvas,
+  .mchip__spirit-canvas {
+    top: calc(50% - ($frame-size-small / 2 - 7px - 1.8rem));
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .mchip__spirit-seeds,
   .mchip__spirit-lights,
   .mchip__spirit-rise,
@@ -1438,6 +1443,7 @@ $gradient: if($tone ==1,
 
   .mchip__spirit-glow-rise {
     opacity: 0.55;
+    height: 100%;
   }
 
   .mchip__spirit-glow-rise-particle {
