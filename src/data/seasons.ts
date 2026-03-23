@@ -34,7 +34,7 @@ export interface SeasonConfig {
 export const SEASONS: Record<SeasonKey, SeasonConfig> = {
   [SEASON_KEYS.SUMMER]: {
     key: SEASON_KEYS.SUMMER,
-    labelTh: 'ฤดูร้อน',
+    labelTh: 'คิมหันตฤดู',
     labelEn: 'Summer',
     icon: SunIcon,
     color: '#ebc000ff', // Bright yellow
@@ -42,7 +42,7 @@ export const SEASONS: Record<SeasonKey, SeasonConfig> = {
   },
   [SEASON_KEYS.AUTUMN]: {
     key: SEASON_KEYS.AUTUMN,
-    labelTh: 'ฤดูใบไม้ร่วง',
+    labelTh: 'วสันตฤดู',
     labelEn: 'Autumn',
     icon: MapleLeafIcon,
     color: '#FF9800', // Orange
@@ -50,7 +50,7 @@ export const SEASONS: Record<SeasonKey, SeasonConfig> = {
   },
   [SEASON_KEYS.WINTER]: {
     key: SEASON_KEYS.WINTER,
-    labelTh: 'ฤดูหนาว',
+    labelTh: 'เหมันตฤดู',
     labelEn: 'Winter',
     icon: SnowflakeIcon,
     color: '#64B5F6', // Light blue
@@ -58,7 +58,7 @@ export const SEASONS: Record<SeasonKey, SeasonConfig> = {
   },
   [SEASON_KEYS.SPRING]: {
     key: SEASON_KEYS.SPRING,
-    labelTh: 'ฤดูใบไม้ผลิ',
+    labelTh: 'สารทฤดู',
     labelEn: 'Spring',
     icon: RoseIcon,
     color: '#81C784', // Green
