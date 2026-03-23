@@ -168,6 +168,8 @@ interface Props {
   onSoulDevourerHealSkippedAck?: () => void;
   /** Pomegranate: main hit killed target — co-attack skipped; oath caster (co-attacker) clicks Roger → server runs deferred tail */
   onPomegranateCoSkippedAck?: () => void;
+  /** Rapid Fire: after an extra shot killed target — remaining shots skipped; attacker clicks Roger → server advances turn */
+  onRapidFireSkippedAck?: () => void;
   /** When Spring heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → advance to D4 roll for heal2 */
   onSpringHealSkippedAck?: () => void;
   /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
@@ -281,6 +283,7 @@ export default function BattleHUD({
   onHealSkippedAck,
   onSoulDevourerHealSkippedAck,
   onPomegranateCoSkippedAck,
+  onRapidFireSkippedAck,
   onSpringHealSkippedAck,
   onFloralHealResultCardVisible,
   onFloralHealResultCardHidden,
@@ -1758,6 +1761,10 @@ export default function BattleHUD({
   /* ── Soul Devourer heal skipped: server sets soulDevourerHealSkipAwaitsAck so skeleton resolve does not start until Roger ── */
   const soulDevourerHealSkipAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerHealSkipAwaitsAck);
   const pomegranateCoSkippedAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).pomegranateCoSkippedAwaitsAck);
+  const rapidFireSkippedAwaitsAck = !!(
+    (turn?.phase === PHASE.RESOLVING && (turn as any).rapidFireSkippedAwaitsAck) ||
+    (turn?.phase === PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT && (turn as any).rapidFireSkippedAwaitsAck)
+  );
 
   /* ── Fade transitions for resolve & waiting panels ── */
   const soulDevourerDrain = !!(turn as any)?.soulDevourerDrain;
@@ -3909,6 +3916,42 @@ export default function BattleHUD({
               ) : (
                 <p className="bhud__no-target-waiting">
                   Waiting for {pomCo?.nicknameEng ?? 'oath caster'}...
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Rapid Fire: extra shots were skipped because defender was eliminated */}
+      {rapidFireSkippedAwaitsAck && (() => {
+        const atkPrimary = attacker?.theme?.[0] ?? '#8b2942';
+        const atkDark = attacker?.theme?.[18] ?? '#3d0f18';
+        return (
+          <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
+            <div
+              className="bhud__targets-modal bhud__targets-modal--no-target"
+              style={{ '--modal-primary': atkPrimary, '--modal-dark': atkDark } as React.CSSProperties}
+            >
+              <span className="bhud__dice-label">Extra shots skipped</span>
+              <p className="bhud__no-target-reason">
+                The defender was eliminated.
+                <br />
+                Volley Arrow extra shots do not resolve.
+              </p>
+              {isMyTurn ? (
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={() => onRapidFireSkippedAck?.()}
+                  >
+                    Roger that
+                  </button>
+                </div>
+              ) : (
+                <p className="bhud__no-target-waiting">
+                  Waiting for {attacker?.nicknameEng ?? 'attacker'}...
                 </p>
               )}
             </div>

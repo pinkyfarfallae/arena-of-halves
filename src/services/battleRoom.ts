@@ -1453,11 +1453,62 @@ function applySelfResurrect(
   const stunIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.STUN);
   if (stunIdx !== -1) effects.splice(stunIdx, 1);
 
-  // Log
+  return true;
+}
+
+/** Check and apply immediate auto-resurrection for Hades son (Death Keeper holder) when they die.
+ *  Called immediately after damage is applied. Mutates `updates` and `effects` in place.
+ *  Returns true if resurrection happened. */
+function applyImmediateResurrection(
+  characterId: string,
+  room: BattleRoom,
+  effects: ActiveEffect[],
+  updates: Record<string, unknown>,
+  battle: { roundNumber: number; log: unknown[] },
+): boolean {
+  const fPath = findFighterPath(room, characterId);
+  if (!fPath) return false;
+  
+  // Check current HP from updates or room state
+  const currentHp = (`${fPath}/currentHp` in updates)
+    ? (updates[`${fPath}/currentHp`] as number)
+    : (findFighter(room, characterId)?.currentHp ?? 0);
+    
+  if (currentHp > 0) return false;
+
+  const dkIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
+  if (dkIdx === -1) return false;
+
+  // Resurrect at 50% max HP immediately
+  const fighter = findFighter(room, characterId);
+  if (!fighter) return false;
+  
+  const resHp = Math.ceil(fighter.maxHp * 0.5);
+  updates[`${fPath}/currentHp`] = resHp;
+
+  // Consume death-keeper, add resurrected tag
+  effects.splice(dkIdx, 1);
+  effects.push({
+    id: `${characterId}::Death Keeper Risen`,
+    powerName: POWER_NAMES.DEATH_KEEPER,
+    effectType: 'buff',
+    sourceId: characterId,
+    targetId: characterId,
+    value: 0,
+    turnsRemaining: 999,
+    tag: 'resurrected',
+  });
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+
+  // Clear stun on the resurrected fighter (death resets debuffs)
+  const stunIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.STUN);
+  if (stunIdx !== -1) effects.splice(stunIdx, 1);
+
+  // Log the resurrection
   const logEntry = {
     round: battle.roundNumber,
-    attackerId: nextCharId,
-    defenderId: nextCharId,
+    attackerId: characterId,
+    defenderId: characterId,
     attackRoll: 0,
     defendRoll: 0,
     damage: 0,
@@ -1465,10 +1516,9 @@ function applySelfResurrect(
     eliminated: false,
     missed: false,
     powerUsed: POWER_NAMES.DEATH_KEEPER,
-    resurrectTargetId: nextCharId,
-    resurrectHpRestored: resHp,
   };
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log as unknown[] || []), logEntry]);
+  const updatedLog = [...(battle.log || []), logEntry];
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(updatedLog);
 
   return true;
 }
@@ -3684,19 +3734,33 @@ async function runDeferredPomegranateTail(
   if (!attackerId || !defenderId) return;
   updates[ARENA_PATH.BATTLE_TURN] = clearedTurn;
 
-  if (ctx.attackerHasRapidFire && ctx.baseDmg > 0 && ctx.defenderHpAfter > 0) {
-    const rapidFireWinFacesFirst = [2, 3, 4];
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      ...clearedTurn,
-      phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
-      rapidFireStep: 0,
-      rapidFireWinFaces: rapidFireWinFacesFirst,
-      rapidFireBaseDmg: ctx.baseDmg,
-      rapidFireIsCrit: !!ctx.isCrit,
-      rapidFireDefTotal: ctx.defTotal,
-    };
-    await update(roomRef(arenaId), updates);
-    return;
+  if (ctx.attackerHasRapidFire && ctx.baseDmg > 0) {
+    if (ctx.defenderHpAfter > 0) {
+      const rapidFireWinFacesFirst = [2, 3, 4];
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...clearedTurn,
+        phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
+        rapidFireStep: 0,
+        rapidFireWinFaces: rapidFireWinFacesFirst,
+        rapidFireBaseDmg: ctx.baseDmg,
+        rapidFireIsCrit: !!ctx.isCrit,
+        rapidFireDefTotal: ctx.defTotal,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    } else {
+      // Defender eliminated by main hit: show "Rapid Fire skipped" modal
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        ...clearedTurn,
+        phase: PHASE.RESOLVING,
+        rapidFireSkippedAwaitsAck: true,
+        rapidFireBaseDmg: ctx.baseDmg,
+        rapidFireIsCrit: !!ctx.isCrit,
+        rapidFireDefTotal: ctx.defTotal,
+      };
+      await update(roomRef(arenaId), updates);
+      return;
+    }
   }
 
   let skeletonsForAttack: any[] = [];
@@ -3737,6 +3801,29 @@ async function runDeferredPomegranateTail(
   }
   
   await update(roomRef(arenaId), updates);
+}
+
+/**
+ * After attacker acknowledges Rapid Fire extra shots were skipped (defender was eliminated).
+ * Clears ack and runs turn advance.
+ */
+export async function advanceAfterRapidFireSkippedAck(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) return;
+  if (!(turn as any).rapidFireSkippedAwaitsAck) return;
+
+  const tObj = { ...turn } as Record<string, unknown>;
+  delete tObj.rapidFireSkippedAwaitsAck;
+  const turnUpdates: Record<string, unknown> = {
+    ...tObj,
+    phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
+  };
+  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
+  await resolveTurn(arenaId);
 }
 
 /**
@@ -4478,7 +4565,8 @@ export async function advanceToNextRapidFireStep(arenaId: string): Promise<void>
   if (defenderDead) {
     const turnUpdates: Record<string, unknown> = {
       ...turn,
-      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
+      phase: PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT,
+      rapidFireSkippedAwaitsAck: true,
       rapidFireDefTotal: (turn as any).rapidFireDefTotal,
       rapidFireStep: null,
       rapidFireWinFaces: null,
@@ -4488,10 +4576,9 @@ export async function advanceToNextRapidFireStep(arenaId: string): Promise<void>
       rapidFireExtraShotDamage: null,
       rapidFireExtraShotBaseDmg: null,
       rapidFireExtraShotIsCrit: null,
-      rapidFireExtraShotEliminated: null,
+      rapidFireExtraShotEliminated: true,
     };
     await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
-    await resolveTurn(arenaId);
     return;
   }
 
@@ -5266,6 +5353,17 @@ async function runBattleResolveTailFromEffectSync(
 
     // Rebuild turn queue (base SPD only; effect speed mods do not reorder)
     let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+
+    // Apply immediate auto-resurrection for any Hades son (Death Keeper holder) who just died
+    for (const member of [...teamAMembers, ...teamBMembers]) {
+      if (member.currentHp <= 0) {
+        applyImmediateResurrection(member.characterId, room, latestEffects, updates, battle);
+      }
+    }
+    
+    // Rebuild team member lists after resurrection
+    teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+    teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
     // ── Spring (Ephemeral Season): ตีก่อนค่อยฮีล — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
     const springCasterId = (battle as { springCasterId?: string }).springCasterId;

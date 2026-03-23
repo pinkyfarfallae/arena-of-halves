@@ -55,6 +55,7 @@ import {
   advanceAfterFloralHealSkippedAck,
   advanceAfterSoulDevourerHealSkippedAck,
   advanceAfterPomegranateCoSkippedAck,
+  advanceAfterRapidFireSkippedAck,
   advanceAfterSpringHealSkippedAck,
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
@@ -788,6 +789,29 @@ function Arena(props?: ArenaDemoProps) {
     npcCharacterIdSet,
   ]);
 
+  /* PvE: auto-ack Rapid Fire skipped (NPC is attacker) */
+  useEffect(() => {
+    if (!room?.testMode || room.devPlayAllFightersSelf) return;
+    if (room.status !== ROOM_STATUS.BATTLING || !arenaId) return;
+    if (npcCharacterIdSet.size === 0) return;
+    const turn = room.battle?.turn;
+    if (!turn) return;
+    if ((turn.phase !== PHASE.RESOLVING && turn.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT)) return;
+    if (!(turn as { rapidFireSkippedAwaitsAck?: boolean }).rapidFireSkippedAwaitsAck) return;
+    if (!turn.attackerId || !npcCharacterIdSet.has(String(turn.attackerId).toLowerCase())) return;
+    const timer = window.setTimeout(() => {
+      advanceAfterRapidFireSkippedAck(arenaId).catch(() => { });
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [
+    room?.testMode,
+    room?.devPlayAllFightersSelf,
+    room?.status,
+    room?.battle?.turn,
+    arenaId,
+    npcCharacterIdSet,
+  ]);
+
   /* PvE: auto-advance to Pomegranate co-attack phase (NPC is attacker with Oath) */
   useEffect(() => {
     if (!room?.testMode || room.devPlayAllFightersSelf) return;
@@ -802,6 +826,7 @@ function Arena(props?: ArenaDemoProps) {
     // Check if attacker is NPC
     if (!turn.attackerId || !npcCharacterIdSet.has(String(turn.attackerId).toLowerCase())) return;
     // Auto-advance to co-attack phase after main damage card would have been shown
+    // Note: advanceToPomegranateCoAttackPhase will check if defender is dead and skip co-attack if needed
     const timer = window.setTimeout(() => {
       advanceToPomegranateCoAttackPhase(arenaId).catch(() => { });
     }, 2500);
@@ -843,6 +868,11 @@ function Arena(props?: ArenaDemoProps) {
   const handlePomegranateCoSkippedAck = useCallback(async () => {
     if (!arenaId) return;
     await advanceAfterPomegranateCoSkippedAck(arenaId);
+  }, [arenaId]);
+
+  const handleRapidFireSkippedAck = useCallback(async () => {
+    if (!arenaId) return;
+    await advanceAfterRapidFireSkippedAck(arenaId);
   }, [arenaId]);
 
   const handleSpringHealSkippedAck = useCallback(async () => {
@@ -1457,6 +1487,7 @@ function Arena(props?: ArenaDemoProps) {
             onHealSkippedAck={handleHealSkippedAck}
             onSoulDevourerHealSkippedAck={handleSoulDevourerHealSkippedAck}
             onPomegranateCoSkippedAck={handlePomegranateCoSkippedAck}
+            onRapidFireSkippedAck={handleRapidFireSkippedAck}
             onSpringHealSkippedAck={handleSpringHealSkippedAck}
             initialShowPowers={returnFromSeason || returnFromTargetCancel}
             onSubmitAttackRoll={handleSubmitAttackRoll}
