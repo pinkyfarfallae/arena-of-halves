@@ -594,8 +594,8 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(isFragranceWaved), floralFragranceHeal ?? 0, floralLogKey ?? '', floralFragranceDelayMs ?? 0, suppressSpringHealVfx]);
 
-  // When healing has ended (result card hidden or not shown) and this chip is the Floral heal target, hide the wave immediately
-  const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true);
+  // When healing hasn't started yet and result card is hidden/not shown, cancel the pending wave (e.g., user went back). Don't interrupt an already-running wave — let it complete its 3s duration.
+  const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true && !showFragranceWave);
   useEffect(() => {
     if (!hideFragranceAfterHeal) return;
     setShowFragranceWave(false);
