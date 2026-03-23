@@ -46,7 +46,7 @@ export const POWER_DISABLE_REASONS: Record<string, Record<string, string>> = {
   },
   [POWER_NAMES.EPHEMERAL_SEASON]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
-    ALL_HEALING_NULLIFIED_SPRING_INFO: 'หากเลือก "ฤดูใบไม้ผลิ" ขณะนี้ทุกคนในทีมถูกคำสาป "สูญสิ้นเยียวยา" การฟื้นฟู HP จากฤดูใบไม้ผลิจะไม่มีผล',
+    ALL_HEALING_NULLIFIED_SPRING_INFO: 'หากเลือก "สารทฤดู" ขณะนี้ทุกคนในทีมถูกคำสาป "สูญสิ้นเยียวยา" การฟื้นฟู HP จากสารทฤดูจะไม่มีผล',
   },
   [POWER_NAMES.POMEGRANATES_OATH]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
@@ -156,7 +156,7 @@ export function getDisabledPowersAndReasons(params: GetDisabledPowersParams): Di
       infoReasons[POWER_NAMES.FLORAL_FRAGRANCE] =
         POWER_DISABLE_REASONS[POWER_NAMES.FLORAL_FRAGRANCE]?.ALL_HEALING_NULLIFIED_INFO ?? 'ขณะนี้ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จะไม่มีผล';
       infoReasons[POWER_NAMES.EPHEMERAL_SEASON] =
-        POWER_DISABLE_REASONS[POWER_NAMES.EPHEMERAL_SEASON]?.ALL_HEALING_NULLIFIED_SPRING_INFO ?? 'หากเลือกฤดูใบไม้ผลิ แต่ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จากฤดูใบไม้ผลิจะไม่มีผล';
+        POWER_DISABLE_REASONS[POWER_NAMES.EPHEMERAL_SEASON]?.ALL_HEALING_NULLIFIED_SPRING_INFO ?? 'หากเลือก "สารทฤดู" แต่ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จากสารทฤดูจะไม่มีผล';
     }
   }
 
