@@ -113,8 +113,19 @@ export const ARENA_PATH = {
   BATTLE_SPRING_HEAL_ROLL_ACTIVE: 'battle/springHealRollActive',
 } as const;
 
-/** Build team path for Firebase (e.g. teamPath(BATTLE_TEAM.A, 'members') => 'teamA/members'). */
-export function teamPath(team: BattleTeamKey, suffix: 'members' | 'maxSize' | 'minions'): string {
+/**
+ * Team sub-paths for Firebase (used with teamPath()).
+ */
+export const TEAM_SUB_PATH = {
+  MEMBERS: 'members',
+  MAX_SIZE: 'maxSize',
+  MINIONS: 'minions',
+} as const;
+
+export type TeamSubPath = (typeof TEAM_SUB_PATH)[keyof typeof TEAM_SUB_PATH];
+
+/** Build team path for Firebase (e.g. teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS) => 'teamA/members'). */
+export function teamPath(team: BattleTeamKey, suffix: TeamSubPath): string {
   return `${team}/${suffix}`;
 }
 
