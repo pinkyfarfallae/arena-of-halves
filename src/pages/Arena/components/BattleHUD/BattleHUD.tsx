@@ -1834,7 +1834,8 @@ export default function BattleHUD({
     pomMainMasterDamageCardDoneKey === `${battle.roundNumber}|${battle.currentTurnIndex}`;
   /** Suppress main (master) resolve strip once the main hit is done; only the co strip + dice reflect the follow-up strike. */
   const pomCoSuppressMainResolveBar =
-    !!pomegranateCoResolve || pomCoLogPlaybackPending || pomMasterMainHitDismissedThisCombat;
+    !!pomegranateCoResolve || pomCoLogPlaybackPending || pomMasterMainHitDismissedThisCombat || 
+    (awaitingPomegranateCoAttack && (turn.coAttackRoll ?? 0) > 0);
   /** During co dice/resolving, HUD names the co-caster as the active roller (same UX as who is rolling attack). */
   const pomCoShowCoAsActiveAttacker =
     pomMasterMainHitDismissedThisCombat &&
@@ -1870,13 +1871,17 @@ export default function BattleHUD({
     const dgd = dodgeRef.current.isDodged;
     const stableIsCrit = critReady && turn.isCrit != null ? turn.isCrit : cdr.isCrit;
     const stableCritRoll = critReady && turn.critRoll != null ? turn.critRoll : cdr.critRoll;
+    // Use stable critEligible: check turn.critWinFaces (set before critReady) or turn.isCrit (after complete)
+    // This prevents jitter from critEligible state changes during animation
+    const hasCritCheck = !dgd && (turn.critWinFaces?.length ?? 0) > 0;
+    const stableCritEligible = hasCritCheck || (critReady && (stableCritRoll > 0 || turn.isCrit != null));
     let damage = baseDmg;
     if (stableIsCrit) damage *= 2;
     const displayDmg = !coHit || dgd ? 0 : damage;
     const critBuffForLabel = getStatModifier(ae, casterId, MOD_STAT.CRITICAL_RATE);
     const effectiveCritForLabel = Math.max(caster.criticalRate ?? 0, (caster.criticalRate ?? 0) + critBuffForLabel);
     const critRollLabel =
-      !dgd && critEligible
+      stableCritEligible
         ? (effectiveCritForLabel >= 100 ? 'D4: auto' : (stableCritRoll > 0 ? `D4: ${stableCritRoll}` : 'D4: -'))
         : undefined;
     const attackerIsTeamA = !!(teamA || []).some((f) => f.characterId === casterId);
@@ -1894,7 +1899,7 @@ export default function BattleHUD({
       shockBonus: 0,
       isPower: true,
       powerName: powerLabel,
-      critEligible: !dgd && critEligible,
+      critEligible: stableCritEligible,
       isCrit: stableIsCrit,
       critRoll: stableCritRoll,
       critRollLabel,
@@ -1918,7 +1923,7 @@ export default function BattleHUD({
     awaitingPomegranateCoAttack &&
     atkRollDone &&
     defRollDone &&
-    critReady;
+    (critReady || (turn.critWinFaces?.length ?? 0) > 0 || turn.isCrit != null || (turn.critRoll ?? 0) > 0);
 
   /** Keep resolve/hit chrome “on” during co nested dice while the strip is intentionally hidden. */
   const pomCoResolveChromeDuringCoDice =
@@ -1928,7 +1933,7 @@ export default function BattleHUD({
     (turn.coDefendRoll ?? 0) >= 1 &&
     pomMasterMainHitDismissedThisCombat &&
     !pomegranateCoResolve &&
-    (!atkRollDone || !defRollDone || !critReady);
+    (!atkRollDone || !defRollDone || (!critReady && (turn.critWinFaces?.length ?? 0) === 0 && turn.isCrit == null && (turn.critRoll ?? 0) === 0));
 
   const pomCoResolveBarRow =
     pomegranateCoResolve ?? (showPomCoPreApplyStrip ? pomCoTurnResolvePreviewRow : null);
