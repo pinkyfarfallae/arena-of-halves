@@ -3918,7 +3918,7 @@ export default function BattleHUD({
       })()}
 
       {/* Soul Devourer: heal skipped — block skeleton resolve until heal receiver (caster) clicks Roger that. Others see waiting. */}
-      {soulDevourerHealSkipAwaitsAck && (
+      {soulDevourerHealSkipAwaitsAck && !winner && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
           <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
             <span className="bhud__dice-label">Heal skipped</span>
@@ -3945,7 +3945,7 @@ export default function BattleHUD({
       )}
 
       {/* Pomegranate's Oath: main hit eliminated target — co-attack skipped; oath caster acknowledges */}
-      {pomegranateCoSkippedAwaitsAck && (() => {
+      {pomegranateCoSkippedAwaitsAck && !winner && (() => {
         const pomCo = pomCoCasterFighter;
         const pomPrimary = pomCo?.theme?.[0] ?? attacker?.theme?.[0] ?? '#8b2942';
         const pomDark = pomCo?.theme?.[18] ?? attacker?.theme?.[18] ?? '#3d0f18';
@@ -3958,7 +3958,6 @@ export default function BattleHUD({
               <span className="bhud__dice-label">Co-attack skipped</span>
               <p className="bhud__no-target-reason">
                 The defender was eliminated by your ally&apos;s strike.
-                <br />
                 Pomegranate&apos;s Oath co-attack does not resolve.
               </p>
               {isMyPomegranateCoAttack ? (
@@ -3982,7 +3981,7 @@ export default function BattleHUD({
       })()}
 
       {/* Rapid Fire: extra shots were skipped because defender was eliminated */}
-      {rapidFireSkippedAwaitsAck && (() => {
+      {rapidFireSkippedAwaitsAck && !winner && (() => {
         const atkPrimary = attacker?.theme?.[0] ?? '#8b2942';
         const atkDark = attacker?.theme?.[18] ?? '#3d0f18';
         return (
