@@ -987,6 +987,9 @@ export default function BattleHUD({
     if ((turn as any).soulDevourerDrain) return;
     if (turn.action === TURN_ACTION.POWER && !turn.attackRoll) return;
     const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+    // If awaiting Pomegranate co-attack, don't run defender fallback during main resolve
+    // The phase will advance to co-attack and handle defense there
+    if (awaitingPom && turn.coDefendRoll == null) return;
     if (awaitingPom && turn.coDefendRoll != null) return;
 
     // Use a key to ensure we only schedule once per turn

@@ -788,6 +788,33 @@ function Arena(props?: ArenaDemoProps) {
     npcCharacterIdSet,
   ]);
 
+  /* PvE: auto-advance to Pomegranate co-attack phase (NPC is attacker with Oath) */
+  useEffect(() => {
+    if (!room?.testMode || room.devPlayAllFightersSelf) return;
+    if (room.status !== ROOM_STATUS.BATTLING || !arenaId) return;
+    if (npcCharacterIdSet.size === 0) return;
+    const turn = room.battle?.turn;
+    if (!turn || turn.phase !== PHASE.RESOLVING) return;
+    const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
+    if (!awaitingPom) return;
+    // Check if co-attack already happened or is in progress
+    if (turn.coAttackRoll != null && turn.coAttackRoll > 0) return;
+    // Check if attacker is NPC
+    if (!turn.attackerId || !npcCharacterIdSet.has(String(turn.attackerId).toLowerCase())) return;
+    // Auto-advance to co-attack phase after main damage card would have been shown
+    const timer = window.setTimeout(() => {
+      advanceToPomegranateCoAttackPhase(arenaId).catch(() => { });
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [
+    room?.testMode,
+    room?.devPlayAllFightersSelf,
+    room?.status,
+    room?.battle?.turn,
+    arenaId,
+    npcCharacterIdSet,
+  ]);
+
   /* ── Leave viewer on unmount ────────────────── */
   useEffect(() => {
     return () => {

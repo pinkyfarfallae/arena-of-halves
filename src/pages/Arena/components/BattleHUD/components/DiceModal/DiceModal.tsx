@@ -228,7 +228,9 @@ export default function DiceModal({
     !embodyDefenderForDefReplay &&
     !(turn as any).soulDevourerDrain &&
     !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) &&
-    !(pomCoFlowActive && turn.coDefendRoll != null);
+    !(pomCoFlowActive && turn.coDefendRoll != null) &&
+    // Don't show main defend dice during main attack RESOLVING when awaiting Pomegranate co-attack
+    !(awaitingPom && turn.coDefendRoll == null);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn || iAmCoAttacker;
   const turnAction = turn.action;
   const turnAttackRoll = turn.attackRoll;
@@ -370,7 +372,9 @@ export default function DiceModal({
     (isMyDefend && wasRollingDefendAsMeRef.current);
   const defendReplayEmbody = isMyDefend || embodyDefenderForDefReplay || embodyDefenderForPomCoDefReplay;
   const showMyDefendReplay =
-    phase === PHASE.RESOLVING && !defRollDone && defendReplayEmbody && hasDefendResultForReplay;
+    phase === PHASE.RESOLVING && !defRollDone && defendReplayEmbody && hasDefendResultForReplay &&
+    // Don't show main defend replay during main attack RESOLVING when awaiting Pomegranate co-attack
+    !(awaitingPom && turn.coDefendRoll == null);
 
   /** Pomegranate co-defend: same defender as main strike; separate from main defendRoll — fixedResult for defender (incl. embody). */
   const showPomCoMyDefDice =
@@ -579,7 +583,7 @@ export default function DiceModal({
       )}
 
       {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). Only show for the actual defender, not during shock application to other team members. ── */}
-      {phase === PHASE.RESOLVING && !hideResolvingDefenseDiceForShockApply && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(pomCoFlowActive && turn.coDefendRoll != null) && defender?.characterId === turn.defenderId && (
+      {phase === PHASE.RESOLVING && !hideResolvingDefenseDiceForShockApply && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(pomCoFlowActive && turn.coDefendRoll != null) && !(awaitingPom && turn.coDefendRoll == null) && defender?.characterId === turn.defenderId && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
