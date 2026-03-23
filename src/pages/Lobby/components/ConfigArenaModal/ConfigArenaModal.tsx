@@ -102,17 +102,25 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
   const handleCopy = async (type: CopyType) => {
     const text = type === COPY_TYPE.CODE ? arenaId : viewerLink;
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('clipboard api unavailable');
+      }
     } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {
+        return;
+      }
     }
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);

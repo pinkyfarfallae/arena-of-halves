@@ -172,6 +172,17 @@ export interface TurnState {
   coAttackRoll?: number;
   /** Defender's roll for the co-attack hit line only (main turn still uses defendRoll). */
   coDefendRoll?: number;
+  /**
+   * Who rolls the co-attack D12 (oath ally). Same as {@link coAttackerId} when set; explicit id so HUD/log can ignore
+   * `attackerId` (spirit bearer) during co phases.
+   */
+  pomCoAttackerId?: string;
+  /**
+   * Who rolls co-defend D12 — always the struck target for this turn (mirrors `defenderId` for the co line).
+   * Stored explicitly so co strike roles are not inferred from main turn alone.
+   */
+  pomCoDefenderId?: string;
+  /** Same as `pomCoAttackerId` when both written; older rooms may only have this field. */
   coAttackerId?: string;
   coAttackHit?: boolean;
   coAttackDamage?: number;
@@ -233,6 +244,8 @@ export interface TurnState {
 
   /** Main hit committed; waiting for Pomegranate co-attack D12 (ally spirit only; self-target oath has no co-attack) */
   awaitingPomegranateCoAttack?: boolean;
+  /** Main hit eliminated defender — co-attack skipped; oath caster must Roger that before skeleton / turn advance */
+  pomegranateCoSkippedAwaitsAck?: boolean;
   /** Snapshot for continuing resolve after deferred co-attack (same turn) */
   pomegranateDeferredCtx?: {
     hit: boolean;
@@ -322,6 +335,8 @@ export interface BattleState {
   winner?: BattleTeamKey;
   /** Timestamp when winner will be set after delay (so hit effects can play before end arena) */
   winnerDelayedAt?: number;
+  /** Set true briefly after Beyond the Nimbus resolves so clients delay turn advance for team shock VFX; cleared with next update. */
+  beyondNimbusShockApplied?: boolean | null;
   /** Ephemeral Season Spring: attack first then heal; heal1 per ally in turn order, then caster gets heal1 and we roll heal2, then caster gets heal2 and end */
   springCasterId?: string;
   springHeal1?: number;
