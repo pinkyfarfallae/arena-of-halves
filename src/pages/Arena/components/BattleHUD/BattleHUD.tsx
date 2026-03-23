@@ -4409,6 +4409,7 @@ export default function BattleHUD({
         !playbackPendingAck &&
         !showResurrecting &&
         showMasterDamageCard &&
+        !pomegranateCoResolve &&
         turn?.phase === PHASE.RESOLVING &&
         masterDamageCardTurnKeyRef.current === masterDamageCardKey &&
         (() => {
