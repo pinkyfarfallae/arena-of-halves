@@ -202,7 +202,7 @@ function Arena(props?: ArenaDemoProps) {
         if (cancelled) return;
         setNpcCharacterIdSet(new Set(npcs.map((n) => n.characterId.toLowerCase())));
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
