@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CAMP_LOCATIONS } from '../../data/campLocations';
+import { useTranslation } from '../../hooks/useTranslation';
 import LocationPin from './components/LocationPin/LocationPin';
 import MapDecorations from './components/MapDecorations/MapDecorations';
 import SearchIcon from '../../icons/Search';
@@ -8,6 +9,7 @@ import './LifeInCamp.scss';
 
 /* ── Main Page ── */
 function LifeInCamp() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,7 @@ function LifeInCamp() {
             ref={searchRef}
             className="life__search"
             type="text"
-            placeholder="Search locations"
+            placeholder={t('SEARCH_LOCATIONS')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

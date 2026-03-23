@@ -89,7 +89,7 @@
   display: inline-block;
   padding: 0.75rem 1.75rem;
   border-radius: 8px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
@@ -137,7 +137,7 @@
     white-space: pre;
     pointer-events: none;
     opacity: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.58rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -251,6 +251,7 @@
   outline: none;
   user-select: none;
   scrollbar-width: thin;
+  font-family: Inter, 'Noto Sans Thai', sans-serif;
   -webkit-tap-highlight-color: transparent;
 
   &::-webkit-scrollbar {

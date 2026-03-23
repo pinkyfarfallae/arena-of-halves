@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { LanguageProvider } from './contexts/LanguageContext';
 import Login from './pages/Login/Login';
 import Navbar from './components/Navbar/Navbar';
 import CharacterInfo from './pages/CharacterInfo/CharacterInfo';
@@ -109,11 +110,13 @@ function AppShell() {
 
 function App() {
   return (
-    <AuthProvider>
-      <HashRouter>
-        <AppShell />
-      </HashRouter>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <HashRouter>
+          <AppShell />
+        </HashRouter>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

@@ -23,11 +23,15 @@ import { DEITY_SVG, toDeityKey } from '../../../../../data/deities';
 import MinionPopupPanel from './components/MinionPopupPanel/MinionPopupPanel';
 import FighterPopupPanel from './components/FighterPopupPanel/FighterPopupPanel';
 import { EFFECT_TAGS } from '../../../../../constants/effectTags';
+import { useTranslation } from '../../../../../hooks/useTranslation';
+import { getEffectName } from '../../../../../constants/translations';
+import { TARGET_TYPES } from '../../../../../constants/effectTypes';
 import { CHARACTER } from '../../../../../constants/characters';
 import { POWER_NAMES } from '../../../../../constants/powers';
 import { getImprecatedPoemCurse } from '../../../../../data/imprecatedPoemCurse';
 
 import './MemberChip.scss';
+
 
 const PATTERN_ROWS = 23;
 const ICONS_PER_ROW = 30;
@@ -42,19 +46,31 @@ export interface EffectPip {
   /** Optional display name in tooltip (e.g. "Jolt Arc Deceleration" for Jolt Arc speed debuff) */
   displayName?: string;
   sourceName: string;
+  sourceNameTh?: string;
   /** Deity of the source (e.g. "Zeus") — used for DEITY_POWERS lookup; if missing, shocked check falls back to sourceName */
   sourceDeity?: string;
   sourceTheme: [string, string];
   turnsLeft: number;
   /** Number of stacked instances of this same power from the same source */
   count: number;
+  /** Effect tag for translation lookup */
+  tag?: string;
 }
 
 /** Hover tooltip for effect pips — positioned via portal above all stacking contexts */
 function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
+  const { t, lang } = useTranslation();
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const showStacks = pip.count > 1 && !NO_STACK_POWER_NAMES.has(pip.powerName);
+
+  // Translate effect name if tag is available
+  const effectName = pip.tag ? getEffectName(pip.tag, lang) : (pip.displayName ?? pip.powerName);
+  
+  // Use Thai nickname if available and language is Thai
+  const displaySourceName = pip.sourceName === TARGET_TYPES.SELF 
+    ? t('SELF')
+    : (lang === 'th' && pip.sourceNameTh ? pip.sourceNameTh : pip.sourceName);
 
   useEffect(() => {
     const el = tipRef.current;
@@ -82,11 +98,11 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
         '--pip-c2': pip.sourceTheme[1],
       } as React.CSSProperties}
     >
-      <span className="mchip__pip-tooltip-name">{pip.displayName ?? pip.powerName}</span>
-      <span className="mchip__pip-tooltip-source">by {pip.sourceName}</span>
+      <span className="mchip__pip-tooltip-name">{effectName}</span>
+      <span className="mchip__pip-tooltip-source">{t('BY')} {displaySourceName}</span>
       <div className="mchip__pip-tooltip-meta">
-        {showStacks && <span className="mchip__pip-tooltip-stacks">{pip.count} stacks</span>}
-        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 99 ? 'conditional' : `${pip.turnsLeft} round${pip.turnsLeft > 1 ? 's' : ''}`}</span>
+        {showStacks && <span className="mchip__pip-tooltip-stacks">{pip.count} {t('STACKS')}</span>}
+        <span className="mchip__pip-tooltip-turns">{pip.turnsLeft >= 99 ? t('CONDITIONAL') : `${pip.turnsLeft} ${pip.turnsLeft > 1 ? t('ROUNDS') : t('ROUND')}`}</span>
       </div>
     </div>,
     document.body,

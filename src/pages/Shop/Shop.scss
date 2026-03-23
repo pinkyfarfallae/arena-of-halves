@@ -68,7 +68,7 @@ $ink-faint: #a08a74;
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   color: $ink-faint;
@@ -149,7 +149,7 @@ $ink-faint: #a08a74;
 }
 
 .shop__bar-unit {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.48rem;
   font-weight: 600;
   color: $ink-faint;
@@ -190,7 +190,7 @@ $ink-faint: #a08a74;
   right: -5px;
   background: $accent;
   color: #fff;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.48rem;
   font-weight: 700;
   width: 15px;
@@ -297,7 +297,7 @@ $ink-faint: #a08a74;
     background: none;
     border: none;
     outline: none;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.8rem;
     color: $ink;
     min-width: 0;
@@ -341,7 +341,7 @@ $ink-faint: #a08a74;
   svg { width: 40px; height: 40px; }
 
   p {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
     font-size: 0.82rem;
     margin: 0;
   }
@@ -623,7 +623,7 @@ $ink-faint: #a08a74;
 }
 
 .item__name {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   color: $ink;
@@ -679,7 +679,7 @@ $ink-faint: #a08a74;
   border: 1.5px solid rgba($accent, 0.35);
   border-radius: 3px;
   padding: 0.15rem 0.2rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.44rem;
   font-weight: 700;
   cursor: pointer;
@@ -920,7 +920,7 @@ $ink-faint: #a08a74;
 }
 
 .cart__empty {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   color: $ink-faint;
   text-align: center;
@@ -961,7 +961,7 @@ $ink-faint: #a08a74;
 
 .cart__item-name {
   display: block;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.62rem;
   font-weight: 600;
   color: $ink;
@@ -1059,7 +1059,7 @@ $ink-faint: #a08a74;
   background: transparent;
   border: 1px dashed rgba($wood-frame, 0.15);
   border-radius: 5px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.58rem;
   font-weight: 600;
   color: $ink-faint;
@@ -1091,7 +1091,7 @@ $ink-faint: #a08a74;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 0.5rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.6rem;
   font-weight: 500;
   color: $ink-faint;
@@ -1133,7 +1133,7 @@ $ink-faint: #a08a74;
   border: none;
   border-radius: 6px;
   padding: 0.5rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.65rem;
   font-weight: 700;
   cursor: pointer;
