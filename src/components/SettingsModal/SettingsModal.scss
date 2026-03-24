@@ -2,13 +2,18 @@
 
 .settings-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 999;
-  background: color-mix(in srgb, var(--ci-overlay) 60%, transparent);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--ci-overlay) 65%, transparent);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
 }
 
 .settings-modal {
@@ -17,124 +22,167 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1000;
-  width: min(280px, 90vw);
-  max-height: 70vh;
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
-  background:
-    linear-gradient(170deg,
-      color-mix(in srgb, var(--ci-primary) 6%, var(--ci-surface)),
-      var(--ci-surface) 40%,
-      color-mix(in srgb, var(--ci-accent-soft) 4%, var(--ci-surface)));
-  border: 1px solid var(--ci-border);
+  gap: 0.75rem;
+  width: min(300px, 90vw);
+  border-radius: 8px;
+  background: var(--ci-surface);
+  border: 1px solid color-mix(in srgb, var(--ci-border) 85%, transparent);
   box-shadow:
-    0 8px 40px color-mix(in srgb, var(--ci-shadow) 40%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--ci-primary) 8%, transparent);
-  backdrop-filter: blur(12px);
-  padding: 1rem;
+    0 8px 16px -4px color-mix(in srgb, var(--ci-shadow) 15%, transparent),
+    0 16px 32px -8px color-mix(in srgb, var(--ci-shadow) 25%, transparent);
+  padding: 0.85rem;
+  opacity: 0;
+  animation: slideIn 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -47%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .settings-modal__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.8rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--ci-primary) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ci-border) 50%, transparent);
 }
 
 .settings-modal__title {
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: color-mix(in srgb, var(--ci-primary-hover) 85%, var(--ci-dark));
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ci-fg);
   margin: 0;
+  letter-spacing: -0.015em;
 }
 
 .settings-modal__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: none;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--ci-primary) 8%, transparent);
+  border-radius: 6px;
+  background: transparent;
   color: var(--ci-muted);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: color-mix(in srgb, var(--ci-primary) 18%, transparent);
+    background: color-mix(in srgb, var(--ci-fg) 6%, transparent);
     color: var(--ci-fg);
+  }
+
+  &:active {
+    transform: scale(0.93);
   }
 }
 
 .settings-modal__content {
-  flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-modal__section {
-  margin-bottom: 0;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .settings-modal__label {
-  display: block;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.55rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.675rem;
+  font-weight: 500;
   color: var(--ci-muted);
-  margin-bottom: 0.5rem;
+  margin: 0;
+  min-height: 16.5px;
 }
 
-.settings-modal__lang-buttons {
-  display: flex;
+.settings-modal__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
 
-.settings-modal__lang-btn {
+.settings-modal__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-width: 50%;
+  min-height: 32px;
   flex: 1;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid color-mix(in srgb, var(--ci-primary) 15%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ci-primary) 4%, transparent);
-  color: var(--ci-muted);
+  padding: 0.45rem 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--ci-border) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ci-fg) 2%, transparent);
+  color: var(--ci-fg);
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.65rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: color-mix(in srgb, var(--ci-primary) 10%, transparent);
-    border-color: color-mix(in srgb, var(--ci-primary) 25%, transparent);
-    color: var(--ci-fg);
+    background: color-mix(in srgb, var(--ci-fg) 5%, transparent);
+    border-color: color-mix(in srgb, var(--ci-fg) 18%, var(--ci-border));
   }
 
   &--active {
-    background: color-mix(in srgb, var(--ci-primary) 18%, transparent);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ci-primary) 20%, transparent),
+      color-mix(in srgb, var(--ci-primary) 12%, transparent)
+    );
     border-color: var(--ci-primary);
-    color: var(--ci-primary-hover);
-    font-weight: 700;
+    color: var(--ci-primary);
+    font-weight: 600;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--ci-primary) 15%, transparent),
+      0 2px 8px color-mix(in srgb, var(--ci-primary) 25%, transparent),
+      inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
 
     &:hover {
-      background: color-mix(in srgb, var(--ci-primary) 22%, transparent);
+      background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--ci-primary) 28%, transparent),
+        color-mix(in srgb, var(--ci-primary) 18%, transparent)
+      );
       border-color: var(--ci-primary-hover);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--ci-primary) 20%, transparent),
+        0 3px 12px color-mix(in srgb, var(--ci-primary) 35%, transparent),
+        inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
     }
   }
+}
+
+.settings-modal__option-flag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 12px;
+  
+  svg {
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.settings-modal__option-text {
+  line-height: 1;
 }
