@@ -36,8 +36,8 @@ $berry-text-faint: #a08a74;
     radial-gradient(ellipse at 50% 0%, rgba(255, 109, 143, 0.15) 0%, transparent 60%),
     linear-gradient(175deg, $strawberry-cream 0%, #ffe8e8 40%, #ffd8d8 100%);
 
-  @media (max-width: 768px) {
-    height: calc(100vh - 56px);
+  @media (max-width: $bp-medium) {
+    max-height: calc(100vh - $topbar-height);
   }
 }
 
@@ -809,6 +809,7 @@ $berry-text-faint: #a08a74;
   border: 2px solid rgba($strawberry-pink, 0.3);
   border-radius: 8px;
   padding: 1.5rem;
+  margin-top: 1rem;
 
   h2 {
     margin-top: 0;
