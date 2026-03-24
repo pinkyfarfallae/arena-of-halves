@@ -3,13 +3,13 @@
  * Grant spirit form buff to ally for 3 rounds (only one active at a time)
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { EFFECT_TYPES } from '../../../../constants/effectTypes';
-import { makeEffectId } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { EFFECT_TYPES } from '../../../constants/effectTypes';
+import { makeEffectId } from '../powerEngine';
 
 /**
  * Grant "pomegranate-spirit" effect to an ally (or self if no allies alive).

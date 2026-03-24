@@ -4,14 +4,14 @@
  * Summer: +2 attack | Autumn: +2 maxHP & HP | Winter: +2 defense | Spring: heal-over-time
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { EFFECT_TAGS, isSeasonTag } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { EFFECT_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
-import { SEASON_KEYS } from '../../../../data/seasons';
-import { findFighter, findFighterPath, makeEffectId } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { EFFECT_TAGS, isSeasonTag } from '../../../constants/effectTags';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
+import { SEASON_KEYS } from '../../../data/seasons';
+import { findFighter, findFighterPath, makeEffectId } from '../powerEngine';
 
 /**
  * Apply season-based effects to all alive teammates of the attacker.

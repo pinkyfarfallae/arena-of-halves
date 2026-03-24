@@ -2,11 +2,11 @@
  * Zeus - Lightning Spark (Lightning Reflex passive)
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { SKILL_UNLOCK } from '../../../../constants/character';
-import { findFighter } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import { POWER_NAMES, POWER_TYPES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { SKILL_UNLOCK } from '../../../constants/character';
+import { findFighter } from '../powerEngine';
 import { applyShockedEffectToTarget } from './shock';
 
 /**

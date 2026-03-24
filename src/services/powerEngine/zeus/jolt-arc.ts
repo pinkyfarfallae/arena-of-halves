@@ -2,12 +2,12 @@
  * Zeus - Jolt Arc (AoE shock detonation power)
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { EFFECT_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { findFighter, targetHasEfflorescenceMuse, makeEffectId } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { findFighter, targetHasEfflorescenceMuse, makeEffectId } from '../powerEngine';
 
 /**
  * All shocked enemies explode, dealing instant damage (attacker.damage per shock stack).

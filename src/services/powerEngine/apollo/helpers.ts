@@ -2,12 +2,12 @@
  * Apollo - Shared helper utilities (Imprecated Poem + Sunborn Sovereign)
  */
 
-import type { BattleRoom } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { EFFECT_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
-import { findFighter, makeEffectId } from '../../powerEngine';
+import type { BattleRoom } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { POWER_NAMES } from '../../../constants/powers';
+import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
+import { findFighter, makeEffectId } from '../powerEngine';
 
 const SUNBORN_SOVEREIGN_RECOVERY_MAX = 2;
 

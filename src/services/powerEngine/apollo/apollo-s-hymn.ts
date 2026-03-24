@@ -3,18 +3,18 @@
  * Heal chosen ally (2 HP, +1 for Sunborn Sovereign passive), apply +25% crit to caster and target for 2 rounds.
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { EFFECT_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
 import {
   findFighter,
   findFighterPath,
   getEffectiveHealForReceiver,
   makeEffectId,
-} from '../../powerEngine';
+} from '../powerEngine';
 import { addSunbornSovereignRecoveryStack } from './helpers';
 
 /**
