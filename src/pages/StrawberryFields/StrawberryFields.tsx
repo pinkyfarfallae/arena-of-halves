@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
+import { T } from '../../constants/translationKeys';
 import ChevronLeft from '../../icons/ChevronLeft';
+import Strawberry from '../LifeInCamp/components/LocationIcon/icons/Strawberry';
 import './StrawberryFields.scss';
 
 function StrawberryFields() {
@@ -10,28 +12,36 @@ function StrawberryFields() {
 
   return (
     <div className="strawberry-fields">
-      <div className="strawberry-fields__header">
-        <Link to="/life" className="strawberry-fields__back">
-          <ChevronLeft width={20} height={20} />
-          <span>{t('BACK_TO_CAMP')}</span>
+      {/* Compact header */}
+      <header className="strawberry-fields__bar">
+        <Link to="/life" className="strawberry-fields__bar-back">
+          <ChevronLeft />
+          {t(T.CAMP)}
         </Link>
-        <h1 className="strawberry-fields__title">{t('STRAWBERRY_FIELDS')}</h1>
-      </div>
 
-      <div className="strawberry-fields__content">
+        <div className="strawberry-fields__bar-title">
+          <span className="strawberry-fields__bar-icon">
+            <Strawberry />
+          </span>
+          {t(T.STRAWBERRY_FIELDS)}
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="strawberry-fields__body">
         <div className="strawberry-fields__intro">
-          <p>{t('STRAWBERRY_FIELDS_DESCRIPTION')}</p>
+          <p>{t(T.STRAWBERRY_FIELDS_DESCRIPTION)}</p>
         </div>
 
         <div className="strawberry-fields__form">
-          <h2>{t('REPORT_HARVEST')}</h2>
+          <h2>{t(T.REPORT_HARVEST)}</h2>
           {/* Form content will go here */}
         </div>
 
         <div className="strawberry-fields__list">
-          <h2>{t('RECENT_HARVESTS')}</h2>
+          <h2>{t(T.RECENT_HARVESTS)}</h2>
           {harvests.length === 0 ? (
-            <p className="strawberry-fields__empty">{t('NO_HARVESTS_YET')}</p>
+            <p className="strawberry-fields__empty">{t(T.NO_HARVESTS_YET)}</p>
           ) : (
             <ul>
               {harvests.map((harvest, index) => (

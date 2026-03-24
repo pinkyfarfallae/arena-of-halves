@@ -1,7 +1,8 @@
-export default function Strawberry() {
-  const props = { viewBox: '0 0 32 32', fill: 'none', stroke: 'currentColor', strokeWidth: '1', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+import type { SVGProps } from 'react';
+
+export default function Strawberry(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg {...props}>
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M16 8c-4 0-8 4-8 10s4 8 8 8 8-2 8-8-4-10-8-10z" fill="currentColor" opacity="0.25" />
       <path d="M16 10c-3 0-6 3-6 8s3 6 6 6 6-1.5 6-6-3-8-6-8z" fill="currentColor" opacity="0.12" />
       <path d="M16 8c-4 0-8 4-8 10s4 8 8 8 8-2 8-8-4-10-8-10z" strokeWidth="0.8" />
