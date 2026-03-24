@@ -155,8 +155,8 @@ export const UI_TEXT = {
     th: 'นักเก็บเกี่ยวชั้นนำ' 
   },
   HARVEST_RULES: { 
-    en: 'Harvest Conditions and Rewards', 
-    th: 'เงื่อนไขการเก็บเกี่ยวและค่าตอบแทน' 
+    en: 'Harvest Conditions\nand Rewards', 
+    th: 'เงื่อนไขการเก็บเกี่ยว\nและค่าตอบแทน' 
   },
   BACK_TO_CAMP: { 
     en: 'Back to Camp', 

@@ -122,19 +122,29 @@ $berry-text-faint: #a08a74;
   border-radius: 50%;
   color: $strawberry-red;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
   flex-shrink: 0;
   padding: 0;
 
   svg {
     width: 18px;
     height: 18px;
+    transition: transform 0.2s ease;
   }
 
   &:hover {
-    background: rgba($strawberry-red, 0.2);
-    border-color: rgba($strawberry-red, 0.3);
-    transform: scale(1.05);
+    background: rgba($strawberry-red, 0.25);
+    border-color: rgba($strawberry-red, 0.4);
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba($strawberry-red, 0.2);
+    
+    svg {
+      transform: scale(1.1);
+    }
+  }
+
+  &:active {
+    transform: scale(1);
   }
 
   @media (max-width: 480px) {
