@@ -31,6 +31,7 @@ import { POWER_NAMES } from '../../../../../constants/powers';
 import { getImprecatedPoemCurse } from '../../../../../data/imprecatedPoemCurse';
 
 import './MemberChip.scss';
+import { LANGUAGE } from '../../../../../constants/language';
 
 
 const PATTERN_ROWS = 23;
@@ -70,7 +71,7 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
   // Use Thai nickname if available and language is Thai
   const displaySourceName = pip.sourceName === TARGET_TYPES.SELF 
     ? t('SELF')
-    : (lang === 'th' && pip.sourceNameTh ? pip.sourceNameTh : pip.sourceName);
+    : (lang === LANGUAGE.THAI && pip.sourceNameTh ? pip.sourceNameTh : pip.sourceName);
 
   useEffect(() => {
     const el = tipRef.current;
