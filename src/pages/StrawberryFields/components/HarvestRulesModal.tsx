@@ -53,7 +53,7 @@ function HarvestRulesModal({ onClose }: HarvestRulesModalProps) {
               10
               <Drachma className="harvest-rules-modal__drachma-icon" />
             </span>
-            ต่อเมนชัน
+            ต่อ 200 ตัวอักษร
           </div>
 
           {/* Section 1 */}

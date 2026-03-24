@@ -584,6 +584,11 @@ $berry-text-soft: #7d6e63;
   overflow: visible;
   z-index: 99;
 
+  * {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
   // Left arrow - rotated square
   &::before {
     content: '';
@@ -650,10 +655,10 @@ $berry-text-soft: #7d6e63;
 
   @media (max-width: 768px) {
     padding: 0.65rem 1rem;
-    font-size: 0.84rem;
+    font-size: 0.75rem;
 
     span {
-      font-size: 0.95rem;
+      font-size: 0.8rem;
     }
   }
 }
