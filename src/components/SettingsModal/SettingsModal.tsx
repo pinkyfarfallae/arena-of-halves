@@ -2,6 +2,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { LANGUAGE } from '../../constants/language';
 import CloseIcon from '../../icons/Close';
+import FlagGB from './icons/FlagGB';
+import FlagTH from './icons/FlagTH';
 import './SettingsModal.scss';
 
 interface SettingsModalProps {
@@ -18,25 +20,31 @@ function SettingsModal({ onClose }: SettingsModalProps) {
       <div className="settings-modal">
         <div className="settings-modal__header">
           <h3 className="settings-modal__title">{t('SETTINGS')}</h3>
-          <button className="settings-modal__close" onClick={onClose} data-tooltip={t('CLOSE')} data-tooltip-pos="left">
-            <CloseIcon width="12" height="12" />
+          <button className="settings-modal__close" onClick={onClose}>
+            <CloseIcon width="15" height="15" />
           </button>
         </div>
         <div className="settings-modal__content">
           <div className="settings-modal__section">
             <label className="settings-modal__label">{t('LANGUAGE')}</label>
-            <div className="settings-modal__lang-buttons">
+            <div className="settings-modal__options">
               <button
-                className={`settings-modal__lang-btn ${language === LANGUAGE.ENGLISH ? 'settings-modal__lang-btn--active' : ''}`}
+                className={`settings-modal__option ${language === LANGUAGE.ENGLISH ? 'settings-modal__option--active' : ''}`}
                 onClick={() => setLanguage(LANGUAGE.ENGLISH)}
               >
-                English
+                <span className="settings-modal__option-flag">
+                  <FlagGB />
+                </span>
+                <span className="settings-modal__option-text">English</span>
               </button>
               <button
-                className={`settings-modal__lang-btn ${language === LANGUAGE.THAI ? 'settings-modal__lang-btn--active' : ''}`}
+                className={`settings-modal__option ${language === LANGUAGE.THAI ? 'settings-modal__option--active' : ''}`}
                 onClick={() => setLanguage(LANGUAGE.THAI)}
               >
-                ไทย
+                <span className="settings-modal__option-flag">
+                  <FlagTH />
+                </span>
+                <span className="settings-modal__option-text">ภาษาไทย</span>
               </button>
             </div>
           </div>
