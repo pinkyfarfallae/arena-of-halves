@@ -146,6 +146,18 @@ export const UI_TEXT = {
     en: 'No harvests reported yet.', 
     th: 'ยังไม่มีรายงานการเก็บเกี่ยว' 
   },
+  HARVEST_RECORD_BOOK: { 
+    en: 'Harvest Record Book', 
+    th: 'สมุดบันทึกการเก็บเกี่ยว' 
+  },
+  TOP_HARVESTOR: { 
+    en: 'Top Harvestor', 
+    th: 'นักเก็บเกี่ยวชั้นนำ' 
+  },
+  HARVEST_RULES: { 
+    en: 'Harvest Conditions and Rewards', 
+    th: 'เงื่อนไขการเก็บเกี่ยวและค่าตอบแทน' 
+  },
   BACK_TO_CAMP: { 
     en: 'Back to Camp', 
     th: 'กลับไปที่แคมป์' 
