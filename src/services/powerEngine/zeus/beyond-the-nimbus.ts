@@ -2,10 +2,10 @@
  * Zeus - Beyond the Nimbus (team-wide shock buff)
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { BATTLE_TEAM, ARENA_PATH } from '../../../../constants/battle';
-import { findFighterTeam } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import { POWER_NAMES } from '../../../constants/powers';
+import { BATTLE_TEAM, ARENA_PATH } from '../../../constants/battle';
+import { findFighterTeam } from '../powerEngine';
 import { applyShockedEffectToTarget } from './shock';
 
 /**

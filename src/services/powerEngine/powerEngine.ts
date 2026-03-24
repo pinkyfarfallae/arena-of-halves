@@ -7,7 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../../constants/powers';
 import { SKILL_UNLOCK } from '../../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
-import { isHealingNullified, addSunbornSovereignRecoveryStack } from './services/apollo/helpers';
+import { isHealingNullified, addSunbornSovereignRecoveryStack } from './apollo/helpers';
 
 // Zeus deity services
 export {
@@ -19,7 +19,7 @@ export {
   applyKeraunosVoltageShock,
   applyKeraunosVoltageShockSingleTarget,
   type ApplyShockedEffectOptions,
-} from './services/zeus/zeus';
+} from './zeus/zeus';
 
 // Apollo deity services
 export {
@@ -27,10 +27,10 @@ export {
   applyImprecatedPoem,
   isHealingNullified,
   addSunbornSovereignRecoveryStack,
-} from './services/apollo/apollo';
+} from './apollo/apollo';
 
 // Hades deity services
-export { } from './services/hades/hades';
+export { } from './hades/hades';
 
 // Persephone deity services
 export {
@@ -39,7 +39,7 @@ export {
   applyFloralFragranced,
   applySeasonEffects,
   applyPomegranateOath,
-} from './services/persephone/persephone';
+} from './persephone/persephone';
 
 /* ── helpers ─────────────────────────────────────────── */
 

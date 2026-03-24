@@ -3,14 +3,14 @@
  * Three verses: HEALING_NULLIFIED (no heals), DISORIENTED (ATK/DEF at disadvantage), ETERNAL_AGONY (extend afflictions by 2 rounds).
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { EFFECT_TYPES } from '../../../../constants/effectTypes';
-import { isAffliction } from '../../../../data/statusCategory';
-import { targetHasEfflorescenceMuse, makeEffectId } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { EFFECT_TYPES } from '../../../constants/effectTypes';
+import { isAffliction } from '../../../data/statusCategory';
+import { targetHasEfflorescenceMuse, makeEffectId } from '../powerEngine';
 
 /**
  * Imprecated Poem: apply chosen verse to enemy for 2 rounds, or ETERNAL_AGONY extends all afflictions by 2 then ends.

@@ -3,9 +3,9 @@
  * Heal ally by 20% of caster's max HP, then perform normal attack
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import type { PowerDefinition } from '../../../../types/power';
-import { findFighter, findFighterPath, getEffectiveHealForReceiver } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import type { PowerDefinition } from '../../../types/power';
+import { findFighter, findFighterPath, getEffectiveHealForReceiver } from '../powerEngine';
 
 /**
  * Heal the target by ceil(0.2 * caster's Max HP), capped at target's maxHp. Then normal attack follows.

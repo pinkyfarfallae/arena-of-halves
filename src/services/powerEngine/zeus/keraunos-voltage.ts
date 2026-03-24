@@ -3,10 +3,10 @@
  * Includes shock application logic and legacy chain implementation.
  */
 
-import type { BattleRoom, BattleState } from '../../../../types/battle';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { ARENA_PATH } from '../../../../constants/battle';
-import { findFighterPath } from '../../powerEngine';
+import type { BattleRoom, BattleState } from '../../../types/battle';
+import { POWER_NAMES } from '../../../constants/powers';
+import { ARENA_PATH } from '../../../constants/battle';
+import { findFighterPath } from '../powerEngine';
 import { applyShockedEffectToTarget } from './shock';
 
 /**
