@@ -109,7 +109,7 @@ export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.ARENA]: {
     en: "A colosseum of trial and triumph, where blades clash and warriors are forged through battle and resolve.",
-    th: "สนามประลองแห่งบททดสอบและชัยชนะที่ซึ่งคมดาบปะทะกันและนักรบถูกหล่อหลอมผ่านการต่อสู้และเจตจำนง",
+    th: "สนามประลองแห่งบททดสอบและชัยชนะที่ซึ่งคมดาบปะทะกันและเหล่านักรบถูกหล่อหลอมผ่านการต่อสู้และเจตจำนงอันแรงกล้า",
   },
   [CAMP_LOCATION.ARMORY]: {
     en: "An arsenal of celestial bronze—blades, shields, and armor await the hands of demigods destined for battle.",
