@@ -1,28 +1,28 @@
 /* eslint-disable */
 import { ref, set, get, onValue, update, remove, off } from 'firebase/database';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 import type {
   BattleRoom, BattleState, FighterState,
   TurnQueueEntry, Viewer, BattlePlaybackStep, TurnState, InviteReservation,
-} from '../types/battle';
-import { BATTLE_PLAYBACK_KIND } from '../types/battle';
-import type { Character } from '../types/character';
-import type { PowerDefinition, ActiveEffect } from '../types/power';
-import { getQuotaCost } from '../types/power';
+} from '../../types/battle';
+import { BATTLE_PLAYBACK_KIND } from '../../types/battle';
+import type { Character } from '../../types/character';
+import type { PowerDefinition, ActiveEffect } from '../../types/power';
+import { getQuotaCost } from '../../types/power';
 import {
   getStatModifier, getReflectPercent,
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
-  applyLightningReflexPassive, applyJoltArc, applyKeraunosVoltageShockSingleTarget,
+  applyLightningSparkPassive, applyJoltArc, applyKeraunosVoltageShockSingleTarget,
   applySecretOfDryadPassive, onEfflorescenceMuseTurnStart, applyFloralFragranced, applyApolloHymn, applySeasonEffects, applyImprecatedPoem,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
   addSunbornSovereignRecoveryStack,
   getEffectiveHealForReceiver,
   isHealingNullified,
-} from './powerEngine';
-import { getPowers } from '../data/powers';
-import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../constants/effectTags';
-import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../constants/powers';
+} from '../powerEngine/powerEngine';
+import { getPowers } from '../../data/powers';
+import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../constants/effectTags';
+import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../../constants/powers';
 import {
   ARENA_PATH,
   ARENA_ROLE,
@@ -34,11 +34,17 @@ import {
   effectivePomCoAttackerId,
   effectivePomCoDefenderId,
   teamPath,
+  TEAM_SUB_PATH,
   type BattleTeamKey,
-} from '../constants/battle';
-import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../constants/effectTypes';
-import { SKILL_UNLOCK } from '../constants/character';
-import { SEASON_KEYS, SeasonKey } from '../data/seasons';
+} from '../../constants/battle';
+import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
+import { SKILL_UNLOCK, DEFAULT_NAMES } from '../../constants/character';
+import { FIREBASE_PATHS, FIREBASE_EVENTS } from '../../constants/firebase';
+import { SEASON_KEYS, SeasonKey } from '../../data/seasons';
+import * as HadesService from './hades/hades';
+import * as ZeusService from './zeus/zeus';
+import * as ApolloService from './apollo/apollo';
+import * as PersephoneService from './persephone';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -82,13 +88,7 @@ export function effectiveKeraunosStep(turn: {
   keraunosTargetStep?: number | null;
   keraunosSecondaryTargetIds?: string[] | null;
 }): 0 | 1 | 2 {
-  const raw = turn.keraunosTargetStep ?? 0;
-  const secCount = (turn.keraunosSecondaryTargetIds ?? []).length;
-  if (raw === 0) return 0;
-  if (raw === 1) return 1;
-  if (raw === 2) return secCount === 0 ? 1 : 2;
-  if (raw >= 3) return 2;
-  return 0;
+  return ZeusService.effectiveKeraunosStep(turn);
 }
 
 /** Damage-card tier for a Keraunos bolt target (3 / 2 / 1 base before crit). */
@@ -97,14 +97,11 @@ export function keraunosTierForTargetId(
   secondaryIds: string[],
   tid: string,
 ): 0 | 1 | 2 {
-  if (mainId && tid === mainId) return 0;
-  const si = secondaryIds.indexOf(tid);
-  if (si < 0) return 2;
-  return (si < 2 ? 1 : 2) as 0 | 1 | 2;
+  return ZeusService.keraunosTierForTargetId(mainId, secondaryIds, tid);
 }
 
 /** Ensure no log entry has powerUsed === undefined (Firebase rejects undefined). Preserve hitTargetId so client gets it. */
-function sanitizeBattleLog(log: unknown[]): unknown[] {
+export function sanitizeBattleLog(log: unknown[]): unknown[] {
   return log.map((e: any) => {
     const out: Record<string, unknown> = { ...e, powerUsed: e.powerUsed ?? '' };
     if (e.hitTargetId != null && e.hitTargetId !== '') out.hitTargetId = e.hitTargetId;
@@ -209,7 +206,7 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
  * Uses turn.usedPowerIndex, or usedPowerIndexOverride when the DB turn is still SELECT_ACTION
  * (power just chosen in this request — e.g. Hades skipDice self buffs: Shadow, Undead Army).
  */
-function deductPowerQuotaIfPending(
+export function deductPowerQuotaIfPending(
   room: BattleRoom,
   turn: TurnState,
   attackerId: string,
@@ -236,7 +233,7 @@ function deductPowerQuotaIfPending(
 }
 
 /** Append a dedicated battle-log row for Pomegranate co-attack (main hit stays its own row). */
-function appendPomegranateCoAttackLog(
+export function appendPomegranateCoAttackLog(
   logArr: any[],
   opts: {
     round: number;
@@ -252,23 +249,7 @@ function appendPomegranateCoAttackLog(
     hitTargetId?: string;
   },
 ): any[] {
-  const e: Record<string, unknown> = {
-    round: opts.round,
-    attackerId: opts.coAttackerId,
-    defenderId: opts.defenderId,
-    attackRoll: opts.coRoll,
-    defendRoll: opts.defendRoll,
-    missed: !opts.hit,
-    damage: opts.hit ? opts.damage : 0,
-    defenderHpAfter: opts.defenderHpAfter,
-    eliminated: opts.defenderHpAfter <= 0,
-    powerUsed: `${POWER_NAMES.POMEGRANATES_OATH} (Co-Attack)`,
-    isPomegranateCoAttack: true,
-    coAtkTotal: opts.coAtkTotal,
-    coDefTotal: opts.coDefTotal,
-  };
-  if (opts.hitTargetId) e.hitTargetId = opts.hitTargetId;
-  return [...logArr, e];
+  return PersephoneService.appendPomegranateCoAttackLog(logArr, opts);
 }
 
 
@@ -387,24 +368,17 @@ function getAllFighterIds(room: BattleRoom): string[] {
 
 /** True if the character has an active Soul Devourer effect (Hades). */
 function hasSoulDevourerEffect(activeEffects: ActiveEffect[] | undefined, characterId: string): boolean {
-  return (activeEffects || []).some(
-    e => e.targetId === characterId && e.tag === EFFECT_TAGS.SOUL_DEVOURER,
-  );
+  return HadesService.hasSoulDevourerEffect(activeEffects, characterId);
 }
 
 /** True if the power can be used to "attack" (enemy target, damage/lifesteal) for Soul Devourer drain. */
 function powerCanAttack(power: PowerDefinition): boolean {
-  return (
-    power.target === TARGET_TYPES.ENEMY &&
-    (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL)
-  );
+  return HadesService.powerCanAttack(power);
 }
 
 /** True if the fighter has Shadow Camouflage (immune to single-target actions; only area attacks can target them). */
 function hasShadowCamouflage(activeEffects: ActiveEffect[], characterId: string): boolean {
-  return (activeEffects || []).some(
-    e => e.targetId === characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED,
-  );
+  return HadesService.hasShadowCamouflage(activeEffects, characterId);
 }
 
 /**
@@ -413,7 +387,7 @@ function hasShadowCamouflage(activeEffects: ActiveEffect[], characterId: string)
  */
 function getValidTargetIds(
   room: BattleRoom,
-  turn: BattleState['turn'],
+  turn: BattleState["turn"],
   activeEffects: ActiveEffect[],
 ): string[] {
   if (!turn?.attackerId) return [];
@@ -463,7 +437,7 @@ function getValidTargetIds(
 
 /* ── room ref ────────────────────────────────────────── */
 
-function roomRef(arenaId: string) {
+export function roomRef(arenaId: string) {
   return ref(db, `arenas/${arenaId}`);
 }
 
@@ -551,8 +525,8 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
       (r) => r.characterId.toLowerCase() !== single.characterId.toLowerCase(),
     );
     await update(roomRef(arenaId), {
-      [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
-      [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
+      [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)]: newTeamA,
+      [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: newTeamB,
       [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
       inviteReservations: remainingReservations.length > 0 ? remainingReservations : null,
     });
@@ -577,8 +551,8 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
   const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
 
   await update(roomRef(arenaId), {
-    [teamPath(BATTLE_TEAM.A, 'members')]: newTeamA,
-    [teamPath(BATTLE_TEAM.B, 'members')]: newTeamB,
+    [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)]: newTeamA,
+    [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: newTeamB,
     [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
   });
 
@@ -612,7 +586,7 @@ export async function getRoom(arenaId: string): Promise<BattleRoom | null> {
 /* ── list all active rooms (for viewer lobby) ─────────── */
 
 export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void {
-  const arenasRef = ref(db, 'arenas');
+  const arenasRef = ref(db, FIREBASE_PATHS.ARENAS);
   const handler = onValue(arenasRef, (snap) => {
     const rooms = !snap.exists()
       ? []
@@ -622,7 +596,7 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
     setTimeout(() => callback(rooms), 0);
   });
 
-  return () => off(arenasRef, 'value', handler);
+  return () => off(arenasRef, FIREBASE_EVENTS.VALUE, handler);
 }
 
 /* ── listen to room changes (realtime) ────────────────── */
@@ -636,7 +610,7 @@ export function onRoomChange(arenaId: string, callback: (room: BattleRoom | null
   });
 
   // return unsubscribe function
-  return () => off(r, 'value', handler);
+  return () => off(r, FIREBASE_EVENTS.VALUE, handler);
 }
 
 /* ── delete room ──────────────────────────────────────── */
@@ -647,7 +621,7 @@ export async function deleteRoom(arenaId: string): Promise<void> {
 
 /** Delete every arena room on the server (entire `arenas` node). Use with caution. */
 export async function deleteAllArenaRooms(): Promise<void> {
-  await remove(ref(db, 'arenas'));
+  await remove(ref(db, FIREBASE_PATHS.ARENAS));
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -679,18 +653,18 @@ export function buildTurnQueue(room: BattleRoom, _effects?: ActiveEffect[]): Tur
 }
 
 /** Find a fighter across both teams by characterId */
-function findFighter(room: BattleRoom, characterId: string): FighterState | undefined {
+export function findFighter(room: BattleRoom, characterId: string): FighterState | undefined {
   const all = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
   const fighter = all.find((m) => m.characterId === characterId);
   return fighter ? normalizeFighterImpl(fighter) : undefined;
 }
 
 /** Find the index of a fighter in teamA or teamB members array */
-function findFighterPath(room: BattleRoom, characterId: string): string | null {
+export function findFighterPath(room: BattleRoom, characterId: string): string | null {
   const teamAIdx = (room.teamA?.members || []).findIndex((m) => m.characterId === characterId);
-  if (teamAIdx !== -1) return `${teamPath(BATTLE_TEAM.A, 'members')}/${teamAIdx}`;
+  if (teamAIdx !== -1) return `${teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)}/${teamAIdx}`;
   const teamBIdx = (room.teamB?.members || []).findIndex((m) => m.characterId === characterId);
-  if (teamBIdx !== -1) return `${teamPath(BATTLE_TEAM.B, 'members')}/${teamBIdx}`;
+  if (teamBIdx !== -1) return `${teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)}/${teamBIdx}`;
   return null;
 }
 
@@ -699,6 +673,7 @@ function findFighterTeam(room: BattleRoom, characterId: string): BattleTeamKey |
   if ((room.teamB?.members || []).some(m => m.characterId === characterId)) return BATTLE_TEAM.B;
   return null;
 }
+export { findFighterTeam };
 
 /**
  * Test mode: write NPC crit D4 to Firebase when RESOLVING has no crit result yet.
@@ -828,7 +803,7 @@ export async function applyNpcResolvingCritIfPending(
  * actual minion removal is delayed (setTimeout) so client can show hit VFX on skeleton first.
  * Caller MUST delete result.skippedMinionsPath from updates before writing to Firebase so client keeps minion for 1100ms.
  */
-async function resolveHitAtDefender(
+export async function resolveHitAtDefender(
   arenaId: string,
   room: BattleRoom,
   defenderId: string,
@@ -838,7 +813,7 @@ async function resolveHitAtDefender(
 ): Promise<{ damageToMaster: number; hitTargetId: string; skippedMinionsPath?: string }> {
   const defenderTeam = findFighterTeam(room, defenderId);
   if (!defenderTeam) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
-  const currentMinions = (updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []);
+  const currentMinions = (updates[teamPath(defenderTeam, TEAM_SUB_PATH.MINIONS)] as any[]) ?? (room[defenderTeam]?.minions || []);
   const defenderSkeletons = currentMinions.filter((m: any) => m.masterId === defenderId);
   if (defenderSkeletons.length === 0) return { damageToMaster: incomingDamage, hitTargetId: defenderId };
 
@@ -850,7 +825,7 @@ async function resolveHitAtDefender(
     updates[`${defPath}/skeletonCount`] = Math.max(0, currentCount - 1);
   }
   // So next call in same turn (e.g. co-attack) sees updated list; actual removal is in setTimeout so client can show hit VFX
-  const minionsPath = teamPath(defenderTeam, 'minions');
+  const minionsPath = teamPath(defenderTeam, TEAM_SUB_PATH.MINIONS);
   updates[minionsPath] = remainingMinions;
 
   updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = blocker.characterId;
@@ -884,21 +859,10 @@ const JOLT_ARC_EFFECT_MS = 800;
 
 /** Stable order for Jolt Arc resolve cards (enemy roster order, then any remaining map keys). */
 function getJoltArcOrderedTargetIds(room: BattleRoom, attackerId: string, aoeDamageMap: Record<string, number>): string[] {
-  const keys = Object.keys(aoeDamageMap).filter((id) => (aoeDamageMap[id] ?? 0) > 0);
-  if (keys.length === 0) return [];
-  const isTeamA = (room.teamA?.members || []).some((m) => m.characterId === attackerId);
-  const enemies = isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || []);
-  const ordered: string[] = [];
-  for (const e of enemies) {
-    if (keys.includes(e.characterId)) ordered.push(e.characterId);
-  }
-  for (const k of keys) {
-    if (!ordered.includes(k)) ordered.push(k);
-  }
-  return ordered;
+  return ZeusService.getJoltArcOrderedTargetIds(room, attackerId, aoeDamageMap);
 }
 
-function readFighterHpFromUpdates(room: BattleRoom, characterId: string, updates: Record<string, unknown>): number {
+export function readFighterHpFromUpdates(room: BattleRoom, characterId: string, updates: Record<string, unknown>): number {
   const path = findFighterPath(room, characterId);
   if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
   return findFighter(room, characterId)?.currentHp ?? 0;
@@ -906,24 +870,11 @@ function readFighterHpFromUpdates(room: BattleRoom, characterId: string, updates
 
 /** Living bolt targets in order: main (3), then secondaries (2/2/1…), at chain start. */
 function computeKeraunosOrderedTargetIds(room: BattleRoom, turn: TurnState): string[] {
-  const mainId = (turn as TurnState & { keraunosMainTargetId?: string }).keraunosMainTargetId ?? turn.defenderId ?? '';
-  const secondaryIds = (turn as TurnState & { keraunosSecondaryTargetIds?: string[] }).keraunosSecondaryTargetIds ?? [];
-  const ordered: string[] = [];
-  if (mainId) {
-    const m = findFighter(room, mainId);
-    if (m && m.currentHp > 0) ordered.push(mainId);
-  }
-  for (const sid of secondaryIds) {
-    if (!sid || ordered.includes(sid)) continue;
-    const s = findFighter(room, sid);
-    if (s && s.currentHp > 0) ordered.push(sid);
-  }
-  return ordered;
+  return ZeusService.computeKeraunosOrderedTargetIds(room, turn, { findFighter });
 }
 
 function mergeKeraunosBattleLog(battle: BattleState, updates: Record<string, unknown>, row: Record<string, unknown>): void {
-  const base = [...(battle.log || [])];
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...base, row]);
+  ZeusService.mergeKeraunosBattleLog(battle, updates, row, { sanitizeBattleLog });
 }
 
 type KeraunosBoltResult = { totalDamage: number; tier: 0 | 1 | 2; shockBonus: number };
@@ -940,54 +891,23 @@ async function applyKeraunosVoltageBoltForTarget(
   updates: Record<string, unknown>,
   excludeTargetIds: string[],
 ): Promise<KeraunosBoltResult> {
-  const mainId = (turn as TurnState & { keraunosMainTargetId?: string }).keraunosMainTargetId ?? turn.defenderId ?? '';
-  const secondaryIds = (turn as TurnState & { keraunosSecondaryTargetIds?: string[] }).keraunosSecondaryTargetIds ?? [];
-  const isCritK = !!(turn as TurnState & { isCrit?: boolean }).isCrit;
-  const mult = isCritK ? 2 : 1;
-  const tier = keraunosTierForTargetId(mainId || undefined, secondaryIds, targetId);
-  const bases = [3, 2, 1] as const;
-  const baseBolt = bases[tier] * mult;
-
-  const fighter = findFighter(room, targetId);
-  if (!fighter || readFighterHpFromUpdates(room, targetId, updates) <= 0) {
-    return { totalDamage: 0, tier, shockBonus: 0 };
-  }
-
-  const hpStart = readFighterHpFromUpdates(room, targetId, updates);
-  const resolve = await resolveHitAtDefender(arenaId, room, targetId, baseBolt, updates, fighter);
-  if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
-  const skeletonBlocked = resolve.hitTargetId !== targetId;
-  if (skeletonBlocked && !excludeTargetIds.includes(targetId)) excludeTargetIds.push(targetId);
-
-  const defPath = findFighterPath(room, targetId);
-  if (defPath && resolve.damageToMaster > 0) {
-    const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? fighter.currentHp;
-    updates[`${defPath}/currentHp`] = Math.max(0, cur - resolve.damageToMaster);
-  }
-
-  const hpAfterBolt = readFighterHpFromUpdates(room, targetId, updates);
-  const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? battle.activeEffects ?? [];
-  const battleForShock: BattleState = { ...battle, activeEffects: activeEff };
-  const casterDamageK = Math.max(0, attacker.damage + getStatModifier(activeEff, attackerId, MOD_STAT.DAMAGE));
-
-  let shockBonus = 0;
-  if (!excludeTargetIds.includes(targetId)) {
-    const { updates: shockUpd, bonusDamage } = applyKeraunosVoltageShockSingleTarget(
-      room,
-      attackerId,
-      battleForShock,
-      casterDamageK,
-      targetId,
-      hpAfterBolt,
-      excludeTargetIds,
-    );
-    shockBonus = bonusDamage;
-    Object.assign(updates, shockUpd);
-  }
-
-  const hpEnd = readFighterHpFromUpdates(room, targetId, updates);
-  const totalDamage = Math.max(0, hpStart - hpEnd);
-  return { totalDamage, tier, shockBonus };
+  return ZeusService.applyKeraunosVoltageBoltForTarget(
+    arenaId,
+    room,
+    battle,
+    turn,
+    attackerId,
+    attacker,
+    targetId,
+    updates,
+    excludeTargetIds,
+    {
+      findFighter,
+      findFighterPath,
+      readFighterHpFromUpdates,
+      resolveHitAtDefender,
+    },
+  );
 }
 
 /**
@@ -1003,116 +923,27 @@ async function applyJoltArcDamagePhase(
   primaryDefenderId: string,
   turnUsedPowerIndex: number | undefined,
 ): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn || battle.turn.usedPowerName !== POWER_NAMES.JOLT_ARC) return;
-
-  const updates: Record<string, unknown> = { ...joltUpdates };
-  const joltDecelerationExclude: string[] = [];
-  const joltOrderedIds = getJoltArcOrderedTargetIds(room, attackerId, aoeDamageMap);
-  const aoeMapSnapshot =
-    Object.keys(aoeDamageMap).length > 0 ? ({ ...aoeDamageMap } as Record<string, number>) : undefined;
-  const logEntries: Record<string, unknown>[] = [];
-
-  for (const targetId of joltOrderedIds) {
-    const dmg = aoeDamageMap[targetId] ?? 0;
-    const targetFighter = findFighter(room, targetId);
-    if (!targetFighter) continue;
-    const resolve = await resolveHitAtDefender(arenaId, room, targetId, dmg, updates, targetFighter);
-    if (resolve.skippedMinionsPath) delete updates[resolve.skippedMinionsPath];
-    if (resolve.hitTargetId !== targetId) joltDecelerationExclude.push(targetId);
-    // Master must not take damage if they have at least one skeleton (skeleton blocks Jolt Arc)
-    const defenderTeam = findFighterTeam(room, targetId);
-    const currentMinionsForTarget = defenderTeam
-      ? ((updates[teamPath(defenderTeam, 'minions')] as any[]) ?? (room[defenderTeam]?.minions || []))
-      : [];
-    const hasSkeleton = currentMinionsForTarget.filter((m: any) => m.masterId === targetId).length > 0;
-    const damageToMaster = hasSkeleton ? 0 : resolve.damageToMaster;
-    const defPath = findFighterPath(room, targetId);
-    if (defPath && damageToMaster > 0) {
-      const currentHp = (updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp;
-      updates[`${defPath}/currentHp`] = Math.max(0, currentHp - damageToMaster);
-    }
-    const hpAfter = defPath
-      ? ((updates[`${defPath}/currentHp`] as number | undefined) ?? targetFighter.currentHp)
-      : targetFighter.currentHp;
-    const row: Record<string, unknown> = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId: targetId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: damageToMaster,
-      defenderHpAfter: hpAfter,
-      eliminated: hpAfter <= 0,
-      missed: dmg <= 0,
-      powerUsed: POWER_NAMES.JOLT_ARC,
-    };
-    if (aoeMapSnapshot) row.aoeDamageMap = { ...aoeMapSnapshot };
-    if (resolve.hitTargetId && resolve.hitTargetId !== targetId) {
-      row.hitTargetId = resolve.hitTargetId;
-    }
-    logEntries.push(row);
-  }
-
-  if (joltDecelerationExclude.length > 0) {
-    const activeEff = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? battle.activeEffects ?? [];
-    const excludeSet = new Set(joltDecelerationExclude);
-    const filtered = activeEff.filter(
-      (e) => !(e.tag === EFFECT_TAGS.JOLT_ARC_DECELERATION && excludeSet.has(e.targetId)),
-    );
-    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = filtered;
-  }
-
-  if (logEntries.length === 0) {
-    const logPrimaryDefId = joltOrderedIds[0] ?? primaryDefenderId;
-    const primaryDefender = logPrimaryDefId ? findFighter(room, logPrimaryDefId) : null;
-    const primaryDefPath = primaryDefender ? findFighterPath(room, logPrimaryDefId) : null;
-    const defenderHpAfter = primaryDefPath
-      ? ((updates[`${primaryDefPath}/currentHp`] as number | undefined) ?? primaryDefender?.currentHp ?? 0)
-      : 0;
-    logEntries.push({
-      round: battle.roundNumber,
-      attackerId,
-      defenderId: logPrimaryDefId || attackerId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: 0,
-      defenderHpAfter,
-      eliminated: defenderHpAfter <= 0,
-      missed: true,
-      powerUsed: POWER_NAMES.JOLT_ARC,
-      ...(aoeMapSnapshot ? { aoeDamageMap: { ...aoeMapSnapshot } } : {}),
-    });
-  }
-
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), ...logEntries]);
-  const joltTurnBase: Record<string, unknown> = {
+  return ZeusService.applyJoltArcDamagePhase(
+    arenaId,
     attackerId,
+    aoeDamageMap,
+    joltUpdates,
     attackerTeam,
-    defenderId: joltOrderedIds[0] ?? primaryDefenderId,
-    phase: PHASE.RESOLVING,
-    action: TURN_ACTION.POWER,
-    usedPowerIndex: turnUsedPowerIndex,
-    usedPowerName: POWER_NAMES.JOLT_ARC,
-    joltArcTargetIds: joltOrderedIds,
-    joltArcAoeDamageMap: { ...aoeDamageMap },
-    joltArcResolveIndex: 0,
-  };
-  if (joltOrderedIds.length === 0) {
-    joltTurnBase.joltArcAwaitingAdvance = true;
-  }
-  updates[ARENA_PATH.BATTLE_TURN] = joltTurnBase;
-  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-
-  await update(roomRef(arenaId), updates);
+    primaryDefenderId,
+    turnUsedPowerIndex,
+    {
+      roomRef,
+      findFighter,
+      findFighterPath,
+      findFighterTeam,
+      resolveHitAtDefender,
+      sanitizeBattleLog,
+    },
+  );
 }
 
 /** Run tickEffects and apply any DOT damage via resolveHitAtDefender so Hades child's skeleton can block. */
-async function tickEffectsWithSkeletonBlock(
+export async function tickEffectsWithSkeletonBlock(
   arenaId: string,
   room: BattleRoom,
   battle: BattleState,
@@ -1377,7 +1208,7 @@ function buildMinionPlaybackStep(
     isDodged: false,
     coAttackHit: false,
     coAttackDamage: 0,
-    attackerName: sk.nicknameEng?.toLowerCase?.() || 'skeleton',
+    attackerName: sk.nicknameEng?.toLowerCase?.() || DEFAULT_NAMES.SKELETON,
     attackerTheme: sk.theme?.[0] || '#666',
     defenderName: defender?.nicknameEng || defenderId,
     defenderTheme: defender?.theme?.[0] || '#666',
@@ -1386,7 +1217,7 @@ function buildMinionPlaybackStep(
 }
 
 /** Find the next alive fighter index in the queue (skips eliminated) */
-function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom, effects?: ActiveEffect[]): { index: number; wrapped: boolean } {
+export function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: BattleRoom, effects?: ActiveEffect[]): { index: number; wrapped: boolean } {
   const len = queue.length;
   for (let i = 1; i <= len; i++) {
     const idx = (fromIndex + i) % len;
@@ -1406,7 +1237,7 @@ function nextAliveIndex(queue: TurnQueueEntry[], fromIndex: number, room: Battle
 }
 
 /** Check if all members of a team are eliminated */
-function isTeamEliminated(members: FighterState[], effects?: ActiveEffect[]): boolean {
+export function isTeamEliminated(members: FighterState[], effects?: ActiveEffect[]): boolean {
   return members.every((m) => {
     if (m.currentHp > 0) return false;
     // Dead but has death-keeper → not truly eliminated
@@ -1417,43 +1248,21 @@ function isTeamEliminated(members: FighterState[], effects?: ActiveEffect[]): bo
 
 /** Apply self-resurrect if next fighter is dead with death-keeper.
  *  Mutates `updates` and `effects` in place. Returns true if resurrection happened. */
-function applySelfResurrect(
+export function applySelfResurrect(
   nextCharId: string,
   room: BattleRoom,
   effects: ActiveEffect[],
   updates: Record<string, unknown>,
   battle: { roundNumber: number; log: unknown[] },
 ): boolean {
-  const fighter = findFighter(room, nextCharId);
-  if (!fighter || fighter.currentHp > 0) return false;
-
-  const dkIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
-  if (dkIdx === -1) return false;
-
-  // Resurrect at 50% max HP
-  const resHp = Math.ceil(fighter.maxHp * 0.5);
-  const fPath = findFighterPath(room, nextCharId);
-  if (fPath) updates[`${fPath}/currentHp`] = resHp;
-
-  // Consume death-keeper, add resurrected tag
-  effects.splice(dkIdx, 1);
-  effects.push({
-    id: `${nextCharId}::Death Keeper Risen`,
-    powerName: POWER_NAMES.DEATH_KEEPER,
-    effectType: 'buff',
-    sourceId: nextCharId,
-    targetId: nextCharId,
-    value: 0,
-    turnsRemaining: 999,
-    tag: 'resurrected',
-  });
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
-
-  // Clear stun on the resurrected fighter (death resets debuffs)
-  const stunIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.STUN);
-  if (stunIdx !== -1) effects.splice(stunIdx, 1);
-
-  return true;
+  return HadesService.applySelfResurrect(
+    nextCharId,
+    room,
+    effects,
+    updates,
+    battle,
+    { findFighter, findFighterPath },
+  );
 }
 
 /** Check and apply immediate auto-resurrection for Hades son (Death Keeper holder) when they die.
@@ -1466,61 +1275,14 @@ function applyImmediateResurrection(
   updates: Record<string, unknown>,
   battle: { roundNumber: number; log: unknown[] },
 ): boolean {
-  const fPath = findFighterPath(room, characterId);
-  if (!fPath) return false;
-  
-  // Check current HP from updates or room state
-  const currentHp = (`${fPath}/currentHp` in updates)
-    ? (updates[`${fPath}/currentHp`] as number)
-    : (findFighter(room, characterId)?.currentHp ?? 0);
-    
-  if (currentHp > 0) return false;
-
-  const dkIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
-  if (dkIdx === -1) return false;
-
-  // Resurrect at 50% max HP immediately
-  const fighter = findFighter(room, characterId);
-  if (!fighter) return false;
-  
-  const resHp = Math.ceil(fighter.maxHp * 0.5);
-  updates[`${fPath}/currentHp`] = resHp;
-
-  // Consume death-keeper, add resurrected tag
-  effects.splice(dkIdx, 1);
-  effects.push({
-    id: `${characterId}::Death Keeper Risen`,
-    powerName: POWER_NAMES.DEATH_KEEPER,
-    effectType: 'buff',
-    sourceId: characterId,
-    targetId: characterId,
-    value: 0,
-    turnsRemaining: 999,
-    tag: 'resurrected',
-  });
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
-
-  // Clear stun on the resurrected fighter (death resets debuffs)
-  const stunIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.STUN);
-  if (stunIdx !== -1) effects.splice(stunIdx, 1);
-
-  // Log the resurrection
-  const logEntry = {
-    round: battle.roundNumber,
-    attackerId: characterId,
-    defenderId: characterId,
-    attackRoll: 0,
-    defendRoll: 0,
-    damage: 0,
-    defenderHpAfter: resHp,
-    eliminated: false,
-    missed: false,
-    powerUsed: POWER_NAMES.DEATH_KEEPER,
-  };
-  const updatedLog = [...(battle.log || []), logEntry];
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(updatedLog);
-
-  return true;
+  return HadesService.applyImmediateResurrection(
+    characterId,
+    room,
+    effects,
+    updates,
+    battle,
+    { findFighter, findFighterPath, sanitizeBattleLog },
+  );
 }
 
 /* ── start battle ────────────────────────────────────── */
@@ -1704,7 +1466,7 @@ export async function selectTarget(
       const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battleForTick, updates);
       Object.assign(updates, effectUpdates);
 
-      // Eternal Agony: add display-only effect after tick (so tick doesn't remove it). ลบหลัง 3 วินาที
+      // Eternal Agony: add display-only effect after tick (so tick doesn't remove it). Delete after 3 seconds
       if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
         const effectsAfterTick = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [];
         const eternalAgonyEffect: ActiveEffect = {
@@ -1812,7 +1574,7 @@ export async function selectTarget(
         updates[ARENA_PATH.BATTLE_TURN] = turnData;
       }
       await update(roomRef(arenaId), updates);
-      // Eternal Agony: เอาเข้าไป 3 วินาทีเสร็จแล้วลบออก — ลบ effect tag ETERNAL_AGONY หลัง 3 วินาที
+      // Eternal Agony: put it in for 3 seconds then remove — delete effect tag ETERNAL_AGONY after 3 seconds
       if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
         setTimeout(async () => {
           const snap = await get(roomRef(arenaId));
@@ -1980,76 +1742,110 @@ export async function selectTarget(
           };
         }
 
-      // ── Generic skipDice power ──
-    } else {
-      let damageDealt = 0;
-      let defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
-
-      if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
-        const defender = findFighter(room, defenderId);
-        if (defender) {
-          const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, power.value, updates, defender);
-          if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
-          const defPath = findFighterPath(room, defenderId);
-          if (defPath && powerResolve.damageToMaster > 0) {
-            const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
-            updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
-          }
-          if (power.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
-            const atkPath = findFighterPath(room, attackerId);
-            if (atkPath) {
-              const att = findFighter(room, attackerId);
-              const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
-              updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
-            }
-          }
-          damageDealt = powerResolve.damageToMaster;
-          defenderHpAfterLog = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
-        }
+        // ── Generic skipDice power ──
       } else {
-        const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
-        Object.assign(updates, effectUpdates);
-        defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
-        const defPath = findFighterPath(room, defenderId);
-        if (defPath && `${defPath}/currentHp` in updates) defenderHpAfterLog = updates[`${defPath}/currentHp`] as number;
+        let damageDealt = 0;
+        let defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
+
+        if (power.effect === EFFECT_TYPES.DAMAGE || power.effect === EFFECT_TYPES.LIFESTEAL) {
+          const defender = findFighter(room, defenderId);
+          if (defender) {
+            const powerResolve = await resolveHitAtDefender(arenaId, room, defenderId, power.value, updates, defender);
+            if (powerResolve.skippedMinionsPath) delete updates[powerResolve.skippedMinionsPath];
+            const defPath = findFighterPath(room, defenderId);
+            if (defPath && powerResolve.damageToMaster > 0) {
+              const cur = (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp;
+              updates[`${defPath}/currentHp`] = Math.max(0, cur - powerResolve.damageToMaster);
+            }
+            if (power.effect === EFFECT_TYPES.LIFESTEAL && powerResolve.damageToMaster > 0) {
+              const atkPath = findFighterPath(room, attackerId);
+              if (atkPath) {
+                const att = findFighter(room, attackerId);
+                const curAtt = (updates[`${atkPath}/currentHp`] as number | undefined) ?? att?.currentHp ?? 0;
+                updates[`${atkPath}/currentHp`] = Math.min(att?.maxHp ?? 999, curAtt + Math.ceil(powerResolve.damageToMaster * 0.5));
+              }
+            }
+            damageDealt = powerResolve.damageToMaster;
+            defenderHpAfterLog = defPath ? (updates[`${defPath}/currentHp`] as number) : defender.currentHp;
+          }
+        } else {
+          const effectUpdates = applyPowerEffect(room, attackerId, defenderId, power, battle);
+          Object.assign(updates, effectUpdates);
+          defenderHpAfterLog = findFighter(room, defenderId)?.currentHp ?? 0;
+          const defPath = findFighterPath(room, defenderId);
+          if (defPath && `${defPath}/currentHp` in updates) defenderHpAfterLog = updates[`${defPath}/currentHp`] as number;
+        }
+
+        const logEntry = {
+          round: battle.roundNumber,
+          attackerId,
+          defenderId,
+          attackRoll: 0,
+          defendRoll: 0,
+          damage: damageDealt,
+          defenderHpAfter: defenderHpAfterLog,
+          eliminated: defenderHpAfterLog <= 0,
+          missed: false,
+          powerUsed: power.name,
+        };
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
+
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          attackerId,
+          attackerTeam: turn.attackerTeam,
+          defenderId,
+          phase: PHASE.RESOLVING,
+          action: TURN_ACTION.POWER,
+          usedPowerIndex: turn.usedPowerIndex,
+          usedPowerName: power.name,
+        };
       }
 
-      const logEntry = {
+      const pendingPowTurn = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
+      if (pendingPowTurn?.phase === PHASE.RESOLVING || pendingPowTurn?.phase === PHASE.ROLLING_ATTACK) {
+        deductPowerQuotaIfPending(room, turn, attackerId, updates, pendingPowTurn);
+      }
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+
+    // Non-skipDice enemy power — go through dice rolling, unless Soul Devourer drain
+    if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && powerCanAttack(power)) {
+      const defender = findFighter(room, defenderId);
+      const targetLogEntry = {
         round: battle.roundNumber,
         attackerId,
         defenderId,
         attackRoll: 0,
         defendRoll: 0,
-        damage: damageDealt,
-        defenderHpAfter: defenderHpAfterLog,
-        eliminated: defenderHpAfterLog <= 0,
+        damage: 0,
+        defenderHpAfter: defender?.currentHp ?? 0,
+        eliminated: false,
         missed: false,
         powerUsed: power.name,
       };
-      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
-      updates[ARENA_PATH.BATTLE_TURN] = {
-        attackerId,
-        attackerTeam: turn.attackerTeam,
+      updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
+      const turnUpdate: Record<string, unknown> = {
+        ...turn,
         defenderId,
         phase: PHASE.RESOLVING,
         action: TURN_ACTION.POWER,
         usedPowerIndex: turn.usedPowerIndex,
         usedPowerName: power.name,
+        attackRoll: 0,
+        defendRoll: 0,
+        soulDevourerDrain: true,
       };
+      deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
+      updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
+      updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+      updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+      await update(roomRef(arenaId), updates);
+      return;
     }
 
-    const pendingPowTurn = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
-    if (pendingPowTurn?.phase === PHASE.RESOLVING || pendingPowTurn?.phase === PHASE.ROLLING_ATTACK) {
-      deductPowerQuotaIfPending(room, turn, attackerId, updates, pendingPowTurn);
-    }
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  // Non-skipDice enemy power — go through dice rolling, unless Soul Devourer drain
-  if (hasSoulDevourerEffect(battle.activeEffects || [], attackerId) && powerCanAttack(power)) {
-    const defender = findFighter(room, defenderId);
+    // Non-skipDice enemy power — log after target chosen, then go through dice rolling
+    const defenderForLog = findFighter(room, defenderId);
     const targetLogEntry = {
       round: battle.roundNumber,
       attackerId,
@@ -2057,121 +1853,36 @@ export async function selectTarget(
       attackRoll: 0,
       defendRoll: 0,
       damage: 0,
-      defenderHpAfter: defender?.currentHp ?? 0,
+      defenderHpAfter: defenderForLog?.currentHp ?? 0,
       eliminated: false,
       missed: false,
       powerUsed: power.name,
     };
     updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
-    const turnUpdate: Record<string, unknown> = {
-      ...turn,
-      defenderId,
-      phase: PHASE.RESOLVING,
-      action: TURN_ACTION.POWER,
-      usedPowerIndex: turn.usedPowerIndex,
-      usedPowerName: power.name,
-      attackRoll: 0,
-      defendRoll: 0,
-      soulDevourerDrain: true,
-    };
-    deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
-    updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+    const turnRollAtk: Record<string, unknown> = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
+    deductPowerQuotaIfPending(room, turn, attackerId, updates, turnRollAtk);
+    updates[ARENA_PATH.BATTLE_TURN] = turnRollAtk;
     await update(roomRef(arenaId), updates);
     return;
   }
 
-  // Non-skipDice enemy power — log after target chosen, then go through dice rolling
-  const defenderForLog = findFighter(room, defenderId);
-  const targetLogEntry = {
-    round: battle.roundNumber,
-    attackerId,
+  // Fallback: no action set
+  await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
     defenderId,
-    attackRoll: 0,
-    defendRoll: 0,
-    damage: 0,
-    defenderHpAfter: defenderForLog?.currentHp ?? 0,
-    eliminated: false,
-    missed: false,
-    powerUsed: power.name,
-  };
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), targetLogEntry]);
-  const turnRollAtk: Record<string, unknown> = { ...turn, defenderId, phase: PHASE.ROLLING_ATTACK };
-  deductPowerQuotaIfPending(room, turn, attackerId, updates, turnRollAtk);
-  updates[ARENA_PATH.BATTLE_TURN] = turnRollAtk;
-  await update(roomRef(arenaId), updates);
-  return;
-}
-
-// Fallback: no action set
-await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), {
-  defenderId,
-  phase: PHASE.ROLLING_ATTACK,
-});
+    phase: PHASE.ROLLING_ATTACK,
+  });
 }
 
 /**
  * Keraunos Voltage: confirm both 2-damage targets in one step when ≥3 alive enemies (after main is chosen).
  */
 export async function selectKeraunosTier2Batch(arenaId: string, defenderIds: string[]): Promise<void> {
-  const uniq = Array.from(new Set(defenderIds));
-  if (uniq.length !== defenderIds.length) return;
-
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn) return;
-  const turn = battle.turn;
-  if (turn.phase !== PHASE.SELECT_TARGET) return;
-  if (turn.usedPowerName !== POWER_NAMES.KERAUNOS_VOLTAGE || turn.keraunosAwaitingCrit) return;
-  if (effectiveKeraunosStep(turn) !== 1) return;
-  const existingSecs = turn.keraunosSecondaryTargetIds ?? [];
-  if (existingSecs.length > 0) return;
-
-  const attackerId = turn.attackerId;
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return;
-  const power = turn.usedPowerIndex != null ? attacker.powers?.[turn.usedPowerIndex] : undefined;
-  if (!power || power.name !== POWER_NAMES.KERAUNOS_VOLTAGE) return;
-
-  const isTeamA = (room.teamA?.members || []).some(m => m.characterId === attackerId);
-  const enemies = (isTeamA ? (room.teamB?.members || []) : (room.teamA?.members || [])).filter(e => e.currentHp > 0);
-  const n = enemies.length;
-  const enemyIdSet = new Set(enemies.map(e => e.characterId));
-  const mainId = turn.keraunosMainTargetId ?? turn.defenderId;
-  if (!mainId) return;
-
-  if (n < 3 || defenderIds.length !== 2) return;
-  if (defenderIds.some(id => id === mainId || !enemyIdSet.has(id))) return;
-
-  let nextSecondaries = [...defenderIds];
-  const remaining = enemies
-    .map(e => e.characterId)
-    .filter(id => id !== mainId && !nextSecondaries.includes(id));
-  nextSecondaries = [...nextSecondaries, ...remaining];
-
-  const activeEffectsK = battle.activeEffects || [];
-  const critBuffK = getStatModifier(activeEffectsK, attackerId, MOD_STAT.CRITICAL_RATE);
-  const effectiveCritK = Math.max(attacker.criticalRate ?? 0, (attacker.criticalRate ?? 0) + critBuffK);
-  const critRate = Math.min(100, Math.max(0, effectiveCritK + 25));
-
-  const updates: Record<string, unknown> = {};
-  const turnUpdate: Record<string, unknown> = {
-    ...turn,
-    defenderId: mainId,
-    keraunosMainTargetId: mainId,
-    keraunosSecondaryTargetIds: nextSecondaries,
-    keraunosTargetStep: null,
-    phase: PHASE.RESOLVING,
-    critWinFaces: getWinningFaces(critRate),
-    attackRoll: 0,
-    defendRoll: 0,
-  };
-  deductPowerQuotaIfPending(room, turn, attackerId, updates, turnUpdate);
-  updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-  await update(roomRef(arenaId), updates);
+  return ZeusService.selectKeraunosTier2Batch(arenaId, defenderIds, {
+    roomRef,
+    findFighter,
+    deductPowerQuotaIfPending,
+    getWinningFaces,
+  });
 }
 
 /* ── select action (attack or use power) ─────────────── */
@@ -2310,7 +2021,7 @@ export async function selectAction(
     const activeEffectsForDisoriented = battle.activeEffects || [];
     const hasDisorientedPower = activeEffectsForDisoriented.some(e => e.targetId === attackerId && e.tag === EFFECT_TAGS.DISORIENTED);
     if (hasDisorientedPower) {
-      const validIds = getValidTargetIds(room, { ...battle.turn, ...turnPayload } as BattleState['turn'], activeEffectsForDisoriented);
+      const validIds = getValidTargetIds(room, { ...battle.turn, ...turnPayload } as BattleState["turn"], activeEffectsForDisoriented);
       if (validIds.length === 0) {
         updates[ARENA_PATH.BATTLE_TURN] = turnPayload;
         await update(roomRef(arenaId), updates);
@@ -2344,12 +2055,12 @@ export async function selectAction(
       cleaned.push({
         id: `${attackerId}::Death Keeper Risen`,
         powerName: POWER_NAMES.DEATH_KEEPER,
-        effectType: 'buff' as const,
+        effectType: EFFECT_TYPES.BUFF,
         sourceId: attackerId,
         targetId: allyTargetId,
         value: 0,
         turnsRemaining: 999,
-        tag: 'resurrected',
+        tag: EFFECT_TAGS.RESURRECTED,
       });
       updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleaned;
 
@@ -2617,7 +2328,7 @@ export async function selectAction(
     const attacker = findFighter(room, attackerId);
     const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
 
-    // Heal skipped (e.g. สูญสิ้นเยียวยา): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
+    // Heal skipped (e.g. Healing Nullified): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
     if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasHealingNullified && ally && attacker) {
       const turnFloralSkip: Record<string, unknown> = {
         attackerId,
@@ -3012,113 +2723,37 @@ export async function selectSeason(
   arenaId: string,
   season: SeasonKey,
 ): Promise<void> {
-  /* eslint-disable @typescript-eslint/no-unused-vars */
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn) return;
-
-  // Update turn with selected season
-  const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN_SELECTED_SEASON]: season,
-    // Will transition to select-target on client after 3-second delay for visual effects
-  };
-
-  await update(roomRef(arenaId), updates);
-  /* eslint-enable @typescript-eslint/no-unused-vars */
+  return PersephoneService.selectSeason(arenaId, season, {
+    roomRef,
+  });
 }
 
 /* ── confirm poem verse (Imprecated Poem): store selection and go to select target ─── */
 
 export async function confirmPoem(arenaId: string, poemTag: string): Promise<void> {
-  if (!IMPRECATED_POEM_VERSE_TAGS.includes(poemTag as typeof IMPRECATED_POEM_VERSE_TAGS[number])) return;
-
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_POEM) return;
-
-  const { attackerId, attackerTeam, usedPowerIndex, usedPowerName } = battle.turn;
-
-  const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN]: {
-      attackerId,
-      attackerTeam,
-      phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.POWER,
-      usedPowerIndex,
-      usedPowerName,
-      selectedPoem: poemTag,
-    },
-  };
-
-  await update(roomRef(arenaId), updates);
+  return ApolloService.confirmPoem(arenaId, poemTag, {
+    roomRef,
+  });
 }
 
 /* ── cancel season selection: refund quota and go back to select-action ─── */
 
 export async function cancelSeasonSelection(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_SEASON) return;
-
-  const { attackerId, attackerTeam, usedPowerIndex } = battle.turn;
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return;
-
-  // Refund quota
-  const power = attacker.powers?.[usedPowerIndex as number];
-  const cost = power ? getQuotaCost(power.type) : 1;
-  const atkPath = findFighterPath(room, attackerId);
-
-  const updates: Record<string, unknown> = {};
-  if (battle.turn.powerQuotaApplied && atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
-
-  // Reset turn back to select-action
-  updates[ARENA_PATH.BATTLE_TURN] = {
-    attackerId,
-    attackerTeam,
-    phase: PHASE.SELECT_ACTION,
-    action: null,
-  };
-
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.cancelSeasonSelection(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+  });
 }
 
 /* ── cancel poem selection: refund quota and go back to select-action ─── */
 
 export async function cancelPoemSelection(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_POEM) return;
-
-  const { attackerId, attackerTeam, usedPowerIndex } = battle.turn;
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return;
-
-  const power = attacker.powers?.[usedPowerIndex as number];
-  const cost = power ? getQuotaCost(power.type) : 1;
-  const atkPath = findFighterPath(room, attackerId);
-
-  const updates: Record<string, unknown> = {};
-  if (battle.turn.powerQuotaApplied && atkPath) updates[`${atkPath}/quota`] = attacker.quota + cost;
-  updates[ARENA_PATH.BATTLE_TURN] = {
-    attackerId,
-    attackerTeam,
-    phase: PHASE.SELECT_ACTION,
-    action: null,
-  };
-
-  await update(roomRef(arenaId), updates);
+  return ApolloService.cancelPoemSelection(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+  });
 }
 
 /* ── cancel target selection: go back to previous phase (poem if Imprecated Poem, else select-action) ─── */
@@ -3212,9 +2847,6 @@ export async function cancelTargetSelection(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
-/** Skip reason when turn is skipped for no valid target (for client modal). */
-export const SKIP_REASON_SHADOW_CAMOUFLAGE = POWER_NAMES.SHADOW_CAMOUFLAGING;
-
 /**
  * For Keraunos Voltage + Disoriented: random main; two random 2-dmg targets if ≥3 enemies alive else one; rest get 1 dmg each.
  */
@@ -3280,147 +2912,18 @@ export async function selectTargetDisoriented(arenaId: string): Promise<void> {
  * Call when phase is ROLLING_DISORIENTED_NO_EFFECT and client has written disorientedRoll.
  */
 export async function advanceAfterDisorientedD4(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) return;
-  const roll = Number((turn as { disorientedRoll?: number }).disorientedRoll);
-  const winFaces = ((turn as { disorientedWinFaces?: number[] }).disorientedWinFaces ?? []).map((f: unknown) => Number(f));
-  const defenderId = turn.defenderId;
-  const attackerId = turn.attackerId;
-  if (!attackerId || !defenderId || !battle || !Number.isFinite(roll)) return;
-
-  const noEffect = winFaces.length > 0 && winFaces.includes(roll);
-  const updates: Record<string, unknown> = {};
-
-  if (noEffect) {
-    const attacker = findFighter(room, attackerId);
-    const power = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null ? attacker?.powers?.[turn.usedPowerIndex] : null;
-    const logEntry = {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: 0,
-      defenderHpAfter: findFighter(room, defenderId)?.currentHp ?? 0,
-      eliminated: false,
-      missed: false,
-      powerUsed: power?.name ?? 'Attack',
-      skipReason: 'Disoriented (action had no effect)',
-    };
-    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-    const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
-    Object.assign(updates, effectUpdates);
-    const latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
-    const getHp = (m: FighterState) => {
-      const path = findFighterPath(room, m.characterId);
-      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
-      return m.currentHp;
-    };
-    const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-    const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-    const END_ARENA_DELAY_MS = 3500;
-    if (isTeamEliminated(teamBMembers, latestEffects)) {
-      updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
-      updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-      await update(roomRef(arenaId), updates);
-      setTimeout(() => {
-        update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => {});
-      }, END_ARENA_DELAY_MS);
-      return;
-    }
-    if (isTeamEliminated(teamAMembers, latestEffects)) {
-      updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
-      updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-      await update(roomRef(arenaId), updates);
-      setTimeout(() => {
-        update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => {});
-      }, END_ARENA_DELAY_MS);
-      return;
-    }
-    const updatedRoom = { ...room, teamA: { ...room.teamA, members: teamAMembers }, teamB: { ...room.teamB, members: teamBMembers } } as BattleRoom;
-    const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
-    updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
-    const fromIdx = updatedQueue.findIndex((e: TurnQueueEntry) => e.characterId === attackerId);
-    const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx !== -1 ? fromIdx : battle.currentTurnIndex, updatedRoom, latestEffects);
-    const nextEntry = updatedQueue[nextIdx];
-    const selfRes = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
-    const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-    if (nextFighter && !selfRes && isStunned(latestEffects, nextEntry.characterId)) {
-      const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
-      const skipEntry = updatedQueue[skipIdx];
-      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
-      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = skipWrapped ? battle.roundNumber + 1 : battle.roundNumber;
-      const battleForSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
-      const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForSkip, 0);
-      if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
-      const efflorescenceMuseSkip = onEfflorescenceMuseTurnStart(room, { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects }, skipEntry.characterId);
-      if (efflorescenceMuseSkip) Object.assign(updates, efflorescenceMuseSkip);
-      updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
-    } else {
-      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-      const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
-      if (selfRes) (turnData as Record<string, unknown>).resurrectTargetId = nextEntry.characterId;
-      const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
-      const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
-      if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
-      const efflorescenceMuseNext = onEfflorescenceMuseTurnStart(room, battleForDryad, nextEntry.characterId);
-      if (efflorescenceMuseNext) Object.assign(updates, efflorescenceMuseNext);
-      updates[ARENA_PATH.BATTLE_TURN] = turnData;
-    }
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  // Proceed: Keraunos Voltage goes to RESOLVING (skip dice); others go to ROLLING_ATTACK. Clear Disoriented D4 fields.
-  const isKeraunos = turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE;
-  const phaseNext = isKeraunos ? PHASE.RESOLVING : PHASE.ROLLING_ATTACK;
-  try {
-    const defenderTeam = findFighterTeam(room, defenderId);
-    const defenderMinions = defenderTeam ? (room as any)[defenderTeam]?.minions?.filter((m: any) => m.masterId === defenderId) ?? [] : [];
-    const turnUpdate: Record<string, unknown> = {
-      ...turn,
-      defenderId,
-      phase: phaseNext,
-      disorientedWinFaces: null,
-      disorientedRoll: null,
-      playbackStep: null,
-      resolvingHitIndex: null,
-    };
-    if (isKeraunos) {
-      (turnUpdate as Record<string, unknown>).attackRoll = 0;
-      (turnUpdate as Record<string, unknown>).defendRoll = 0;
-    }
-    if (defenderMinions.length > 0 && !isKeraunos) {
-      (turnUpdate as Record<string, unknown>).visualDefenderId = defenderMinions[0].characterId;
-    }
-    updates[ARENA_PATH.BATTLE_TURN] = turnUpdate;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-  } catch (e) {
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      ...turn,
-      defenderId,
-      phase: phaseNext,
-      disorientedWinFaces: null,
-      disorientedRoll: null,
-      playbackStep: null,
-      resolvingHitIndex: null,
-      ...(isKeraunos ? { attackRoll: 0, defendRoll: 0 } : {}),
-    };
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-  }
-  const disorientTurn = updates[ARENA_PATH.BATTLE_TURN] as Record<string, unknown> | undefined;
-  if (disorientTurn?.phase === PHASE.ROLLING_ATTACK || disorientTurn?.phase === PHASE.RESOLVING) {
-    deductPowerQuotaIfPending(room, turn, attackerId, updates, disorientTurn);
-    updates[ARENA_PATH.BATTLE_TURN] = disorientTurn;
-  }
-  await update(roomRef(arenaId), updates);
+  return ApolloService.advanceAfterDisorientedD4(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+    findFighterTeam,
+    sanitizeBattleLog,
+    tickEffectsWithSkeletonBlock,
+    isTeamEliminated,
+    buildTurnQueue,
+    nextAliveIndex,
+    applySelfResurrect,
+  });
 }
 
 /**
@@ -3465,7 +2968,7 @@ export async function skipTurnNoValidTarget(
     eliminated: false,
     missed: false,
     skippedNoValidTarget: true,
-    skipReason: SKIP_REASON_SHADOW_CAMOUFLAGE,
+    skipReason: POWER_NAMES.SHADOW_CAMOUFLAGING,
   };
   updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
 
@@ -3556,152 +3059,27 @@ export async function skipTurnNoValidTarget(
 /* ── advance after Shadow Camouflage D4 roll (client writes roll, then calls this) ─── */
 
 export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn?.shadowCamouflageRefillWinFaces?.length || turn.shadowCamouflageRefillRoll == null) return;
-  if (turn.phase !== PHASE.RESOLVING) return;
-
-  const { attackerId } = turn;
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return;
-
-  const updates: Record<string, unknown> = {};
-  const atkPath = findFighterPath(room, attackerId);
-  const winFaces = (turn.shadowCamouflageRefillWinFaces ?? []).map((f: unknown) => Number(f));
-  const roll = Number(turn.shadowCamouflageRefillRoll);
-  const won = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
-  const maxQuota = typeof attacker.maxQuota === 'number' && !isNaN(attacker.maxQuota) ? attacker.maxQuota : 3;
-  if (atkPath && won && attacker.quota < maxQuota) {
-    updates[`${atkPath}/quota`] = Math.min(attacker.quota + 1, maxQuota);
-  }
-
-  const getHp = (m: FighterState) => {
-    const path = findFighterPath(room, m.characterId);
-    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
-    return m.currentHp;
-  };
-  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-  const latestEffects = battle?.activeEffects || [];
-
-  const END_ARENA_DELAY_MS = 3500;
-  if (isTeamEliminated(teamBMembers, latestEffects)) {
-    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
-    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-    await update(roomRef(arenaId), updates);
-    setTimeout(() => {
-      update(roomRef(arenaId), {
-        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
-        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => { });
-    }, END_ARENA_DELAY_MS);
-    return;
-  }
-  if (isTeamEliminated(teamAMembers, latestEffects)) {
-    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
-    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-    await update(roomRef(arenaId), updates);
-    setTimeout(() => {
-      update(roomRef(arenaId), {
-        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
-        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => { });
-    }, END_ARENA_DELAY_MS);
-    return;
-  }
-
-  const updatedRoom = {
-    ...room,
-    teamA: { ...room.teamA, members: teamAMembers },
-    teamB: { ...room.teamB, members: teamBMembers },
-  } as BattleRoom;
-  const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
-  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
-  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle?.currentTurnIndex ?? 0;
-  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
-  const nextEntry = updatedQueue[nextIdx];
-
-  const selfRes1 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle as any);
-  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-  if (nextFighter && !selfRes1 && isStunned(latestEffects, nextEntry.characterId)) {
-    updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? (battle?.roundNumber ?? 0) + 1 : (battle?.roundNumber ?? 0);
-    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
-    const skipEntry = updatedQueue[skipIdx];
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
-    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || (battle?.roundNumber ?? 0)) + 1;
-    updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
-  } else {
-    updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? (battle?.roundNumber ?? 0) + 1 : (battle?.roundNumber ?? 0);
-    const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
-    if (selfRes1) turnData.resurrectTargetId = nextEntry.characterId;
-    updates[ARENA_PATH.BATTLE_TURN] = turnData;
-  }
-
-  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-  await update(roomRef(arenaId), updates);
+  return HadesService.advanceAfterShadowCamouflageD4(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+    buildTurnQueue,
+    nextAliveIndex,
+    isTeamEliminated,
+    applySelfResurrect,
+  });
 }
-
-/** Skip reason tag when heal is skipped (e.g. Healing Nullified). Client shows modal "ข้ามเพราะ สูญสิ้นเยียวยา". */
-export const HEAL_SKIP_REASON_HEALING_NULLIFIED = EFFECT_TAGS.HEALING_NULLIFIED;
 
 /**
  * Advance after caster acknowledges "heal skipped" (e.g. Floral Fragrance on target with Healing Nullified).
  * Writes log entry with heal: 0, healSkipReason, then advances to SELECT_TARGET.
  */
 export async function advanceAfterFloralHealSkippedAck(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !(turn as any).floralHealSkipped) return;
-
-  const attackerId = turn.attackerId;
-  const allyTargetId = turn.allyTargetId;
-  if (!attackerId || !allyTargetId || !battle) return;
-  const ally = findFighter(room, allyTargetId);
-  if (!ally) return;
-
-  const healSkipReason = (turn as any).healSkipReason as string | undefined;
-  const logEntry = {
-    round: battle.roundNumber,
-    attackerId,
-    defenderId: allyTargetId,
-    attackRoll: 0,
-    defendRoll: 0,
-    damage: 0,
-    heal: 0,
-    defenderHpAfter: ally.currentHp,
-    eliminated: false,
-    missed: false,
-    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
-    healSkipReason: healSkipReason ?? HEAL_SKIP_REASON_HEALING_NULLIFIED,
-  };
-  const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_LOG]: sanitizeBattleLog([...(battle.log || []), logEntry]),
-    [ARENA_PATH.BATTLE_TURN]: {
-      attackerId,
-      attackerTeam: turn.attackerTeam,
-      phase: PHASE.SELECT_TARGET,
-      action: TURN_ACTION.ATTACK,
-      usedPowerIndex: turn.usedPowerIndex,
-      usedPowerName: turn.usedPowerName,
-      allyTargetId,
-    },
-  };
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.advanceAfterFloralHealSkippedAck(arenaId, {
+    roomRef,
+    findFighter,
+    sanitizeBattleLog,
+  });
 }
 
 /**
@@ -3709,17 +3087,7 @@ export async function advanceAfterFloralHealSkippedAck(arenaId: string): Promise
  * Clears soulDevourerHealSkipAwaitsAck so skeleton hits can start on next resolveTurn.
  */
 export async function advanceAfterSoulDevourerHealSkippedAck(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (turn?.phase !== PHASE.RESOLVING || !(turn as any).soulDevourerHealSkipAwaitsAck) return;
-
-  const turnObj = turn as unknown as Record<string, unknown>;
-  const { soulDevourerHealSkipAwaitsAck: _, ...turnWithoutAck } = turnObj;
-  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithoutAck });
+  return HadesService.advanceAfterSoulDevourerHealSkippedAck(arenaId, { roomRef });
 }
 
 /** Shared tail after Pomegranate co resolves or co is skipped (Rapid Fire chain, skeleton playback, or runBattleResolveTailFromEffectSync). */
@@ -3736,12 +3104,12 @@ async function runDeferredPomegranateTail(
 ): Promise<void> {
   const { attackerId, defenderId, attackRoll = 0, defendRoll = 0, action } = clearedTurn;
   if (!attackerId || !defenderId) return;
-  
+
   // Clean up any undefined properties to prevent Firebase errors
   if ((clearedTurn as any).immediateResurrections === undefined) {
     delete (clearedTurn as any).immediateResurrections;
   }
-  
+
   updates[ARENA_PATH.BATTLE_TURN] = clearedTurn;
 
   if (ctx.attackerHasRapidFire && ctx.baseDmg > 0) {
@@ -3822,7 +3190,7 @@ async function runDeferredPomegranateTail(
   // (ctx.defenderHpAfter might be stale if defender was resurrected and updates were already written)
   const defPath = findFighterPath(room, defenderId);
   const currentDefenderHp = defPath ? (updates[`${defPath}/currentHp`] as number | undefined) ?? defender.currentHp : defender.currentHp;
-  
+
   if (currentDefenderHp <= 0) {
     // Defender is truly dead: advance turn directly without showing damage card
     await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
@@ -3852,15 +3220,16 @@ async function runDeferredPomegranateTail(
     delete turnForTail.immediateResurrections;
   }
   updates[ARENA_PATH.BATTLE_TURN] = turnForTail;
-  
+
   let battleMutable: BattleState = { ...battle, turn: clearedTurn };
   if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
     battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
   }
   if (updates[ARENA_PATH.BATTLE_LOG]) {
-    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    battleMutable = { ...battleMutable, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState["log"] };
   }
-  
+
   await update(roomRef(arenaId), updates);
 }
 
@@ -3869,22 +3238,10 @@ async function runDeferredPomegranateTail(
  * Clears ack and runs turn advance.
  */
 export async function advanceAfterRapidFireSkippedAck(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) return;
-  if (!(turn as any).rapidFireSkippedAwaitsAck) return;
-
-  const tObj = { ...turn } as Record<string, unknown>;
-  delete tObj.rapidFireSkippedAwaitsAck;
-  const turnUpdates: Record<string, unknown> = {
-    ...tObj,
-    phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
-  };
-  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
-  await resolveTurn(arenaId);
+  return ApolloService.advanceAfterRapidFireSkippedAck(arenaId, {
+    roomRef,
+    resolveTurn,
+  });
 }
 
 /**
@@ -3892,32 +3249,10 @@ export async function advanceAfterRapidFireSkippedAck(arenaId: string): Promise<
  * Clears ack and advances turn directly (no need to run tail logic since main attack already did).
  */
 export async function advanceAfterPomegranateCoSkippedAck(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.RESOLVING || !(turn as any).pomegranateCoSkippedAwaitsAck) return;
-
-  // Clear the acknowledgment flag and set pomegranateCoTailReady to advance turn
-  const tBase = { ...turn } as Record<string, unknown>;
-  delete tBase.pomegranateCoSkippedAwaitsAck;
-  delete tBase.pomegranateDeferredCtx;
-  delete tBase.awaitingPomegranateCoAttack;
-  delete tBase.coAttackRoll;
-  delete tBase.coDefendRoll;
-  delete tBase.pomCoAttackerId;
-  delete tBase.pomCoDefenderId;
-  delete tBase.coAttackerId;
-  delete tBase.playbackStep;
-  delete tBase.resolvingHitIndex;
-  
-  // Set pomegranateCoTailReady so resolveTurn advances the turn
-  tBase.pomegranateCoTailReady = true;
-  
-  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: tBase });
-  await resolveTurn(arenaId);
+  return PersephoneService.advanceAfterPomegranateCoSkippedAck(arenaId, {
+    roomRef,
+    resolveTurn,
+  });
 }
 
 /**
@@ -3925,106 +3260,21 @@ export async function advanceAfterPomegranateCoSkippedAck(arenaId: string): Prom
  * Called after resurrection modal has been shown for 1 second (or acknowledged).
  */
 export async function advanceAfterResurrection(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.RESURRECTING) return;
-
-  const resurrectContext = (turn as any).resurrectContext;
-  if (!resurrectContext) {
-    // Fallback: just advance to next turn
-    const updates: Record<string, unknown> = {};
-    await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
-      attackerId: turn.attackerId,
-      defenderId: turn.attackerId, // fallback
-      attackRoll: 0,
-      defendRoll: 0,
-      turn: turn as TurnState,
-      activeEffectsBaseline: battle.activeEffects || [],
-    });
-    return;
-  }
-
-  // Continue with turn advance using preserved context
-  const { attackerId, defenderId, attackRoll, defendRoll, action } = resurrectContext;
-  const updates: Record<string, unknown> = {};
-  
-  // Continue from where we left off (Spring heals, win check, turn advance)
-  await runBattleResolveTailFromEffectSync(arenaId, room, battle, updates, {
-    attackerId,
-    defenderId,
-    attackRoll,
-    defendRoll,
-    action,
-    turn: turn as TurnState,
-    activeEffectsBaseline: battle.activeEffects || [],
+  return HadesService.advanceAfterResurrection(arenaId, {
+    roomRef,
+    runBattleResolveTailFromEffectSync,
   });
 }
 
 /* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
 
 export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !turn?.floralHealWinFaces?.length || turn.floralHealRoll == null) return;
-
-  const attackerId = turn.attackerId;
-  const allyTargetId = turn.allyTargetId;
-  if (!attackerId || !allyTargetId || !battle) return;
-  const attacker = findFighter(room, attackerId);
-  const ally = findFighter(room, allyTargetId);
-  if (!attacker || !ally) return;
-
-  const winFaces = (turn.floralHealWinFaces ?? []).map((f: unknown) => Number(f));
-  const roll = Number(turn.floralHealRoll);
-  const isHealCrit = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
-  const baseHeal = Math.ceil(0.2 * attacker.maxHp);
-  const actualHeal = getEffectiveHealForReceiver(isHealCrit ? baseHeal * 2 : baseHeal, ally, allyTargetId, battle.activeEffects || []);
-  const allyPath = findFighterPath(room, allyTargetId);
-  const newHp = Math.min(ally.currentHp + actualHeal, ally.maxHp);
-  const updates: Record<string, unknown> = {};
-  if (allyPath) updates[`${allyPath}/currentHp`] = newHp;
-
-  // Sunborn Sovereign: on create or receive healing, gain recovery stack (max 2)
-  const effectsFloral = [...(battle.activeEffects || [])];
-  addSunbornSovereignRecoveryStack(room, effectsFloral, attackerId);
-  addSunbornSovereignRecoveryStack(room, effectsFloral, allyTargetId);
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effectsFloral;
-
-  // Note: VFX is triggered via log entry (log-based system), not activeEffect
-  
-  const logEntry = {
-    round: battle.roundNumber,
-    attackerId,
-    defenderId: allyTargetId,
-    attackRoll: 0,
-    defendRoll: 0,
-    damage: 0,
-    heal: actualHeal,
-    defenderHpAfter: newHp,
-    eliminated: false,
-    missed: false,
-    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
-    floralHealCrit: isHealCrit,
-  };
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle!.log || []), logEntry]);
-  updates[ARENA_PATH.BATTLE_TURN] = {
-    attackerId,
-    attackerTeam: turn.attackerTeam,
-    phase: PHASE.SELECT_TARGET,
-    action: TURN_ACTION.ATTACK,
-    usedPowerIndex: turn.usedPowerIndex,
-    usedPowerName: turn.usedPowerName,
-    allyTargetId,
-  };
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.advanceAfterFloralHealD4(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+    sanitizeBattleLog,
+  });
 }
 
 /* ── advance after Spring heal skipped ack (heal1 skip → show D4 roll for heal2; heal2 skip → clear Spring and advance) ─── */
@@ -4181,161 +3431,19 @@ export async function advanceAfterSpringHealD4(arenaId: string): Promise<void> {
 /* ── confirm season: apply effects + end turn (no dice) ─── */
 
 export async function confirmSeason(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-
-  const room = snap.val() as BattleRoom;
-  let battle = room.battle;
-  if (!battle?.turn || battle.turn.phase !== PHASE.SELECT_SEASON) return;
-
-  const { attackerId, attackerTeam, selectedSeason } = battle.turn;
-  if (!selectedSeason) return;
-
-  const attacker = findFighter(room, attackerId);
-  if (!attacker) return;
-
-  const updates: Record<string, unknown> = {};
-
-  // Spring: ตอน confirm ต้องทอย D4 ได้ heal1 ก่อน → หลังทอย advance ไปคนถัดไป (คนนั้นตีก่อนค่อยฮีล). ใส่ effect SEASON_SPRING เพื่อให้ pip/SeasonalEffects แสดง Spring.
-  if (selectedSeason === SEASON_KEYS.SPRING) {
-    updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = attackerId;
-    const seasonUpdates = applySeasonEffects(room, attackerId, SEASON_KEYS.SPRING, battle);
-    Object.assign(updates, seasonUpdates);
-    updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
-    const baseCritRate = typeof attacker.criticalRate === 'number' ? attacker.criticalRate : 25;
-    const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);
-    const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
-    const winFaces = getWinningFaces(healCritRate);
-    const turnSpring: Record<string, unknown> = {
-      attackerId,
-      attackerTeam,
-      phase: PHASE.ROLLING_SPRING_HEAL,
-      selectedSeason,
-      springHealWinFaces: winFaces,
-      springRound: 1,
-    };
-    deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnSpring);
-    updates[ARENA_PATH.BATTLE_TURN] = turnSpring;
-    await update(roomRef(arenaId), updates);
-    return;
-  }
-
-  deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, {});
-
-  // Apply season effects to all alive teammates (summer, autumn, winter)
-  const seasonUpdates = applySeasonEffects(room, attackerId, selectedSeason, battle);
-  Object.assign(updates, seasonUpdates);
-
-  // Sync activeEffects into battle for tickEffects
-  if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
-    battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
-  }
-
-  // Tick active effects (DOT damage, spring heal, decrement durations); DOT via resolveHitAtDefender
-  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
-  Object.assign(updates, effectUpdates);
-
-  // Battle log entry: "Ephemeral Season: {chosen season}" (logged only after season is chosen)
-  const seasonLabel = selectedSeason.charAt(0).toUpperCase() + selectedSeason.slice(1);
-  const logEntry = {
-    round: battle.roundNumber,
-    attackerId,
-    defenderId: attackerId,
-    attackRoll: 0,
-    defendRoll: 0,
-    damage: 0,
-    defenderHpAfter: attacker.currentHp,
-    eliminated: false,
-    missed: false,
-    powerUsed: `Ephemeral Season: ${seasonLabel}`,
-  };
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle.log || []), logEntry]);
-
-  // Build updated HP map for win condition check
-  const getHp = (m: FighterState) => {
-    const path = findFighterPath(room, m.characterId);
-    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
-    return m.currentHp;
-  };
-  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-
-  // Advance turn — same logic as end of resolveTurn()
-  const latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
-
-  const END_ARENA_DELAY_MS = 3500;
-  if (isTeamEliminated(teamBMembers, latestEffects)) {
-    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam, phase: PHASE.DONE };
-    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-    await update(roomRef(arenaId), updates);
-    setTimeout(() => {
-      update(roomRef(arenaId), {
-        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
-        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => { });
-    }, END_ARENA_DELAY_MS);
-    return;
-  }
-
-  if (isTeamEliminated(teamAMembers, latestEffects)) {
-    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam, phase: PHASE.DONE };
-    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-    await update(roomRef(arenaId), updates);
-    setTimeout(() => {
-      update(roomRef(arenaId), {
-        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
-        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-      }).catch(() => { });
-    }, END_ARENA_DELAY_MS);
-    return;
-  }
-  const updatedRoom = {
-    ...room,
-    teamA: { ...room.teamA, members: teamAMembers },
-    teamB: { ...room.teamB, members: teamBMembers },
-  } as BattleRoom;
-  const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
-  updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
-
-  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
-  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
-
-  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
-  const nextEntry = updatedQueue[nextIdx];
-
-  // Death Keeper: self-resurrect if next fighter is dead with death-keeper
-  const selfRes2 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
-
-  // Skip stunned fighters
-  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-  if (nextFighter && !selfRes2 && isStunned(latestEffects, nextEntry.characterId)) {
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-
-    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, updatedRoom, latestEffects);
-    const skipEntry = updatedQueue[skipIdx];
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
-    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
-    updates[ARENA_PATH.BATTLE_TURN] = {
-      attackerId: skipEntry.characterId,
-      attackerTeam: skipEntry.team,
-      phase: PHASE.SELECT_ACTION,
-    };
-  } else {
-    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-    const turnData: Record<string, unknown> = {
-      attackerId: nextEntry.characterId,
-      attackerTeam: nextEntry.team,
-      phase: PHASE.SELECT_ACTION,
-    };
-    if (selfRes2) turnData.resurrectTargetId = nextEntry.characterId;
-    updates[ARENA_PATH.BATTLE_TURN] = turnData;
-  }
-
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.confirmSeason(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+    getWinningFaces,
+    deductPowerQuotaIfPending,
+    tickEffectsWithSkeletonBlock,
+    sanitizeBattleLog,
+    isTeamEliminated,
+    buildTurnQueue,
+    nextAliveIndex,
+    applySelfResurrect,
+  });
 }
 
 /* ── signal "roll started" so viewers can show dice rolling in sync ── */
@@ -4462,259 +3570,36 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
 
 /** After main Pomegranate hit card, enter co-attack attack phase (D12 for oath caster). */
 export async function advanceToPomegranateCoAttackPhase(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn) return;
-  if (!turn.awaitingPomegranateCoAttack || !turn.pomegranateDeferredCtx) return;
-  if (turn.phase !== PHASE.RESOLVING) return;
-  if (turn.coAttackRoll != null && turn.coAttackRoll > 0) return;
-
-  const defIdEarly = turn.defenderId;
-  if (defIdEarly) {
-    const defEarly = findFighter(room, defIdEarly);
-    if (defEarly && defEarly.currentHp <= 0 && turn.attackerId) {
-      const attEarly = findFighter(room, turn.attackerId);
-      if (attEarly && battle) {
-        await applyDeferredPomegranateCoContinue(arenaId, room, battle, attEarly, defEarly, turn);
-      }
-      return;
-    }
-  }
-
-  const pomAtk = effectivePomCoAttackerId(turn) ?? turn.coAttackerId ?? null;
-  const pomDef = effectivePomCoDefenderId(turn) ?? null;
-
-  await update(roomRef(arenaId), {
-    [ARENA_PATH.BATTLE_TURN]: {
-      ...turn,
-      phase: PHASE.ROLLING_POMEGRANATE_CO_ATTACK,
-      coAttackerId: pomAtk,
-      pomCoAttackerId: pomAtk,
-      pomCoDefenderId: pomDef,
-      // Main hit already consumed critRoll/isCrit — clear so co-attacker gets a fresh D4 if co atk total ≥ 10.
-      critRoll: null,
-      isCrit: null,
-      critWinFaces: null,
-      dodgeRoll: null,
-      isDodged: null,
-      dodgeWinFaces: null,
-      chainRoll: null,
-      chainSuccess: null,
-      chainWinFaces: null,
-    },
+  return PersephoneService.advanceToPomegranateCoAttackPhase(arenaId, {
+    roomRef,
+    findFighter,
+    applyDeferredPomegranateCoContinue,
   });
 }
 
-/* ── submit Rapid Fire D4 (Volley Arrow ช็อตเสริม) ─────────────────────────── */
+/* ── submit Rapid Fire D4 (Volley Arrow extra shot) ─────────────────────────── */
 
 export async function submitRapidFireD4Roll(arenaId: string, roll: number): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT) return;
-  const winFaces = ((turn as any).rapidFireWinFaces as number[]) ?? [];
-  // rapidFireStep not used here
-  const baseDmg = Number((turn as any).rapidFireBaseDmg) ?? 0;
-  const isCrit = !!(turn as any).rapidFireIsCrit;
-  const defenderId = turn.defenderId;
-  const attackerId = turn.attackerId;
-  if (!attackerId || !defenderId || baseDmg <= 0) return;
-
-  const defender = findFighter(room, defenderId);
-  const attacker = findFighter(room, attackerId);
-  if (!defender || !attacker) return;
-  if (defender.currentHp <= 0) {
-    const turnUpdates: Record<string, unknown> = {
-      ...turn,
-      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
-      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
-      rapidFireStep: null,
-      rapidFireWinFaces: null,
-      rapidFireBaseDmg: null,
-      rapidFireIsCrit: null,
-      rapidFireD4Roll: null,
-    };
-    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
-    await resolveTurn(arenaId);
-    return;
-  }
-
-  const hit = winFaces.length > 0 && winFaces.includes(roll);
-  const updates: Record<string, unknown> = {};
-
-  if (!hit) {
-    const turnUpdates: Record<string, unknown> = {
-      ...turn,
-      phase: PHASE.RESOLVING_AFTER_RAPID_FIRE,
-      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
-      rapidFireStep: null,
-      rapidFireWinFaces: null,
-      rapidFireBaseDmg: null,
-      rapidFireIsCrit: null,
-      rapidFireD4Roll: roll,
-    };
-    updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
-    await update(roomRef(arenaId), updates);
-    await resolveTurn(arenaId);
-    return;
-  }
-
-  let rawDmgRF = Math.ceil(baseDmg * 0.5);
-  if (isCrit) rawDmgRF *= 2;
-  const defPathRF = findFighterPath(room, defenderId);
-  const defenderHpBeforeRF = defender.currentHp;
-  const defenderForRF: FighterState = { ...defender, currentHp: defenderHpBeforeRF };
-  const resolveRF = await resolveHitAtDefender(arenaId, room, defenderId, rawDmgRF, updates, defenderForRF);
-  if (resolveRF.skippedMinionsPath) delete updates[resolveRF.skippedMinionsPath];
-  rawDmgRF = resolveRF.damageToMaster;
-  let shieldRemainingRF = rawDmgRF;
-  const activeEffects = battle.activeEffects || [];
-  const effectsForShieldRF = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [...activeEffects];
-  for (const se of effectsForShieldRF) {
-    if (se.targetId !== defenderId || se.effectType !== EFFECT_TYPES.SHIELD) continue;
-    if (shieldRemainingRF <= 0) break;
-    const absorbedRF = Math.min(se.value, shieldRemainingRF);
-    se.value -= absorbedRF;
-    shieldRemainingRF -= absorbedRF;
-  }
-  const dmgRF = shieldRemainingRF;
-  const newDefHpRF = Math.max(0, defenderHpBeforeRF - dmgRF);
-  if (defPathRF) updates[`${defPathRF}/currentHp`] = newDefHpRF;
-  const cleanedRF = effectsForShieldRF.filter(
-    (e: ActiveEffect) => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag),
-  );
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleanedRF;
-
-  const rapidFireLog = [
-    ...(battle.log || []),
-    {
-      round: battle.roundNumber,
-      attackerId,
-      defenderId,
-      attackRoll: 0,
-      defendRoll: 0,
-      damage: dmgRF,
-      defenderHpAfter: newDefHpRF,
-      eliminated: newDefHpRF <= 0,
-      missed: false,
-      rapidFire: true,
-      rapidFireNoDefend: true,
-      rapidFireD4Roll: roll,
-      powerUsed: POWER_NAMES.VOLLEY_ARROW,
-      ...(isCrit ? { isCrit: true } : {}),
-    },
-  ];
-  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(rapidFireLog);
-
-  // Always show damage card + hit VFX first (including when this shot eliminates defender); then client calls advanceToNextRapidFireStep.
-  if (newDefHpRF <= 0) {
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = defenderId;
-  }
-  const turnUpdates: Record<string, unknown> = {
-    ...turn,
-    phase: PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT,
-    rapidFireD4Roll: roll,
-    rapidFireExtraShotDamage: dmgRF,
-    rapidFireExtraShotBaseDmg: rawDmgRF,
-    rapidFireExtraShotIsCrit: isCrit,
-    ...(newDefHpRF <= 0 ? { rapidFireExtraShotEliminated: true } : {}),
-  };
-  updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
-  await update(roomRef(arenaId), updates);
+  return ApolloService.submitRapidFireD4Roll(arenaId, roll, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+    resolveHitAtDefender,
+    sanitizeBattleLog,
+    resolveTurn,
+  });
 }
 
 /** After client has shown the extra-shot damage card (RESOLVING_RAPID_FIRE_EXTRA_SHOT), advance to next D4 roll or end chain (or resolveTurn if that shot eliminated defender). */
 export async function advanceToNextRapidFireStep(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT) return;
-
-  const defenderId = turn.defenderId;
-  const eliminated = !!(turn as any).rapidFireExtraShotEliminated;
-  const defender = defenderId ? findFighter(room, defenderId) : null;
-  const defenderDead = eliminated || (defender != null && defender.currentHp <= 0);
-
-  if (defenderDead && defender && defenderId) {
-    // Check if defender can be immediately resurrected before skipping extra shots
-    const updates: Record<string, unknown> = {};
-    let activeEffects = battle.activeEffects || [];
-    const wasResurrected = applyImmediateResurrection(defenderId, room, activeEffects, updates, battle);
-    
-    if (wasResurrected) {
-      // Defender was resurrected! Continue with next rapid fire step
-      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = activeEffects;
-      
-      const step = Number((turn as any).rapidFireStep) ?? 0;
-      const rapidFireChances = [0.75, 0.5, 0.25];
-      const nextStep = step + 1;
-      const nextChance = nextStep < rapidFireChances.length ? rapidFireChances[nextStep] : 0.25;
-      const nextWinFaces = nextChance >= 0.75 ? [2, 3, 4] : nextChance >= 0.5 ? [3, 4] : [4];
-
-      const turnUpdates: Record<string, unknown> = {
-        ...turn,
-        phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
-        rapidFireStep: nextStep,
-        rapidFireWinFaces: nextWinFaces,
-        rapidFireD4Roll: null,
-        rapidFireExtraShotDamage: null,
-        rapidFireExtraShotBaseDmg: null,
-        rapidFireExtraShotIsCrit: null,
-        immediateResurrections: [defenderId],
-      };
-      updates[ARENA_PATH.BATTLE_TURN] = turnUpdates;
-      await update(roomRef(arenaId), updates);
-      return;
-    }
-    
-    // Defender stays dead - skip and await acknowledgment
-    const turnUpdates: Record<string, unknown> = {
-      ...turn,
-      phase: PHASE.RESOLVING_RAPID_FIRE_EXTRA_SHOT,
-      rapidFireSkippedAwaitsAck: true,
-      rapidFireDefTotal: (turn as any).rapidFireDefTotal,
-      rapidFireStep: null,
-      rapidFireWinFaces: null,
-      rapidFireBaseDmg: null,
-      rapidFireIsCrit: null,
-      rapidFireD4Roll: null,
-      rapidFireExtraShotDamage: null,
-      rapidFireExtraShotBaseDmg: null,
-      rapidFireExtraShotIsCrit: null,
-      rapidFireExtraShotEliminated: true,
-    };
-    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
-    return;
-  }
-
-  const step = Number((turn as any).rapidFireStep) ?? 0;
-  const rapidFireChances = [0.75, 0.5, 0.25];
-  const nextStep = step + 1;
-  const nextChance = nextStep < rapidFireChances.length ? rapidFireChances[nextStep] : 0.25;
-  const nextWinFaces = nextChance >= 0.75 ? [2, 3, 4] : nextChance >= 0.5 ? [3, 4] : [4];
-
-  const turnUpdates: Record<string, unknown> = {
-    ...turn,
-    phase: PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT,
-    rapidFireStep: nextStep,
-    rapidFireWinFaces: nextWinFaces,
-    rapidFireD4Roll: null,
-    rapidFireExtraShotDamage: null,
-    rapidFireExtraShotBaseDmg: null,
-    rapidFireExtraShotIsCrit: null,
-  };
-  await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnUpdates });
+  return ApolloService.advanceToNextRapidFireStep(arenaId, {
+    roomRef,
+    findFighter,
+    applyImmediateResurrection,
+  });
 }
 
-/** เรียกเมื่อ animation เต๋าโจมตีจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+/** Called when attack dice animation finished — refill quota if roll total >= 11 (without waiting for resolve) */
 export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
@@ -4746,46 +3631,16 @@ export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
-/** เรียกเมื่อ Pomegranate co-attack animation เต๋าโจมตีจบแล้ว — refill co-attacker quota ถ้าโรลรวม >= 11 */
+/** Called when Pomegranate co-attack attack dice animation finished — refill co-attacker quota if roll total >= 11 */
 export async function ackPomegranateCoAttackDiceShown(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.coAttackRoll == null) return;
-  if ((turn as unknown as Record<string, unknown>).coAttackQuotaRefilled) {
-    return;
-  }
-
-  const coAttackerId = effectivePomCoAttackerId(turn);
-  if (!coAttackerId) {
-    return;
-  }
-  const coAttacker = findFighter(room, coAttackerId);
-  if (!coAttacker) {
-    return;
-  }
-
-  const activeEffects = battle?.activeEffects || [];
-  const coAtkBuff = getStatModifier(activeEffects, coAttackerId, MOD_STAT.ATTACK_DICE_UP);
-  const coAtkRecovery = getStatModifier(activeEffects, coAttackerId, MOD_STAT.RECOVERY_DICE_UP);
-  const total = (turn.coAttackRoll ?? 0) + coAttacker.attackDiceUp + coAtkBuff + coAtkRecovery;
-  const turnWithFlag = { ...turn, coAttackQuotaRefilled: true } as Record<string, unknown>;
-  if (total < 11 || coAttacker.quota >= (coAttacker.maxQuota ?? 0)) {
-    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
-    return;
-  }
-
-  const coAtkPath = findFighterPath(room, coAttackerId);
-  const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
-  };
-  if (coAtkPath) updates[`${coAtkPath}/quota`] = Math.min(coAttacker.quota + 1, coAttacker.maxQuota ?? 0);
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.ackPomegranateCoAttackDiceShown(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+  });
 }
 
-/** เรียกเมื่อ animation เต๋าป้องกันจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+/** Called when defend dice animation finished — refill quota if roll total >= 11 (without waiting for resolve) */
 export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
@@ -4818,44 +3673,13 @@ export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
-/** เรียกเมื่อ Pomegranate co-attack animation เต๋าป้องกันจบแล้ว — refill defender quota ถ้าโรลรวม >= 11 */
+/** Called when Pomegranate co-attack defend dice animation finished — refill defender quota if roll total >= 11 */
 export async function ackPomegranateCoDefendDiceShown(arenaId: string): Promise<void> {
-  const snap = await get(roomRef(arenaId));
-  if (!snap.exists()) return;
-  const room = snap.val() as BattleRoom;
-  const battle = room.battle;
-  const turn = battle?.turn;
-  if (!turn || turn.phase !== PHASE.RESOLVING || turn.coDefendRoll == null) return;
-  if ((turn as unknown as Record<string, unknown>).coDefendQuotaRefilled) {
-    return;
-  }
-
-  const defenderId = turn.defenderId;
-  if (!defenderId) {
-    ('[CO_DEFEND_QUOTA] No defenderId');
-    return;
-  }
-  const defender = findFighter(room, defenderId);
-  if (!defender) {
-    return;
-  }
-
-  const activeEffects = battle?.activeEffects || [];
-  const defBuff = getStatModifier(activeEffects, defenderId, MOD_STAT.DEFEND_DICE_UP);
-  const defRecovery = getStatModifier(activeEffects, defenderId, MOD_STAT.RECOVERY_DICE_UP);
-  const total = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-  const turnWithFlag = { ...turn, coDefendQuotaRefilled: true } as Record<string, unknown>;
-  if (total < 11 || defender.quota >= (defender.maxQuota ?? 0)) {
-    await update(roomRef(arenaId), { [ARENA_PATH.BATTLE_TURN]: turnWithFlag });
-    return;
-  }
-
-  const defPath = findFighterPath(room, defenderId);
-  const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN]: turnWithFlag,
-  };
-  if (defPath) updates[`${defPath}/quota`] = Math.min(defender.quota + 1, defender.maxQuota ?? 0);
-  await update(roomRef(arenaId), updates);
+  return PersephoneService.ackPomegranateCoDefendDiceShown(arenaId, {
+    roomRef,
+    findFighter,
+    findFighterPath,
+  });
 }
 
 /** Post–Rapid Fire advance: co-attack (if any), skeleton step (if any), tick effects, then advance to next turn. */
@@ -4905,7 +3729,7 @@ async function runPostRapidFireAdvance(
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -4921,7 +3745,7 @@ async function runPostRapidFireAdvance(
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -5187,7 +4011,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -5213,7 +4037,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
         [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
         [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }, END_ARENA_HIT_EFFECTS_DELAY_MS);
     return;
   }
@@ -5281,8 +4105,8 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
     delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
-      set(turnRef, nextTurnOnly).catch(() => {});
-      update(roomRef(arenaId), advancePayload).catch(() => {});
+      set(turnRef, nextTurnOnly).catch(() => { });
+      update(roomRef(arenaId), advancePayload).catch(() => { });
     }, SKELETON_PLAYBACK_DELAY_MS);
   } else {
     await set(turnRef, nextTurnOnly);
@@ -5296,7 +4120,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
  * (caster === spirit-bearer) never reaches defer or this path — no co-attack in that case.
  * If the defender was eliminated by the main hit (`currentHp <= 0`), skips co-attack and runs Rapid Fire / skeleton / tail only.
  */
-async function applyDeferredPomegranateCoContinue(
+export async function applyDeferredPomegranateCoContinue(
   arenaId: string,
   room: BattleRoom,
   battle: BattleState,
@@ -5315,12 +4139,12 @@ async function applyDeferredPomegranateCoContinue(
   // Check if defender can be immediately resurrected before skipping co-attack
   if (defender.currentHp <= 0) {
     const wasResurrected = applyImmediateResurrection(defenderId, room, activeEffects, updates, battle);
-    
+
     if (wasResurrected) {
       // Defender was resurrected! Mark it and continue with co-attack
       immediateResurrections = [defenderId];
       updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = activeEffects;
-      
+
       // Update defender object and context to reflect resurrection
       const defPath = findFighterPath(room, defenderId);
       if (defPath) {
@@ -5349,7 +4173,7 @@ async function applyDeferredPomegranateCoContinue(
   }
 
   const spiritEffect = activeEffects.find(
-    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+    e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT,
   );
   if (defender.currentHp > 0 && spiritEffect && spiritEffect.sourceId !== attackerId) {
     const coRoll = turn.coAttackRoll!;
@@ -5465,113 +4289,182 @@ async function runBattleResolveTailFromEffectSync(
   },
 ): Promise<void> {
   const { attackerId, defenderId, attackRoll, defendRoll, action, turn, activeEffectsBaseline: activeEffects } = tail;
-    // (applyPowerEffect, applyLightningReflexPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
-    //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
-    if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
-      battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
-    }
-    // Also update battle.log if it was modified in updates (e.g., by resurrection)
-    if (updates[ARENA_PATH.BATTLE_LOG]) {
-      battle = { ...battle, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState['log'] };
-    }
+  // (applyPowerEffect, applyLightningSparkPassive, applyKeraunosVoltageChain, applySecretOfDryadPassive
+  //  all write to updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] but tickEffects reads from battle)
+  if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
+    battle = { ...battle, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
+  }
+  // Also update battle.log if it was modified in updates (e.g., by resurrection)
+  if (updates[ARENA_PATH.BATTLE_LOG]) {
+    battle = { ...battle, log: updates[ARENA_PATH.BATTLE_LOG] as BattleState["log"] };
+  }
 
-    // Tick active effects (DOT damage, decrement durations)
-    // Pass current updates so DOT processing reads latest HP; DOT damage via resolveHitAtDefender
-    const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
-    Object.assign(updates, effectUpdates);
+  // Tick active effects (DOT damage, decrement durations)
+  // Pass current updates so DOT processing reads latest HP; DOT damage via resolveHitAtDefender
+  const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battle, updates);
+  Object.assign(updates, effectUpdates);
 
-    // Build updated HP map for win condition check
-    const getHp = (m: FighterState) => {
-      const path = findFighterPath(room, m.characterId);
-      if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
-      return m.currentHp;
-    };
-    let teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-    let teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  // Build updated HP map for win condition check
+  const getHp = (m: FighterState) => {
+    const path = findFighterPath(room, m.characterId);
+    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+    return m.currentHp;
+  };
+  let teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  let teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
 
-    // Rebuild turn queue (base SPD only; effect speed mods do not reorder)
-    let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+  // Rebuild turn queue (base SPD only; effect speed mods do not reorder)
+  let latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
 
-    // Apply immediate auto-resurrection for any Hades son (Death Keeper holder) who just died
-    const immediateResurrections: string[] = [];
-    for (const member of [...teamAMembers, ...teamBMembers]) {
-      if (member.currentHp <= 0) {
-        const resurrected = applyImmediateResurrection(member.characterId, room, latestEffects, updates, battle);
-        if (resurrected) {
-          immediateResurrections.push(member.characterId);
-        }
+  // Apply immediate auto-resurrection for any Hades son (Death Keeper holder) who just died
+  const immediateResurrections: string[] = [];
+  for (const member of [...teamAMembers, ...teamBMembers]) {
+    if (member.currentHp <= 0) {
+      const resurrected = applyImmediateResurrection(member.characterId, room, latestEffects, updates, battle);
+      if (resurrected) {
+        immediateResurrections.push(member.characterId);
       }
     }
-    
-    // Rebuild team member lists after resurrection
-    teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
-    teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  }
 
-    // If immediate resurrections occurred, transition to RESURRECTING phase to show modal
-    if (immediateResurrections.length > 0) {
-      const resurrectingTurn: Record<string, unknown> = {
+  // Rebuild team member lists after resurrection
+  teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+  // If immediate resurrections occurred, transition to RESURRECTING phase to show modal
+  if (immediateResurrections.length > 0) {
+    const resurrectingTurn: Record<string, unknown> = {
+      attackerId,
+      attackerTeam: turn.attackerTeam,
+      phase: PHASE.RESURRECTING,
+      immediateResurrections,
+      // Preserve context needed for turn advance after resurrection modal
+      resurrectContext: {
         attackerId,
-        attackerTeam: turn.attackerTeam,
-        phase: PHASE.RESURRECTING,
-        immediateResurrections,
-        // Preserve context needed for turn advance after resurrection modal
-        resurrectContext: {
+        defenderId,
+        attackRoll,
+        defendRoll,
+        action,
+      },
+    };
+    updates[ARENA_PATH.BATTLE_TURN] = resurrectingTurn;
+    await update(roomRef(arenaId), updates);
+    return;
+  }
+
+  // ── Spring (Ephemeral Season): attack first then heal — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
+  const springCasterId = (battle as { springCasterId?: string }).springCasterId;
+  const springHeal1 = (battle as { springHeal1?: number }).springHeal1;
+  const springHeal1Received = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
+  const springHeal2 = (battle as { springHeal2?: number | null }).springHeal2;
+
+  const isCasterTeam = springCasterId && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterId) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
+  if (springCasterId && isCasterTeam) {
+    // Caster already has heal2: apply it after this attack, then clear Spring.
+    if (springHeal2 != null && attackerId === springCasterId) {
+      const rawEff = room.battle?.activeEffects ?? battle.activeEffects;
+      const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff) ? rawEff : (rawEff && typeof rawEff === 'object' ? Object.values(rawEff) : []) as ActiveEffect[];
+      let springHeal2Skipped = isHealingNullified(effectsForHeal, attackerId);
+      const path = findFighterPath(room, attackerId);
+      if (path) {
+        const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+        const effectiveHeal = getEffectiveHealForReceiver(springHeal2, fighter ?? null, attackerId, effectsForHeal);
+        springHeal2Skipped = springHeal2Skipped || effectiveHeal === 0;
+        const healAmount = springHeal2Skipped ? 0 : effectiveHeal;
+        const hpKey = `${path}/currentHp`;
+        const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
+        const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
+        updates[hpKey] = newHp;
+        const logArr = [...(battle.log || [])];
+        logArr.push({
+          round: battle.roundNumber,
           attackerId,
-          defenderId,
-          attackRoll,
-          defendRoll,
-          action,
-        },
-      };
-      updates[ARENA_PATH.BATTLE_TURN] = resurrectingTurn;
-      await update(roomRef(arenaId), updates);
-      return;
-    }
+          defenderId: attackerId,
+          attackRoll: 0,
+          defendRoll: 0,
+          damage: 0,
+          heal: healAmount,
+          defenderHpAfter: newHp,
+          eliminated: false,
+          missed: false,
+          powerUsed: 'Ephemeral Season: Spring',
+          springHeal: springHeal2,
+          springHealCrit: springHeal2 === 2,
+          ...(springHeal2Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
+        });
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
+      }
+      if (springHeal2Skipped) {
+        // R{n+2} heal2 skipped: show skipped-heal modal; on ack we clear Spring and advance (no D4).
+        updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          attackerId,
+          attackerTeam: turn.attackerTeam,
+          phase: PHASE.ROLLING_SPRING_HEAL,
+          springHealSkipAwaitsAck: true,
+          healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
+      }
+      updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = null;
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL2] = null;
+      const currentEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
+      const withoutSpring = currentEffects.filter(e => e.tag !== EFFECT_TAGS.SEASON_SPRING);
+      addSunbornSovereignRecoveryStack(room, withoutSpring, springCasterId!);
+      addSunbornSovereignRecoveryStack(room, withoutSpring, attackerId);
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutSpring;
+      latestEffects = withoutSpring;
+    } else if (springHeal1 != null && !springHeal1Received.includes(attackerId)) {
+      // This attacker hasn't received heal1 yet: heal them (attack first then heal = attack already done).
+      const rawEff1 = room.battle?.activeEffects ?? battle.activeEffects;
+      const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff1) ? rawEff1 : (rawEff1 && typeof rawEff1 === 'object' ? Object.values(rawEff1) : []) as ActiveEffect[];
+      let springHeal1Skipped = isHealingNullified(effectsForHeal, attackerId);
+      const path = findFighterPath(room, attackerId);
+      if (path) {
+        const hpKey = `${path}/currentHp`;
+        const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
+        const effectiveHeal = getEffectiveHealForReceiver(springHeal1, fighter ?? null, attackerId, effectsForHeal);
+        springHeal1Skipped = springHeal1Skipped || effectiveHeal === 0;
+        const healAmount = springHeal1Skipped ? 0 : effectiveHeal;
+        const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
+        const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
+        updates[hpKey] = newHp;
+        const logArr = [...(battle.log || [])];
+        logArr.push({
+          round: battle.roundNumber,
+          attackerId: springCasterId,
+          defenderId: attackerId,
+          attackRoll: 0,
+          defendRoll: 0,
+          damage: 0,
+          heal: healAmount,
+          defenderHpAfter: newHp,
+          eliminated: false,
+          missed: false,
+          powerUsed: 'Ephemeral Season: Spring',
+          springHeal: springHeal1,
+          springHealCrit: springHeal1 === 2,
+          ...(springHeal1Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
+        });
+        updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
+      }
+      const nextReceived = [...springHeal1Received, attackerId];
+      updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = nextReceived;
+      const currentEffects1 = [...((updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [])];
+      if (!springHeal1Skipped) {
+        addSunbornSovereignRecoveryStack(room, currentEffects1, springCasterId!);
+        addSunbornSovereignRecoveryStack(room, currentEffects1, attackerId);
+      }
+      updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = currentEffects1;
 
-    // ── Spring (Ephemeral Season): ตีก่อนค่อยฮีล — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
-    const springCasterId = (battle as { springCasterId?: string }).springCasterId;
-    const springHeal1 = (battle as { springHeal1?: number }).springHeal1;
-    const springHeal1Received = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
-    const springHeal2 = (battle as { springHeal2?: number | null }).springHeal2;
-
-    const isCasterTeam = springCasterId && ((room.teamA?.members || []).some((m: FighterState) => m.characterId === springCasterId) ? (room.teamA?.members || []).some((m: FighterState) => m.characterId === attackerId) : (room.teamB?.members || []).some((m: FighterState) => m.characterId === attackerId));
-    if (springCasterId && isCasterTeam) {
-      // Caster already has heal2: apply it after this attack, then clear Spring.
-      if (springHeal2 != null && attackerId === springCasterId) {
-        const rawEff = room.battle?.activeEffects ?? battle.activeEffects;
-        const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff) ? rawEff : (rawEff && typeof rawEff === 'object' ? Object.values(rawEff) : []) as ActiveEffect[];
-        let springHeal2Skipped = isHealingNullified(effectsForHeal, attackerId);
-        const path = findFighterPath(room, attackerId);
-        if (path) {
-          const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
-          const effectiveHeal = getEffectiveHealForReceiver(springHeal2, fighter ?? null, attackerId, effectsForHeal);
-          springHeal2Skipped = springHeal2Skipped || effectiveHeal === 0;
-          const healAmount = springHeal2Skipped ? 0 : effectiveHeal;
-          const hpKey = `${path}/currentHp`;
-          const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
-          const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
-          updates[hpKey] = newHp;
-          const logArr = [...(battle.log || [])];
-          logArr.push({
-            round: battle.roundNumber,
-            attackerId,
-            defenderId: attackerId,
-            attackRoll: 0,
-            defendRoll: 0,
-            damage: 0,
-            heal: healAmount,
-            defenderHpAfter: newHp,
-            eliminated: false,
-            missed: false,
-            powerUsed: 'Ephemeral Season: Spring',
-            springHeal: springHeal2,
-            springHealCrit: springHeal2 === 2,
-            ...(springHeal2Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
-          });
-          updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
-        }
-        if (springHeal2Skipped) {
-          // R{n+2} heal2 skipped: show skipped-heal modal; on ack we clear Spring and advance (no D4).
+      if (attackerId === springCasterId) {
+        if (springHeal1Skipped) {
+          // Heal skipped (e.g. Healing Nullified): show modal, then on ack advance to D4 roll for heal2.
           updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
           updates[ARENA_PATH.BATTLE_TURN] = {
             attackerId,
@@ -5585,234 +4478,165 @@ async function runBattleResolveTailFromEffectSync(
           await update(roomRef(arenaId), updates);
           return;
         }
-        updates[ARENA_PATH.BATTLE_SPRING_CASTER_ID] = null;
-        updates[ARENA_PATH.BATTLE_SPRING_HEAL1] = null;
-        updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = null;
-        updates[ARENA_PATH.BATTLE_SPRING_HEAL2] = null;
-        const currentEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [];
-        const withoutSpring = currentEffects.filter(e => e.tag !== EFFECT_TAGS.SEASON_SPRING);
-        addSunbornSovereignRecoveryStack(room, withoutSpring, springCasterId!);
-        addSunbornSovereignRecoveryStack(room, withoutSpring, attackerId);
-        updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutSpring;
-        latestEffects = withoutSpring;
-      } else if (springHeal1 != null && !springHeal1Received.includes(attackerId)) {
-        // This attacker hasn't received heal1 yet: heal them (ตีก่อนค่อยฮีล = attack already done).
-        const rawEff1 = room.battle?.activeEffects ?? battle.activeEffects;
-        const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff1) ? rawEff1 : (rawEff1 && typeof rawEff1 === 'object' ? Object.values(rawEff1) : []) as ActiveEffect[];
-        let springHeal1Skipped = isHealingNullified(effectsForHeal, attackerId);
-        const path = findFighterPath(room, attackerId);
-        if (path) {
-          const hpKey = `${path}/currentHp`;
-          const fighter = (room.teamA?.members || []).concat(room.teamB?.members || []).find(m => m.characterId === attackerId);
-          const effectiveHeal = getEffectiveHealForReceiver(springHeal1, fighter ?? null, attackerId, effectsForHeal);
-          springHeal1Skipped = springHeal1Skipped || effectiveHeal === 0;
-          const healAmount = springHeal1Skipped ? 0 : effectiveHeal;
-          const currentHp = (hpKey in updates ? updates[hpKey] : fighter?.currentHp) as number ?? 0;
-          const newHp = Math.min(fighter?.maxHp ?? 999, currentHp + healAmount);
-          updates[hpKey] = newHp;
-          const logArr = [...(battle.log || [])];
-          logArr.push({
-            round: battle.roundNumber,
-            attackerId: springCasterId,
-            defenderId: attackerId,
-            attackRoll: 0,
-            defendRoll: 0,
-            damage: 0,
-            heal: healAmount,
-            defenderHpAfter: newHp,
-            eliminated: false,
-            missed: false,
-            powerUsed: 'Ephemeral Season: Spring',
-            springHeal: springHeal1,
-            springHealCrit: springHeal1 === 2,
-            ...(springHeal1Skipped ? { healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED } : {}),
-          });
-          updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(logArr);
-        }
-        const nextReceived = [...springHeal1Received, attackerId];
-        updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED] = nextReceived;
-        const currentEffects1 = [...((updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || battle.activeEffects || [])];
-        if (!springHeal1Skipped) {
-          addSunbornSovereignRecoveryStack(room, currentEffects1, springCasterId!);
-          addSunbornSovereignRecoveryStack(room, currentEffects1, attackerId);
-        }
-        updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = currentEffects1;
-
-        if (attackerId === springCasterId) {
-          if (springHeal1Skipped) {
-            // Heal skipped (e.g. Healing Nullified): show modal, then on ack advance to D4 roll for heal2.
-            updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = false;
-            updates[ARENA_PATH.BATTLE_TURN] = {
-              attackerId,
-              attackerTeam: turn.attackerTeam,
-              phase: PHASE.ROLLING_SPRING_HEAL,
-              springHealSkipAwaitsAck: true,
-              healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
-              playbackStep: null,
-              resolvingHitIndex: null,
-            };
-            await update(roomRef(arenaId), updates);
-            return;
-          }
-          // Caster got heal1; now roll for heal2.
-          const caster = findFighter(room, attackerId);
-          const baseCritRate = caster ? (typeof caster.criticalRate === 'number' ? caster.criticalRate : 25) : 25;
-          const healCritRate = Math.min(100, Math.max(0, baseCritRate + getStatModifier(latestEffects, attackerId, MOD_STAT.CRITICAL_RATE)));
-          const winFaces = getWinningFaces(healCritRate);
-          updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
-          updates[ARENA_PATH.BATTLE_TURN] = {
-            attackerId,
-            attackerTeam: turn.attackerTeam,
-            phase: PHASE.ROLLING_SPRING_HEAL,
-            springHealWinFaces: winFaces,
-            springRound: 2,
-            playbackStep: null,
-            resolvingHitIndex: null,
-          };
-          await update(roomRef(arenaId), updates);
-          return;
-        }
-        latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffects;
+        // Caster got heal1; now roll for heal2.
+        const caster = findFighter(room, attackerId);
+        const baseCritRate = caster ? (typeof caster.criticalRate === 'number' ? caster.criticalRate : 25) : 25;
+        const healCritRate = Math.min(100, Math.max(0, baseCritRate + getStatModifier(latestEffects, attackerId, MOD_STAT.CRITICAL_RATE)));
+        const winFaces = getWinningFaces(healCritRate);
+        updates[ARENA_PATH.BATTLE_SPRING_HEAL_ROLL_ACTIVE] = true;
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          attackerId,
+          attackerTeam: turn.attackerTeam,
+          phase: PHASE.ROLLING_SPRING_HEAL,
+          springHealWinFaces: winFaces,
+          springRound: 2,
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
       }
+      latestEffects = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) || latestEffects;
     }
+  }
 
-    // Recompute HP for win check when we applied Spring heal
-    if (springCasterId && (updates[ARENA_PATH.BATTLE_LOG] || updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED])) {
-      teamAMembers = (room.teamA?.members || []).map((m: FighterState) => {
-        const p = findFighterPath(room, m.characterId);
-        const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
-        return { ...m, currentHp: hp };
-      });
-      teamBMembers = (room.teamB?.members || []).map((m: FighterState) => {
-        const p = findFighterPath(room, m.characterId);
-        const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
-        return { ...m, currentHp: hp };
-      });
-    }
+  // Recompute HP for win check when we applied Spring heal
+  if (springCasterId && (updates[ARENA_PATH.BATTLE_LOG] || updates[ARENA_PATH.BATTLE_SPRING_HEAL1_RECEIVED])) {
+    teamAMembers = (room.teamA?.members || []).map((m: FighterState) => {
+      const p = findFighterPath(room, m.characterId);
+      const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
+      return { ...m, currentHp: hp };
+    });
+    teamBMembers = (room.teamB?.members || []).map((m: FighterState) => {
+      const p = findFighterPath(room, m.characterId);
+      const hp = p && `${p}/currentHp` in updates ? updates[`${p}/currentHp`] as number : m.currentHp;
+      return { ...m, currentHp: hp };
+    });
+  }
 
-    // Delay setting winner so all hit effects can play before end arena
-    const END_ARENA_HIT_EFFECTS_DELAY_MS = 3500;
+  // Delay setting winner so all hit effects can play before end arena
+  const END_ARENA_HIT_EFFECTS_DELAY_MS = 3500;
 
-    if (isTeamEliminated(teamBMembers, latestEffects)) {
-      updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
-      updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-      await update(roomRef(arenaId), updates);
-      setTimeout(() => {
-        update(roomRef(arenaId), {
-          [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
-          [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-          [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-          [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
-          [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
-          [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-        }).catch(() => { });
-      }, END_ARENA_HIT_EFFECTS_DELAY_MS);
-      return;
-    }
-
-    if (isTeamEliminated(teamAMembers, latestEffects)) {
-      updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
-      updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
-      await update(roomRef(arenaId), updates);
-      setTimeout(() => {
-        update(roomRef(arenaId), {
-          [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
-          [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
-          [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
-          [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
-          [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
-          [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-        }).catch(() => { });
-      }, END_ARENA_HIT_EFFECTS_DELAY_MS);
-      return;
-    }
-    const updatedRoom = {
-      ...room,
-      teamA: { ...room.teamA, members: teamAMembers },
-      teamB: { ...room.teamB, members: teamBMembers },
-    };
-    const updatedQueue = buildTurnQueue(updatedRoom as BattleRoom, latestEffects);
-    updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
-
-    // Find where the current attacker is in the new queue to advance from there
-    const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
-    const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
-
-    const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
-    const nextEntry = updatedQueue[nextIdx];
-
-    // Death Keeper: self-resurrect if next fighter is dead with death-keeper
-    const selfRes3 = applySelfResurrect(nextEntry.characterId, updatedRoom as BattleRoom, latestEffects, updates, battle);
-
-    // Skip stunned fighters — build next turn (SELECT_ACTION only, so caster always attacks before heal-crit roll)
-    const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
-    let nextTurnOnly: Record<string, unknown>;
-    if (nextFighter && !selfRes3 && isStunned((updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects, nextEntry.characterId)) {
-      const afterStunRoom = { ...updatedRoom };
-      const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom, latestEffects);
-      const skipEntry = updatedQueue[skipIdx];
-      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
-      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-      if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
-      nextTurnOnly = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
-      const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
-      const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
-      if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
-      const battleForEfflorescenceMuseSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
-      const efflorescenceMuseSkipUpdates = onEfflorescenceMuseTurnStart(room, battleForEfflorescenceMuseSkip, skipEntry.characterId);
-      if (efflorescenceMuseSkipUpdates) Object.assign(updates, efflorescenceMuseSkipUpdates);
-    } else {
-      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
-      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
-      nextTurnOnly = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
-      if (selfRes3) nextTurnOnly.resurrectTargetId = nextEntry.characterId;
-      const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
-      const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
-      if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
-      const battleForEfflorescenceMuse = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
-      const efflorescenceMuseUpdates = onEfflorescenceMuseTurnStart(room, battleForEfflorescenceMuse, nextEntry.characterId);
-      if (efflorescenceMuseUpdates) Object.assign(updates, efflorescenceMuseUpdates);
-    }
-
-    // Clear transient minion-hit markers so next turn doesn't show stale hit state.
-    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
-    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
-
-    const skeletonHitsArr = updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[] | undefined;
-    const hasSkeletonHits = Array.isArray(skeletonHitsArr) && skeletonHitsArr.length > 0;
-    const skeletonCount = hasSkeletonHits ? skeletonHitsArr.length : 0;
-    const SKELETON_MS_PER_HIT = 150;
-    const SOUL_DEVOURER_CHAIN_START_MS = 800;
-    const isSoulDevourerDrain = !!(turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
-    const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
-    
-    // Check if Beyond the Nimbus shock was applied (needs delay for visual effects)
-    const beyondNimbusShockApplied = !!updates[ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED];
-    const BEYOND_NIMBUS_SHOCK_DELAY_MS = 2500; // Delay for shock application visual effects
-    
-    // Calculate total delay (skeleton hits + shock application)
-    const totalEffectDelay = SKELETON_PLAYBACK_DELAY_MS + (beyondNimbusShockApplied ? BEYOND_NIMBUS_SHOCK_DELAY_MS : 0);
-    
-    const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
-
-    if ((hasSkeletonHits || beyondNimbusShockApplied) && totalEffectDelay > 0) {
-      const advancePayload = {
-        [ARENA_PATH.BATTLE_CURRENT_TURN_INDEX]: updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX],
-        [ARENA_PATH.BATTLE_ROUND_NUMBER]: updates[ARENA_PATH.BATTLE_ROUND_NUMBER],
+  if (isTeamEliminated(teamBMembers, latestEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
         [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
-        [ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED]: null,
-      };
-      delete updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX];
-      delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
-      await update(roomRef(arenaId), updates);
-      setTimeout(() => {
-        set(turnRef, nextTurnOnly).catch(() => { });
-        update(roomRef(arenaId), advancePayload).catch(() => { });
-      }, totalEffectDelay);
-    } else {
-      await set(turnRef, nextTurnOnly);
-      await update(roomRef(arenaId), updates);
-    }
+      }).catch(() => { });
+    }, END_ARENA_HIT_EFFECTS_DELAY_MS);
+    return;
+  }
+
+  if (isTeamEliminated(teamAMembers, latestEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_MINION_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID]: null,
+        [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
+      }).catch(() => { });
+    }, END_ARENA_HIT_EFFECTS_DELAY_MS);
+    return;
+  }
+  const updatedRoom = {
+    ...room,
+    teamA: { ...room.teamA, members: teamAMembers },
+    teamB: { ...room.teamB, members: teamBMembers },
+  };
+  const updatedQueue = buildTurnQueue(updatedRoom as BattleRoom, latestEffects);
+  updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
+
+  // Find where the current attacker is in the new queue to advance from there
+  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : battle.currentTurnIndex;
+
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
+  const nextEntry = updatedQueue[nextIdx];
+
+  // Death Keeper: self-resurrect if next fighter is dead with death-keeper
+  const selfRes3 = applySelfResurrect(nextEntry.characterId, updatedRoom as BattleRoom, latestEffects, updates, battle);
+
+  // Skip stunned fighters — build next turn (SELECT_ACTION only, so caster always attacks before heal-crit roll)
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+  let nextTurnOnly: Record<string, unknown>;
+  if (nextFighter && !selfRes3 && isStunned((updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? activeEffects, nextEntry.characterId)) {
+    const afterStunRoom = { ...updatedRoom };
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom, latestEffects);
+    const skipEntry = updatedQueue[skipIdx];
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
+    nextTurnOnly = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
+    const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
+    if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
+    const battleForEfflorescenceMuseSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const efflorescenceMuseSkipUpdates = onEfflorescenceMuseTurnStart(room, battleForEfflorescenceMuseSkip, skipEntry.characterId);
+    if (efflorescenceMuseSkipUpdates) Object.assign(updates, efflorescenceMuseSkipUpdates);
+  } else {
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    nextTurnOnly = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
+    if (selfRes3) nextTurnOnly.resurrectTargetId = nextEntry.characterId;
+    const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
+    if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
+    const battleForEfflorescenceMuse = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] | undefined) ?? latestEffects };
+    const efflorescenceMuseUpdates = onEfflorescenceMuseTurnStart(room, battleForEfflorescenceMuse, nextEntry.characterId);
+    if (efflorescenceMuseUpdates) Object.assign(updates, efflorescenceMuseUpdates);
+  }
+
+  // Clear transient minion-hit markers so next turn doesn't show stale hit state.
+  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+
+  const skeletonHitsArr = updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] as unknown[] | undefined;
+  const hasSkeletonHits = Array.isArray(skeletonHitsArr) && skeletonHitsArr.length > 0;
+  const skeletonCount = hasSkeletonHits ? skeletonHitsArr.length : 0;
+  const SKELETON_MS_PER_HIT = 150;
+  const SOUL_DEVOURER_CHAIN_START_MS = 800;
+  const isSoulDevourerDrain = !!(turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
+  const SKELETON_PLAYBACK_DELAY_MS = (isSoulDevourerDrain ? SOUL_DEVOURER_CHAIN_START_MS : 0) + skeletonCount * SKELETON_MS_PER_HIT;
+
+  // Check if Beyond the Nimbus shock was applied (needs delay for visual effects)
+  const beyondNimbusShockApplied = !!updates[ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED];
+  const BEYOND_NIMBUS_SHOCK_DELAY_MS = 2500; // Delay for shock application visual effects
+
+  // Calculate total delay (skeleton hits + shock application)
+  const totalEffectDelay = SKELETON_PLAYBACK_DELAY_MS + (beyondNimbusShockApplied ? BEYOND_NIMBUS_SHOCK_DELAY_MS : 0);
+
+  const turnRef = ref(db, `arenas/${arenaId}/battle/turn`);
+
+  if ((hasSkeletonHits || beyondNimbusShockApplied) && totalEffectDelay > 0) {
+    const advancePayload = {
+      [ARENA_PATH.BATTLE_CURRENT_TURN_INDEX]: updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX],
+      [ARENA_PATH.BATTLE_ROUND_NUMBER]: updates[ARENA_PATH.BATTLE_ROUND_NUMBER],
+      [ARENA_PATH.BATTLE_LAST_SKELETON_HITS]: null,
+      [ARENA_PATH.BATTLE_BEYOND_NIMBUS_SHOCK_APPLIED]: null,
+    };
+    delete updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX];
+    delete updates[ARENA_PATH.BATTLE_ROUND_NUMBER];
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      set(turnRef, nextTurnOnly).catch(() => { });
+      update(roomRef(arenaId), advancePayload).catch(() => { });
+    }, totalEffectDelay);
+  } else {
+    await set(turnRef, nextTurnOnly);
+    await update(roomRef(arenaId), updates);
+  }
 }
 
 export async function resolveTurn(arenaId: string): Promise<void> {
@@ -5972,12 +4796,12 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     const updates: Record<string, unknown> = {};
     const clearedTurn = { ...turn };
     delete (clearedTurn as any).pomegranateCoTailReady;
-    
+
     let battleMutable: BattleState = battle;
     if (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) {
       battleMutable = { ...battleMutable, activeEffects: updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[] };
     }
-    
+
     // Advance to next turn
     await runBattleResolveTailFromEffectSync(arenaId, room, battleMutable, updates, {
       attackerId,
@@ -6048,7 +4872,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
       });
       const battleAfterLog2: BattleState = {
         ...battle,
-        log: updatesK2[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+        log: updatesK2[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
       };
       const nextDef = findFighter(room, nextId);
       if (!nextDef) {
@@ -6158,7 +4982,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         });
         const battleAfterEmpty: BattleState = {
           ...battle,
-          log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+          log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
         };
         await runBattleResolveTailFromEffectSync(arenaId, room, battleAfterEmpty, updatesKv, {
           attackerId,
@@ -6197,7 +5021,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
       const battleAfterLog: BattleState = {
         ...battle,
-        log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState['log'],
+        log: updatesKv[ARENA_PATH.BATTLE_LOG] as BattleState["log"],
       };
       const turnKv: Record<string, unknown> = {
         ...turn,
@@ -6645,7 +5469,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           round: battle.roundNumber,
           attackerId: sk.characterId,
           defenderId,
-          attackerName: sk.nicknameEng?.toLowerCase?.() || 'skeleton',
+          attackerName: sk.nicknameEng?.toLowerCase?.() || DEFAULT_NAMES.SKELETON,
           attackerTheme: sk.theme?.[0] || '#666',
           defenderName: defender.nicknameEng,
           defenderTheme: defender.theme[0],
@@ -6965,7 +5789,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         // Rule: hit on skeleton → no shock (or other affliction) on master. Applied for normal attack (Lightning Reflex), Nimbus, and Keraunos.
         const defenderTeamForBlock = findFighterTeam(room, defenderId);
         const currentMinionsForBlock = defenderTeamForBlock
-          ? ((updates[teamPath(defenderTeamForBlock, 'minions')] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
+          ? ((updates[teamPath(defenderTeamForBlock, TEAM_SUB_PATH.MINIONS)] as any[]) ?? (room[defenderTeamForBlock]?.minions || []))
           : [];
         const defenderSkeletonsForBlock = currentMinionsForBlock.filter((m: any) => m.masterId === defenderId);
         const skeletonBlocksHit = defenderSkeletonsForBlock.length > 0;
@@ -6995,7 +5819,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             }
           } else {
             if (!skeletonBlocksHit) {
-              const shockResult = applyLightningReflexPassive(room, attackerId, defenderId, battle, baseDmg);
+              const shockResult = applyLightningSparkPassive(room, attackerId, defenderId, battle, baseDmg);
               rawDmg += shockResult.bonusDamage;
               shockBonusDamage = shockResult.bonusDamage;
               Object.assign(updates, shockResult.updates);
@@ -7146,7 +5970,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     !(turn as any).pomegranateCoSkippedAwaitsAck;
   if (pomCoSkipAckEligible) {
     const spiritSkip = (effectsForRapidFireCheck as ActiveEffect[]).find(
-      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT,
     );
     if (spiritSkip && spiritSkip.sourceId !== attackerId) {
       const casterSkip = findFighter(room, spiritSkip.sourceId);
@@ -7191,7 +6015,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     !turn.awaitingPomegranateCoAttack;
   if (needsPomegranateCoDefer) {
     const spiritDefer = activeEffects.find(
-      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT,
+      e => e.targetId === attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT,
     );
     if (spiritDefer && spiritDefer.sourceId !== attackerId) {
       const casterDefer = findFighter(room, spiritDefer.sourceId);
@@ -7228,7 +6052,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   // Only enter Rapid Fire chain when defender survived the main hit; if eliminated, resolve and advance (all three rounds)
   if (attackerHasRapidFire && defenderId && baseDmg > 0 && defenderHpAfter > 0) {
-    // ให้ caster ทอย D4 เองทุกช็อตเสริม — เปลี่ยนเป็น phase ROLLING_RAPID_FIRE_D4 รอ client ส่ง roll
+    // Let caster roll D4 themselves for each extra shot — change to phase ROLLING_RAPID_FIRE_D4 and wait for client to send roll
     const rapidFireWinFacesFirst = [2, 3, 4]; // 75%
     updates[ARENA_PATH.BATTLE_TURN] = {
       ...turn,

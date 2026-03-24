@@ -4,10 +4,11 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState, type MutableRefObject } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
+import { useTranslation } from '../../../../hooks/useTranslation';
 import type { BattleLogEntry, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom';
-import { getStatModifier } from '../../../../services/powerEngine';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom/battleRoom';
+import { getStatModifier } from '../../../../services/powerEngine/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
 import LoseBadge from './icons/Loser';
@@ -42,6 +43,7 @@ import {
 } from '../../../../constants/battle';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCK } from '../../../../constants/character';
+import { TRANSLATION_KEYS } from '../../../../constants/translations';
 
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
@@ -297,6 +299,7 @@ export default function BattleHUD({
   onStuckContinueVisibleChange,
   stuckContinueClickRef,
 }: Props) {
+  const { t } = useTranslation();
   const { turn, roundNumber, log = [], winner } = battle;
   const awaitingPomegranateCoAttack = !!(
     turn && (turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack
@@ -495,7 +498,7 @@ export default function BattleHUD({
       turn?.phase === PHASE.RESOLVING &&
       !defRollDone &&
       (turn?.defenderId === myId ||
-        (devUiActAsAttacker && (preRolledDefend != null || pomCoDefCommitted)))
+        (devUiActAsAttacker && pomCoDefCommitted))
     ) {
       /* RESOLVING replay: play-all switches myId to attacker before defRollDone — keep pre-roll for fixedResult. */
     } else {
@@ -510,7 +513,6 @@ export default function BattleHUD({
     isPlaybackDriver,
     turn?.coDefendRoll,
     awaitingPomegranateCoAttack,
-    preRolledDefend,
   ]);
 
   // Reset submitted flags when phase changes
@@ -1081,7 +1083,7 @@ export default function BattleHUD({
 
     // Check if defender has pomegranate-spirit
     const ae = battle.activeEffects || [];
-    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT);
+    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT);
     if (!hasSpirit) { setDodgeReady(true); return; }
 
     // Check if attack actually hit (need hit to dodge)
@@ -1852,7 +1854,7 @@ export default function BattleHUD({
     const cd = turn.coDefendRoll;
     if (cr == null || cr <= 0 || cd == null || cd < 1) return null;
     const ae = battle.activeEffects || [];
-    const spirit = ae.find((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_SPIRIT);
+    const spirit = ae.find((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT);
     if (!spirit || spirit.sourceId === turn.attackerId) return null;
     const casterId = effectivePomCoAttackerId(turn) || spirit.sourceId;
     const caster = find(teamA, teamB, casterId);
@@ -3245,7 +3247,7 @@ export default function BattleHUD({
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
         if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus && !(entry as any).isPomegranateCoAttack) {
-          // Jolt Arc: log ไม่มี baseDmg — ใช้ค่าที่ canFillCache เติมไว้ (ไม่เขียนทับ); ถ้ายังไม่มีให้คำนวณจาก caster
+          // Jolt Arc: log doesn't have baseDmg — use value that canFillCache filled in (don't overwrite); if not yet set, calculate from caster
           if (isJoltArcEntry) {
             delete (rc as any).baseDmg;
           }
@@ -3634,11 +3636,11 @@ export default function BattleHUD({
                       }
                     }}
                   >
-                    Roger that
+                    {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'attacker'}...</p>
+                <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {attacker?.nicknameEng ?? t(TRANSLATION_KEYS.ATTACKER)}...</p>
               )}
             </div>
           ) : null}
@@ -3856,15 +3858,15 @@ export default function BattleHUD({
         return (
           <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
-              <span className="bhud__dice-label">Heal skipped</span>
+              <span className="bhud__dice-label">{t(TRANSLATION_KEYS.HEAL_SKIPPED)}</span>
               <p className="bhud__no-target-reason">
                 {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
                   <>
-                    HP recovery has no effect
+                    {t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
                     <br />
-                    because the target has Healing Nullified.
+                    {t(TRANSLATION_KEYS.BECAUSE_HEALING_NULLIFIED_TARGET)}
                   </>
-                ) : 'HP recovery has no effect.'}
+                ) : t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
               </p>
               {isFloralHealReceiver && onHealSkippedAck ? (
                 <div className="bhud__target-actions">
@@ -3873,11 +3875,11 @@ export default function BattleHUD({
                     className="bhud__target-confirm"
                     onClick={() => onHealSkippedAck()}
                   >
-                    Roger that
+                    {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {floralHealReceiver?.nicknameEng ?? 'heal receiver'}...</p>
+                <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {floralHealReceiver?.nicknameEng ?? t(TRANSLATION_KEYS.HEAL_RECEIVER)}...</p>
               )}
             </div>
           </div>
@@ -3889,15 +3891,15 @@ export default function BattleHUD({
         return (
           <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
-              <span className="bhud__dice-label">Heal skipped</span>
+              <span className="bhud__dice-label">{t(TRANSLATION_KEYS.HEAL_SKIPPED)}</span>
               <p className="bhud__no-target-reason">
                 {(turn as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? (
                   <>
-                    HP recovery has no effect
+                    {t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
                     <br />
-                    because the caster has Healing Nullified.
+                    {t(TRANSLATION_KEYS.BECAUSE_HEALING_NULLIFIED_CASTER)}
                   </>
-                ) : 'HP recovery has no effect.'}
+                ) : t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
               </p>
               {isMyTurn && onSpringHealSkippedAck ? (
                 <div className="bhud__target-actions">
@@ -3906,11 +3908,11 @@ export default function BattleHUD({
                     className="bhud__target-confirm"
                     onClick={() => onSpringHealSkippedAck()}
                   >
-                    Roger that
+                    {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'caster'}...</p>
+                <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {attacker?.nicknameEng ?? t(TRANSLATION_KEYS.CASTER)}...</p>
               )}
             </div>
           </div>
@@ -3921,11 +3923,11 @@ export default function BattleHUD({
       {soulDevourerHealSkipAwaitsAck && !winner && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide} bhud__dice-zone--overlay`}>
           <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
-            <span className="bhud__dice-label">Heal skipped</span>
+            <span className="bhud__dice-label">{t(TRANSLATION_KEYS.HEAL_SKIPPED)}</span>
             <p className="bhud__no-target-reason">
-              HP recovery has no effect
+              {t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
               <br />
-              because the caster has Healing Nullified.
+              {t(TRANSLATION_KEYS.BECAUSE_HEALING_NULLIFIED_CASTER)}
             </p>
             {isMyTurn ? (
               <div className="bhud__target-actions">
@@ -3934,11 +3936,11 @@ export default function BattleHUD({
                   className="bhud__target-confirm"
                   onClick={() => onSoulDevourerHealSkippedAck?.()}
                 >
-                  Roger that
+                  {t(TRANSLATION_KEYS.ROGER_THAT)}
                 </button>
               </div>
             ) : (
-              <p className="bhud__no-target-waiting">Waiting for {attacker?.nicknameEng ?? 'heal receiver'}...</p>
+              <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {attacker?.nicknameEng ?? t(TRANSLATION_KEYS.HEAL_RECEIVER)}...</p>
             )}
           </div>
         </div>
@@ -3955,10 +3957,9 @@ export default function BattleHUD({
               className="bhud__targets-modal bhud__targets-modal--no-target"
               style={{ '--modal-primary': pomPrimary, '--modal-dark': pomDark } as React.CSSProperties}
             >
-              <span className="bhud__dice-label">Co-attack skipped</span>
+              <span className="bhud__dice-label">{t(TRANSLATION_KEYS.POMEGRANATE_OATH_CO_ATTACK_SKIPPED)}</span>
               <p className="bhud__no-target-reason">
-                The defender was eliminated by your ally&apos;s strike.
-                Pomegranate&apos;s Oath co-attack does not resolve.
+                {t(TRANSLATION_KEYS.DEFENDER_ELIMINATED_POMEGRANATE)}
               </p>
               {isMyPomegranateCoAttack ? (
                 <div className="bhud__target-actions">
@@ -3967,12 +3968,12 @@ export default function BattleHUD({
                     className="bhud__target-confirm"
                     onClick={() => onPomegranateCoSkippedAck?.()}
                   >
-                    Roger that
+                    {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
                 </div>
               ) : (
                 <p className="bhud__no-target-waiting">
-                  Waiting for {pomCo?.nicknameEng ?? 'oath caster'}...
+                  {t(TRANSLATION_KEYS.WAITING_FOR)} {pomCo?.nicknameEng ?? t(TRANSLATION_KEYS.OATH_CASTER)}...
                 </p>
               )}
             </div>
@@ -3990,11 +3991,9 @@ export default function BattleHUD({
               className="bhud__targets-modal bhud__targets-modal--no-target"
               style={{ '--modal-primary': atkPrimary, '--modal-dark': atkDark } as React.CSSProperties}
             >
-              <span className="bhud__dice-label">Extra shots skipped</span>
+              <span className="bhud__dice-label">{t(TRANSLATION_KEYS.EXTRA_SHOTS_SKIPPED)}</span>
               <p className="bhud__no-target-reason">
-                The defender was eliminated.
-                <br />
-                Volley Arrow extra shots do not resolve.
+                {t(TRANSLATION_KEYS.DEFENDER_ELIMINATED_VOLLEY)}
               </p>
               {isMyTurn ? (
                 <div className="bhud__target-actions">
@@ -4003,12 +4002,12 @@ export default function BattleHUD({
                     className="bhud__target-confirm"
                     onClick={() => onRapidFireSkippedAck?.()}
                   >
-                    Roger that
+                    {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
                 </div>
               ) : (
                 <p className="bhud__no-target-waiting">
-                  Waiting for {attacker?.nicknameEng ?? 'attacker'}...
+                  {t(TRANSLATION_KEYS.WAITING_FOR)} {attacker?.nicknameEng ?? t(TRANSLATION_KEYS.ATTACKER)}...
                 </p>
               )}
             </div>

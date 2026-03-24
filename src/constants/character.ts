@@ -6,3 +6,11 @@ export const SKILL_UNLOCK = 'unlock' as const;
 export function isSkillUnlocked(value: string | undefined): boolean {
   return value?.toLowerCase() === SKILL_UNLOCK;
 }
+
+/**
+ * Default names for characters and actions.
+ */
+export const DEFAULT_NAMES = {
+  SKELETON: 'skeleton',
+  ATTACK: 'Attack',
+} as const;

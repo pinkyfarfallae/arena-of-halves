@@ -60,7 +60,7 @@ import {
   advanceAfterResurrection,
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
-} from '../../services/battleRoom';
+} from '../../services/battleRoom/battleRoom';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';

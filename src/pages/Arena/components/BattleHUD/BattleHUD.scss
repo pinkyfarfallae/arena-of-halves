@@ -138,7 +138,10 @@ $crimson-bright: #c41e3a;
   font-weight: 800;
   color: $ink;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: pre-line;
+  line-height: 1.75;
 }
 
 .bhud__dice-sub {

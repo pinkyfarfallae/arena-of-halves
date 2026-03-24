@@ -30,7 +30,7 @@ $ink-faint: #9a8b76;
 }
 
 .nts__zone-label {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -44,7 +44,7 @@ $ink-faint: #9a8b76;
   margin: 0;
   padding: 0.5rem 0.35rem;
   text-align: center;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.58rem;
   color: $ink-faint;
   line-height: 1.3;
@@ -56,7 +56,7 @@ $ink-faint: #9a8b76;
   border: 1.5px solid rgba($gold, 0.2);
   border-radius: 3px;
   background: transparent;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
   color: $ink;
@@ -201,7 +201,7 @@ $ink-faint: #9a8b76;
 }
 
 .nts__stats {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.55rem;
   color: $ink-faint;
   font-weight: 600;

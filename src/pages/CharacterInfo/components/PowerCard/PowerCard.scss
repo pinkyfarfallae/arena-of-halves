@@ -270,7 +270,7 @@
 
 .pcard__tag {
   display: inline-block;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.5rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -279,7 +279,8 @@
   background: color-mix(in srgb, var(--ci-highlight) 30%, transparent);
   padding: 0.1rem 0.45rem;
   border-radius: 3px;
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 0 5px 0.5px color-mix(in srgb, var(--pc-color) 12%, transparent);
 
   .pcard--ult & {
     background:

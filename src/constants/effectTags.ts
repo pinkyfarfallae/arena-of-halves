@@ -34,12 +34,12 @@ export const EFFECT_TAGS = {
   SEASON_AUTUMN: 'season-autumn',
   SEASON_WINTER: 'season-winter',
   SEASON_SUMMER: 'season-summer',
-  POMEGRANATE_SPIRIT: 'pomegranate-spirit',
+  POMEGRANATE_OATH_SPIRIT: 'pomegranate-oath-spirit',
 } as const;
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];
 
-/** Status category for cleanse/strip mechanics (e.g. "ลบ Affliction" / "ลบ Blessing"). */
+/** Status category for cleanse/strip mechanics (e.g. "Remove Affliction" / "Remove Blessing"). */
 export const STATUS_CATEGORY = {
   AFFLICTION: 'affliction',
   BLESSING: 'blessing',
