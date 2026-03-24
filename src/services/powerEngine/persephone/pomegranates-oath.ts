@@ -26,7 +26,7 @@ export function applyPomegranateOath(
   let effects: ActiveEffect[] = [...(battle.activeEffects || [])];
 
   // Remove any existing pomegranate-spirit effects (only one oath active at a time)
-  effects = effects.filter(e => e.tag !== EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT);
+  effects = effects.filter(e => e.tag !== EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT);
 
   // Duration: 3 full rounds (each fighter acts once per round)
   // tickEffects decrements once per turn, so 3 rounds = 3 * queueLen ticks
@@ -41,7 +41,7 @@ export function applyPomegranateOath(
     targetId: allyTargetId,
     value: 0,
     turnsRemaining: duration,
-    tag: EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT,
+    tag: EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT,
   });
 
   updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;

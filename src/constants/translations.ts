@@ -82,7 +82,7 @@ export const BLESSING_NAMES = {
     en: 'Floral Fragrance',
     th: 'สุคนธ์บุษบาแห่งการเยียวยา',
   },
-  [EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT]: {
+  [EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT]: {
     en: "Pomegranate's Oath Spirit",
     th: 'จิตวิญญาณ์แห่งผลทับทิม',
   },

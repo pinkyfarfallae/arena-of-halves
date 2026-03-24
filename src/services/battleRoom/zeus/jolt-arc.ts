@@ -1,9 +1,9 @@
 import { get, update } from 'firebase/database';
-import type { BattleRoom, FighterState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { PHASE, ARENA_PATH, TURN_ACTION, teamPath, TEAM_SUB_PATH, type BattleTeamKey } from '../../../../constants/battle';
+import type { BattleRoom, FighterState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { POWER_NAMES } from '../../../constants/powers';
+import { PHASE, ARENA_PATH, TURN_ACTION, teamPath, TEAM_SUB_PATH, type BattleTeamKey } from '../../../constants/battle';
 
 /** Delay before applying Jolt Arc damage/skeleton so client can play the arc effect first. */
 export const JOLT_ARC_EFFECT_MS = 800;

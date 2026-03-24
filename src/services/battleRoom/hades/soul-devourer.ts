@@ -1,9 +1,9 @@
 import { get, update } from 'firebase/database';
-import type { ActiveEffect, PowerDefinition } from '../../../../types/power';
-import type { BattleRoom } from '../../../../types/battle';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { EFFECT_TYPES, TARGET_TYPES } from '../../../../constants/effectTypes';
-import { PHASE, ARENA_PATH } from '../../../../constants/battle';
+import type { ActiveEffect, PowerDefinition } from '../../../types/power';
+import type { BattleRoom } from '../../../types/battle';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { EFFECT_TYPES, TARGET_TYPES } from '../../../constants/effectTypes';
+import { PHASE, ARENA_PATH } from '../../../constants/battle';
 
 /**
  * True if the character has an active Soul Devourer effect (Hades).

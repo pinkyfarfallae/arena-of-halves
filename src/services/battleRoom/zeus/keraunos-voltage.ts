@@ -1,10 +1,10 @@
 import { get, update } from 'firebase/database';
-import type { BattleRoom, BattleState, FighterState, TurnState } from '../../../../types/battle';
-import type { ActiveEffect } from '../../../../types/power';
-import { MOD_STAT } from '../../../../constants/effectTypes';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { PHASE, ARENA_PATH } from '../../../../constants/battle';
-import { getStatModifier, applyKeraunosVoltageShockSingleTarget } from '../../../powerEngine/powerEngine';
+import type { BattleRoom, BattleState, FighterState, TurnState } from '../../../types/battle';
+import type { ActiveEffect } from '../../../types/power';
+import { MOD_STAT } from '../../../constants/effectTypes';
+import { POWER_NAMES } from '../../../constants/powers';
+import { PHASE, ARENA_PATH } from '../../../constants/battle';
+import { getStatModifier, applyKeraunosVoltageShockSingleTarget } from '../../powerEngine/powerEngine';
 
 /**
  * Keraunos Voltage UI steps: 0 = main (3 dmg), 1 = 2-dmg target(s); with ≥3 alive enemies pick two distinct 2-dmg targets, then tier-3 (1 dmg) fills the rest.
