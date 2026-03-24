@@ -6,6 +6,7 @@ import ChevronLeft from '../../icons/ChevronLeft';
 import Book from '../../icons/Book';
 import Trophy from '../../icons/Trophy';
 import QuestionMark from '../../icons/QuestionMark';
+import Drachma from '../../icons/Drachma';
 import Strawberry from '../LifeInCamp/components/LocationIcon/icons/Strawberry';
 import HarvestRulesModal from './components/HarvestRulesModal';
 import './StrawberryFields.scss';
@@ -15,6 +16,17 @@ function StrawberryFields() {
   const [harvests, setHarvests] = useState<any[]>([]);
   const [sidebarView, setSidebarView] = useState<'records' | 'top'>('records');
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [isAppraising, setIsAppraising] = useState(false);
+  const [harvestLink, setHarvestLink] = useState('');
+
+  const handleAppraise = () => {
+    if (!harvestLink.trim()) return;
+    setIsAppraising(true);
+    // Simulate API call
+    setTimeout(() => {
+      setIsAppraising(false);
+    }, 2000);
+  };
 
   return (
     <div className="strawberry-fields">
@@ -32,8 +44,8 @@ function StrawberryFields() {
           {t(T.STRAWBERRY_FIELDS)}
         </div>
 
-        <button 
-          className="strawberry-fields__bar-help" 
+        <button
+          className="strawberry-fields__bar-help"
           onClick={() => setShowRulesModal(true)}
           data-tooltip={t(T.HARVEST_RULES)}
           data-tooltip-pos="left"
@@ -46,13 +58,94 @@ function StrawberryFields() {
       <div className="strawberry-fields__container">
         {/* Main area (left - bigger) */}
         <main className="strawberry-fields__main">
-          <div className="strawberry-fields__intro">
-            <p>{t(T.STRAWBERRY_FIELDS_DESCRIPTION)}</p>
-          </div>
-
-          <div className="strawberry-fields__form">
-            <h2>{t(T.REPORT_HARVEST)}</h2>
-            {/* Form content will go here */}
+          <div className="strawberry-fields__form-wrapper">
+            {/* Top horizontal rack decorations */}
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--top-left">
+              <Strawberry />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--top-center-left">
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--top-center">
+              <span className="strawberry-fields__rack-decor-flower" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--top-center-right">
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--top-right">
+              <Strawberry />
+            </span>
+            
+            {/* Bottom horizontal rack decorations */}
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--bottom-left">
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--bottom-center-left">
+              <Strawberry />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--bottom-center">
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--bottom-center-right">
+              <Strawberry />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--bottom-right">
+              <span className="strawberry-fields__rack-decor-leaf" />
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            
+            {/* Left vertical rack decorations */}
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--left-top">
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--left-middle">
+              <Strawberry />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--left-bottom">
+              <span className="strawberry-fields__rack-decor-flower" />
+            </span>
+            
+            {/* Right vertical rack decorations */}
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--right-top">
+              <span className="strawberry-fields__rack-decor-leaf" />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--right-middle">
+              <Strawberry />
+            </span>
+            <span className="strawberry-fields__rack-decor strawberry-fields__rack-decor--right-bottom">
+              <span className="strawberry-fields__rack-decor-flower" />
+            </span>
+            
+            <div className="strawberry-fields__form">
+              <h2>{t(T.REPORT_HARVEST)}</h2>
+              <div className="strawberry-fields__form-content">
+                <input
+                  type="text"
+                  className="strawberry-fields__form-input"
+                  placeholder="Paste your harvest link here"
+                  value={harvestLink}
+                  onChange={(e) => setHarvestLink(e.target.value)}
+                />
+                <button 
+                  className={`strawberry-fields__form-button ${isAppraising ? 'strawberry-fields__form-button--loading' : ''}`}
+                  onClick={handleAppraise}
+                  disabled={isAppraising || !harvestLink.trim()}
+                  data-tooltip="Calculate harvest rewards"
+                  data-tooltip-pos="top"
+                >
+                  <Drachma className="strawberry-fields__form-button-icon" />
+                  <span>{isAppraising ? 'Appraising...' : 'Appraise'}</span>
+                </button>
+              </div>
+              <div className="strawberry-fields__form-note">
+                การประเมินค่าตอบแทนนั้นนับตามจำนวนตัวอักษรโดยไม่นับการเว้นวรรคของเนื้อหาโรลเพลย์โดยอัตราค่าตอบแทนจะอยู่ที่ 10 ดรัคมา ต่อ 200 ตัวอักษรและจะมีโบนัสเพิ่มขึ้นเป็น 1.5 เท่า หากเป็นโรลเพลย์เดี่ยว
+              </div>
+            </div>
           </div>
 
           <div className="strawberry-fields__results">
