@@ -14,7 +14,7 @@ interface BilingualText {
 export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   [CAMP_LOCATION.HALF_BLOOD_HILL]: {
     en: 'Half-Blood Hill',
-    th: 'เนินฮาล์ฟบลัด',
+    th: 'เนินเขาแห่งค่ายเลือดผสม',
   },
   [CAMP_LOCATION.BIG_HOUSE]: {
     en: 'The Big House',
@@ -22,7 +22,7 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.WOODS]: {
     en: 'The Woods',
-    th: 'ป่า',
+    th: 'ป่ารอบค่าย',
   },
   [CAMP_LOCATION.CANOE_LAKE]: {
     en: 'Canoe Lake',
@@ -30,7 +30,7 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.DINING_PAVILION]: {
     en: 'Dining Pavilion',
-    th: 'ศาลาอาหาร',
+    th: 'ห้องอาหาร',
   },
   [CAMP_LOCATION.AMPHITHEATER]: {
     en: 'Amphitheater',
@@ -46,11 +46,11 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.FORGE]: {
     en: 'Forge',
-    th: 'โรงหลอม',
+    th: 'ทั่งแห่งเฮเฟสตัส',
   },
   [CAMP_LOCATION.CLIMBING_WALL]: {
     en: 'Climbing Wall',
-    th: 'กำแพงปีนหินลาวา',
+    th: 'กำแพงหินลาวา',
   },
   [CAMP_LOCATION.ARCHERY_RANGE]: {
     en: 'Archery Range',
@@ -58,15 +58,15 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.STRAWBERRY_FIELDS]: {
     en: 'Strawberry Fields',
-    th: 'ไร่สตรอเบอร์รี่',
+    th: 'ไร่สตรอว์เบอร์รี่',
   },
   [CAMP_LOCATION.CABINS]: {
     en: 'Cabins',
-    th: 'กระท่อม',
+    th: 'บ้านพักสมาชิกค่าย',
   },
   [CAMP_LOCATION.STABLES]: {
     en: 'Stables',
-    th: 'คอกม้า',
+    th: 'คอกเพกาซัส',
   },
   [CAMP_LOCATION.CAMPFIRE]: {
     en: 'Campfire',
@@ -74,82 +74,82 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.IRIS_FOUNTAIN]: {
     en: 'Iris Fountain',
-    th: 'น้ำพุไอริส',
+    th: 'น้ำพุแห่งไอริส',
   },
   [CAMP_LOCATION.CAMP_STORE]: {
     en: 'Camp Store',
-    th: 'ร้านค้าแคมป์',
+    th: 'ร้านค้าสรรพภัณฑ์',
   },
 };
 
 export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
   [CAMP_LOCATION.HALF_BLOOD_HILL]: {
-    en: "The camp boundary protected by Thalia's pine and the Golden Fleece. Peleus the dragon guards the entrance.",
-    th: 'ขอบเขตแคมป์ที่ได้รับการปกป้องโดยต้นสนของธาเลียและขนแกะทองคำ โดยมีเพเลอุสเป็นมังกรเฝ้าทางเข้า',
+    en: "The sacred boundary of camp, guarded by Thalia's pine and the Golden Fleece. At its threshold, Peleus the dragon keeps eternal watch.",
+    th: "เขตแดนศักดิ์สิทธิ์ของแคมป์ อันได้รับการพิทักษ์โดยต้นสนของธาเลียและขนแกะทองคำ ณ ปากทาง เพเลอุส มังกรผู้เฝ้ายามยืนหยัดอย่างนิรันดร์",
   },
   [CAMP_LOCATION.BIG_HOUSE]: {
-    en: 'Camp headquarters where Mr. D and Chiron hold council. War meetings, orientation, and the oracle reside here.',
-    th: 'สำนักงานใหญ่ของแคมป์ ซึ่งมีมิสเตอร์ดีและไครอนถือสภา การประชุมสงคราม การปฐมนิเทศ และนางทำนายอยู่ที่นี่',
+    en: "The heart of the camp, where Mr. D and Chiron convene. Councils are held, destinies assigned, and the Oracle’s presence lingers within.",
+    th: "ศูนย์กลางแห่งแคมป์ ที่ซึ่งมิสเตอร์ดีและไครอนประชุมสภา การตัดสินชะตา การปฐมนิเทศ และเสียงกระซิบของนางพยากรณ์ยังคงสถิตอยู่ภายใน",
   },
   [CAMP_LOCATION.WOODS]: {
-    en: 'Dense forest where Capture the Flag is played. Monsters roam freely — enter at your own risk after dark.',
-    th: 'ป่าทึบที่เล่นเกมยึดธง มอนสเตอร์ร่อนเร่อยู่ — เข้าไปเสี่ยงด้วยตัวเองหลังมืด',
+    en: "A shadowed forest where Capture the Flag unfolds. Monsters roam beneath its canopy—step within at your own peril after dusk.",
+    th: "ป่าลึกที่ถูกโอบคลุมด้วยเงา สถานที่ของเกมยึดธง และการเคลื่อนไหวของอสูรกายใต้เรือนยอด — จงก้าวเข้าไปด้วยความระวังยามอาทิตย์ลับฟ้า",
   },
   [CAMP_LOCATION.CANOE_LAKE]: {
-    en: 'A serene lake with naiads. Canoe races, swimming lessons, and the occasional underwater quest begin here.',
-    th: 'ทะเลสาบอันเงียบสงบพร้อมนางไนแอด การแข่งเรือแคนู บทเรียนว่ายน้ำ และภารกิจใต้น้ำเริ่มต้นที่นี่',
+    en: "A tranquil lake watched over by naiads. From gentle paddling to perilous underwater quests, many journeys begin upon its waters.",
+    th: "ทะเลสาบสงบที่มีนางไนแอดเฝ้ามอง จากการพายเรืออันแผ่วเบาไปจนถึงภารกิจใต้น้ำอันเสี่ยงภัย หลายการเดินทางเริ่มต้นที่ผืนน้ำแห่งนี้",
   },
   [CAMP_LOCATION.DINING_PAVILION]: {
-    en: 'Open-air pavilion with marble columns. Each cabin has its own table. Offerings are burned at the bronze brazier.',
-    th: 'ศาลากลางแจ้งที่มีเสาหินอ่อน กระท่อมแต่ละหลังมีโต๊ะของตัวเอง เครื่องบูชาถูกเผาที่เตาไฟทองสัมฤทธิ์',
+    en: "An open-air pavilion of marble columns, where the demigods gather. Offerings rise as flame at the bronze brazier in quiet reverence.",
+    th: "ศาลาเปิดโล่งที่ตั้งตระหง่านด้วยเสาหินอ่อน เหล่ามนุษย์สายเลือดเทพเจ้าจะมารวมตัวกัน ณ ที่นี้ เครื่องบูชาถูกส่งผ่านเปลวไฟแห่งเตาทองสัมฤทธิ์ด้วยความเคารพสงบ",
   },
   [CAMP_LOCATION.AMPHITHEATER]: {
-    en: 'Greek-style amphitheater for campfire sing-alongs, theater performances, and camp council meetings.',
-    th: 'โรงละครกลางแจ้งสไตล์กรีกสำหรับร้องเพลงรอบกองไฟ การแสดงละคร และการประชุมสภาแคมป์',
+    en: "A grand Greek amphitheater echoing with song and story—where flames, voices, and legends intertwine beneath the open sky.",
+    th: "อัฒจันทร์สไตล์กรีกที่สะท้อนเสียงบทเพลงและเรื่องเล่า เปลวไฟ เสียงร้อง และตำนานถักทอกันใต้ท้องฟ้าเปิดกว้าง",
   },
   [CAMP_LOCATION.ARENA]: {
-    en: 'Colosseum-style training ground for combat practice, sparring matches, and gladiator-style challenges.',
-    th: 'สนามฝึกสไตล์โคลอสเซียมสำหรับฝึกการต่อสู้ การประลองยุทธ และความท้าทายสไตล์นักรบโรมัน',
+    en: "A colosseum of trial and triumph, where blades clash and warriors are forged through battle and resolve.",
+    th: "สนามประลองแห่งบททดสอบและชัยชนะที่ซึ่งคมดาบปะทะกันและนักรบถูกหล่อหลอมผ่านการต่อสู้และเจตจำนง",
   },
   [CAMP_LOCATION.ARMORY]: {
-    en: 'Arsenal of celestial bronze weapons, armor, and shields. Each demigod selects their gear here.',
-    th: 'คลังอาวุธทองสัมฤทธิ์สวรรค์ เกราะ และโล่ กึ่งเทพภาคแต่ละคนเลือกอุปกรณ์ที่นี่',
+    en: "An arsenal of celestial bronze—blades, shields, and armor await the hands of demigods destined for battle.",
+    th: "คลังแห่งทองสัมฤทธิ์วิเศษ อาวุธ โล่ และเกราะ รอคอยผู้ครอบครองซึ่งถูกลิขิตให้ก้าวสู่สนามรบ",
   },
   [CAMP_LOCATION.FORGE]: {
-    en: "Hephaestus cabin's underground workshop. Master smiths craft weapons and enchanted items using lava forges.",
-    th: 'โรงงานใต้ดินของกระท่อมเฮเฟสตัส ช่างโลหะระดับปรมาจารย์สร้างอาวุธและไอเท็มเวทมนตร์โดยใช้เตาหลอมลาวา',
+    en: "Deep beneath the Hephaestus cabin, molten fire breathes life into steel as master smiths shape weapons of legend.",
+    th: "ลึกลงใต้กระท่อมเฮเฟสตัส เปลวลาวาหล่อเลี้ยงเหล็กกล้า ช่างหลอมระดับปรมาจารย์รังสรรค์อาวุธแห่งตำนาน",
   },
   [CAMP_LOCATION.CLIMBING_WALL]: {
-    en: 'Lava-spewing wall that changes routes. Reach the top before the lava catches you. Safety harness required.',
-    th: 'กำแพงพุลาวาที่เปลี่ยนเส้นทาง ไปถึงยอดก่อนที่ลาวาจะทันคุณ ต้องใช้สายรัดนิรภัย',
+    en: "A shifting wall of stone and fire—routes twist and lava surges. Only the swift and daring reach the summit.",
+    th: "กำแพงแห่งหินและเพลิงที่แปรเปลี่ยน เส้นทางบิดเบี้ยว ลาวาปะทุ ผู้ที่รวดเร็วและกล้าหาญเท่านั้นจะพิชิตยอดได้",
   },
   [CAMP_LOCATION.ARCHERY_RANGE]: {
-    en: "Apollo cabin's domain. Archery training with moving targets, mounted shooting, and long-distance competitions.",
-    th: 'อาณาเขตของกระท่อมอพอลโล การฝึกยิงธนูกับเป้าเคลื่อนที่ การยิงบนม้า และการแข่งขันระยะไกล',
+    en: "The domain of Apollo's children—where arrows fly true through moving targets, wind, and distance alike.",
+    th: "อาณาเขตของบุตรแห่งอพอลโล ที่ซึ่งลูกศรพุ่งตรงผ่านเป้าเคลื่อนไหว สายลม และระยะทาง",
   },
   [CAMP_LOCATION.STRAWBERRY_FIELDS]: {
-    en: "Camp's main source of income. Strawberries grown here taste like ambrosia and never spoil.",
-    th: 'แหล่งรายได้หลักของแคมป์ สตรอเบอร์รี่ที่ปลูกที่นี่มีรสชาติเหมือนเทวาหารและไม่เน่าเสียเลย',
+    en: "Fields of crimson harvest, where strawberries grow sweet as ambrosia—never fading, never spoiling.",
+    th: "ไร่สตรอว์เบอร์รีที่ให้ผลรสหวานดุจเทวาหาร ไม่มีวันร่วงโรย ไม่มีวันเน่าเสีย",
   },
   [CAMP_LOCATION.CABINS]: {
-    en: 'Twenty cabins arranged in a U-shape, one for each Olympian god. Each cabin reflects its patron deity.',
-    th: 'กระท่อมยี่สิบหลังเรียงรูปตัวยู หนึ่งหลังสำหรับเทพโอลิมปัสแต่ละองค์ กระท่อมแต่ละหลังสะท้อนเทพเจ้าผู้อุปถัมภ์',
+    en: "Twenty cabins in a sacred arc, each a reflection of its Olympian patron and the legacy they bestow.",
+    th: "บ้านพักยี่สิบหลังเรียงเป็นแนวศักดิ์สิทธิ์ แต่ละหลังสะท้อนอำนาจและมรดกของเทพโอลิมปัสผู้อุปถัมภ์คุ้มครอง",
   },
   [CAMP_LOCATION.STABLES]: {
-    en: 'Home to pegasi and other magical mounts. Riding lessons and aerial combat training take place here.',
-    th: 'บ้านของม้าปีกาซัสและพาหนะวิเศษอื่นๆ บทเรียนการขี่และการฝึกต่อสู้ทางอากาศเกิดขึ้นที่นี่',
+    en: "Home of pegasi and enchanted steeds, where sky and earth alike become the battlefield of mounted warriors.",
+    th: "ที่พำนักของม้าเพกาซัส ที่ซึ่งทั้งฟ้าและพื้นดินกลายเป็นสนามรบของนักรบผู้ขี่พาหนะ",
   },
   [CAMP_LOCATION.CAMPFIRE]: {
-    en: 'Sacred fire blessed by Hestia. Evening gatherings, sing-alongs, and important announcements happen here.',
-    th: 'ไฟศักดิ์สิทธิ์ที่ได้รับพรจากเฮสเทีย การชุมนุมยามเย็น การร้องเพลง และประกาศสำคัญเกิดขึ้นที่นี่',
+    en: "A sacred flame blessed by Hestia—where stories are shared, songs are sung, and bonds are quietly forged.",
+    th: "เปลวไฟศักดิ์สิทธิ์แห่งพรของเฮสเทีย สถานที่แห่งเรื่องเล่า บทเพลง และสายสัมพันธ์ที่ค่อย ๆ ถูกถักทอ",
   },
   [CAMP_LOCATION.IRIS_FOUNTAIN]: {
-    en: 'Rainbow fountain for Iris messages. Toss a drachma and speak to distant friends or family.',
-    th: 'น้ำพุรุ้งสำหรับข้อความไอริส โยนดรัคมาและพูดคุยกับเพื่อนหรือครอบครัวที่ห่างไกล',
+    en: "A fountain of rainbow light—offer a drachma, and your voice will travel across distance through Iris' grace.",
+    th: "น้ำพุสายรุ้งแห่งเทพีไอริส เพียงมอบเหรียญดรัคมา เสียงของคุณจะถูกส่งข้ามระยะทางด้วยพรของไอริส",
   },
   [CAMP_LOCATION.CAMP_STORE]: {
-    en: 'General store stocked with camp supplies, souvenirs, and essentials. Exchange drachmas for gear.',
-    th: 'ร้านสรรพสินค้าที่มีอุปกรณ์แคมป์ ของที่ระลึก และสิ่งจำเป็น แลกดรัคมากับอุปกรณ์',
+    en: "A humble store of necessities and keepsakes, where drachmas are traded for tools of both survival and memory.",
+    th: "ร้านค้าที่มีทุกสิ่งของที่จำเป็นจัดเตรียมไว้ให้เลือกสรร ที่ซึ่งดรัคมาถูกแลกเปลี่ยนเป็นทั้งเครื่องมือเอาตัวรอดและความทรงจำ",
   },
 };
 
