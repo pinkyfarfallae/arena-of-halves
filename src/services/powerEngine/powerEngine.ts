@@ -278,7 +278,7 @@ export function applyPowerEffect(
         };
         if (power.modStat) eff.modStat = power.modStat;
         if (isBeyondTheNimbus) eff.tag = EFFECT_TAGS.BEYOND_THE_NIMBUS;
-        // Apollo's Hymn: +crit buff counts as blessing (สถานะเกื้อกูล)
+        // Apollo's Hymn: +crit buff counts as blessing (beneficial status)
         if (power.name === POWER_NAMES.APOLLO_S_HYMN && power.modStat === MOD_STAT.CRITICAL_RATE) eff.tag = EFFECT_TAGS.APOLLO_S_HYMN;
         // Volley Arrow: Rapid Fire state for extra-shot chain
         if (power.name === POWER_NAMES.VOLLEY_ARROW) eff.tag = EFFECT_TAGS.RAPID_FIRE;

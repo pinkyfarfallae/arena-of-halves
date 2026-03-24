@@ -62,7 +62,7 @@ export interface GetDisabledPowersParams {
   teamMinionsB: Array<{ masterId?: string }> | undefined;
   attackerSkeletonCount?: number;
   deadTeammateCount?: number;
-  /** ตัวตน + เพื่อนร่วมทีมที่ยังมีชีวิต (สำหรับ Floral Fragrance เช็คทุกคนโดน Healing Nullified หรือไม่) */
+  /** Self + alive teammates (for Floral Fragrance, check if everyone is affected by Healing Nullified) */
   attackerAllyIds?: string[];
 }
 

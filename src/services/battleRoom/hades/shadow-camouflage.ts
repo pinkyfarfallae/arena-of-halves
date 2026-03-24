@@ -3,7 +3,6 @@ import type { ActiveEffect } from '../../../types/power';
 import type { BattleRoom, FighterState } from '../../../types/battle';
 import { MOD_STAT } from '../../../constants/effectTypes';
 import { PHASE, BATTLE_TEAM, ARENA_PATH, ROOM_STATUS } from '../../../constants/battle';
-import { POWER_NAMES } from '../../../constants/powers';
 
 /**
  * True if the fighter has Shadow Camouflage (immune to single-target actions; only area attacks can target them).

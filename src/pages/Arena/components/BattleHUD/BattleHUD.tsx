@@ -3247,7 +3247,7 @@ export default function BattleHUD({
         // Only merge main-attack entries into resolveCache to avoid jitter and wrong card after minion hits
         // Skip "Beyond the Nimbus" placeholder entry (no dice/damage) so we don't overwrite with zeros before the real attack result
         if (!(entry as any).isMinionHit && !(entry as any).beyondTheNimbus && !(entry as any).isPomegranateCoAttack) {
-          // Jolt Arc: log ไม่มี baseDmg — ใช้ค่าที่ canFillCache เติมไว้ (ไม่เขียนทับ); ถ้ายังไม่มีให้คำนวณจาก caster
+          // Jolt Arc: log doesn't have baseDmg — use value that canFillCache filled in (don't overwrite); if not yet set, calculate from caster
           if (isJoltArcEntry) {
             delete (rc as any).baseDmg;
           }

@@ -1466,7 +1466,7 @@ export async function selectTarget(
       const effectUpdates = await tickEffectsWithSkeletonBlock(arenaId, room, battleForTick, updates);
       Object.assign(updates, effectUpdates);
 
-      // Eternal Agony: add display-only effect after tick (so tick doesn't remove it). ลบหลัง 3 วินาที
+      // Eternal Agony: add display-only effect after tick (so tick doesn't remove it). Delete after 3 seconds
       if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
         const effectsAfterTick = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [];
         const eternalAgonyEffect: ActiveEffect = {
@@ -1574,7 +1574,7 @@ export async function selectTarget(
         updates[ARENA_PATH.BATTLE_TURN] = turnData;
       }
       await update(roomRef(arenaId), updates);
-      // Eternal Agony: เอาเข้าไป 3 วินาทีเสร็จแล้วลบออก — ลบ effect tag ETERNAL_AGONY หลัง 3 วินาที
+      // Eternal Agony: put it in for 3 seconds then remove — delete effect tag ETERNAL_AGONY after 3 seconds
       if (selectedPoem === EFFECT_TAGS.ETERNAL_AGONY) {
         setTimeout(async () => {
           const snap = await get(roomRef(arenaId));
@@ -2328,7 +2328,7 @@ export async function selectAction(
     const attacker = findFighter(room, attackerId);
     const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
 
-    // Heal skipped (e.g. สูญสิ้นเยียวยา): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
+    // Heal skipped (e.g. Healing Nullified): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
     if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasHealingNullified && ally && attacker) {
       const turnFloralSkip: Record<string, unknown> = {
         attackerId,
@@ -3577,7 +3577,7 @@ export async function advanceToPomegranateCoAttackPhase(arenaId: string): Promis
   });
 }
 
-/* ── submit Rapid Fire D4 (Volley Arrow ช็อตเสริม) ─────────────────────────── */
+/* ── submit Rapid Fire D4 (Volley Arrow extra shot) ─────────────────────────── */
 
 export async function submitRapidFireD4Roll(arenaId: string, roll: number): Promise<void> {
   return ApolloService.submitRapidFireD4Roll(arenaId, roll, {
@@ -3599,7 +3599,7 @@ export async function advanceToNextRapidFireStep(arenaId: string): Promise<void>
   });
 }
 
-/** เรียกเมื่อ animation เต๋าโจมตีจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+/** Called when attack dice animation finished — refill quota if roll total >= 11 (without waiting for resolve) */
 export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
@@ -3631,7 +3631,7 @@ export async function ackAttackDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
-/** เรียกเมื่อ Pomegranate co-attack animation เต๋าโจมตีจบแล้ว — refill co-attacker quota ถ้าโรลรวม >= 11 */
+/** Called when Pomegranate co-attack attack dice animation finished — refill co-attacker quota if roll total >= 11 */
 export async function ackPomegranateCoAttackDiceShown(arenaId: string): Promise<void> {
   return PersephoneService.ackPomegranateCoAttackDiceShown(arenaId, {
     roomRef,
@@ -3640,7 +3640,7 @@ export async function ackPomegranateCoAttackDiceShown(arenaId: string): Promise<
   });
 }
 
-/** เรียกเมื่อ animation เต๋าป้องกันจบแล้ว — refill quota ถ้าโรลรวม >= 11 (ไม่รอ resolve) */
+/** Called when defend dice animation finished — refill quota if roll total >= 11 (without waiting for resolve) */
 export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
@@ -3673,7 +3673,7 @@ export async function ackDefendDiceShown(arenaId: string): Promise<void> {
   await update(roomRef(arenaId), updates);
 }
 
-/** เรียกเมื่อ Pomegranate co-attack animation เต๋าป้องกันจบแล้ว — refill defender quota ถ้าโรลรวม >= 11 */
+/** Called when Pomegranate co-attack defend dice animation finished — refill defender quota if roll total >= 11 */
 export async function ackPomegranateCoDefendDiceShown(arenaId: string): Promise<void> {
   return PersephoneService.ackPomegranateCoDefendDiceShown(arenaId, {
     roomRef,
@@ -4352,7 +4352,7 @@ async function runBattleResolveTailFromEffectSync(
     return;
   }
 
-  // ── Spring (Ephemeral Season): ตีก่อนค่อยฮีล — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
+  // ── Spring (Ephemeral Season): attack first then heal — after each attack, heal that attacker with heal1 (or heal2 for caster); caster gets heal1 then we roll heal2 ──
   const springCasterId = (battle as { springCasterId?: string }).springCasterId;
   const springHeal1 = (battle as { springHeal1?: number }).springHeal1;
   const springHeal1Received = (battle as { springHeal1Received?: string[] }).springHeal1Received ?? [];
@@ -4420,7 +4420,7 @@ async function runBattleResolveTailFromEffectSync(
       updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = withoutSpring;
       latestEffects = withoutSpring;
     } else if (springHeal1 != null && !springHeal1Received.includes(attackerId)) {
-      // This attacker hasn't received heal1 yet: heal them (ตีก่อนค่อยฮีล = attack already done).
+      // This attacker hasn't received heal1 yet: heal them (attack first then heal = attack already done).
       const rawEff1 = room.battle?.activeEffects ?? battle.activeEffects;
       const effectsForHeal: ActiveEffect[] = Array.isArray(rawEff1) ? rawEff1 : (rawEff1 && typeof rawEff1 === 'object' ? Object.values(rawEff1) : []) as ActiveEffect[];
       let springHeal1Skipped = isHealingNullified(effectsForHeal, attackerId);
@@ -6052,7 +6052,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
 
   // Only enter Rapid Fire chain when defender survived the main hit; if eliminated, resolve and advance (all three rounds)
   if (attackerHasRapidFire && defenderId && baseDmg > 0 && defenderHpAfter > 0) {
-    // ให้ caster ทอย D4 เองทุกช็อตเสริม — เปลี่ยนเป็น phase ROLLING_RAPID_FIRE_D4 รอ client ส่ง roll
+    // Let caster roll D4 themselves for each extra shot — change to phase ROLLING_RAPID_FIRE_D4 and wait for client to send roll
     const rapidFireWinFacesFirst = [2, 3, 4]; // 75%
     updates[ARENA_PATH.BATTLE_TURN] = {
       ...turn,

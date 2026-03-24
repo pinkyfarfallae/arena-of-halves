@@ -510,7 +510,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
   const springShownKeyRef = useRef<string | null>(null);
   const [showSpringHealVfx, setShowSpringHealVfx] = useState(false);
 
-  // Spring heal: โชว์ VFX แบบ Floral โดยใช้ state แยก ไม่มี effect อื่นมาเคลียร์
+  // Spring heal: show VFX like Floral using separate state, no other effect clears it
   useEffect(() => {
     const isSpring = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_') && floralFragranceHeal != null && floralFragranceHeal > 0;
     if (suppressSpringHealVfx || !isSpring) {
@@ -649,7 +649,7 @@ export default function MemberChip({ fighter, isAttacker, isDefender, isEliminat
     }
   }, [demoSessionMismatch]);
 
-  // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal ใช้ state แยก showSpringHealVfx
+  // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal uses separate state showSpringHealVfx
   const showFragranceVisual = (showFragranceWave && (isFragranceWaved || springWaveActiveRef.current) && !hideFragranceAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
 
   /* ── Apollo's Hymn wave: sun/corona VFX for ~3s when hymn heal applied ── */
