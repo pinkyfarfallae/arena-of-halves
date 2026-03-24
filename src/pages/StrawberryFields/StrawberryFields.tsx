@@ -143,13 +143,12 @@ function StrawberryFields() {
                 </button>
               </div>
               <div className="strawberry-fields__form-note">
-                การประเมินค่าตอบแทนนั้นนับตามจำนวนตัวอักษรโดยไม่นับการเว้นวรรคของเนื้อหาโรลเพลย์โดยอัตราค่าตอบแทนจะอยู่ที่ 10 ดรัคมา ต่อ 200 ตัวอักษรและจะมีโบนัสเพิ่มขึ้นเป็น 1.5 เท่า หากเป็นโรลเพลย์เดี่ยว
+                การประเมินค่าตอบแทนนั้นนับตามจำนวนตัวอักษรโดยไม่นับการเว้นวรรคของเนื้อหาโรลเพลย์โดยอัตราค่าตอบแทนจะอยู่ที่ 10 ดรัคมา ต่อ 200 ตัวอักษร
               </div>
             </div>
           </div>
 
           <div className="strawberry-fields__results">
-            <h2>{t(T.RECENT_HARVESTS)}</h2>
             {harvests.length === 0 ? (
               <p className="strawberry-fields__empty">{t(T.NO_HARVESTS_YET)}</p>
             ) : (
