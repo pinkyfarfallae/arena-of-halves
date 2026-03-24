@@ -1,0 +1,787 @@
+@import '../../../styles/variables';
+
+// Pastel garden palette
+$garden-pastel-green: #a8d5ba;
+$garden-mint: #c8e6c9;
+$garden-sage: #b8d4c8;
+$garden-cream: #fef9f5;
+$garden-peach: #ffe5d9;
+$garden-pink-light: #ffd6e0;
+$garden-sky: #e3f2fd;
+$garden-lavender: #e8eaf6;
+$garden-wood-light: #d4c4b0;
+$garden-wood-dark: #bfad97;
+
+$strawberry-pastel: #ff9aa2;
+$strawberry-red: #e8385d;
+$berry-text: #2c1810;
+$berry-text-soft: #7d6e63;
+
+.harvest-rules-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(45, 62, 80, 0.5);
+  backdrop-filter: blur(6px);
+  z-index: 999;
+  animation: fadeIn 0.2s ease;
+}
+
+.harvest-rules-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 650px;
+  background:
+    linear-gradient(180deg, $garden-sky 0%, $garden-cream 15%, #ffffff 100%);
+  border: 4px solid $garden-wood-dark;
+  border-radius: 20px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+
+  // Soft wood grain texture effect
+  &::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background:
+      repeating-linear-gradient(90deg,
+        $garden-wood-light,
+        $garden-wood-light 2px,
+        lighten($garden-wood-light, 3%) 2px,
+        lighten($garden-wood-light, 3%) 4px);
+    border-radius: 20px;
+    z-index: -1;
+  }
+
+  @media (max-width: 768px) {
+    width: 95%;
+    max-height: 90vh;
+  }
+}
+
+// Decorative corner strawberries
+.harvest-rules-modal__decor {
+  position: absolute;
+  width: 45px;
+  height: 45px;
+  color: $strawberry-pastel;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+  animation: float 3s ease-in-out infinite;
+  z-index: 10;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  &--tl {
+    top: -10px;
+    left: -10px;
+    --base-rotate: -15deg;
+  }
+
+  &--tr {
+    top: -10px;
+    right: -10px;
+    --base-rotate: 15deg;
+    animation-delay: 0.5s;
+  }
+
+  &--bl {
+    bottom: -10px;
+    left: -10px;
+    --base-rotate: -25deg;
+    animation-delay: 1s;
+  }
+
+  &--br {
+    bottom: -10px;
+    right: -10px;
+    --base-rotate: 25deg;
+    animation-delay: 1.5s;
+  }
+
+  @media (max-width: 768px) {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+.harvest-rules-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem 1.75rem;
+  background:
+    linear-gradient(135deg,
+      rgb(255 191 196) 0%,
+      rgb(200 230 201) 65%,
+      rgb(255 248 178) 100%);
+  border-bottom: 4px solid $garden-wood-light;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+
+  // Woody plank texture
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0.75;
+    background:
+      repeating-linear-gradient(90deg,
+        rgba($garden-wood-light, 0.06) 0px,
+        rgba($garden-wood-light, 0.06) 2px,
+        transparent 2px,
+        transparent 6px),
+      repeating-linear-gradient(180deg,
+        transparent 0px,
+        rgba($garden-wood-light, 0.03) 15px,
+        transparent 30px);
+    pointer-events: none;
+  }
+
+  // Decorative vine border
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: repeating-linear-gradient(90deg,
+        $garden-pastel-green,
+        $garden-pastel-green 8px,
+        $strawberry-pastel 8px,
+        $strawberry-pastel 16px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 1rem 1.25rem;
+    gap: 1rem;
+  }
+}
+
+.harvest-rules-modal__header-icon {
+  width: 34px;
+  height: 34px;
+  color: darken($strawberry-red, 5%);
+  filter: drop-shadow(0 2px 6px rgba(#fff, 0.3));
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+  margin: -2px 0 2px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 480px) {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+.harvest-rules-modal__title {
+  margin: 0;
+  flex: 1;
+  font-size: 1.45rem;
+  font-weight: bold;
+  font-style: normal;
+  color: rgb(120 70 80);
+  opacity: 0.9;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  @media (max-width: 480px) {
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+  }
+}
+
+.harvest-rules-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba($garden-pastel-green, 0.4);
+  border-radius: 10px;
+  color: #2d5a3d;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background: white;
+    border-color: $strawberry-pastel;
+    color: $strawberry-red;
+    box-shadow: 0 3px 8px rgba($strawberry-red, 0.2);
+
+    svg {
+      transform: scale(1.25);
+      transition: transform 0.2s;
+    }
+  }
+}
+
+.harvest-rules-modal__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.2rem 1.5rem;
+  position: relative;
+  background:
+    radial-gradient(circle at 20% 80%, rgba($garden-mint, 0.4) 0%, transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba($garden-pink-light, 0.35) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(white, 0.5) 0%, transparent 60%);
+
+  @media (max-width: 768px) {
+    padding: 1rem 0.85rem;
+  }
+}
+
+// Garden beds - each section looks like a planting bed
+// Section wrapper for main + sub boxes
+.harvest-rules-modal__section {
+  margin-bottom: 0.4rem;
+  position: relative;
+
+  // Rope connector
+  &::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: -1.9rem;
+    width: 6px;
+    height: 13rem;
+    background: repeating-linear-gradient(180deg,
+        #7a5f43 0px,
+        #a89276 1px,
+        #8b7355 2px,
+        #d4b896 3px,
+        #8b7355 4px,
+        #a89276 5px,
+        #7a5f43 6px);
+    border-left: 1px solid rgba(90, 70, 50, 0.3);
+    border-right: 1px solid rgba(160, 130, 100, 0.3);
+    border-radius: 3px;
+    opacity: 0.7;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+
+    @media (max-width: 768px) {
+      height: 12rem;
+    }
+
+    @media (max-width: 404px) {
+      height: 15.5rem;
+    }
+  }
+
+  &:first-child::before {
+    display: none;
+  }
+
+  &:nth-last-child(2)::before {
+    display: none;
+  }
+
+  &:last-of-type {
+    margin-bottom: 0.4rem;
+  }
+}
+
+.harvest-rules-modal__garden-bed {
+  position: relative;
+  margin-bottom: 0.35rem;
+  padding: 0.65rem 1.2rem 0.65rem 2.8rem;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0px,
+      rgba(160, 120, 85, 0.08) 1px,
+      transparent 2px,
+      transparent 6px),
+    linear-gradient(110deg,
+      #f5ede3 0%,
+      #f0e8dc 50%,
+      #ebe3d5 100%);
+  border: 2px solid #c9b89a;
+  border-right: none;
+  position: relative;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 12px rgba(0, 0, 0, 0.08),
+    inset 2px 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  border-radius: 4px 0 0 4px;
+
+  // Arrow point on right - rotated square for smooth edges
+  &::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #ffb3c1 0%, #ff9aa2 100%);
+    border-right: 2px solid #ff7a9e;
+    border-top: 2px solid #ff7a9e;
+    box-shadow:
+      0 2px 6px rgba(232, 56, 93, 0.25),
+      inset 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 80%;
+    background: linear-gradient(180deg, #d4c4b0 0%, #c9b89a 50%, #d4c4b0 100%);
+    border-radius: 2px 0 0 2px;
+    box-shadow: inset 1px 0 2px rgba(0, 0, 0, 0.2);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.6rem 1rem 0.6rem 2.5rem;
+  }
+}
+
+// Sub-boxes - smaller arrow signs
+.harvest-rules-modal__sub-box {
+  margin-left: 2rem;
+  margin-bottom: 0.3rem;
+  padding: 0.5rem 0.9rem 0.5rem 0.9rem;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0px,
+      rgba(160, 120, 85, 0.06) 1px,
+      transparent 2px,
+      transparent 8px),
+    linear-gradient(115deg,
+      #faf7f2 0%,
+      #f5f0e8 50%,
+      #f0ebe0 100%);
+  border: 1.5px solid #d8cbb5;
+  border-right: none;
+  position: relative;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.08),
+    inset 0 0 8px rgba(0, 0, 0, 0.06),
+    inset 1px 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  border-radius: 3px 0 0 3px;
+  overflow: visible;
+  padding-left: 1.5rem;
+
+  // Green diamond connector from parent
+  &::before {
+    content: '';
+    position: absolute;
+    left: -0.5rem;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    max-width: 12px;
+    max-height: 12px;
+    background: linear-gradient(135deg, #c8e6c9 0%, #a8d5ba 100%);
+    border: 1.5px solid #7eb899;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.15),
+      inset 0 0 4px rgba(255, 255, 255, 0.4);
+  }
+
+  // Arrow point on right - rotated square
+  &::after {
+    content: '';
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 13px;
+    height: 13px;
+    background: linear-gradient(135deg, #ffc4d6 0%, #ffadc1 100%);
+    border-right: 1.5px solid #ff96b4;
+    border-top: 1.5px solid #ff96b4;
+    box-shadow:
+      0 1px 3px rgba(232, 56, 93, 0.2),
+      inset 0 0 6px rgba(255, 255, 255, 0.3);
+  }
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  p {
+    margin: 0;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #5a4d43;
+    padding-left: 0.7rem;
+    position: relative;
+
+    &::before {
+      content: '•';
+      position: absolute;
+      left: -4px;
+      color: #c9b89a;
+      font-size: 0.9rem;
+      top: -0.05em;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.45rem 0.75rem 0.45rem 1.2rem;
+
+    p {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+.harvest-rules-modal__bed-stake {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  color: #ff6b8a;
+  filter: drop-shadow(0 1px 3px rgba(255, 107, 138, 0.3));
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 768px) {
+    width: 24px;
+    height: 24px;
+    left: 0.5rem;
+  }
+}
+
+// Section-specific icon colors
+.harvest-rules-modal__section:nth-child(3) .harvest-rules-modal__bed-stake {
+  color: #e35700; // Warm campfire orange
+  filter: drop-shadow(0 1px 3px rgba(255, 140, 66, 0.3));
+}
+
+.harvest-rules-modal__section:nth-child(4) .harvest-rules-modal__bed-stake {
+  color: #7eb899; // Green pencil for writing
+  filter: drop-shadow(0 1px 3px rgba(126, 184, 153, 0.3));
+  width: 20px;
+  height: 20px;
+}
+
+.harvest-rules-modal__bed-content {
+  p {
+    margin: 0;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.87rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #5a4d43;
+    letter-spacing: -0.01em;
+
+    @media (max-width: 768px) {
+      font-size: 0.75rem;
+    }
+  }
+
+  h4 {
+    margin: 0 0 0.5rem 0;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: #ff7a9a;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    &::before {
+      font-size: 0.95rem;
+    }
+  }
+}
+
+// Reward box - highlighted like a basket of rewards
+.harvest-rules-modal__reward-box {
+  position: relative;
+  margin: 0 0 0.8rem 0;
+  padding: 0.7rem 2rem 0.7rem 2rem;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0px,
+      rgba(160, 120, 85, 0.12) 1px,
+      transparent 2px,
+      transparent 5px),
+    linear-gradient(110deg,
+      #f0e4d3 0%,
+      #e8dcc8 50%,
+      #e0d4bd 100%);
+  border: 2px solid #b6a587;
+  text-align: center;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 3px 3px 6px rgba(0, 0, 0, 0.08),
+    0 0 0 2px #b6a587;
+  color: #5a4d43;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 0.88rem;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
+  border-left: none;
+  border-right: none;
+  overflow: visible;
+  z-index: 99;
+
+  // Left arrow - rotated square
+  &::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #ffb3c1 0%, #ff9aa2 100%);
+    border-left: 2px solid #ff7a9e;
+    border-bottom: 2px solid #ff7a9e;
+    box-shadow:
+      -2px 2px 6px rgba(232, 56, 93, 0.25),
+      inset 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+
+  // Right arrow - rotated square
+  &::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #ffb3c1 0%, #ff9aa2 100%);
+    border-right: 2px solid #ff7a9e;
+    border-top: 2px solid #ff7a9e;
+    box-shadow:
+      2px -2px 6px rgba(232, 56, 93, 0.25),
+      inset 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 1.05rem;
+    margin: 0 0.5rem;
+    font-weight: 700;
+    color: #8b7355;
+    position: relative;
+    z-index: 1;
+
+    // Rope at top - moved to span since parent uses ::before/::after for arrows
+    &::before {
+      content: '';
+      position: absolute;
+      top: -17px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 6px;
+      background:
+        repeating-linear-gradient(90deg,
+          #8b7355 0px,
+          #a89276 2px,
+          #8b7355 4px);
+      border-radius: 3px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.65rem 1rem;
+    font-size: 0.84rem;
+
+    span {
+      font-size: 0.95rem;
+    }
+  }
+}
+
+.harvest-rules-modal__drachma-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.1em;
+  margin-left: 0.15em;
+  color: #8b7355;
+}
+
+// Note section - like a rustic wooden notice board
+.harvest-rules-modal__note {
+  margin-top: 1rem;
+  padding: 0.8rem 1.1rem;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0px,
+      rgba(160, 120, 85, 0.06) 1px,
+      transparent 2px,
+      transparent 7px),
+    linear-gradient(110deg,
+      #f9f5f0 0%,
+      #f4ede5 50%,
+      #efe7dd 100%);
+  border: 2px solid #c4b5a0;
+  border-radius: 6px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 10px rgba(0, 0, 0, 0.04);
+  position: relative;
+
+  // Subtle corner fold effect
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 16px 16px 0;
+    border-color: transparent #d4c4b0 transparent transparent;
+    filter: drop-shadow(-1px 1px 1px rgba(0, 0, 0, 0.1));
+  }
+
+  p {
+    margin: 0;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: #6b5d52;
+    position: relative;
+    z-index: 1;
+    color: #856f62;
+    font-weight: 500;
+  }
+
+  @media (max-width: $bp-medium) {
+    padding: 0.75rem 0.9rem;
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: $bp-compact) {
+    padding: 0.5rem 1rem;
+    font-size: 0.5rem;
+    margin-top: 0.7rem;
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--base-rotate, 0deg));
+  }
+
+  50% {
+    transform: translateY(-8px) rotate(var(--base-rotate, 0deg));
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes bounce {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
