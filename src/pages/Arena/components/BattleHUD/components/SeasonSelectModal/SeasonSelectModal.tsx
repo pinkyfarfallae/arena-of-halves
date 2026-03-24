@@ -20,8 +20,8 @@ const SEASON_DETAILS: Record<SeasonKey, { effect: string; effectTh: string }> = 
     effectTh: '+2 แต้มเต๋าป้องกัน',
   },
   spring: {
-    effect: 'Heal 1 HP / turn',
-    effectTh: 'ฮีล 1 HP ทุกเทิร์น',
+    effect: 'Heal 1 HP on each turn',
+    effectTh: 'ฮีล 1 HP  หลังการโจมตีทุกเทิร์น',
   },
 };
 

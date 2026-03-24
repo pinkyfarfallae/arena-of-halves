@@ -148,7 +148,7 @@ $team-b-accent: #2d6a8f;
 
 /* ── Label ── */
 .cam__label {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.6rem;
   font-weight: 700;
   color: $ink-faint;
@@ -178,7 +178,7 @@ $team-b-accent: #2d6a8f;
   align-items: flex-start;
   gap: 0.45rem;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
 
   input {
     margin-top: 0.2rem;
@@ -217,7 +217,7 @@ $team-b-accent: #2d6a8f;
   border: 1px solid rgba($gold, 0.2);
   background: rgba($sand-warm, 0.5);
   color: $ink;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.82rem;
   font-weight: 500;
   outline: none;
@@ -292,7 +292,7 @@ $team-b-accent: #2d6a8f;
 }
 
 .cam__mode-desc {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.56rem;
   color: $ink-faint;
   font-weight: 400;
@@ -341,7 +341,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__npc-placeholder {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.68rem;
   color: $stone;
 }
@@ -425,7 +425,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__npc-deity {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.48rem;
   color: $ink-faint;
   text-transform: uppercase;
@@ -506,7 +506,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   max-width: 100%;
   padding: 0.12rem 0.4rem;
   border-radius: 3px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.46rem;
   color: $ink-mid;
   text-transform: uppercase;
@@ -553,7 +553,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__npc-stat-lbl {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.38rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -578,7 +578,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 
 /* ── Error ── */
 .cam__error {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   color: $crimson-bright;
@@ -661,7 +661,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 
 .cam__link {
   flex: 1;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.55rem;
   color: $ink-mid;
   overflow: hidden;
@@ -676,7 +676,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   border-radius: 3px;
   border: 1px solid $gold-border;
   background: $gold-pale;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.6rem;
   font-weight: 600;
   color: $gold-dark;
@@ -774,7 +774,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__team-size-card-title {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   color: $ink;
@@ -783,7 +783,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__team-size-card-tag {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.5rem;
   font-weight: 600;
   color: $ink-faint;
@@ -807,7 +807,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   border: none;
   border-right: 1px solid rgba($gold, 0.18);
   background: transparent;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.82rem;
   font-weight: 700;
   color: $ink-mid;
@@ -844,7 +844,7 @@ $spd-bg: rgba(21, 101, 192, 0.08);
 }
 
 .cam__unified-roster-title {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.65rem;
   font-weight: 700;
   color: $ink;

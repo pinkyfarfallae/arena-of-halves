@@ -38,7 +38,7 @@ export interface PowerDefinition {
    *  should iterate this array instead of the single-effect fields above. */
   effects?: PowerEffect[];
 
-  /** If true, power bypasses dice rolling (e.g. "ป้องกันไม่ได้", "ไม่ต้องทอยเต๋า") */
+  /** If true, power bypasses dice rolling */
   skipDice?: boolean;
 
   /** If true, power requires season selection before targeting (e.g. Persephone's Ephemeral Season) */

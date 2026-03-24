@@ -187,6 +187,10 @@ $ink-faint: #9a8b76;
   gap: 0.4rem;
   width: 100%;
   margin-top: 0.15rem;
+
+  * {
+    font-family: Inter, 'Noto Sans Thai', sans-serif;
+  }
 }
 
 .bhud__target-waiting {
@@ -282,12 +286,15 @@ $ink-faint: #9a8b76;
 
 /* ── No valid target (e.g. Shadow Camouflage) ── */
 .bhud__targets-modal--no-target {
+  font-family: Inter, Noto Sans Thai, sans-serif;
+
   .bhud__no-target-reason {
     margin: 0 0 0.5rem;
     font-size: 0.65rem;
-    line-height: 1.4;
+    line-height: 1.6;
     color: $ink-faint;
     text-align: center;
+    white-space: break-spaces;
   }
 
   .bhud__no-target-waiting {
@@ -303,5 +310,40 @@ $ink-faint: #9a8b76;
 @media (max-width: $bp-medium) {
   .bhud__targets-modal {
     width: 220px;
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .bhud__targets-modal {
+    max-width: 80%;
+    padding: 0.5rem 0.5rem 0.45rem;
+    gap: 0.35rem;
+
+    .bhud__dice-label {
+      font-size: 0.6rem !important;
+    }
+    
+    .bhud__no-target-reason {
+      font-size: 0.575rem !important;
+      line-height: 1.5 !important;
+      padding: 0 0.25rem !important;
+      margin-bottom: 0.1rem !important;
+
+      @media (max-width: 375px) {
+        white-space: normal !important;
+      }
+    }
+
+    .bhud__no-target-waiting {
+      font-size: 0.6rem !important;
+    }
+  }
+
+  .bhud__target-confirm {
+    font-size: 0.5rem !important;
+  }
+
+  .bhud__target-back {
+    font-size: 0.48rem !important;
   }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../../types/battle';
 import { getQuotaCost } from '../../../../../../types/power';
-import { getAffordablePowers } from '../../../../../../services/powerEngine';
+import { getAffordablePowers } from '../../../../../../services/powerEngine/powerEngine';
 import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCK } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
@@ -267,7 +267,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     return (
       <div className="bhud__action-modal" style={themeStyle}>
         <span className="bhud__dice-label">{allyPower?.name ?? 'Select Target'}</span>
-        <span className="bhud__dice-sub">เลือกเป้าหมาย</span>
+        <span className="bhud__dice-sub">select target to attack</span>
         <div className="bhud__ally-picker">
           {aliveTeammates.map(m => {
             const selected = selectedAllyId === m.characterId;

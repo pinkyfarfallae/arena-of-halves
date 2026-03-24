@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../hooks/useTranslation';
 import Drachma from '../../icons/Drachma';
 import { ShopItem, CartItem, fetchShopItems } from './shopData';
 import CheckoutModal from './components/CheckoutModal/CheckoutModal';
@@ -17,6 +18,7 @@ import Coupon from './icons/Coupon';
 import './Shop.scss';
 
 function Shop() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<ShopItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -114,19 +116,19 @@ function Shop() {
       <header className="shop__bar">
         <Link to="/life" className="shop__bar-back">
           <ChevronLeft />
-          Camp
+          {t('CAMP')}
         </Link>
 
         <div className="shop__bar-title">
           <Caduceus className="shop__bar-icon" />
-          Hermes' Supply
+          {t('HERMES_SUPPLY')}
         </div>
 
         {/* Drachma balance */}
         <div className="shop__bar-balance">
           <Drachma className="drachma--bar" />
           <span className="shop__bar-amount">{user?.currency?.toLocaleString() ?? '0'}</span>
-          <span className="shop__bar-unit">drachma</span>
+          <span className="shop__bar-unit">{t('DRACHMA').toLowerCase()}</span>
         </div>
 
         {/* Mobile cart toggle */}
@@ -145,7 +147,7 @@ function Shop() {
               <SearchIcon />
               <input
                 type="text"
-                placeholder="Search items"
+                placeholder={t('SEARCH_ITEMS')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -157,14 +159,14 @@ function Shop() {
             {limitedItems.length > 0 && (
               <section className="shop__section">
                 <div className="shop__section-head">
-                  <h2>Limited Edition</h2>
-                  <span className="shop__section-count">{limitedItems.length} items</span>
+                  <h2>{t('LIMITED_EDITION')}</h2>
+                  <span className="shop__section-count">{limitedItems.length} {t('ITEMS')}</span>
                 </div>
                 <div className="shop__grid">
                   {limitedItems.map(item => (
                     <div key={item.itemId} className="item">
                       {typeof item.stock === 'number' && item.stock !== -1 && item.stock < 5 && (
-                        <span className="item__badge">{item.stock} left</span>
+                        <span className="item__badge">{item.stock} {t('LEFT')}</span>
                       )}
                       <button
                         className="item__img"
@@ -237,7 +239,7 @@ function Shop() {
                               onClick={() => addToCart(item)}
                               disabled={item.stock === 0}
                             >
-                              {item.stock === 0 ? 'Sold Out' : 'Add to Cart'}
+                              {item.stock === 0 ? t('SOLD_OUT') : t('ADD_TO_CART')}
                             </button>
                           )}
                         </div>
@@ -252,8 +254,8 @@ function Shop() {
             {unlimitedItems.length > 0 && (
               <section className="shop__section">
                 <div className="shop__section-head">
-                  <h2>Always Available</h2>
-                  <span className="shop__section-count">{unlimitedItems.length} items</span>
+                  <h2>{t('ALWAYS_AVAILABLE')}</h2>
+                  <span className="shop__section-count">{unlimitedItems.length} {t('ITEMS')}</span>
                 </div>
                 <div className="shop__grid">
                   {unlimitedItems.map(item => (
@@ -316,7 +318,7 @@ function Shop() {
                               className="item__add"
                               onClick={() => addToCart(item)}
                             >
-                              Add to Cart
+                              {t('ADD_TO_CART')}
                             </button>
                           )}
                         </div>
@@ -330,7 +332,7 @@ function Shop() {
             {items.length === 0 && (
               <div className="shop__empty">
                 <WingedSandal />
-                <p>Loading wares</p>
+                <p>{t('LOADING_WARES')}</p>
               </div>
             )}
           </div>
@@ -342,11 +344,11 @@ function Shop() {
             <div className="cart__head">
               <h2 className="cart__title">
                 <Cart />
-                Your Basket
+                {t('YOUR_BASKET')}
               </h2>
               <div className="cart__head-actions">
                 {cart.length > 0 && (
-                  <button className="cart__clear" onClick={() => { setCart([]); localStorage.removeItem('camp_store_cart'); }} data-tooltip="Clear basket">
+                  <button className="cart__clear" onClick={() => { setCart([]); localStorage.removeItem('camp_store_cart'); }} data-tooltip={t('CLEAR_BASKET')}>
                     <Trash />
                   </button>
                 )}
@@ -357,7 +359,7 @@ function Shop() {
             </div>
 
             {cart.length === 0 ? (
-              <p className="cart__empty">Your basket is empty</p>
+              <p className="cart__empty">{t('EMPTY_CART')}</p>
             ) : (
               <>
                 <div className="cart__items">
@@ -392,16 +394,16 @@ function Shop() {
 
                 <button className="cart__coupon-btn">
                   <Coupon />
-                  Apply Coupon
+                  {t('APPLY_COUPON')}
                 </button>
 
                 <div className="cart__footer">
                   <div className="cart__total">
-                    <span>Total ({totalItems})</span>
+                    <span>{t('TOTAL')} ({totalItems})</span>
                     <span className="cart__total-amt">{totalPrice.toFixed(0)} <Drachma /></span>
                   </div>
                   <button className="cart__pay" onClick={() => setShowCheckout(true)}>
-                    Checkout
+                    {t('CHECKOUT')}
                   </button>
                 </div>
               </>

@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CampLocation } from '../../../../data/campLocations';
+import { getCampLocationName, getCampLocationDescription } from '../../../../constants/campLocationTranslations';
+import { useLanguage } from '../../../../contexts/LanguageContext';
 import LocationIcon from '../LocationIcon/LocationIcon';
 import ActionIcon from '../ActionIcon/ActionIcon';
 import './LocationPin.scss';
 
 function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const pinRef = useRef<HTMLDivElement>(null);
 
@@ -38,19 +41,19 @@ function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: bo
       <button className="life__marker" onClick={() => setOpen(o => !o)}>
         <LocationIcon type={location.icon} />
       </button>
-      <span className="life__pin-label">{location.name}</span>
+      <span className="life__pin-label">{getCampLocationName(location.id, language)}</span>
       <div className={`life__card ${open ? 'life__card--open' : ''}`}>
         {/* Card header */}
         <div className="life__card-header">
           <span className="life__card-icon">
             <LocationIcon type={location.icon} />
           </span>
-          <span className="life__card-name">{location.name}</span>
+          <span className="life__card-name">{getCampLocationName(location.id, language)}</span>
         </div>
 
         {/* Card body */}
         <div className="life__card-body">
-          <p className="life__card-desc">{location.description}</p>
+          <p className="life__card-desc">{getCampLocationDescription(location.id, language)}</p>
           {location.tags && (
             <div className="life__card-tags">
               {location.tags.map(tag => (

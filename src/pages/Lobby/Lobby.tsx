@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
-import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';

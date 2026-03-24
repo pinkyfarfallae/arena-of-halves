@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
-import { deleteRoom, toFighterState } from '../../../../services/battleRoom';
+import { deleteRoom, toFighterState } from '../../../../services/battleRoom/battleRoom';
 import { fetchNPCs } from '../../../../data/npcs';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { getPowers } from '../../../../data/powers';
@@ -12,7 +12,7 @@ import AresHelmet from '../../icons/AresHelmet';
 import NPCTeamSelection from './NPCTeamSelection/NPCTeamSelection';
 import './ConfigArenaModal.scss';
 import { COPY_TYPE, type CopyType } from '../../../../constants/lobby';
-import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, ROOM_STATUS, teamPath } from '../../../../constants/battle';
+import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, ROOM_STATUS, teamPath, TEAM_SUB_PATH } from '../../../../constants/battle';
 import { CHARACTER } from '../../../../constants/characters';
 import { DEITY } from '../../../../constants/deities';
 import { ROLE } from '../../../../constants/role';
@@ -135,8 +135,8 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
     await update(ref(db, `arenas/${arenaId}`), {
       ...roomNamePatch(),
       teamSize: Math.max(a, b),
-      [teamPath(BATTLE_TEAM.A, 'maxSize')]: a,
-      [teamPath(BATTLE_TEAM.B, 'maxSize')]: b,
+      [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MAX_SIZE)]: a,
+      [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MAX_SIZE)]: b,
     });
   };
 
@@ -216,8 +216,8 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
     await update(ref(db, `arenas/${arenaId}`), {
       roomName: roomTitle,
       [ARENA_PATH.STATUS]: canReady ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
-      [teamPath(BATTLE_TEAM.A, 'members')]: membersA,
-      [teamPath(BATTLE_TEAM.B, 'members')]: membersB,
+      [teamPath(BATTLE_TEAM.A, TEAM_SUB_PATH.MEMBERS)]: membersA,
+      [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: membersB,
       testMode: embedAllRoster || hasNpc ? true : null,
       npcId: null,
       npcTeam: null,

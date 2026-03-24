@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BattlePlaybackStep, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
 import { Minion } from '../../../../types/minions';
-import { getStatModifier } from '../../../../services/powerEngine';
+import { getStatModifier } from '../../../../services/powerEngine/powerEngine';
 import { getTagBasedChipProps, getEffectDisplayNameForTag } from '../../../../data/powerVfxRegistry';
 import MemberChip from './MemberChip/MemberChip';
 import type { EffectPip } from './MemberChip/MemberChip';
@@ -372,6 +372,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               : isDemo && oppositeMemberIds.has(g.sourceId)
                 ? (side === PANEL_SIDE.LEFT ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
                 : (source?.nicknameEng || '?');
+            const sourceNameTh = isSelfTarget
+              ? TARGET_TYPES.SELF
+              : isDemo && oppositeMemberIds.has(g.sourceId)
+                ? (side === PANEL_SIDE.LEFT ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT)
+                : (source?.nicknameThai || undefined);
             const turnsLeft = g.tag === EFFECT_TAGS.ETERNAL_AGONY && g.maxTurns === 0
               ? 1
               : Math.ceil(g.maxTurns / queueLen);
@@ -379,10 +384,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
               powerName: g.powerName,
               ...(displayName && { displayName }),
               sourceName,
+              ...(sourceNameTh && { sourceNameTh }),
               ...(source?.deityBlood != null && { sourceDeity: source.deityBlood }),
               sourceTheme: source ? [source.theme[0], source.theme[1]] as [string, string] : ['#666', '#999'] as [string, string],
               turnsLeft,
               count: g.count,
+              ...(g.tag && { tag: g.tag }),
             };
           });
         })().filter(
@@ -426,7 +433,6 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           return -1;
         })();
         const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
-        const logHasFloral = floralLogIndex !== -1 && floralHealFromLog > 0;
         /** Floral Fragrance: show VFX if entry is within the last 5 log entries to handle NPC auto-select + other logs */
         const floralIsRecentEntry = floralLogIndex >= 0 && floralLogIndex >= floralSearchLog.length - 5;
 
@@ -457,7 +463,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Skipped-heal modal is showing (e.g. Healing Nullified) — do not show heal VFX for caster until they ack.
         const isSpringHealSkipModalCaster = turn?.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && String(m.characterId) === String(springCasterId);
         const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null && springRound !== 2 && !springHealSkipAwaitsAck;
-        // Spring โชว์เฉพาะเมื่อ heal เป็น entry ล่าสุดใน log หรืออยู่ phase D4 — ไม่โชว์ซ้ำตอนเริ่มเทิร์นถัดไป (เทิร์นสุดท้ายก่อน Spring หมด)
+        // Spring: show only when heal is the latest entry in log or in D4 phase — don't show again when starting next turn (last turn before Spring expires)
         const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         // Floral Fragrance: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
@@ -482,7 +488,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const logHasHymn = hymnIsLatestEntry;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
-        // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
+        // Healing Nullified (Healing Loss): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
         const soulDevourerHealFromLog = (() => {
           if (isEliminated) return null;
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;
