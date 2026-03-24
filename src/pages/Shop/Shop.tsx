@@ -16,9 +16,10 @@ import Trash from './icons/Trash';
 import CloseIcon from '../../icons/Close';
 import Coupon from './icons/Coupon';
 import './Shop.scss';
+import { LANGUAGE } from '../../constants/language';
 
 function Shop() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [items, setItems] = useState<ShopItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -166,7 +167,7 @@ function Shop() {
                   {limitedItems.map(item => (
                     <div key={item.itemId} className="item">
                       {typeof item.stock === 'number' && item.stock !== -1 && item.stock < 5 && (
-                        <span className="item__badge">{item.stock} {t('LEFT')}</span>
+                        <span className="item__badge">{lang === LANGUAGE.THAI ? `${t('LEFT')} ${item.stock}` : `${item.stock} ${t('LEFT')}`}</span>
                       )}
                       <button
                         className="item__img"

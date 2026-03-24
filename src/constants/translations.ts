@@ -126,6 +126,30 @@ export const UI_TEXT = {
     en: 'Camp Members', 
     th: 'สมาชิกแคมป์' 
   },
+  REPORT_HARVEST: { 
+    en: 'Report Harvest', 
+    th: 'รายงานการเก็บเกี่ยว' 
+  },
+  STRAWBERRY_FIELDS: { 
+    en: 'Strawberry Fields', 
+    th: 'ไร่สตรอว์เบอร์รี่' 
+  },
+  STRAWBERRY_FIELDS_DESCRIPTION: { 
+    en: 'Welcome to the Strawberry Fields! Report your harvest activities here.', 
+    th: 'ยินดีต้อนรับสู่ไร่สตรอว์เบอร์รี่ รายงานกิจกรรมการเก็บเกี่ยวของคุณที่นี่' 
+  },
+  RECENT_HARVESTS: { 
+    en: 'Recent Harvests', 
+    th: 'การเก็บเกี่ยวล่าสุด' 
+  },
+  NO_HARVESTS_YET: { 
+    en: 'No harvests reported yet.', 
+    th: 'ยังไม่มีรายงานการเก็บเกี่ยว' 
+  },
+  BACK_TO_CAMP: { 
+    en: 'Back to Camp', 
+    th: 'กลับไปที่แคมป์' 
+  },
   SHOP: { 
     en: 'Shop', 
     th: 'ร้านค้า' 
@@ -532,11 +556,11 @@ export const UI_TEXT = {
   },
   LIMITED_EDITION: { 
     en: 'Limited Edition', 
-    th: 'รุ่นจำกัด' 
+    th: 'สินค้าจำนวนจำกัด' 
   },
   ALWAYS_AVAILABLE: { 
     en: 'Always Available', 
-    th: 'พร้อมเสมอ' 
+    th: 'สินค้าพร้อมจำหน่าย' 
   },
   ITEMS: { 
     en: 'items', 

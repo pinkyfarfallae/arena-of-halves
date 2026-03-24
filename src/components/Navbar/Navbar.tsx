@@ -171,7 +171,7 @@ function Navbar() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const isViewingMember = location.pathname.startsWith('/character/');
-  const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge';
+  const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge' || location.pathname === '/strawberry-fields';
   const isAdmin = role === ROLE.ADMIN || role === ROLE.DEVELOPER;
 
   const close = () => setOpen(false);
