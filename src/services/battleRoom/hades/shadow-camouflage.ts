@@ -1,9 +1,9 @@
 import { get, update } from 'firebase/database';
-import type { ActiveEffect } from '../../../../types/power';
-import type { BattleRoom, FighterState } from '../../../../types/battle';
-import { MOD_STAT } from '../../../../constants/effectTypes';
-import { PHASE, BATTLE_TEAM, ARENA_PATH, ROOM_STATUS } from '../../../../constants/battle';
-import { POWER_NAMES } from '../../../../constants/powers';
+import type { ActiveEffect } from '../../../types/power';
+import type { BattleRoom, FighterState } from '../../../types/battle';
+import { MOD_STAT } from '../../../constants/effectTypes';
+import { PHASE, BATTLE_TEAM, ARENA_PATH, ROOM_STATUS } from '../../../constants/battle';
+import { POWER_NAMES } from '../../../constants/powers';
 
 /**
  * True if the fighter has Shadow Camouflage (immune to single-target actions; only area attacks can target them).
@@ -13,12 +13,6 @@ export function hasShadowCamouflage(activeEffects: ActiveEffect[], characterId: 
     e => e.targetId === characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED,
   );
 }
-
-/**
- * Skip reason tag when action is skipped because target has Shadow Camouflage.
- * Client shows modal "ข้ามเพราะ Shadow Camouflaging".
- */
-export const SKIP_REASON_SHADOW_CAMOUFLAGE = POWER_NAMES.SHADOW_CAMOUFLAGING;
 
 /**
  * Advance after Shadow Camouflage quota refill D4 roll (25% chance to refill 1 quota).
@@ -108,7 +102,7 @@ export async function advanceAfterShadowCamouflageD4(
   const nextEntry = updatedQueue[nextIdx];
 
   // Import isStunned from powerEngine
-  const { isStunned } = await import('../../../powerEngine/powerEngine');
+  const { isStunned } = await import('../../powerEngine/powerEngine');
   
   const selfRes1 = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle as any);
   const nextFighter = findFighter(updatedRoom, nextEntry.characterId);

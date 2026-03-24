@@ -1083,7 +1083,7 @@ export default function BattleHUD({
 
     // Check if defender has pomegranate-spirit
     const ae = battle.activeEffects || [];
-    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT);
+    const hasSpirit = ae.some(e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT);
     if (!hasSpirit) { setDodgeReady(true); return; }
 
     // Check if attack actually hit (need hit to dodge)
@@ -1854,7 +1854,7 @@ export default function BattleHUD({
     const cd = turn.coDefendRoll;
     if (cr == null || cr <= 0 || cd == null || cd < 1) return null;
     const ae = battle.activeEffects || [];
-    const spirit = ae.find((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_S_OATH_SPIRIT);
+    const spirit = ae.find((e) => e.targetId === turn.attackerId && e.tag === EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT);
     if (!spirit || spirit.sourceId === turn.attackerId) return null;
     const casterId = effectivePomCoAttackerId(turn) || spirit.sourceId;
     const caster = find(teamA, teamB, casterId);

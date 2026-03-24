@@ -5,7 +5,6 @@
 export {
   hasShadowCamouflage,
   advanceAfterShadowCamouflageD4,
-  SKIP_REASON_SHADOW_CAMOUFLAGE,
 } from './shadow-camouflage';
 
 export {

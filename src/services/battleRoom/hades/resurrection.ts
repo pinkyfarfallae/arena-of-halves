@@ -1,10 +1,10 @@
 import { get } from 'firebase/database';
-import type { ActiveEffect } from '../../../../types/power';
-import type { BattleRoom, BattleState, FighterState, TurnState } from '../../../../types/battle';
-import { EFFECT_TAGS } from '../../../../constants/effectTags';
-import { POWER_NAMES } from '../../../../constants/powers';
-import { EFFECT_TYPES } from '../../../../constants/effectTypes';
-import { PHASE, ARENA_PATH } from '../../../../constants/battle';
+import type { ActiveEffect } from '../../../types/power';
+import type { BattleRoom, BattleState, FighterState, TurnState } from '../../../types/battle';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
+import { POWER_NAMES } from '../../../constants/powers';
+import { EFFECT_TYPES } from '../../../constants/effectTypes';
+import { PHASE, ARENA_PATH } from '../../../constants/battle';
 
 /**
  * Apply self-resurrect if next fighter is dead with death-keeper.
