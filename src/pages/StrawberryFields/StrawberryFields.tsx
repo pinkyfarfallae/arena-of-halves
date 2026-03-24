@@ -32,7 +32,12 @@ function StrawberryFields() {
           {t(T.STRAWBERRY_FIELDS)}
         </div>
 
-        <button className="strawberry-fields__bar-help" onClick={() => setShowRulesModal(true)}>
+        <button 
+          className="strawberry-fields__bar-help" 
+          onClick={() => setShowRulesModal(true)}
+          data-tooltip={t(T.HARVEST_RULES)}
+          data-tooltip-pos="left"
+        >
           <QuestionMark />
         </button>
       </header>
