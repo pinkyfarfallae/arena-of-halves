@@ -143,8 +143,8 @@ export const UI_TEXT = {
     th: 'การเก็บเกี่ยวล่าสุด' 
   },
   NO_HARVESTS_YET: { 
-    en: 'No harvests reported yet.', 
-    th: 'ยังไม่มีรายงานการเก็บเกี่ยว' 
+    en: 'No harvests yet—go gather some!', 
+    th: 'ทุ่งแห่งค่ายยังเงียบงัน—เจ้าจะเป็นผู้เริ่มหรือไม่?' 
   },
   HARVEST_RECORD_BOOK: { 
     en: 'Harvest Record Book', 
