@@ -39,7 +39,7 @@ export function applyImprecatedPoem(
   }
 
   if (poemTag === EFFECT_TAGS.ETERNAL_AGONY) {
-    // Eternal Agony: extend afflictions that still have turns left by 2 rounds (2 * queueLen). ถ้า effect มี 0 รอบคงเหลือ (หมดผลแล้ว) ไม่ขยาย
+    // Eternal Agony: extend afflictions that still have turns left by 2 rounds (2 * queueLen). If effect has 0 rounds remaining (expired) don't extend
     const extendBy = 2 * queueLen;
     for (const e of effects) {
       const remaining = e.turnsRemaining ?? 0;
@@ -47,7 +47,7 @@ export function applyImprecatedPoem(
         e.turnsRemaining = remaining + extendBy;
       }
     }
-    // Eternal Agony เอาเข้าไป 3 วินาทีเสร็จแล้วลบออก — ไม่ push ที่นี่ เพราะ tickEffects จะลบ effect ที่ turnsRemaining === 0; battleRoom จะเพิ่มหลัง tick แล้วตั้งเวลา 3s ลบ
+    // Eternal Agony put in for 3 seconds then remove — don't push here because tickEffects will remove effect when turnsRemaining === 0; battleRoom will add after tick and set 3s timer to remove
   } else {
     // HEALING_NULLIFIED or DISORIENTED: add effect for 2 rounds
     const existing = effects.find(e => e.targetId === defenderId && e.tag === poemTag);

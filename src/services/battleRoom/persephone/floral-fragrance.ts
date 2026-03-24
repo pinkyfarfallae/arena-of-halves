@@ -1,11 +1,9 @@
 import { get, update } from 'firebase/database';
 import type { BattleRoom, FighterState } from '../../../types/battle';
-import type { ActiveEffect } from '../../../types/power';
 import { PHASE, ARENA_PATH, TURN_ACTION } from '../../../constants/battle';
 import { POWER_NAMES } from '../../../constants/powers';
 import { getEffectiveHealForReceiver, addSunbornSovereignRecoveryStack } from '../../powerEngine/powerEngine';
-
-const HEAL_SKIP_REASON_HEALING_NULLIFIED = 'Healing Nullified';
+import { EFFECT_TAGS } from '../../../constants/effectTags';
 
 /** Handle Floral Fragrance heal skip acknowledgment. */
 export async function advanceAfterFloralHealSkippedAck(
@@ -47,7 +45,7 @@ export async function advanceAfterFloralHealSkippedAck(
     eliminated: false,
     missed: false,
     powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
-    healSkipReason: healSkipReason ?? HEAL_SKIP_REASON_HEALING_NULLIFIED,
+    healSkipReason: healSkipReason ?? EFFECT_TAGS.HEALING_NULLIFIED,
   };
   const updates: Record<string, unknown> = {
     [ARENA_PATH.BATTLE_LOG]: sanitizeBattleLog([...(battle.log || []), logEntry]),

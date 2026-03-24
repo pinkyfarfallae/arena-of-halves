@@ -267,7 +267,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
     return (
       <div className="bhud__action-modal" style={themeStyle}>
         <span className="bhud__dice-label">{allyPower?.name ?? 'Select Target'}</span>
-        <span className="bhud__dice-sub">เลือกเป้าหมาย</span>
+        <span className="bhud__dice-sub">select target to attack</span>
         <div className="bhud__ally-picker">
           {aliveTeammates.map(m => {
             const selected = selectedAllyId === m.characterId;

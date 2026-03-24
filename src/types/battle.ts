@@ -320,7 +320,7 @@ export interface BattleLogEntry {
   coDefTotal?: number;
   /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
   rapidFire?: boolean;
-  /** ช็อตเสริมดีเฟ้นใหม่ไม่ได้ — log มี attackRoll/defendRoll 0 */
+  /** Extra shot — log has attackRoll/defendRoll 0 */
   rapidFireNoDefend?: boolean;
 }
 

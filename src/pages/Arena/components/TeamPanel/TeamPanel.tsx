@@ -463,7 +463,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Skipped-heal modal is showing (e.g. Healing Nullified) — do not show heal VFX for caster until they ack.
         const isSpringHealSkipModalCaster = turn?.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && String(m.characterId) === String(springCasterId);
         const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null && springRound !== 2 && !springHealSkipAwaitsAck;
-        // Spring โชว์เฉพาะเมื่อ heal เป็น entry ล่าสุดใน log หรืออยู่ phase D4 — ไม่โชว์ซ้ำตอนเริ่มเทิร์นถัดไป (เทิร์นสุดท้ายก่อน Spring หมด)
+        // Spring: show only when heal is the latest entry in log or in D4 phase — don't show again when starting next turn (last turn before Spring expires)
         const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
         const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         // Floral Fragrance: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
@@ -488,7 +488,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const logHasHymn = hymnIsLatestEntry;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
-        // Healing Nullified (สูญสิ้นเยียวยา): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
+        // Healing Nullified (Healing Loss): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
         const soulDevourerHealFromLog = (() => {
           if (isEliminated) return null;
           const turnDrain = (turn as any)?.soulDevourerDrain && turn?.phase === PHASE.RESOLVING && turn?.attackerId === m.characterId;

@@ -39,7 +39,7 @@ export const EFFECT_TAGS = {
 
 export type EffectTag = (typeof EFFECT_TAGS)[keyof typeof EFFECT_TAGS];
 
-/** Status category for cleanse/strip mechanics (e.g. "ลบ Affliction" / "ลบ Blessing"). */
+/** Status category for cleanse/strip mechanics (e.g. "Remove Affliction" / "Remove Blessing"). */
 export const STATUS_CATEGORY = {
   AFFLICTION: 'affliction',
   BLESSING: 'blessing',
