@@ -2,7 +2,7 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character } from '../types/character';
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
-import { GID, csvUrl } from '../constants/sheets';
+import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { Deity } from '../constants/deities';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
@@ -294,9 +294,6 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
    WRITE THEME BACK TO GOOGLE SHEET
    Uses a deployed Google Apps Script web app
    ══════════════════════════════════════ */
-const DEPLOYMENT_ID = 'AKfycbzr22iG_zewyMvdst4nTLXPX0wM4uOQer4GflNPmxB0yFOvGTZ7XTWG4gZ6bV7RKp7S';
-const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
-
 export async function patchCharacter(
   characterId: string,
   fields: Record<string, string>,

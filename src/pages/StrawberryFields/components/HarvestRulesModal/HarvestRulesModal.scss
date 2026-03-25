@@ -1,4 +1,4 @@
-@import '../../../styles/variables';
+@import '../../../../styles/variables';
 
 // Pastel garden palette
 $garden-pastel-green: #a8d5ba;
@@ -47,7 +47,7 @@ $berry-text-soft: #7d6e63;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.3s;
   position: relative;
 
   // Soft wood grain texture effect
@@ -743,18 +743,6 @@ $berry-text-soft: #7d6e63;
   }
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -45%) scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
 @keyframes float {
 
   0%,
@@ -776,17 +764,5 @@ $berry-text-soft: #7d6e63;
 
   50% {
     transform: scale(1.1);
-  }
-}
-
-@keyframes bounce {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-5px);
   }
 }
