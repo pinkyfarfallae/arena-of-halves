@@ -1,12 +1,12 @@
-import { useTranslation } from '../../../hooks/useTranslation';
-import { T } from '../../../constants/translationKeys';
-import CloseIcon from '../../../icons/Close';
-import Drachma from '../../../icons/Drachma';
-import Pencil from '../../../icons/Pencil';
-import Strawberry from '../../LifeInCamp/components/LocationIcon/icons/Strawberry';
-import Campfire from '../../LifeInCamp/components/LocationIcon/icons/Campfire';
-import Basket from '../../LifeInCamp/components/ActionIcon/icons/Basket';
-import { LANGUAGE } from '../../../constants/language';
+import { useTranslation } from '../../../../hooks/useTranslation';
+import { T } from '../../../../constants/translationKeys';
+import CloseIcon from '../../../../icons/Close';
+import Drachma from '../../../../icons/Drachma';
+import Pencil from '../../../../icons/Pencil';
+import Strawberry from '../../../LifeInCamp/components/LocationIcon/icons/Strawberry';
+import Campfire from '../../../LifeInCamp/components/LocationIcon/icons/Campfire';
+import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
+import { LANGUAGE } from '../../../../constants/language';
 import './HarvestRulesModal.scss';
 
 interface HarvestRulesModalProps {

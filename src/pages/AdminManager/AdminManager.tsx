@@ -4,10 +4,12 @@ import { ROLE } from '../../constants/role';
 import User from './pages/User/User';
 import SystemTesting, { SystemTestDice, SystemTestIris } from './pages/SystemTesting/SystemTesting';
 import PowerVfxDemo from './pages/PowerVfxDemo/PowerVfxDemo';
+import HarvestApproval from './pages/HarvestApproval/HarvestApproval';
 import './AdminManager.scss';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
+  { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
@@ -43,6 +45,7 @@ function AdminManager() {
         <Routes>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<User />} />
+          <Route path="harvest-approval" element={<HarvestApproval />} />
           <Route path="testing" element={<SystemTesting />} />
           <Route path="testing/dice" element={<SystemTestDice />} />
           <Route path="testing/iris-message" element={<SystemTestIris />} />
