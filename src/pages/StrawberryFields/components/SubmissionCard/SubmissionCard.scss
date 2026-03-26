@@ -254,8 +254,7 @@
 
   * {
     user-select: none;
-    pointer-events: none;
-    cursor: pointer;
+    cursor: pointer !important;
   }
 
   @media (max-width: 460px) {

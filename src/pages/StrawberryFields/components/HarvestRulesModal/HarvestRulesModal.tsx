@@ -1,6 +1,6 @@
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { T } from '../../../../constants/translationKeys';
-import CloseIcon from '../../../../icons/Close';
+import Close from '../../../../icons/Close';
 import Drachma from '../../../../icons/Drachma';
 import Pencil from '../../../../icons/Pencil';
 import Strawberry from '../../../LifeInCamp/components/LocationIcon/icons/Strawberry';
@@ -42,7 +42,7 @@ function HarvestRulesModal({ onClose }: HarvestRulesModalProps) {
             {t(T.HARVEST_RULES)}
           </h3>
           <button className="harvest-rules-modal__close" onClick={onClose}>
-            <CloseIcon width="15" height="15" />
+            <Close width="15" height="15" />
           </button>
         </div>
         <div className="harvest-rules-modal__content">

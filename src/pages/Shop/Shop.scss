@@ -169,6 +169,8 @@ $ink-faint: #a08a74;
   color: $ink-soft;
   transition: all 0.15s;
   flex-shrink: 0;
+  min-width: 32px;
+  min-height: 32px;
 
   svg { width: 17px; height: 17px; }
 
@@ -914,7 +916,7 @@ $ink-faint: #a08a74;
   transition: color 0.15s;
 
   svg { width: 15px; height: 15px; }
-  &:hover { color: $ink; }
+  &:hover { color: #fff; }
 
   @media (max-width: $bp-medium) { display: flex; }
 }

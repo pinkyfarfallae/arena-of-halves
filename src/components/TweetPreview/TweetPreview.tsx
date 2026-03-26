@@ -92,10 +92,7 @@ const TweetMedia: React.FC<TweetMediaProps> = ({ url, className, scale = 1 }) =>
 
   return (
     <div className={`tweet-preview-container tweet-preview-container--${loading ? "loading" : error ? "error" : "loaded"} ${className || ""} `} style={{ position: "relative" }}>
-      
-      {loading && <>Loading tweet...</>}
-      {error && <>Failed to load tweet.</>}
-
+      {loading ? 'Loading tweet...' : error ? 'Failed to load tweet.' : null}
       <div
         ref={containerRef}
         className="tweet-preview-embed"
@@ -103,6 +100,10 @@ const TweetMedia: React.FC<TweetMediaProps> = ({ url, className, scale = 1 }) =>
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           opacity: loading ? 0 : 1,
+          ... ((loading || error) && {
+            width: 0,
+            height: 0,
+          })
         }}
       />
     </div>
