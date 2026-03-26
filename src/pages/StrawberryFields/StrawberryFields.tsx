@@ -17,12 +17,14 @@ import SubmissionSuccessCard from './components/SubmissionSuccessCard/Submission
 import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import { LANGUAGE } from '../../constants/language';
 import './StrawberryFields.scss';
+import Close from '../../icons/Close';
 
 function StrawberryFields() {
   const { user } = useAuth();
   const { t, lang } = useTranslation();
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>(SIDEBAR_VIEW.RECORD);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
@@ -143,6 +145,11 @@ function StrawberryFields() {
           data-tooltip-pos="left"
         >
           <QuestionMark />
+        </button>
+
+        {/* Mobile cart toggle */}
+        <button className="strawberry-fields__bar-book" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <Book />
         </button>
       </header>
 
@@ -288,7 +295,7 @@ function StrawberryFields() {
         </main>
 
         {/* Sidebar (right) */}
-        <aside className="strawberry-fields__sidebar">
+        <aside className={`strawberry-fields__sidebar ${sidebarOpen ? 'strawberry-fields__sidebar--open' : ''}`}>
           <div className="strawberry-fields__sidebar__head">
             <div className="strawberry-fields__sidebar__head-tabs">
               <button
@@ -306,6 +313,9 @@ function StrawberryFields() {
                 <span>{t(T.TOP_HARVESTOR)}</span>
               </button>
             </div>
+            <button className="strawberry-fields__sidebar__close" onClick={() => setSidebarOpen(false)}>
+              <Close />
+            </button>
           </div>
 
           <div className="strawberry-fields__sidebar__content">

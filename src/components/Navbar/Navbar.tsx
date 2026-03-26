@@ -5,7 +5,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { T } from '../../constants/translationKeys';
 import { updateTheme } from '../../data/characters';
 import { THEME_LABELS, CSS_VAR_KEYS, DEITY_THEMES, DEFAULT_THEME } from '../../constants/theme';
-import CloseIcon from '../../icons/Close';
+import Close from '../../icons/Close';
 import MenuToggle from './icons/MenuToggle';
 import Person from './icons/Person';
 import People from './icons/People';
@@ -124,7 +124,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
             {t(T.RESET)}
           </button>
           <button className="tp__close" onClick={handleClose} data-tooltip={t(T.CLOSE)} data-tooltip-pos="left">
-            <CloseIcon width="16" height="16" />
+            <Close width="16" height="16" />
           </button>
         </div>
       </div>

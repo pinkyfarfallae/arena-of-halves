@@ -14,7 +14,7 @@ import Package from './icons/Package';
 import InfoCircle from './icons/InfoCircle';
 import WingedSandal from './icons/WingedSandal';
 import Trash from './icons/Trash';
-import CloseIcon from '../../icons/Close';
+import Close from '../../icons/Close';
 import Coupon from './icons/Coupon';
 import './Shop.scss';
 import { LANGUAGE } from '../../constants/language';
@@ -356,7 +356,7 @@ function Shop() {
                   </button>
                 )}
                 <button className="cart__close" onClick={() => setCartOpen(false)}>
-                  <CloseIcon />
+                  <Close />
                 </button>
               </div>
             </div>
