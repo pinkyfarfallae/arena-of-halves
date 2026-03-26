@@ -1181,6 +1181,7 @@
   @media (max-width: 375px) {
     align-items: center;
     justify-content: center;
+
     span {
       display: none;
     }
@@ -1239,7 +1240,7 @@
 }
 
 .strawberry-fields__sidebar__records,
-.strawberry-fields__sidebar__top {
+.strawberry-fields__sidebar__top-harvestors {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1259,6 +1260,155 @@
   width: 100%;
   font-size: 0.75rem;
   opacity: 0.7;
+}
+
+.strawberry-fields__top-harvestor {
+  width: 100%;
+  min-height: 45px;
+  max-height: 45px;
+  margin-left: 1px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border-radius: 30px;
+  padding: 0.5rem 1rem 0.5rem 4rem;
+  border: 2px solid rgba(var(--primary-color), 0.25);
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      color-mix(in srgb, rgb(var(--primary-color)) 12%, white) 100%);
+  box-shadow: 
+    0 2px 8px rgba(var(--primary-color), 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+
+  .strawberry-fields__harvest-record-submitter-avatar-wrapper {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: absolute;
+    left: -2px;
+    border-width: 4px;
+  }
+
+  .strawberry-fields__top-harvestor-rank {
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: rgb(var(--primary-color));
+    min-width: 30px;
+    text-align: left;
+  }
+
+  .strawberry-fields__top-harvestor-name {
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2c3e50;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .strawberry-fields__top-harvestor-crown {
+    display: none;
+    position: absolute;
+    top: -18px;
+    left: 37px;
+    width: 24px;
+    height: 24px;
+    z-index: 100;
+    color: rgb(var(--primary-color));
+    filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.6));
+    animation: crownFloat 2s ease-in-out infinite;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .strawberry-fields__top-harvestor-count {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgb(var(--primary-color));
+    background: linear-gradient(135deg, rgba(var(--primary-color), 0.12), rgba(var(--primary-color), 0.05));
+    padding: 0.3rem 0.6rem;
+    border-radius: 20px;
+    border: 1px solid rgba(var(--primary-color), 0.2);
+    margin-left: auto;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  @keyframes crownFloat {
+    0%, 100% {
+      transform: translateY(0px) rotate(25deg);
+    }
+    50% {
+      transform: translateY(-3px) rotate(35deg);
+    }
+  }
+
+  &:first-child {
+    min-height: 55px;
+    max-height: 55px;
+    margin-bottom: 0.5rem;
+    margin-top: 0.5rem;
+    border-width: 3px;
+    box-shadow: 
+      0 4px 16px rgba(var(--primary-color), 0.25),
+      0 0 0 1px rgba(var(--primary-color), 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+    .strawberry-fields__top-harvestor-crown {
+      display: block;
+    }
+
+    .strawberry-fields__harvest-record-submitter-avatar-wrapper {
+      width: 65px;
+      height: 65px;
+      border-width: 5px;
+      left: -3px;
+    }
+
+    .strawberry-fields__top-harvestor-rank {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-left: 0.65rem;
+    }
+
+    .strawberry-fields__top-harvestor-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .strawberry-fields__top-harvestor-count {
+      font-size: 0.8rem;
+      font-weight: 800;
+      padding: 0.4rem 0.8rem;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+
+  &:not(:last-child) {
+    margin-bottom: 0.3rem;
+  }
 }
 
 @media (max-width: 768px) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, use } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -8,18 +8,21 @@ import Book from '../../icons/Book';
 import Trophy from '../../icons/Trophy';
 import QuestionMark from '../../icons/QuestionMark';
 import Drachma from '../../icons/Drachma';
-import { submitHarvest, fetchHarvests } from '../../services/harvest/fetchHarvest';
-import { HarvestSubmission, HarvestSubmissionStatus, SidebarView } from '../../types/harvest';
+import { submitHarvest, fetchHarvests, fetchTopHarvesters } from '../../services/harvest/fetchHarvest';
+import { HarvestSubmission, HarvestSubmissionStatus, SidebarView, TopHarvester } from '../../types/harvest';
 import Strawberry from '../LifeInCamp/components/LocationIcon/icons/Strawberry';
 import HarvestRulesModal from './components/HarvestRulesModal/HarvestRulesModal';
 import { HARVEST_SUBMISSION_STATUS, SIDEBAR_VIEW } from '../../constants/harvest';
 import SubmissionSuccessCard from './components/SubmissionSuccessCard/SubmissionSuccessCard';
 import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import { LANGUAGE } from '../../constants/language';
-import './StrawberryFields.scss';
 import Close from '../../icons/Close';
 import HarvestRecordCard from './components/HarvestRecordCard/HarvestRecordCard';
 import { Character, fetchAllCharacters } from '../../data/characters';
+import './StrawberryFields.scss';
+import HarvestorChip from './components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
+import Crown from '../../icons/Crown';
+import { hexToRgb } from '../../utils/color';
 
 function StrawberryFields() {
   const { user } = useAuth();
@@ -30,11 +33,27 @@ function StrawberryFields() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [topHarvestors, setTopHarvestors] = useState<TopHarvester[]>([]);
+  const [isLoadingTopHarvestors, setIsLoadingTopHarvestors] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
   const [allCampData, setAllCampData] = useState<Character[]>([]);
   const [filterStatus, setFilterStatus] = useState<HarvestSubmissionStatus | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchAllCharacters()
+      .then((data) => {
+        if (mounted) setAllCampData(data || []);
+      })
+      .catch(console.error);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +106,39 @@ function StrawberryFields() {
     };
   }, [user?.characterId]);
 
+  useEffect(() => {
+    if (!user?.characterId) return;
+
+    let mounted = true;
+
+    const loadTopHarvestors = async () => {
+      setIsLoadingTopHarvestors(true);
+
+      try {
+        const result = await fetchTopHarvesters();
+
+        if (!mounted) return;
+
+        if (result.error) {
+          console.error(result.error);
+          return;
+        }
+
+        setTopHarvestors(result.topHarvesters);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setIsLoadingTopHarvestors(false);
+      }
+    };
+
+    loadTopHarvestors();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.characterId]);
+
   const characterMap = useMemo(() => {
     const map: Record<string, Character> = {};
     allCampData.forEach((c) => {
@@ -94,15 +146,6 @@ function StrawberryFields() {
     });
     return map;
   }, [allCampData]);
-
-  // ✅ Filtered submissions
-  const filteredSubmissions = useMemo(() => {
-    return submissions.filter(
-      (s) =>
-        (!filterStatus || s.status === filterStatus) &&
-        s.characterId === user?.characterId
-    );
-  }, [submissions, filterStatus, user?.characterId]);
 
   const isValidTwitterUrl = (url: string) =>
     /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i.test(url);
@@ -372,8 +415,36 @@ function StrawberryFields() {
                 )}
               </div>
             ) : (
-              <div className="strawberry-fields__sidebar__top">
-                <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
+              <div className="strawberry-fields__sidebar__top-harvestors">
+                {isLoadingTopHarvestors ? (
+                  <p className="strawberry-fields__sidebar__empty">{t(T.LOADING)}</p>
+                ) : !error &&
+                  topHarvestors.length === 0 ? (
+                  <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
+                ) : (
+                  topHarvestors.map((harvester, index) => (
+                    <div
+                      key={harvester.characterId}
+                      className="strawberry-fields__top-harvestor"
+                      style={{
+                        '--primary-color': characterMap[harvester.characterId.toLowerCase()] ? hexToRgb(characterMap[harvester.characterId.toLowerCase()].theme[0]) : 'rgb(255, 255, 255)',
+                      } as React.CSSProperties}
+                    >
+                      {index === 0 && (
+                        <span className="strawberry-fields__top-harvestor-crown">
+                          <Crown />
+                        </span>
+                      )}
+                      <HarvestorChip character={characterMap[harvester.characterId.toLowerCase()]} />
+                      <span className="strawberry-fields__top-harvestor-rank">#{index + 1}</span>
+                      <span className="strawberry-fields__top-harvestor-name">{harvester.nicknameEng}</span>
+                      <span className="strawberry-fields__top-harvestor-count">
+                        {harvester.totalDrachma}
+                        <Drachma />
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
