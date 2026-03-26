@@ -29,6 +29,9 @@ import {
 import type { EffectSide, FighterOption } from './utils/types';
 import './PowerVfxDemo.scss';
 import { PANEL_SIDE } from '../../../../constants/battle';
+import { useAuth } from '../../../../hooks/useAuth';
+import { Navigate } from 'react-router-dom';
+import { ROLE } from '../../../../constants/role';
 
 /** Effect-only preview: reuses <Arena isDemo />; effect stack chosen via modal (power-select style). */
 
@@ -50,6 +53,8 @@ function themeToCiStyle(theme: Theme25): CSSProperties {
 }
 
 export default function PowerVfxDemo() {
+  const { role } = useAuth();
+
   const [members, setMembers] = useState<FighterState[]>([]);
   const [npcs, setNpcs] = useState<FighterState[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,6 +244,10 @@ export default function PowerVfxDemo() {
     }),
     []
   );
+
+  if (role !== ROLE.DEVELOPER) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return (

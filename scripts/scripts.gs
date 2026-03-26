@@ -56,6 +56,14 @@ function doGet(e) {
     return handleFetchHarvests(e.parameter.characterId, e.parameter.status);
   }
 
+  if (action === 'fetchHarvestRecords') {
+    return handleFetchHarvestRecords();
+  }
+
+  if (action === 'fetchTopHarvesters') {
+    return handleFetchTopHarvesters(e.parameter.limit);
+  }
+
   if (action === 'updateCharacterDrachma' || action === 'addDrachma') {
     return updateCharacterDrachma(e.parameter.characterId, e.parameter.amount);
   }
@@ -102,6 +110,14 @@ function doPost(e) {
 
     if (data.action === 'fetchHarvests') {
       return handleFetchHarvests(data.characterId, data.status);
+    }
+
+    if (data.action === 'fetchHarvestRecords') {
+      return handleFetchHarvestRecords();
+    }
+
+    if (data.action === 'fetchTopHarvesters') {
+      return handleFetchTopHarvesters(data.limit);
     }
 
     if (data.action === 'updateCharacterDrachma' || data.action === 'addDrachma') {
@@ -433,9 +449,15 @@ function handleSubmitHarvest(params) {
   var characterId = (params.characterId || '').toString().trim();
   var firstTweetUrl = (params.firstTweetUrl || '').toString().trim();
   var submittedAt = (params.submittedAt || new Date().toISOString()).toString();
+  var id = (params.id || '').toString().trim();
 
   if (!characterId || !firstTweetUrl) {
     return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  // If no UUID provided, generate a fallback ID (timestamp-based)
+  if (!id) {
+    id = 'H' + new Date().getTime();
   }
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -447,17 +469,15 @@ function handleSubmitHarvest(params) {
   var data = sheet.getDataRange().getValues();
   var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
 
-  // Generate unique ID (timestamp-based)
-  var id = 'H' + new Date().getTime();
-
   // Build row according to schema:
-  // A: characterId, B: firstTweetUrl, C: status, D: submittedAt,
-  // E: reviewedAt, F: reviewedBy, G: charCount, H: mentionCount, I: drachmaReward,
-  // J: roleplayers, K: rejectReason
+  // Includes: id, characterId, firstTweetUrl, status, submittedAt,
+  // reviewedAt, reviewedBy, charCount, mentionCount, drachmaReward,
+  // roleplayers, rejectReason
   var row = [];
   for (var i = 0; i < headers.length; i++) {
     var h = headers[i];
-    if (h === 'characterid') row.push(characterId);
+    if (h === 'id') row.push(id);
+    else if (h === 'characterid') row.push(characterId);
     else if (h === 'firsttweeturl') row.push(firstTweetUrl);
     else if (h === 'status') row.push('pending');
     else if (h === 'submittedat') row.push(submittedAt);
@@ -504,14 +524,15 @@ function handleApproveHarvest(params) {
   var mentionCountCol = harvestHeaders.indexOf('mentioncount');
   var drachmaRewardCol = harvestHeaders.indexOf('drachmareward');
   var roleplayersCol = harvestHeaders.indexOf('roleplayers');
+  var idCol = harvestHeaders.indexOf('id');
 
   var rowIndex = -1;
   var submitterCharId = '';
 
-  // Find pending submission (we'll use submissionId as characterId for now, or improve matching logic)
+  // Find submission by ID
   for (var i = 1; i < harvestData.length; i++) {
-    if (harvestData[i][statusCol] && harvestData[i][statusCol].toString().toLowerCase() === 'pending') {
-      // Simple matching: first pending submission (improve this with better ID matching)
+    var recordId = harvestData[i][idCol] ? harvestData[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
       rowIndex = i;
       submitterCharId = harvestData[i][charIdCol].toString().trim();
       break;
@@ -519,7 +540,13 @@ function handleApproveHarvest(params) {
   }
 
   if (rowIndex === -1) {
-    return jsonResponse({ error: 'Pending submission not found' });
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  // Check if already approved
+  var currentStatus = harvestData[rowIndex][statusCol] ? harvestData[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'approved') {
+    return jsonResponse({ error: 'Submission already approved' });
   }
 
   // Update harvest submission
@@ -580,17 +607,25 @@ function handleRejectHarvest(params) {
   var reviewedAtCol = headers.indexOf('reviewedat');
   var reviewedByCol = headers.indexOf('reviewedby');
   var rejectReasonCol = headers.indexOf('rejectreason');
+  var idCol = headers.indexOf('id');
 
   var rowIndex = -1;
   for (var i = 1; i < data.length; i++) {
-    if (data[i][statusCol] && data[i][statusCol].toString().toLowerCase() === 'pending') {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
       rowIndex = i;
       break;
     }
   }
 
   if (rowIndex === -1) {
-    return jsonResponse({ error: 'Pending submission not found' });
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  // Check if already rejected
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'rejected') {
+    return jsonResponse({ error: 'Submission already rejected' });
   }
 
   var reviewedAt = new Date().toISOString();
@@ -713,4 +748,201 @@ function updateCharacterDrachma(characterId, amount) {
 /* ── Add drachma (wrapper for backwards compatibility) ── */
 function addDrachma(characterId, amount) {
   return updateCharacterDrachma(characterId, amount);
+}
+
+/* ══════════════════════════════════════
+   HARVEST RECORD BOOK
+   - Returns interesting harvest statistics/records
+   ══════════════════════════════════════ */
+function handleFetchHarvestRecords() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return jsonResponse({ records: {} });
+  }
+
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var charCountCol = headers.indexOf('charcount');
+  var mentionCountCol = headers.indexOf('mentioncount');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
+  var statusCol = headers.indexOf('status');
+  var charIdCol = headers.indexOf('characterid');
+  var urlCol = headers.indexOf('firsttweeturl');
+  var submittedAtCol = headers.indexOf('submittedat');
+
+  var approvedHarvests = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
+      approvedHarvests.push({
+        characterId: charIdCol !== -1 ? row[charIdCol].toString() : '',
+        charCount: charCountCol !== -1 ? parseInt(row[charCountCol] || '0', 10) : 0,
+        mentionCount: mentionCountCol !== -1 ? parseInt(row[mentionCountCol] || '0', 10) : 0,
+        drachmaReward: drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0,
+        roleplayers: roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [],
+        url: urlCol !== -1 ? row[urlCol].toString() : '',
+        submittedAt: submittedAtCol !== -1 ? row[submittedAtCol].toString() : ''
+      });
+    }
+  }
+
+  if (approvedHarvests.length === 0) {
+    return jsonResponse({ records: {} });
+  }
+
+  // Sort by date (latest to oldest) to prioritize recent records in case of ties
+  approvedHarvests.sort(function(a, b) {
+    var dateA = new Date(a.submittedAt).getTime();
+    var dateB = new Date(b.submittedAt).getTime();
+    return dateB - dateA; // Descending (latest first)
+  });
+
+  // Calculate records
+  var longestHarvest = approvedHarvests[0];
+  var mostParticipants = approvedHarvests[0];
+  var biggestReward = approvedHarvests[0];
+  var mostTweets = approvedHarvests[0];
+
+  for (var j = 0; j < approvedHarvests.length; j++) {
+    var harvest = approvedHarvests[j];
+    
+    if (harvest.charCount > longestHarvest.charCount) {
+      longestHarvest = harvest;
+    }
+    
+    if (harvest.roleplayers.length > mostParticipants.roleplayers.length) {
+      mostParticipants = harvest;
+    }
+    
+    if (harvest.drachmaReward > biggestReward.drachmaReward) {
+      biggestReward = harvest;
+    }
+    
+    if (harvest.mentionCount > mostTweets.mentionCount) {
+      mostTweets = harvest;
+    }
+  }
+
+  var records = {
+    totalApproved: approvedHarvests.length,
+    longestHarvest: {
+      charCount: longestHarvest.charCount,
+      characterId: longestHarvest.characterId,
+      url: longestHarvest.url,
+      submittedAt: longestHarvest.submittedAt
+    },
+    mostParticipants: {
+      participantCount: mostParticipants.roleplayers.length,
+      participants: mostParticipants.roleplayers,
+      characterId: mostParticipants.characterId,
+      url: mostParticipants.url,
+      submittedAt: mostParticipants.submittedAt
+    },
+    biggestReward: {
+      drachmaReward: biggestReward.drachmaReward,
+      characterId: biggestReward.characterId,
+      url: biggestReward.url,
+      submittedAt: biggestReward.submittedAt
+    },
+    mostTweets: {
+      tweetCount: mostTweets.mentionCount,
+      characterId: mostTweets.characterId,
+      url: mostTweets.url,
+      submittedAt: mostTweets.submittedAt
+    }
+  };
+
+  return jsonResponse({ records: records });
+}
+
+/* ══════════════════════════════════════
+   TOP HARVESTERS LEADERBOARD
+   - Returns characters ranked by total drachma earned from harvests
+   ══════════════════════════════════════ */
+function handleFetchTopHarvesters(limit) {
+  limit = limit ? parseInt(limit, 10) : 0;
+  if (limit < 0) limit = 0;
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var harvestSheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!harvestSheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var harvestData = harvestSheet.getDataRange().getValues();
+  if (harvestData.length <= 1) {
+    return jsonResponse({ topHarvesters: [] });
+  }
+
+  var headers = harvestData[0].map(function (h) { return h.toString().toLowerCase(); });
+  var statusCol = headers.indexOf('status');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
+
+  // Accumulate drachma earned per character
+  var earnings = {}; // { characterId: totalDrachma }
+
+  for (var i = 1; i < harvestData.length; i++) {
+    var row = harvestData[i];
+    if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
+      var drachma = drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0;
+      var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+
+      for (var r = 0; r < roleplayers.length; r++) {
+        var charId = roleplayers[r].trim();
+        if (charId) {
+          earnings[charId] = (earnings[charId] || 0) + drachma;
+        }
+      }
+    }
+  }
+
+  // Convert to array and sort (top to bottom: highest to lowest)
+  var leaderboard = [];
+  for (var char in earnings) {
+    leaderboard.push({
+      characterId: char,
+      totalDrachma: earnings[char]
+    });
+  }
+
+  leaderboard.sort(function(a, b) {
+    return b.totalDrachma - a.totalDrachma; // Descending (highest first)
+  });
+
+  // Get character names from Character Info sheet
+  var charSheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (charSheet) {
+    var charData = charSheet.getDataRange().getValues();
+    var charHeaders = charData[0].map(function (h) { return h.toString().toLowerCase(); });
+    var charIdCol = charHeaders.indexOf('characterid');
+    var nickEngCol = charHeaders.indexOf('nickname (eng)');
+    var nickThaiCol = charHeaders.indexOf('nickname (thai)');
+
+    for (var l = 0; l < leaderboard.length; l++) {
+      var leaderId = leaderboard[l].characterId.toLowerCase();
+      
+      for (var c = 1; c < charData.length; c++) {
+        if (charIdCol !== -1 && charData[c][charIdCol].toString().trim().toLowerCase() === leaderId) {
+          leaderboard[l].nicknameEng = nickEngCol !== -1 ? charData[c][nickEngCol].toString() : '';
+          leaderboard[l].nicknameThai = nickThaiCol !== -1 ? charData[c][nickThaiCol].toString() : '';
+          break;
+        }
+      }
+    }
+  }
+
+  // Limit results (0 = no limit)
+  if (limit > 0 && leaderboard.length > limit) {
+    leaderboard = leaderboard.slice(0, limit);
+  }
+
+  return jsonResponse({ topHarvesters: leaderboard });
 }

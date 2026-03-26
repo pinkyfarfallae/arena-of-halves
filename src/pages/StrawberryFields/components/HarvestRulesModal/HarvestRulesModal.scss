@@ -1,21 +1,5 @@
 @import '../../../../styles/variables';
-
-// Pastel garden palette
-$garden-pastel-green: #a8d5ba;
-$garden-mint: #c8e6c9;
-$garden-sage: #b8d4c8;
-$garden-cream: #fef9f5;
-$garden-peach: #ffe5d9;
-$garden-pink-light: #ffd6e0;
-$garden-sky: #e3f2fd;
-$garden-lavender: #e8eaf6;
-$garden-wood-light: #d4c4b0;
-$garden-wood-dark: #bfad97;
-
-$strawberry-pastel: #ff9aa2;
-$strawberry-red: #e8385d;
-$berry-text: #2c1810;
-$berry-text-soft: #7d6e63;
+@import '../variables';
 
 .harvest-rules-backdrop {
   position: fixed;

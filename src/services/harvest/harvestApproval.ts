@@ -1,22 +1,3 @@
-const normalizeExtractedTweet = (text: string): string =>
-  text
-    .replace(/\u00a0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const uniqueTweets = (tweets: string[]): string[] => {
-  const seen = new Set<string>();
-
-  return tweets.filter(tweet => {
-    if (!tweet || seen.has(tweet)) {
-      return false;
-    }
-
-    seen.add(tweet);
-    return true;
-  });
-};
-
 const uniqueHandles = (handles: string[]): string[] => {
   const seen = new Set<string>();
 
@@ -32,26 +13,8 @@ const uniqueHandles = (handles: string[]): string[] => {
   });
 };
 
-const extractMentions = (text: string): string[] => {
-  const mentions = text.match(/@(\w+)/g) || [];
-  return uniqueHandles(mentions.map(m => m.substring(1)));
-};
-
-const extractTweetUsernames = (text: string): string[] => {
-  const usernames = text.match(/(?:^|\n)\s*(?:author|username|handle)\s*:\s*@?([A-Za-z0-9_]{1,15})\b/gi) || [];
-
-  return uniqueHandles(
-    usernames
-      .map(entry => entry.match(/@?([A-Za-z0-9_]{1,15})\b/i)?.[1] || '')
-      .filter(Boolean)
-  );
-};
-
-const extractParticipantHandles = (text: string): string[] =>
-  uniqueHandles([...extractMentions(text), ...extractTweetUsernames(text)]);
-
 // Extract Twitter handle from URL or @mention
-const extractTwitterHandle = (input: string): string | null => {
+export const extractTwitterHandle = (input: string): string | null => {
   if (!input) return null;
 
   const trimmed = input.trim();
@@ -74,7 +37,7 @@ const extractTwitterHandle = (input: string): string | null => {
 };
 
 // Parse script output format: "--- TWEET X ---\nAuthor: @username\nMentions: @user1, @user2\ntext"
-const parseScriptOutput = (input: string): { text: string; authors: string[]; tweetCount: number } | null => {
+export const parseScriptOutput = (input: string): { text: string; authors: string[]; tweetCount: number } | null => {
   const trimmed = input.trim();
 
   // Check if it matches the script output format
@@ -124,75 +87,4 @@ const parseScriptOutput = (input: string): { text: string; authors: string[]; tw
     authors: uniqueHandles(allAuthors),
     tweetCount: tweetBlocks.length,
   };
-};
-
-const extractPlainReviewText = (input: string): string => {
-  const trimmedInput = input.trim();
-
-  if (!trimmedInput.includes('<') || !trimmedInput.includes('>')) {
-    return trimmedInput;
-  }
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(trimmedInput, 'text/html');
-  const tweetTextNodes = uniqueTweets(
-    Array.from(doc.querySelectorAll('[data-testid="tweetText"]'))
-      .map(node => normalizeExtractedTweet(node.textContent || ''))
-      .filter(Boolean)
-  );
-
-  const articleLangNodes = uniqueTweets(
-    Array.from(doc.querySelectorAll('article [lang]'))
-      .map(node => normalizeExtractedTweet(node.textContent || ''))
-      .filter(Boolean)
-  );
-
-  const articleBlocks = uniqueTweets(
-    Array.from(doc.querySelectorAll('article'))
-      .map(article => {
-        const articleTweetParts = Array.from(article.querySelectorAll('[data-testid="tweetText"], [lang]'))
-          .map(node => normalizeExtractedTweet(node.textContent || ''))
-          .filter(Boolean);
-
-        return normalizeExtractedTweet(uniqueTweets(articleTweetParts).join('\n'));
-      })
-      .filter(Boolean)
-  );
-
-  const tweetHtmlBlocks =
-    trimmedInput.match(/<[^>]*data-testid=(["'])tweetText\1[^>]*>[\s\S]*?(?=<[^>]*data-testid=(["'])tweetText\2[^>]*>|$)/gi) || [];
-  const tweetTextFallback = uniqueTweets(
-    tweetHtmlBlocks
-      .map(block => normalizeExtractedTweet(parser.parseFromString(block, 'text/html').body.textContent || ''))
-      .filter(Boolean)
-  );
-
-  const langHtmlBlocks =
-    trimmedInput.match(/<[^>]*lang=(["'])[^"']+\1[^>]*>[\s\S]*?<\/[^>]+>/gi) || [];
-  const langFallback = uniqueTweets(
-    langHtmlBlocks
-      .map(block => normalizeExtractedTweet(parser.parseFromString(block, 'text/html').body.textContent || ''))
-      .filter(Boolean)
-  );
-
-  const strategies = [
-    { label: 'tweetText', tweets: tweetTextNodes },
-    { label: 'articleLang', tweets: articleLangNodes },
-    { label: 'articleBlocks', tweets: articleBlocks },
-    { label: 'tweetTextFallback', tweets: tweetTextFallback },
-    { label: 'langFallback', tweets: langFallback },
-  ];
-
-  const bestStrategy = strategies.reduce((best, current) => {
-    const bestScore = best.tweets.length * 10000 + best.tweets.join('').length;
-    const currentScore = current.tweets.length * 10000 + current.tweets.join('').length;
-
-    return currentScore > bestScore ? current : best;
-  }, strategies[0]);
-
-  if (bestStrategy.tweets.length > 0) {
-    return bestStrategy.tweets.join('\n\n').trim();
-  }
-
-  return doc.body.textContent?.trim() || trimmedInput;
 };
