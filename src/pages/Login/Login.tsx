@@ -5,7 +5,7 @@ import Omega from './icons/Omega';
 import Eye from './icons/Eye';
 import EyeOff from './icons/EyeOff';
 import Lightning from '../../icons/Lightning';
-import Warning from './icons/Warning';
+import Warning from '../../icons/Warning';
 import Swords from '../../icons/Swords';
 import './Login.scss';
 

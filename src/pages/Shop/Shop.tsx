@@ -28,12 +28,13 @@ function Shop() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+
+  const { user } = useAuth();
   const [tooltip, setTooltip] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const { user } = useAuth();
 
   // Save cart to localStorage
   useEffect(() => {

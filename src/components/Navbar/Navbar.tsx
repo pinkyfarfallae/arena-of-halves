@@ -147,7 +147,8 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
                   type="button"
                   className="tp__undo"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUndo(i); }}
-                  data-tooltip={t(T.UNDO)} data-tooltip-pos="top"
+                  data-tooltip={t(T.UNDO)} 
+                  data-tooltip-pos="top"
                 >
                   <Undo width={10} height={10} />
                 </button>

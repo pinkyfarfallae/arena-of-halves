@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -8,22 +8,55 @@ import Book from '../../icons/Book';
 import Trophy from '../../icons/Trophy';
 import QuestionMark from '../../icons/QuestionMark';
 import Drachma from '../../icons/Drachma';
-import { HarvestSubmission, SidebarView, submitHarvest } from '../../types/harvest';
+import { submitHarvest, fetchHarvests } from '../../services/harvest/fetchHarvest';
+import { HarvestSubmission, HarvestSubmissionStatus, SidebarView } from '../../types/harvest';
 import Strawberry from '../LifeInCamp/components/LocationIcon/icons/Strawberry';
 import HarvestRulesModal from './components/HarvestRulesModal/HarvestRulesModal';
-import './StrawberryFields.scss';
 import { HARVEST_SUBMISSION_STATUS, SIDEBAR_VIEW } from '../../constants/harvest';
+import SubmissionSuccessCard from './components/SubmissionSuccessCard/SubmissionSuccessCard';
+import SubmissionCard from './components/SubmissionCard/SubmissionCard';
+import { LANGUAGE } from '../../constants/language';
+import './StrawberryFields.scss';
 
 function StrawberryFields() {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>(SIDEBAR_VIEW.RECORD);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
+  const [filterStatus, setFilterStatus] = useState<HarvestSubmissionStatus | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
+
+  // Fetch user's harvest submissions on mount
+  useEffect(() => {
+    const loadSubmissions = async () => {
+      if (!user?.characterId) return;
+
+      setIsLoadingSubmissions(true);
+      try {
+        const result = await fetchHarvests(user.characterId);
+        if (result.error) {
+          console.error('Error fetching harvests:', result.error);
+        } else {
+          // Sort by submission date (newest first)
+          const sorted = result.harvests.sort((a, b) =>
+            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+          );
+          setSubmissions(sorted);
+        }
+      } catch (err) {
+        console.error('Failed to load submissions:', err);
+      } finally {
+        setIsLoadingSubmissions(false);
+      }
+    };
+
+    loadSubmissions();
+  }, [user?.characterId]);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -181,7 +214,9 @@ function StrawberryFields() {
             </span>
 
             <div className="strawberry-fields__form">
-              <h2>{t(T.REPORT_HARVEST)}</h2>
+              <h2 style={lang === LANGUAGE.ENGLISH ? { letterSpacing: '0.03em' } : {}}>
+                {t(T.REPORT_HARVEST)}
+              </h2>
               <div className="strawberry-fields__form-content">
                 <input
                   type="text"
@@ -194,68 +229,61 @@ function StrawberryFields() {
                   className={`strawberry-fields__form-button ${isSubmitting ? 'strawberry-fields__form-button--loading' : ''}`}
                   onClick={handleSubmit}
                   disabled={isSubmitting || !firstTweetUrl.trim()}
-                  data-tooltip="Submit for admin review"
+                  data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >
                   <Drachma className="strawberry-fields__form-button-icon" />
-                  <span>{isSubmitting ? 'Submitting...' : 'Submit'}</span>
+                  <span>{isSubmitting ? t(T.SUBMITTING) : t(T.SUBMIT)}</span>
                 </button>
               </div>
               <div className="strawberry-fields__form-note">
-                เมื่อส่งเอกสารประเมินราคาแล้ว กรุณารอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทนดังกล่าว
+                {t(T.HARVEST_SUBMISSION_NOTE)}
               </div>
             </div>
           </div>
 
-          <div className="strawberry-fields__results">
-            {error && (
-              <div className="strawberry-fields__error">
-                <p>{error}</p>
-              </div>
-            )}
+          <div className="strawberry-fields__results-section">
+            <div className="strawberry-fields__results-header">
+              <button
+                key="all"
+                className={`strawberry-fields__filter-btn ${filterStatus === null ? 'strawberry-fields__filter-btn--active' : ''
+                  }`}
+                onClick={() => setFilterStatus(null)}
+              >
+                all
+              </button>
+              {Object.values(HARVEST_SUBMISSION_STATUS).map((status) => {
+                return (
+                  <button
+                    key={status}
+                    className={`strawberry-fields__filter-btn ${filterStatus === status ? 'strawberry-fields__filter-btn--active' : ''
+                      }`}
+                    onClick={() => setFilterStatus(status)}
+                  >
+                    {status}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="strawberry-fields__results">
+              {submitSuccess && <SubmissionSuccessCard />}
 
-            {submitSuccess && (
-              <div className="strawberry-fields__success">
-                <h3>Submission Received!</h3>
-                <p>Your harvest has been submitted for admin review.<br />
-                  You'll receive drachma once it's approved.</p>
-              </div>
-            )}
-
-
-            {submissions.length === 0 ? (
-              <p className="strawberry-fields__empty">No submissions yet. Submit your first harvest above!</p>
-            ) : (
-              <div className="strawberry-fields__submissions-list">
-                {submissions.map((submission) => (
-                  <div key={submission.id} className={`strawberry-fields__submission-card strawberry-fields__submission-card--${submission.status}`}>
-                    <div className="strawberry-fields__submission-header">
-                      <span className="strawberry-fields__submission-date">
-                        {new Date(submission.submittedAt).toLocaleDateString('th-TH', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    </div>
-                    <div className="strawberry-fields__submission-link">
-                      <div>{submission.firstTweetUrl.length > 50 ? submission.firstTweetUrl.substring(0, 50) + '...' : submission.firstTweetUrl}</div>
-                    </div>
-                    {submission.status === 'approved' && (
-                      <div className="strawberry-fields__submission-reward">
-                        <Drachma /> {submission.drachmaReward} drachma ({submission.charCount} chars)
-                      </div>
-                    )}
-                    {submission.status === 'rejected' && submission.rejectReason && (
-                      <div className="strawberry-fields__submission-reject">
-                        Reason: {submission.rejectReason}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+              {!!error && submissions.length === 0 ? (
+                <div className="strawberry-fields__error">
+                  {error}
+                </div>
+              ) : isLoadingSubmissions ? (
+                <p className="strawberry-fields__empty">{t(T.LOADING)}</p>
+              ) : submissions.length === 0 ? (
+                <p className="strawberry-fields__empty">{t(T.PERSONAL_NO_HARVESTS)}</p>
+              ) : (
+                <div className="strawberry-fields__submissions-list">
+                  {submissions
+                    .filter((submission) => !filterStatus || submission.status === filterStatus)
+                    .map((submission) => <SubmissionCard key={submission.id} submission={submission} />)}
+                </div>
+              )}
+            </div>
           </div>
         </main>
 
@@ -287,7 +315,7 @@ function StrawberryFields() {
               </div>
             ) : (
               <div className="strawberry-fields__sidebar__top">
-                <p className="strawberry-fields__sidebar__empty">No data yet</p>
+                <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
               </div>
             )}
           </div>

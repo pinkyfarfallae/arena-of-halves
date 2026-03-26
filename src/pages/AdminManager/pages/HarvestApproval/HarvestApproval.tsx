@@ -1,14 +1,17 @@
-import { useState, useEffect, type ClipboardEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
 import Drachma from '../../../../icons/Drachma';
-import { fetchHarvests, approveHarvest, rejectHarvest, type HarvestSubmission, HarvestScriptCopyStatus } from '../../../../types/harvest';
+import { fetchHarvests, approveHarvest, rejectHarvest } from '../../../../services/harvest/fetchHarvest';
+import { type HarvestSubmission, HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
-import './HarvestApproval.scss';
 import { useAuth } from '../../../../hooks/useAuth';
 import { HARVEST_SCRIPT_COPY_STATUS, HARVEST_SUBMISSION_STATUS } from '../../../../constants/harvest';
+import { parseScriptOutput, extractTwitterHandle } from '../../../../services/harvest/harvestApproval';
+import './HarvestApproval.scss';
 
 function HarvestApproval() {
+  const { user } = useAuth();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
   const [loadError, setLoadError] = useState('');
@@ -16,7 +19,7 @@ function HarvestApproval() {
   const [reviewText, setReviewText] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
-  const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]); 
+  const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
   const [scriptCopyStatus, setScriptCopyStatus] = useState<HarvestScriptCopyStatus>(HARVEST_SCRIPT_COPY_STATUS.IDLE);
 
   // Load characters
@@ -68,9 +71,10 @@ function HarvestApproval() {
     return text.replace(/\s+/g, '').length;
   };
 
-  // Calculate rewards: 10 drachma per 200 characters
-  const calculateRewards = (charCount: number): number => {
-    return Math.ceil((charCount / 200) * 10);
+  // Calculate rewards: 10 drachma per 200 characters (1.5x for solo roleplay)
+  const calculateRewards = (charCount: number, isSolo: boolean): number => {
+    const baseReward = (charCount / 200) * 10;
+    return isSolo ? Math.ceil(baseReward * 1.5) : Math.ceil(baseReward);
   };
 
   // Toggle roleplayer selection
@@ -84,7 +88,6 @@ function HarvestApproval() {
 
   const handleApprove = async (submissionId: string) => {
     const scriptParsed = parseScriptOutput(reviewText);
-    const { user } = useAuth();
 
     if (!scriptParsed) {
       alert('Please paste script output (use "Copy Script" button above)');
@@ -98,12 +101,13 @@ function HarvestApproval() {
 
     const charCount = countCharacters(scriptParsed.text);
     const mentionCount = scriptParsed.tweetCount;
-    const drachmaReward = calculateRewards(charCount);
+    const isSolo = selectedRoleplayers.length === 1;
+    const drachmaReward = calculateRewards(charCount, isSolo);
 
     // Call API to approve and award drachma
     const result = await approveHarvest(
       submissionId,
-      user?.characterId || 'admin-character-id', 
+      user?.characterId || 'admin-character-id',
       charCount,
       mentionCount,
       drachmaReward,
@@ -117,7 +121,7 @@ function HarvestApproval() {
           sub.id === submissionId
             ? {
               ...sub,
-              status: 'approved' as const,
+              status: HARVEST_SUBMISSION_STATUS.APPROVED,
               reviewedAt: new Date().toISOString(),
               reviewedBy: user?.characterId || 'admin-character-id',
               charCount,
@@ -135,14 +139,14 @@ function HarvestApproval() {
       setMatchedCharacters([]);
       setSelectedRoleplayers([]);
 
-      alert(`Approved! ${drachmaReward} drachma awarded to ${selectedRoleplayers.length} character(s)\n${result.awarded?.join('\n') || ''}`);
+      const bonusText = isSolo ? ' (Solo Bonus: +50%)' : '';
+      alert(`Approved! ${drachmaReward} drachma${bonusText} awarded to ${selectedRoleplayers.length} character(s)\n${result.awarded?.join('\n') || ''}`);
     } else {
       alert(`Failed to approve: ${result.error || 'Unknown error'}`);
     }
   };
 
   const handleReject = async (submissionId: string) => {
-    const { user } = useAuth();
     if (!rejectReason.trim()) {
       alert('Please provide a reject reason');
       return;
@@ -298,6 +302,8 @@ function HarvestApproval() {
                         }
 
                         const charCount = countCharacters(scriptParsed.text);
+                        const isSolo = selectedRoleplayers.length === 1;
+                        const reward = calculateRewards(charCount, isSolo);
 
                         return (
                           <>
@@ -311,7 +317,13 @@ function HarvestApproval() {
                             <br />
                             <strong>Matched participants:</strong> {selectedRoleplayers.length}
                             <br />
-                            <strong>Reward per character:</strong> <Drachma /> {calculateRewards(charCount)} drachma
+                            <strong>Reward per character:</strong> <Drachma /> {reward} drachma
+                            {isSolo && (
+                              <>
+                                <br />
+                                <strong style={{ color: '#72e990' }}>✨ Solo Bonus: +50%</strong>
+                              </>
+                            )}
                           </>
                         );
                       })()}
@@ -413,6 +425,9 @@ function HarvestApproval() {
                 {submission.status === HARVEST_SUBMISSION_STATUS.APPROVED && (
                   <div className="harvest-approval__reward">
                     <Drachma /> {submission.drachmaReward} drachma × {submission.roleplayers ? submission.roleplayers.split(',').filter(Boolean).length : 0} characters
+                    {submission.roleplayers && submission.roleplayers.split(',').filter(Boolean).length === 1 && (
+                      <span style={{ color: '#72e990', marginLeft: '0.5rem' }}>✨ +50% Solo</span>
+                    )}
                     <div className="harvest-approval__details">
                       ({submission.charCount} chars, {submission.mentionCount} tweets)
                     </div>
