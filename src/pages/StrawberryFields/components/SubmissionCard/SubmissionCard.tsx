@@ -14,10 +14,8 @@ import OpenLink from './icons/OpenLink';
 import Tweets from './icons/Tweets';
 import RolePlayers from './icons/RolePlayers';
 import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
-import './SubmissionCard.scss';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
-import { is } from '@react-three/fiber/dist/declarations/src/core/utils';
-import CheckCircle from './icons/CheckCircle';
+import './SubmissionCard.scss';
 
 export default function SubmissionCard({ submission }: { submission: HarvestSubmission }) {
   const { t, lang } = useTranslation();

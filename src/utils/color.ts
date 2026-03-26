@@ -37,3 +37,15 @@ export function lightenColor(color: string, amount: number): string {
   const mix = (c: number) => Math.round(c + (255 - c) * amount);
   return `rgb(${mix(parseInt(m[1], 16))},${mix(parseInt(m[2], 16))},${mix(parseInt(m[3], 16))})`;
 }
+
+/** Hex to RGB string. */
+export const hexToRgb = (hex: string) => {
+  const clean = hex.replace('#', '');
+  const bigint = parseInt(clean, 16);
+
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+
+  return `${r}, ${g}, ${b}`;
+};
