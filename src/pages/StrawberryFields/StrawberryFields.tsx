@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -18,6 +18,8 @@ import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import { LANGUAGE } from '../../constants/language';
 import './StrawberryFields.scss';
 import Close from '../../icons/Close';
+import HarvestRecordCard from './components/HarvestRecordCard/HarvestRecordCard';
+import { Character, fetchAllCharacters } from '../../data/characters';
 
 function StrawberryFields() {
   const { user } = useAuth();
@@ -29,36 +31,81 @@ function StrawberryFields() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
+  const [allCampData, setAllCampData] = useState<Character[]>([]);
   const [filterStatus, setFilterStatus] = useState<HarvestSubmissionStatus | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch user's harvest submissions on mount
   useEffect(() => {
-    const loadSubmissions = async () => {
-      if (!user?.characterId) return;
+    let mounted = true;
 
+    fetchAllCharacters()
+      .then((data) => {
+        if (mounted) setAllCampData(data || []);
+      })
+      .catch(console.error);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user?.characterId) return;
+
+    let mounted = true;
+
+    const loadSubmissions = async () => {
       setIsLoadingSubmissions(true);
+
       try {
         const result = await fetchHarvests(user.characterId);
+
+        if (!mounted) return;
+
         if (result.error) {
-          console.error('Error fetching harvests:', result.error);
-        } else {
-          // Sort by submission date (newest first)
-          const sorted = result.harvests.sort((a, b) =>
-            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-          );
-          setSubmissions(sorted);
+          console.error(result.error);
+          return;
         }
+
+        const sorted = [...result.harvests].sort(
+          (a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt)
+        );
+
+        setSubmissions(sorted);
       } catch (err) {
-        console.error('Failed to load submissions:', err);
+        console.error(err);
       } finally {
-        setIsLoadingSubmissions(false);
+        if (mounted) setIsLoadingSubmissions(false);
       }
     };
 
     loadSubmissions();
+
+    return () => {
+      mounted = false;
+    };
   }, [user?.characterId]);
+
+  const characterMap = useMemo(() => {
+    const map: Record<string, Character> = {};
+    allCampData.forEach((c) => {
+      map[c.characterId.toLowerCase()] = c;
+    });
+    return map;
+  }, [allCampData]);
+
+  // ✅ Filtered submissions
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter(
+      (s) =>
+        (!filterStatus || s.status === filterStatus) &&
+        s.characterId === user?.characterId
+    );
+  }, [submissions, filterStatus, user?.characterId]);
+
+  const isValidTwitterUrl = (url: string) =>
+    /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i.test(url);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -67,14 +114,12 @@ function StrawberryFields() {
     }
 
     if (!user?.characterId) {
-      setError('You must be logged in to submit a harvest');
+      setError('You must be logged in');
       return;
     }
 
-    // Validate URL format
-    const urlPattern = /(?:twitter\.com|x\.com)\/[\w]+\/status\/(\d+)/i;
-    if (!urlPattern.test(firstTweetUrl)) {
-      setError('Invalid Twitter/X URL format');
+    if (!isValidTwitterUrl(firstTweetUrl)) {
+      setError('Invalid Twitter/X URL');
       return;
     }
 
@@ -84,13 +129,6 @@ function StrawberryFields() {
 
     try {
       const submittedAt = new Date().toISOString();
-      const submission: HarvestSubmission = {
-        id: Date.now().toString(),
-        characterId: user.characterId,
-        firstTweetUrl,
-        status: HARVEST_SUBMISSION_STATUS.PENDING,
-        submittedAt,
-      };
 
       const result = await submitHarvest(
         user.characterId,
@@ -98,14 +136,16 @@ function StrawberryFields() {
       );
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to submit harvest');
+        throw new Error(result.error);
       }
 
-      // Add to local state
-      setSubmissions(prev => [
+      setSubmissions((prev) => [
         {
-          ...submission,
-          id: result.id || submission.id,
+          id: result.id || Date.now().toString(),
+          characterId: user.characterId,
+          firstTweetUrl,
+          status: HARVEST_SUBMISSION_STATUS.PENDING,
+          submittedAt,
         },
         ...prev,
       ]);
@@ -113,10 +153,9 @@ function StrawberryFields() {
       setSubmitSuccess(true);
       setFirstTweetUrl('');
 
-      // Hide success message after 3 seconds
       setTimeout(() => setSubmitSuccess(false), 3000);
-    } catch (err: any) {
-      setError('Failed to submit. Please try again.');
+    } catch {
+      setError('Failed to submit');
     } finally {
       setIsSubmitting(false);
     }
@@ -286,7 +325,7 @@ function StrawberryFields() {
               ) : (
                 <div className="strawberry-fields__submissions-list">
                   {submissions
-                    .filter((submission) => !filterStatus || submission.status === filterStatus)
+                    .filter((submission) => (!filterStatus || submission.status === filterStatus) && submission.characterId === user?.characterId)
                     .map((submission) => <SubmissionCard key={submission.id} submission={submission} />)}
                 </div>
               )}
@@ -321,7 +360,16 @@ function StrawberryFields() {
           <div className="strawberry-fields__sidebar__content">
             {sidebarView === SIDEBAR_VIEW.RECORD ? (
               <div className="strawberry-fields__sidebar__records">
-                <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
+                {isLoadingSubmissions ? (
+                  <p className="strawberry-fields__sidebar__empty">{t(T.LOADING)}</p>
+                ) : !error &&
+                  submissions.length === 0 ? (
+                  <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
+                ) : (
+                  submissions.map((submission) => (
+                    <HarvestRecordCard key={submission.id} submission={submission} characterMap={characterMap} />
+                  ))
+                )}
               </div>
             ) : (
               <div className="strawberry-fields__sidebar__top">

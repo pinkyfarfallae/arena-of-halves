@@ -1,0 +1,207 @@
+@import '../../../../styles/variables';
+@import '../variables';
+
+.strawberry-fields__harvest-record-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+
+  &--pending {
+    border-color: #ffc107;
+    background: linear-gradient(135deg, rgba(255, 248, 225, 0.3) 0%, $strawberry-white 50%);
+
+    .strawberry-fields__harvest-record-top {
+      border-color: rgba($strawberry-pink, 0.3);
+    }
+  }
+
+  &--approved {
+    border-color: #75cb7d;
+    background: linear-gradient(135deg, rgba($strawberry-green, 0.06) 0%, $strawberry-white 50%);
+
+    .strawberry-fields__harvest-record-top {
+      border-color: rgba($strawberry-green, 0.65);
+    }
+  }
+
+  &--rejected {
+    border-color: rgba($strawberry-red, 0.6);
+    background: linear-gradient(135deg, rgba($strawberry-red, 0.04) 0%, rgba($strawberry-white, 0.8) 50%);
+    opacity: 0.85;
+
+    .strawberry-fields__harvest-record-top {
+      border-color: rgba($strawberry-red, 0.3);
+    }
+  }
+}
+
+.strawberry-fields__harvest-record-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid transparent;
+}
+
+.strawberry-fields__harvest-record-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: $berry-text-soft;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    color: $strawberry-pink;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+}
+
+.strawberry-fields__harvest-record-link-btn {
+  background: linear-gradient(135deg, $garden-pink-light 0%, $strawberry-light-pink 100%);
+  border: 1.5px solid rgba($strawberry-pink, 0.3);
+  border-radius: 5px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba($strawberry-pink, 0.2);
+
+  svg {
+    width: 10px;
+    height: 10px;
+    color: $strawberry-red;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover {
+    background: linear-gradient(135deg, $strawberry-pink 0%, $strawberry-red 100%);
+    border-color: $strawberry-red;
+    transform: scale(1.02) rotate(5deg);
+    box-shadow: 0 4px 16px rgba($strawberry-red, 0.35);
+
+    svg {
+      color: white;
+      transform: scale(1.1);
+    }
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.strawberry-fields__harvest-record-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid rgba($strawberry-pink, 0.2);
+}
+
+.strawberry-fields__harvest-record-info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: $berry-text-soft;
+
+  span {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+
+  svg {
+    width: 12px;
+    height: 12px;
+    color: $strawberry-pink;
+    opacity: 0.8;
+    flex-shrink: 0;
+  }
+
+  &:first-child svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.strawberry-fields__harvest-record-submitted-by {
+  font-size: 0.6rem;
+  color: $berry-text-soft;
+  display: flex;
+  align-items: center;
+
+  span {
+    b {
+      margin-right: 5px;
+    }
+  }
+}
+
+.strawberry-fields__harvest-record-submitter-label {
+  width: 100%;
+  height: 35px;
+  font-size: 0.525rem;
+  margin: auto 0;
+  color: rgba($berry-text-soft, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: linear-gradient(90deg, transparent 0%, rgba(var(--submitter-primary-color), 0.2) 20%, rgba($strawberry-cream, 1) 80%);
+  border-radius: 5px;
+  gap: 2px;
+  padding: 0.4rem 0.5rem 0.4rem 30px;
+  margin-left: -18px;
+  position: relative;
+
+  svg {
+  position: absolute;
+  right: 10px;
+  bottom: 1.5px;
+  width: 30px;
+  height: 30px;
+  color: var(--submitter-primary-color);
+  opacity: 0.6;
+}
+}
+
+.strawberry-fields__harvest-record-reason {
+  font-size: 0.6rem;
+  color: $strawberry-red;
+  background: linear-gradient(135deg, rgba(255, 218, 68, 0.15) 0%, rgba(232, 56, 93, 0.08) 100%);
+  border: 1px solid rgba($strawberry-red, 0.2);
+  border-radius: 4px;
+  padding: 0.4rem;
+  margin-top: 0.5rem;
+
+  &--pending {
+    color: #938968;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 248, 225, 1) 100%);
+    border-color: rgba(255, 193, 7, 0.2);
+  }
+}
+
+.strawberry-fields__harvest-record-roleplayers {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
