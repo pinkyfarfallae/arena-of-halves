@@ -7,13 +7,11 @@ export const registerCharacter = async (characterId: string, password: string): 
   const emailAddress = email(characterId);
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, emailAddress, password);
-    console.log("Character registered UID:", userCredential.user.uid);
     return userCredential.user;
   } catch (error: any) {
     if (error.code === "auth/email-already-in-use") {
       return loginCharacter(characterId, password);
     } else {
-      console.error("Register failed:", error.message);
       return null;
     }
   }
@@ -23,10 +21,8 @@ export const loginCharacter = async (characterId: string, password: string): Pro
   const emailAddress = email(characterId);
   try {
     const userCredential = await signInWithEmailAndPassword(auth, emailAddress, password);
-    console.log("Character logged in UID:", userCredential.user.uid);
     return userCredential.user;
   } catch (error: any) {
-    console.error("Login failed:", error.message);
     return null;
   }
 };
@@ -40,7 +36,6 @@ export const changePassword = async (newPassword: string): Promise<boolean> => {
   
   try {
     await updatePassword(user, newPassword);
-    console.log("Password updated successfully");
     return true;
   } catch (error: any) {
     console.error("Password change failed:", error.message);
