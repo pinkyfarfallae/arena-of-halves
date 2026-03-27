@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, use } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -19,14 +19,18 @@ import { LANGUAGE } from '../../constants/language';
 import Close from '../../icons/Close';
 import HarvestRecordCard from './components/HarvestRecordCard/HarvestRecordCard';
 import { Character, fetchAllCharacters } from '../../data/characters';
-import './StrawberryFields.scss';
 import HarvestorChip from './components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
 import Crown from '../../icons/Crown';
 import { hexToRgb } from '../../utils/color';
+import InfoCircle from '../Shop/icons/InfoCircle';
+import { useScreenSize } from '../../hooks/useScreenSize';
+import './StrawberryFields.scss';
 
 function StrawberryFields() {
   const { user } = useAuth();
+  const {width} = useScreenSize();
   const { t, lang } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
   const [submissionsRecord, setSubmissionsRecord] = useState<HarvestSubmission[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>(SIDEBAR_VIEW.RECORD);
@@ -186,8 +190,10 @@ function StrawberryFields() {
     return map;
   }, [allCampData]);
 
-  const isValidTwitterUrl = (url: string) =>
-    /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i.test(url);
+  const isValidTwitterUrl = useMemo(() => {
+    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
+    return twitterRegex.test(firstTweetUrl.trim());
+  }, [firstTweetUrl]);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -200,7 +206,7 @@ function StrawberryFields() {
       return;
     }
 
-    if (!isValidTwitterUrl(firstTweetUrl)) {
+    if (!isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
       return;
     }
@@ -348,15 +354,26 @@ function StrawberryFields() {
               <div className="strawberry-fields__form-content">
                 <input
                   type="text"
+                  ref={inputRef}
                   className="strawberry-fields__form-input"
                   placeholder="Paste thread URL (first tweet)"
+                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? {paddingRight: "40px"} : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
+                {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                  <div 
+                    className="strawberry-fields__form-error-icon"
+                    data-tooltip={t(T.INVALID_TWITTER_URL)} 
+                    data-tooltip-pos={width < 480 ? "left" : "top"}
+                  >
+                    <InfoCircle />
+                  </div>
+                )}
                 <button
                   className={`strawberry-fields__form-button ${isSubmitting ? 'strawberry-fields__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim()}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !isValidTwitterUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >
