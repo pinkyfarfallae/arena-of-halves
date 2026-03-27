@@ -246,6 +246,7 @@ function Arena(props?: ArenaDemoProps) {
   // Debug log: deps array must have fixed length so it doesn't change between renders (e.g. before/after user loads).
   const phase = room?.battle?.turn?.phase;
   const characterId = user?.characterId ?? null;
+  
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost';
     const isRosabella = characterId === CHARACTER.ROSABELLA;
