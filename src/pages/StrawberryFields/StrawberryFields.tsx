@@ -192,7 +192,8 @@ function StrawberryFields() {
 
   const isValidTwitterUrl = useMemo(() => {
     const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
-    return twitterRegex.test(firstTweetUrl.trim());
+    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^\/]+\/status\/\d+/i;
+    return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
   }, [firstTweetUrl]);
 
   const handleSubmit = async () => {
