@@ -820,6 +820,7 @@
   border: 2px solid rgba(lighten($strawberry-pink, 20%), 1);
   border-bottom: none;
   padding: 0 1rem;
+  overflow: auto;
 
   @media (max-width: $bp-compact) {
     padding: 0 0.75rem;
@@ -867,10 +868,12 @@
         inset 0 -1px 2px rgba(255, 255, 255, 0.4),
         inset -1px -1px 3px rgba($strawberry-red, 0.25);
     }
+  }
 
-    @media (max-width: $bp-compact) {
-      font-size: 0.7rem;
-    }
+  @media (max-width: $bp-compact) {
+    min-width: 60px;
+    font-size: 0.55rem;
+    padding: 0.25rem 0.4rem;
   }
 }
 
