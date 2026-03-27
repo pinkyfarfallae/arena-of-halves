@@ -7,7 +7,7 @@ import Drachma from '../../../../icons/Drachma';
 import { LANGUAGE } from '../../../../constants/language';
 import OpenLink from '../SubmissionCard/icons/OpenLink';
 import Strawberry from '../../../LifeInCamp/components/LocationIcon/icons/Strawberry';
-import { Character, fetchCharacter } from '../../../../data/characters';
+import { Character } from '../../../../data/characters';
 import { hexToRgb } from '../../../../utils/color';
 import HarvestorChip from './components/HarvestorChip/HarvestorChip';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../CharacterInfo/constants/overrides';
@@ -39,13 +39,16 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
   useEffect(() => {
     let mounted = true;
     const harvestorId = isSolo ? roleplayers[0] : submission.characterId;
-    fetchCharacter(harvestorId).then((char) => {
-      if (mounted) setHarvestor(char);
-    });
+    if (harvestorId) {
+      const h = characterMap[harvestorId.toLowerCase()];
+      if (h && mounted) {
+        setHarvestor(h);
+      }
+    }
     return () => {
       mounted = false;
     };
-  }, [submission.characterId, isSolo, roleplayers]);
+  }, [submission.characterId, isSolo, roleplayers, characterMap]);
 
   const handleLinkClick = () => {
     if (submission.firstTweetUrl) {
