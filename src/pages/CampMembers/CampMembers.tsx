@@ -16,10 +16,10 @@ import { DECOS } from './constants/decos';
 import './CampMembers.scss';
 
 function CampMembers() {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   useEffect(() => {
     fetchAllCharacters()

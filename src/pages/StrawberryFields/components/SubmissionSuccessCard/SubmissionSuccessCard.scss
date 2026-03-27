@@ -1,0 +1,29 @@
+@import '../../../../styles/variables';
+@import '../variables';
+
+.strawberry-fields__success {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba($strawberry-green, 0.15) 0%, rgba(lighten($strawberry-pink, 29%), 1) 100%);
+  border: 2px solid rgba($strawberry-green, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  animation: slideIn 0.3s ease-out;
+
+  h3 {
+    font-family: "Finger Paint", 'Noto Sans Thai', sans-serif;
+    font-size: 1rem;
+    color: $strawberry-pink;
+    opacity: 0.8;
+  }
+
+  p {
+    margin: 0;
+    color: $berry-text;
+    font-size: 0.7rem;
+    line-height: 1.6;
+    opacity: 0.5;
+  }
+}

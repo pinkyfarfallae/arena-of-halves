@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Drachma from '../../../../icons/Drachma';
 import { CartItem } from '../../shopData';
-import CloseIcon from '../../../../icons/Close';
+import Close from '../../../../icons/Close';
 import './CheckoutModal.scss';
 
 interface CheckoutModalProps {
@@ -19,7 +19,7 @@ function CheckoutModal({ cart, totalPrice, paySuccess, customerName, onPay, onCl
     <div className="checkout__overlay">
       <div className="checkout">
         <button className="checkout__close" onClick={onClose}>
-          <CloseIcon />
+          <Close />
         </button>
 
         {paySuccess ? (

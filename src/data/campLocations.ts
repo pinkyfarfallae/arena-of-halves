@@ -130,6 +130,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['agriculture', 'nature'],
     actionLabels: ['Report Harvest'],
     actionIcons: ['basket'],
+    actionPaths: ['/strawberry-fields'],
   },
   {
     id: 'climbing-wall',
