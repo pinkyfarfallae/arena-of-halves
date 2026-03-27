@@ -28,11 +28,13 @@ function StrawberryFields() {
   const { user } = useAuth();
   const { t, lang } = useTranslation();
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
+  const [submissionsRecord, setSubmissionsRecord] = useState<HarvestSubmission[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>(SIDEBAR_VIEW.RECORD);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [isLoadingSubmissionsRecord, setIsLoadingSubmissionsRecord] = useState(false);
   const [topHarvestors, setTopHarvestors] = useState<TopHarvester[]>([]);
   const [isLoadingTopHarvestors, setIsLoadingTopHarvestors] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
@@ -100,6 +102,43 @@ function StrawberryFields() {
     };
 
     loadSubmissions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.characterId]);
+
+  useEffect(() => {
+    if (!user?.characterId) return;
+
+    let mounted = true;
+
+    const loadSubmissionsRecord = async () => {
+      setIsLoadingSubmissionsRecord(true);
+
+      try {
+        const result = await fetchHarvests();
+
+        if (!mounted) return;
+
+        if (result.error) {
+          console.error(result.error);
+          return;
+        }
+
+        const sorted = [...result.harvests].sort(
+          (a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt)
+        );
+
+        setSubmissionsRecord(sorted);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setIsLoadingSubmissionsRecord(false);
+      }
+    };
+
+    loadSubmissionsRecord();
 
     return () => {
       mounted = false;
@@ -403,13 +442,13 @@ function StrawberryFields() {
           <div className="strawberry-fields__sidebar__content">
             {sidebarView === SIDEBAR_VIEW.RECORD ? (
               <div className="strawberry-fields__sidebar__records">
-                {isLoadingSubmissions ? (
+                {isLoadingSubmissionsRecord ? (
                   <p className="strawberry-fields__sidebar__empty">{t(T.LOADING)}</p>
                 ) : !error &&
-                  submissions.length === 0 ? (
+                  submissionsRecord.length === 0 ? (
                   <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
                 ) : (
-                  submissions.map((submission) => (
+                  submissionsRecord.map((submission) => (
                     <HarvestRecordCard key={submission.id} submission={submission} characterMap={characterMap} />
                   ))
                 )}
