@@ -17,7 +17,7 @@ import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import './SubmissionCard.scss';
 
-export default function SubmissionCard({ submission }: { submission: HarvestSubmission }) {
+export default function SubmissionCard({ submission, onClick, forcedCompact }: { submission: HarvestSubmission, onClick?: () => void, forcedCompact?: boolean }) {
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
@@ -38,7 +38,12 @@ export default function SubmissionCard({ submission }: { submission: HarvestSubm
   const isSolo = roleplayers.length === 1;
 
   return (
-    <div key={submission.id} className={`strawberry-fields__submission-card strawberry-fields__submission-card--${submission.status.toLowerCase()}`}>
+    <div
+      key={submission.id}
+      className={`strawberry-fields__submission-card strawberry-fields__submission-card--${submission.status.toLowerCase()} ${forcedCompact ? 'strawberry-fields__submission-card--compact' : ''}`}
+      onClick={onClick}
+      style={!!onClick ? { cursor: "pointer" } : undefined}
+    >
       <div className="strawberry-fields__submission-top">
         <div className="strawberry-fields__submission-header">
           <Basket />
@@ -62,7 +67,7 @@ export default function SubmissionCard({ submission }: { submission: HarvestSubm
       <div className="strawberry-fields__submission-preview">
         <span className={`strawberry-fields__submission-preview-inner strawberry-fields__submission-preview-inner--${submission.status.toLowerCase()}`}>
           {submission.firstTweetUrl ? (
-            <TweetPreview url={submission.firstTweetUrl} scale={width > 460 ? 0.85 : 0.52} className="strawberry-fields__submission-preview-block" />
+            <TweetPreview url={submission.firstTweetUrl} scale={(width > 460 && !forcedCompact) ? 0.85 : 0.52} className="strawberry-fields__submission-preview-block" />
           ) : (
             null
           )}

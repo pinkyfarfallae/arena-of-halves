@@ -234,16 +234,14 @@
   min-width: 0;
 }
 
-/* ── Bars: top (season + fighters per side) & bottom (left | right) ── */
+/* ── Bars: top (season) & bottom (left | right) ── */
 .power-vfx-demo__bar {
   flex-shrink: 0;
   height: $topbar-height;
   display: flex;
   align-items: center;
   background: color-mix(in srgb, var(--ci-surface, #f5f1ea) 60%, white);
-  border: 1px solid var(--ci-border, #d4c9a8);
-  border-left: none;
-  border-right: none;
+  border-bottom: 1px solid var(--ci-border, #d4c9a8);
   position: relative;
   z-index: 2;
 }
@@ -251,7 +249,6 @@
 /* Top bar: Season + fighters per side (each team independently) */
 .power-vfx-demo__bar--top {
   padding: 0 0.75rem;
-  border-bottom: 1px solid var(--ci-border, #d4c9a8);
 }
 
 .power-vfx-demo__bar-top-inner {
