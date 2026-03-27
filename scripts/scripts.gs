@@ -12,6 +12,7 @@
 var SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
+var HARVEST_SHEET_NAME = 'Strawberry Harvest';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -51,6 +52,22 @@ function doGet(e) {
     return handleDeleteUser(e.parameter.characterId);
   }
 
+  if (action === 'fetchHarvests') {
+    return handleFetchHarvests(e.parameter.characterId, e.parameter.status);
+  }
+
+  if (action === 'fetchHarvestRecords') {
+    return handleFetchHarvestRecords();
+  }
+
+  if (action === 'fetchTopHarvesters') {
+    return handleFetchTopHarvesters(e.parameter.limit);
+  }
+
+  if (action === 'updateCharacterDrachma' || action === 'addDrachma') {
+    return updateCharacterDrachma(e.parameter.characterId, e.parameter.amount);
+  }
+
   return jsonResponse({ status: 'ok', message: 'Updater is running' });
 }
 
@@ -77,6 +94,34 @@ function doPost(e) {
 
     if (data.action === 'deleteUser') {
       return handleDeleteUser(data.characterId);
+    }
+
+    if (data.action === 'submitHarvest') {
+      return handleSubmitHarvest(data);
+    }
+
+    if (data.action === 'approveHarvest') {
+      return handleApproveHarvest(data);
+    }
+
+    if (data.action === 'rejectHarvest') {
+      return handleRejectHarvest(data);
+    }
+
+    if (data.action === 'fetchHarvests') {
+      return handleFetchHarvests(data.characterId, data.status);
+    }
+
+    if (data.action === 'fetchHarvestRecords') {
+      return handleFetchHarvestRecords();
+    }
+
+    if (data.action === 'fetchTopHarvesters') {
+      return handleFetchTopHarvesters(data.limit);
+    }
+
+    if (data.action === 'updateCharacterDrachma' || data.action === 'addDrachma') {
+      return updateCharacterDrachma(data.characterId, data.amount);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -395,8 +440,509 @@ function handleUpdateTheme(characterId, themeString) {
   return jsonResponse({ error: 'Character not found' });
 }
 
+/* ══════════════════════════════════════
+   HARVEST SUBMISSION SYSTEM
+   ══════════════════════════════════════ */
+
+/* ── Submit new harvest ── */
+function handleSubmitHarvest(params) {
+  var characterId = (params.characterId || '').toString().trim();
+  var firstTweetUrl = (params.firstTweetUrl || '').toString().trim();
+  var submittedAt = (params.submittedAt || new Date().toISOString()).toString();
+  var id = (params.id || '').toString().trim();
+
+  if (!characterId || !firstTweetUrl) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  // If no UUID provided, generate a fallback ID (timestamp-based)
+  if (!id) {
+    id = 'H' + new Date().getTime();
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  // Build row according to schema:
+  // Includes: id, characterId, firstTweetUrl, status, submittedAt,
+  // reviewedAt, reviewedBy, charCount, mentionCount, drachmaReward,
+  // roleplayers, rejectReason
+  var row = [];
+  for (var i = 0; i < headers.length; i++) {
+    var h = headers[i];
+    if (h === 'id') row.push(id);
+    else if (h === 'characterid') row.push(characterId);
+    else if (h === 'firsttweeturl') row.push(firstTweetUrl);
+    else if (h === 'status') row.push('pending');
+    else if (h === 'submittedat') row.push(submittedAt);
+    else row.push('');
+  }
+
+  sheet.appendRow(row);
+  return jsonResponse({ success: true, id: id });
+}
+
+/* ── Approve harvest and award drachma to all roleplayers ── */
+function handleApproveHarvest(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var charCount = parseInt(params.charCount || '0', 10);
+  var mentionCount = parseInt(params.mentionCount || '0', 10);
+  var drachmaReward = parseInt(params.drachmaReward || '0', 10);
+  var roleplayers = params.roleplayers || []; // Array of characterIds
+
+  if (!submissionId || !reviewedBy || !charCount || !drachmaReward) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  if (!Array.isArray(roleplayers) || roleplayers.length === 0) {
+    return jsonResponse({ error: 'No roleplayers specified' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var harvestSheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!harvestSheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var harvestData = harvestSheet.getDataRange().getValues();
+  var harvestHeaders = harvestData[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  // Find submission by matching firstTweetUrl or characterId + submittedAt
+  // (Since we don't have a proper ID column, we'll match by row index or unique field)
+  var charIdCol = harvestHeaders.indexOf('characterid');
+  var statusCol = harvestHeaders.indexOf('status');
+  var reviewedAtCol = harvestHeaders.indexOf('reviewedat');
+  var reviewedByCol = harvestHeaders.indexOf('reviewedby');
+  var charCountCol = harvestHeaders.indexOf('charcount');
+  var mentionCountCol = harvestHeaders.indexOf('mentioncount');
+  var drachmaRewardCol = harvestHeaders.indexOf('drachmareward');
+  var roleplayersCol = harvestHeaders.indexOf('roleplayers');
+  var idCol = harvestHeaders.indexOf('id');
+
+  var rowIndex = -1;
+  var submitterCharId = '';
+
+  // Find submission by ID
+  for (var i = 1; i < harvestData.length; i++) {
+    var recordId = harvestData[i][idCol] ? harvestData[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      submitterCharId = harvestData[i][charIdCol].toString().trim();
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  // Check if already approved
+  var currentStatus = harvestData[rowIndex][statusCol] ? harvestData[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'approved') {
+    return jsonResponse({ error: 'Submission already approved' });
+  }
+
+  // Update harvest submission
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) harvestSheet.getRange(rowIndex + 1, statusCol + 1).setValue('approved');
+  if (reviewedAtCol !== -1) harvestSheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) harvestSheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (charCountCol !== -1) harvestSheet.getRange(rowIndex + 1, charCountCol + 1).setValue(charCount);
+  if (mentionCountCol !== -1) harvestSheet.getRange(rowIndex + 1, mentionCountCol + 1).setValue(mentionCount);
+  if (drachmaRewardCol !== -1) harvestSheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward);
+  if (roleplayersCol !== -1) harvestSheet.getRange(rowIndex + 1, roleplayersCol + 1).setValue(roleplayers.join(','));
+
+  // Award drachma to all roleplayers using updateCharacterDrachma
+  var awarded = [];
+  var failed = [];
+  
+  for (var r = 0; r < roleplayers.length; r++) {
+    var roleplayerId = roleplayers[r].toString().trim();
+    
+    // Use the centralized updateCharacterDrachma function
+    var result = updateCharacterDrachma(roleplayerId, drachmaReward);
+    var resultData = JSON.parse(result.getContent());
+    
+    if (resultData.success) {
+      awarded.push(roleplayerId + ': ' + resultData.previous + ' → ' + resultData.current);
+    } else {
+      failed.push(roleplayerId + ': ' + (resultData.error || 'Unknown error'));
+    }
+  }
+
+  return jsonResponse({ 
+    success: true, 
+    awarded: awarded,
+    failed: failed.length > 0 ? failed : undefined
+  });
+}
+
+/* ── Reject harvest ── */
+function handleRejectHarvest(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var rejectReason = (params.rejectReason || '').toString().trim();
+
+  if (!submissionId || !reviewedBy || !rejectReason) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var statusCol = headers.indexOf('status');
+  var reviewedAtCol = headers.indexOf('reviewedat');
+  var reviewedByCol = headers.indexOf('reviewedby');
+  var rejectReasonCol = headers.indexOf('rejectreason');
+  var idCol = headers.indexOf('id');
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  // Check if already rejected
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'rejected') {
+    return jsonResponse({ error: 'Submission already rejected' });
+  }
+
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('rejected');
+  if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (rejectReasonCol !== -1) sheet.getRange(rowIndex + 1, rejectReasonCol + 1).setValue(rejectReason);
+
+  return jsonResponse({ success: true });
+}
+
+/* ── Fetch harvests (optionally filter by characterId or status) ── */
+function handleFetchHarvests(characterId, status) {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return jsonResponse({ harvests: [] });
+  }
+
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var harvests = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var harvest = {};
+
+    for (var j = 0; j < headers.length; j++) {
+      harvest[headers[j]] = row[j] ? row[j].toString() : '';
+    }
+
+    // Filter by characterId if provided
+    if (characterId && harvest.characterid !== characterId) {
+      continue;
+    }
+
+    // Filter by status if provided
+    if (status && harvest.status !== status) {
+      continue;
+    }
+
+    harvests.push(harvest);
+  }
+
+  return jsonResponse({ harvests: harvests });
+}
+
 /* ── Helper ── */
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ══════════════════════════════════════
+   UPDATE CHARACTER DRACHMA
+   - Adds or subtracts currency (supports positive/negative amounts)
+   - Used for rewards, purchases, refunds, etc.
+   ══════════════════════════════════════ */
+function updateCharacterDrachma(characterId, amount) {
+  characterId = (characterId || '').toString().trim();
+  amount = parseInt(amount || '0', 10);
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  if (isNaN(amount) || amount === 0) {
+    return jsonResponse({ error: 'Invalid amount (must be non-zero number)' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var currencyCol = headers.indexOf('currency');
+
+  if (idCol === -1 || currencyCol === -1) {
+    return jsonResponse({ error: 'characterid or currency column not found' });
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentCurrency = parseInt(data[i][currencyCol] || '0', 10);
+      var newCurrency = currentCurrency + amount;
+
+      // Prevent negative currency
+      if (newCurrency < 0) {
+        return jsonResponse({ 
+          error: 'Insufficient funds',
+          current: currentCurrency,
+          attempted: amount,
+          required: Math.abs(amount)
+        });
+      }
+
+      sheet.getRange(i + 1, currencyCol + 1).setValue(newCurrency);
+      return jsonResponse({ 
+        success: true, 
+        characterId: characterId,
+        previous: currentCurrency,
+        change: amount,
+        current: newCurrency
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ── Add drachma (wrapper for backwards compatibility) ── */
+function addDrachma(characterId, amount) {
+  return updateCharacterDrachma(characterId, amount);
+}
+
+/* ══════════════════════════════════════
+   HARVEST RECORD BOOK
+   - Returns interesting harvest statistics/records
+   ══════════════════════════════════════ */
+function handleFetchHarvestRecords() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return jsonResponse({ records: {} });
+  }
+
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var charCountCol = headers.indexOf('charcount');
+  var mentionCountCol = headers.indexOf('mentioncount');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
+  var statusCol = headers.indexOf('status');
+  var charIdCol = headers.indexOf('characterid');
+  var urlCol = headers.indexOf('firsttweeturl');
+  var submittedAtCol = headers.indexOf('submittedat');
+
+  var approvedHarvests = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
+      approvedHarvests.push({
+        characterId: charIdCol !== -1 ? row[charIdCol].toString() : '',
+        charCount: charCountCol !== -1 ? parseInt(row[charCountCol] || '0', 10) : 0,
+        mentionCount: mentionCountCol !== -1 ? parseInt(row[mentionCountCol] || '0', 10) : 0,
+        drachmaReward: drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0,
+        roleplayers: roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [],
+        url: urlCol !== -1 ? row[urlCol].toString() : '',
+        submittedAt: submittedAtCol !== -1 ? row[submittedAtCol].toString() : ''
+      });
+    }
+  }
+
+  if (approvedHarvests.length === 0) {
+    return jsonResponse({ records: {} });
+  }
+
+  // Sort by date (latest to oldest) to prioritize recent records in case of ties
+  approvedHarvests.sort(function(a, b) {
+    var dateA = new Date(a.submittedAt).getTime();
+    var dateB = new Date(b.submittedAt).getTime();
+    return dateB - dateA; // Descending (latest first)
+  });
+
+  // Calculate records
+  var longestHarvest = approvedHarvests[0];
+  var mostParticipants = approvedHarvests[0];
+  var biggestReward = approvedHarvests[0];
+  var mostTweets = approvedHarvests[0];
+
+  for (var j = 0; j < approvedHarvests.length; j++) {
+    var harvest = approvedHarvests[j];
+    
+    if (harvest.charCount > longestHarvest.charCount) {
+      longestHarvest = harvest;
+    }
+    
+    if (harvest.roleplayers.length > mostParticipants.roleplayers.length) {
+      mostParticipants = harvest;
+    }
+    
+    if (harvest.drachmaReward > biggestReward.drachmaReward) {
+      biggestReward = harvest;
+    }
+    
+    if (harvest.mentionCount > mostTweets.mentionCount) {
+      mostTweets = harvest;
+    }
+  }
+
+  var records = {
+    totalApproved: approvedHarvests.length,
+    longestHarvest: {
+      charCount: longestHarvest.charCount,
+      characterId: longestHarvest.characterId,
+      url: longestHarvest.url,
+      submittedAt: longestHarvest.submittedAt
+    },
+    mostParticipants: {
+      participantCount: mostParticipants.roleplayers.length,
+      participants: mostParticipants.roleplayers,
+      characterId: mostParticipants.characterId,
+      url: mostParticipants.url,
+      submittedAt: mostParticipants.submittedAt
+    },
+    biggestReward: {
+      drachmaReward: biggestReward.drachmaReward,
+      characterId: biggestReward.characterId,
+      url: biggestReward.url,
+      submittedAt: biggestReward.submittedAt
+    },
+    mostTweets: {
+      tweetCount: mostTweets.mentionCount,
+      characterId: mostTweets.characterId,
+      url: mostTweets.url,
+      submittedAt: mostTweets.submittedAt
+    }
+  };
+
+  return jsonResponse({ records: records });
+}
+
+/* ══════════════════════════════════════
+   TOP HARVESTERS LEADERBOARD
+   - Returns characters ranked by total drachma earned from harvests
+   ══════════════════════════════════════ */
+function handleFetchTopHarvesters(limit) {
+  limit = limit ? parseInt(limit, 10) : 0;
+  if (limit < 0) limit = 0;
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var harvestSheet = ss.getSheetByName(HARVEST_SHEET_NAME);
+  if (!harvestSheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + HARVEST_SHEET_NAME });
+  }
+
+  var harvestData = harvestSheet.getDataRange().getValues();
+  if (harvestData.length <= 1) {
+    return jsonResponse({ topHarvesters: [] });
+  }
+
+  var headers = harvestData[0].map(function (h) { return h.toString().toLowerCase(); });
+  var statusCol = headers.indexOf('status');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
+
+  // Accumulate drachma earned per character
+  var earnings = {}; // { characterId: totalDrachma }
+
+  for (var i = 1; i < harvestData.length; i++) {
+    var row = harvestData[i];
+    if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
+      var drachma = drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0;
+      var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+
+      for (var r = 0; r < roleplayers.length; r++) {
+        var charId = roleplayers[r].trim();
+        if (charId) {
+          earnings[charId] = (earnings[charId] || 0) + drachma;
+        }
+      }
+    }
+  }
+
+  // Convert to array and sort (top to bottom: highest to lowest)
+  var leaderboard = [];
+  for (var char in earnings) {
+    leaderboard.push({
+      characterId: char,
+      totalDrachma: earnings[char]
+    });
+  }
+
+  leaderboard.sort(function(a, b) {
+    return b.totalDrachma - a.totalDrachma; // Descending (highest first)
+  });
+
+  // Get character names from Character Info sheet
+  var charSheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (charSheet) {
+    var charData = charSheet.getDataRange().getValues();
+    var charHeaders = charData[0].map(function (h) { return h.toString().toLowerCase(); });
+    var charIdCol = charHeaders.indexOf('characterid');
+    var nickEngCol = charHeaders.indexOf('nickname (eng)');
+    var nickThaiCol = charHeaders.indexOf('nickname (thai)');
+
+    for (var l = 0; l < leaderboard.length; l++) {
+      var leaderId = leaderboard[l].characterId.toLowerCase();
+      
+      for (var c = 1; c < charData.length; c++) {
+        if (charIdCol !== -1 && charData[c][charIdCol].toString().trim().toLowerCase() === leaderId) {
+          leaderboard[l].nicknameEng = nickEngCol !== -1 ? charData[c][nickEngCol].toString() : '';
+          leaderboard[l].nicknameThai = nickThaiCol !== -1 ? charData[c][nickThaiCol].toString() : '';
+          break;
+        }
+      }
+    }
+  }
+
+  // Limit results (0 = no limit)
+  if (limit > 0 && leaderboard.length > limit) {
+    leaderboard = leaderboard.slice(0, limit);
+  }
+
+  return jsonResponse({ topHarvesters: leaderboard });
 }

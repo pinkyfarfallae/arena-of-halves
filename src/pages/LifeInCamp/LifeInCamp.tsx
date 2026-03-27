@@ -4,7 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import LocationPin from './components/LocationPin/LocationPin';
 import MapDecorations from './components/MapDecorations/MapDecorations';
 import SearchIcon from '../../icons/Search';
-import CloseIcon from '../../icons/Close';
+import Close from '../../icons/Close';
 import './LifeInCamp.scss';
 
 /* ── Main Page ── */
@@ -45,7 +45,7 @@ function LifeInCamp() {
           />
           {search && (
             <button className="life__search-clear" onClick={() => setSearch('')}>
-              <CloseIcon />
+              <Close />
             </button>
           )}
         </div>

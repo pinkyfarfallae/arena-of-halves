@@ -249,3 +249,106 @@ export const advancePhaseAfterDefendRoll = functions
     });
     return {};
   });
+
+/**
+ * Extract tweet ID from various Twitter/X URL formats
+ */
+function extractTweetId(url: string): string | null {
+  // Support formats:
+  // https://twitter.com/username/status/1234567890
+  // https://x.com/username/status/1234567890
+  // https://mobile.twitter.com/username/status/1234567890
+  const match = url.match(/(?:twitter\.com|x\.com)\/[\w]+\/status\/(\d+)/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Extract text from tweet HTML (from oEmbed response)
+ */
+function extractTextFromHtml(html: string): string {
+  // Remove HTML tags and decode entities
+  let text = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Remove URLs at the end (usually the tweet link itself)
+  text = text.replace(/https?:\/\/t\.co\/\w+\s*$/i, '').trim();
+  
+  return text;
+}
+
+/**
+ * Fetch tweet text using FREE Twitter oEmbed API (no auth required!)
+ */
+export const fetchTweetText = functions
+  .region("asia-southeast1")
+  .https.onCall(async (data: { tweetUrl: string }) => {
+    const { tweetUrl } = data;
+
+    if (!tweetUrl || typeof tweetUrl !== "string") {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "tweetUrl is required"
+      );
+    }
+
+    // Validate URL format
+    const tweetId = extractTweetId(tweetUrl);
+    if (!tweetId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Invalid Twitter/X URL format"
+      );
+    }
+
+    try {
+      // Use Twitter's FREE oEmbed API - no authentication needed!
+      const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}&omit_script=true`;
+      
+      const response = await fetch(oembedUrl);
+
+      if (!response.ok) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Tweet not found or is private"
+        );
+      }
+
+      const oembedData = await response.json();
+      const htmlContent = oembedData.html || "";
+      
+      // Extract text from HTML
+      const text = extractTextFromHtml(htmlContent);
+
+      if (!text) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Could not extract text from tweet"
+        );
+      }
+
+      return {
+        success: true,
+        text,
+        tweetId,
+      };
+    } catch (error: any) {
+      console.error("Error fetching tweet:", error);
+      
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to fetch tweet. It may be private or deleted."
+      );
+    }
+  });

@@ -91,7 +91,7 @@ $ink-faint: #a08a74;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: 'Cinzel Decorative', serif;
+  font-family: 'Cinzel Decorative', serif, 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.95rem;
   font-weight: 700;
   color: $wood-frame;
@@ -169,6 +169,8 @@ $ink-faint: #a08a74;
   color: $ink-soft;
   transition: all 0.15s;
   flex-shrink: 0;
+  min-width: 32px;
+  min-height: 32px;
 
   svg { width: 17px; height: 17px; }
 
@@ -534,7 +536,7 @@ $ink-faint: #a08a74;
   right: 2px;
   background: linear-gradient(135deg, #ff4757, #ee5a6f);
   color: #fff;
-  font-family: 'DM Mono', monospace;
+  font-family: 'DM Mono', monospace, 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.45rem;
   font-weight: 700;
   padding: 3px 8px;
@@ -914,7 +916,7 @@ $ink-faint: #a08a74;
   transition: color 0.15s;
 
   svg { width: 15px; height: 15px; }
-  &:hover { color: $ink; }
+  &:hover { color: #fff; }
 
   @media (max-width: $bp-medium) { display: flex; }
 }

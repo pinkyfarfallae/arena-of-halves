@@ -1,0 +1,381 @@
+@import '../../../../styles/variables';
+
+// Strawberry palette
+$strawberry-red: #e8385d;
+$strawberry-pink: #ff577e;
+$strawberry-cream: #fff5f0;
+$strawberry-green: #72e990;
+$strawberry-white: #ffffff;
+$strawberry-dark-green: #2d5f3a;
+$strawberry-light-pink: #ffc9d8;
+
+// Garden palette
+$garden-berry: #fde3e3;
+$garden-cream: #fef9f5;
+$garden-mint: #c8e6c9;
+$garden-pink-light: #ffd6e0;
+$garden-wood-light: #d4c4b0;
+
+// Text
+$berry-text: #2c1810;
+$berry-text-soft: #6b5040;
+$berry-text-faint: #a08a74;
+
+.harvest-approval {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  overflow: auto;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  &__title {
+    font-size: 2rem;
+    margin: 0;
+    color: $strawberry-red;
+    font-weight: 600;
+  }
+
+  &__script-copy {
+    padding: 0.5rem 1rem;
+    border: 2px solid $strawberry-pink;
+    background: $strawberry-cream;
+    color: $strawberry-red;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: $strawberry-pink;
+      color: white;
+    }
+
+    &--success {
+      background: $strawberry-green;
+      border-color: $strawberry-dark-green;
+      color: $strawberry-dark-green;
+    }
+
+    &--error {
+      background: $strawberry-red;
+      border-color: darkred;
+      color: white;
+    }
+  }
+
+  &__section {
+    margin-bottom: 3rem;
+
+    &-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: $berry-text;
+      font-weight: 500;
+      border-bottom: 2px solid $strawberry-pink;
+      padding-bottom: 0.5rem;
+    }
+  }
+
+  &__empty {
+    color: #888;
+    font-style: italic;
+    padding: 2rem;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__card {
+    background: white;
+    border: 2px solid $strawberry-pink;
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba($strawberry-red, 0.15);
+    }
+
+    &--approved {
+      border-color: $strawberry-green;
+      background: rgba($strawberry-green, 0.05);
+    }
+
+    &--rejected {
+      border-color: $strawberry-red;
+      background: rgba($strawberry-red, 0.05);
+      opacity: 0.7;
+    }
+
+    &-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+
+      strong {
+        color: $berry-text;
+        font-size: 1.1rem;
+      }
+    }
+
+    &-time {
+      margin-left: 1rem;
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    &-link {
+      margin-bottom: 1rem;
+      word-break: break-all;
+
+      a {
+        color: $strawberry-red;
+        text-decoration: none;
+        font-size: 0.95rem;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+
+  &__status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: 1rem;
+
+    &--approved {
+      background: $strawberry-green;
+      color: white;
+    }
+
+    &--rejected {
+      background: $strawberry-red;
+      color: white;
+    }
+  }
+
+  &__review-form {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px dashed $strawberry-pink;
+  }
+
+  &__textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid $strawberry-pink;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+      border-color: $strawberry-red;
+    }
+  }
+
+  &__matched-characters {
+    background: rgba($strawberry-pink, 0.2);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+
+    strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: $strawberry-red;
+    }
+  }
+
+  &__character-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__character-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 6px;
+    transition: background 0.2s;
+
+    &:hover {
+      background: rgba($strawberry-pink, 0.3);
+    }
+
+    input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    span {
+      font-size: 0.95rem;
+      color: $berry-text;
+    }
+  }
+
+  &__preview {
+    background: $strawberry-cream;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    color: $berry-text;
+
+    strong {
+      color: $strawberry-red;
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
+      margin: 0 0.25rem;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  &__btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--review {
+      background: $strawberry-pink;
+      color: $berry-text;
+      width: 100%;
+
+      &:hover:not(:disabled) {
+        background: darken($strawberry-pink, 10%);
+      }
+    }
+
+    &--approve {
+      background: $strawberry-green;
+      color: white;
+      flex: 1;
+
+      &:hover:not(:disabled) {
+        background: darken($strawberry-green, 10%);
+      }
+    }
+
+    &--cancel {
+      background: #ddd;
+      color: #666;
+      flex: 1;
+
+      &:hover:not(:disabled) {
+        background: darken(#ddd, 10%);
+      }
+    }
+
+    &--reject {
+      background: $strawberry-red;
+      color: white;
+      padding: 0.75rem 1.5rem;
+
+      &:hover:not(:disabled) {
+        background: darken($strawberry-red, 10%);
+      }
+    }
+  }
+
+  &__reject-section {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
+  }
+
+  &__reject-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid $strawberry-red;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: darken($strawberry-red, 10%);
+    }
+  }
+
+  &__reward {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: $strawberry-green;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  &__reject-note {
+    color: $strawberry-red;
+    font-style: italic;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: rgba($strawberry-red, 0.1);
+    border-radius: 6px;
+  }
+
+  &__details {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 0.25rem;
+  }
+
+  &__roleplayers {
+    font-size: 0.9rem;
+    color: $berry-text;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba($strawberry-green, 0.1);
+    border-radius: 6px;
+  }
+}
