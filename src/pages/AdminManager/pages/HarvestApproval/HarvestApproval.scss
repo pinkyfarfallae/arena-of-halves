@@ -366,6 +366,69 @@
   }
 }
 
+// Quick Reject
+.harvest-approval__quick-reject {
+  background: linear-gradient(135deg,
+      #fff 0%,
+      #ffdde6 100%);
+  border: 2px dashed rgba($strawberry-red, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.harvest-approval__quick-reject-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  @media (max-width: $bp-mobile) {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+.harvest-approval__quick-reject-label {
+  font-size: 0.75rem;
+  color: $berry-text-soft;
+  text-align: center;
+}
+
+.harvest-approval__quick-reject-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg,
+      white 0%,
+      $garden-cream 100%);
+  color: $strawberry-red;
+  border: 2px solid rgba($strawberry-red, 0.3);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: linear-gradient(135deg,
+        $strawberry-cream 0%,
+        darken($garden-cream, 5%) 100%);
+    border-color: rgba($strawberry-red, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba($strawberry-red, 0.15);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.55rem;
+    width: 100%;
+    text-align: center;
+  }
+}
+
 // Layout
 .harvest-approval__container {
   flex: 1;

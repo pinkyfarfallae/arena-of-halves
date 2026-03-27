@@ -269,8 +269,31 @@ function HarvestApproval() {
                     </div>
                   </div>
 
-                  {/* 2. Open console */}
-                  <div className="harvest-approval__review-section">
+              {/* Quick Reject Option */}
+              {reviewingSubmission && (
+                <div className="harvest-approval__quick-reject">
+                  <div className="harvest-approval__quick-reject-content">
+                    <span className="harvest-approval__quick-reject-label">
+                      Need to reject this submission?
+                    </span>
+                    <button
+                      className="harvest-approval__quick-reject-btn"
+                      onClick={() => {
+                        const reason = prompt('Enter rejection reason:');
+                        if (reason && reason.trim()) {
+                          setRejectReason(reason);
+                          handleReject(reviewingSubmission.id);
+                        }
+                      }}
+                    >
+                      Reject Submission
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Open console */}
+              <div className="harvest-approval__review-section">
                     <div className="harvest-approval__review-section-header">
                       <span className='harvest-approval__review-section-number'>2</span>
                       <span className='harvest-approval__review-section-title'>Open console</span>
