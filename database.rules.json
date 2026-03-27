@@ -1,0 +1,16 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    
+    "arena": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
