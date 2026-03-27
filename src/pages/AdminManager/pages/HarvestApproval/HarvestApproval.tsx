@@ -15,6 +15,9 @@ import { useScreenSize } from '../../../../hooks/useScreenSize';
 import InfoCircle from '../../../Shop/icons/InfoCircle';
 import OpenLink from '../../../StrawberryFields/components/SubmissionCard/icons/OpenLink';
 import CopyIcon from '../../../Arena/icons/CopyIcon';
+import ApproveModal from './components/ApproveModal/ApproveModal';
+import RejectModal from './components/RejectModal/RejectModal';
+import SuccessModal from './components/SuccessModal/SuccessModal';
 import './HarvestApproval.scss';
 
 function HarvestApproval() {
@@ -41,6 +44,19 @@ function HarvestApproval() {
     useState<HarvestScriptCopyStatus>(
       HARVEST_SCRIPT_COPY_STATUS.IDLE
     );
+
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [tempRejectReason, setTempRejectReason] = useState('');
+  const [approveData, setApproveData] = useState<{
+    charCount: number;
+    tweetCount: number;
+    reward: number;
+    roleplayers: string[];
+    isSolo: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetchAllCharacters().then(setCharacters);
@@ -122,7 +138,25 @@ function HarvestApproval() {
     return c ? c.nicknameEng || id : id;
   };
 
-  const handleApprove = async (submissionId: string) => {
+  const navigateToNextPending = () => {
+    const pending = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== reviewingSubmission?.id
+    );
+    
+    if (pending.length > 0) {
+      setReviewingSubmission(pending[0]);
+      setReviewText('');
+      setSelectedRoleplayers([]);
+      setMatchedCharacters([]);
+    } else {
+      setReviewingSubmission(null);
+      setReviewText('');
+      setSelectedRoleplayers([]);
+      setMatchedCharacters([]);
+    }
+  };
+
+  const handleApproveClick = () => {
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
@@ -140,13 +174,26 @@ function HarvestApproval() {
     const isSolo = selectedRoleplayers.length === 1;
     const reward = calculateRewards(charCount, isSolo);
 
+    setApproveData({
+      charCount,
+      tweetCount: mentionCount,
+      reward,
+      roleplayers: selectedRoleplayers,
+      isSolo,
+    });
+    setShowApproveModal(true);
+  };
+
+  const handleApprove = async (submissionId: string) => {
+    if (!approveData) return;
+
     const result = await approveHarvest(
       submissionId,
       user?.characterId || 'admin',
-      charCount,
-      mentionCount,
-      reward,
-      selectedRoleplayers
+      approveData.charCount,
+      approveData.tweetCount,
+      approveData.reward,
+      approveData.roleplayers
     );
 
     if (!result.success) {
@@ -161,28 +208,51 @@ function HarvestApproval() {
             ...s,
             status: HARVEST_SUBMISSION_STATUS.APPROVED,
             reviewedAt: new Date().toISOString(),
-            drachmaReward: reward,
-            roleplayers: selectedRoleplayers.join(','),
+            drachmaReward: approveData.reward,
+            roleplayers: approveData.roleplayers.join(','),
           }
           : s
       )
     );
 
-    setReviewText('');
-    setSelectedRoleplayers([]);
-    setMatchedCharacters([]);
+    setShowApproveModal(false);
+    setApproveData(null);
+    
+    const pendingCount = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+    ).length;
+    
+    if (pendingCount > 0) {
+      setSuccessMessage(`Approved successfully!\nMoving to next pending submission...`);
+    } else {
+      setSuccessMessage('Approved successfully!\nNo more pending submissions.');
+    }
+    setShowSuccessModal(true);
+    
+    setTimeout(() => {
+      setShowSuccessModal(false);
+      navigateToNextPending();
+    }, 2000);
+  };
+
+  const handleRejectClick = () => {
+    setTempRejectReason('');
+    setShowRejectModal(true);
   };
 
   const handleReject = async (submissionId: string) => {
-    if (!rejectReason.trim()) return;
+    if (!tempRejectReason.trim()) return;
 
     const result = await rejectHarvest(
       submissionId,
       user?.characterId || 'admin',
-      rejectReason
+      tempRejectReason
     );
 
-    if (!result.success) return;
+    if (!result.success) {
+      alert('Failed to reject');
+      return;
+    }
 
     setSubmissions((prev) =>
       prev.map((s) =>
@@ -190,13 +260,31 @@ function HarvestApproval() {
           ? {
             ...s,
             status: HARVEST_SUBMISSION_STATUS.REJECTED,
-            rejectReason,
+            rejectReason: tempRejectReason,
           }
           : s
       )
     );
 
+    setShowRejectModal(false);
+    setTempRejectReason('');
     setRejectReason('');
+    
+    const pendingCount = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+    ).length;
+    
+    if (pendingCount > 0) {
+      setSuccessMessage('Rejected successfully!\nMoving to next pending submission...');
+    } else {
+      setSuccessMessage('Rejected successfully!\nNo more pending submissions.');
+    }
+    setShowSuccessModal(true);
+    
+    setTimeout(() => {
+      setShowSuccessModal(false);
+      navigateToNextPending();
+    }, 2000);
   };
 
   const handleCopyScript = async () => {
@@ -278,13 +366,7 @@ function HarvestApproval() {
                     </span>
                     <button
                       className="harvest-approval__quick-reject-btn"
-                      onClick={() => {
-                        const reason = prompt('Enter rejection reason:');
-                        if (reason && reason.trim()) {
-                          setRejectReason(reason);
-                          handleReject(reviewingSubmission.id);
-                        }
-                      }}
+                      onClick={handleRejectClick}
                     >
                       Reject Submission
                     </button>
@@ -498,19 +580,13 @@ function HarvestApproval() {
                             <div className="harvest-approval__actions">
                               <button
                                 className="harvest-approval__action-btn harvest-approval__action-btn--approve"
-                                onClick={() => handleApprove(reviewingSubmission.id)}
+                                onClick={handleApproveClick}
                               >
                                 Approve & Reward
                               </button>
                               <button
                                 className="harvest-approval__action-btn harvest-approval__action-btn--reject"
-                                onClick={() => {
-                                  const reason = prompt('Enter rejection reason:');
-                                  if (reason) {
-                                    setRejectReason(reason);
-                                    handleReject(reviewingSubmission.id);
-                                  }
-                                }}
+                                onClick={handleRejectClick}
                               >
                                 Reject Submission
                               </button>
@@ -522,7 +598,17 @@ function HarvestApproval() {
                   })()}
                 </div>
               )
-            ) : null}
+            ) : (
+              <div className="harvest-approval__empty-state">
+                <div className="harvest-approval__empty-state-icon">✓</div>
+                <div className="harvest-approval__empty-state-title">All caught up!</div>
+                <div className="harvest-approval__empty-state-message">
+                  {submissions.filter(s => s.status === HARVEST_SUBMISSION_STATUS.PENDING).length === 0
+                    ? "No pending submissions to review."
+                    : "Select a submission from the sidebar to review."}
+                </div>
+              </div>
+            )}
           </div>
         </main>
 
@@ -579,6 +665,26 @@ function HarvestApproval() {
           </div>
         </aside>
       </div>
+
+      <ApproveModal
+        show={showApproveModal && !!approveData && !!reviewingSubmission}
+        approveData={approveData}
+        onClose={() => setShowApproveModal(false)}
+        onConfirm={() => reviewingSubmission && handleApprove(reviewingSubmission.id)}
+      />
+
+      <RejectModal
+        show={showRejectModal && !!reviewingSubmission}
+        reason={tempRejectReason}
+        onReasonChange={setTempRejectReason}
+        onClose={() => setShowRejectModal(false)}
+        onConfirm={() => reviewingSubmission && handleReject(reviewingSubmission.id)}
+      />
+
+      <SuccessModal
+        show={showSuccessModal}
+        message={successMessage}
+      />
     </div>
   );
 }
