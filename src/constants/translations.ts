@@ -190,6 +190,10 @@ export const UI_TEXT = {
     en: 'Harvest Conditions\nand Rewards',
     th: 'เงื่อนไขการเก็บเกี่ยว\nและค่าตอบแทน'
   },
+  INVALID_TWITTER_URL: {
+    en: 'Invalid Twitter URL',
+    th: 'URL Twitter ไม่ถูกต้อง'
+  },
   BACK_TO_CAMP: {
     en: 'Back to Camp',
     th: 'กลับไปที่แคมป์'
