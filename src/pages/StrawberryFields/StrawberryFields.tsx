@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, use } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -19,20 +19,26 @@ import { LANGUAGE } from '../../constants/language';
 import Close from '../../icons/Close';
 import HarvestRecordCard from './components/HarvestRecordCard/HarvestRecordCard';
 import { Character, fetchAllCharacters } from '../../data/characters';
-import './StrawberryFields.scss';
 import HarvestorChip from './components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
 import Crown from '../../icons/Crown';
 import { hexToRgb } from '../../utils/color';
+import InfoCircle from '../Shop/icons/InfoCircle';
+import { useScreenSize } from '../../hooks/useScreenSize';
+import './StrawberryFields.scss';
 
 function StrawberryFields() {
   const { user } = useAuth();
+  const {width} = useScreenSize();
   const { t, lang } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
+  const [submissionsRecord, setSubmissionsRecord] = useState<HarvestSubmission[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>(SIDEBAR_VIEW.RECORD);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [isLoadingSubmissionsRecord, setIsLoadingSubmissionsRecord] = useState(false);
   const [topHarvestors, setTopHarvestors] = useState<TopHarvester[]>([]);
   const [isLoadingTopHarvestors, setIsLoadingTopHarvestors] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
@@ -111,6 +117,43 @@ function StrawberryFields() {
 
     let mounted = true;
 
+    const loadSubmissionsRecord = async () => {
+      setIsLoadingSubmissionsRecord(true);
+
+      try {
+        const result = await fetchHarvests();
+
+        if (!mounted) return;
+
+        if (result.error) {
+          console.error(result.error);
+          return;
+        }
+
+        const sorted = [...result.harvests].sort(
+          (a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt)
+        );
+
+        setSubmissionsRecord(sorted);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setIsLoadingSubmissionsRecord(false);
+      }
+    };
+
+    loadSubmissionsRecord();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.characterId]);
+
+  useEffect(() => {
+    if (!user?.characterId) return;
+
+    let mounted = true;
+
     const loadTopHarvestors = async () => {
       setIsLoadingTopHarvestors(true);
 
@@ -147,8 +190,11 @@ function StrawberryFields() {
     return map;
   }, [allCampData]);
 
-  const isValidTwitterUrl = (url: string) =>
-    /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i.test(url);
+  const isValidTwitterUrl = useMemo(() => {
+    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
+    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^\/]+\/status\/\d+/i;
+    return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
+  }, [firstTweetUrl]);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -161,7 +207,7 @@ function StrawberryFields() {
       return;
     }
 
-    if (!isValidTwitterUrl(firstTweetUrl)) {
+    if (!isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
       return;
     }
@@ -229,7 +275,7 @@ function StrawberryFields() {
           <QuestionMark />
         </button>
 
-        {/* Mobile cart toggle */}
+        {/* Mobile toggle */}
         <button className="strawberry-fields__bar-book" onClick={() => setSidebarOpen(!sidebarOpen)}>
           <Book />
         </button>
@@ -309,15 +355,26 @@ function StrawberryFields() {
               <div className="strawberry-fields__form-content">
                 <input
                   type="text"
+                  ref={inputRef}
                   className="strawberry-fields__form-input"
                   placeholder="Paste thread URL (first tweet)"
+                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? {paddingRight: "40px"} : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
+                {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                  <div 
+                    className="strawberry-fields__form-error-icon"
+                    data-tooltip={t(T.INVALID_TWITTER_URL)} 
+                    data-tooltip-pos={width < 480 ? "left" : "top"}
+                  >
+                    <InfoCircle />
+                  </div>
+                )}
                 <button
                   className={`strawberry-fields__form-button ${isSubmitting ? 'strawberry-fields__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim()}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !isValidTwitterUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >
@@ -403,13 +460,13 @@ function StrawberryFields() {
           <div className="strawberry-fields__sidebar__content">
             {sidebarView === SIDEBAR_VIEW.RECORD ? (
               <div className="strawberry-fields__sidebar__records">
-                {isLoadingSubmissions ? (
+                {isLoadingSubmissionsRecord ? (
                   <p className="strawberry-fields__sidebar__empty">{t(T.LOADING)}</p>
                 ) : !error &&
-                  submissions.length === 0 ? (
+                  submissionsRecord.length === 0 ? (
                   <p className="strawberry-fields__sidebar__empty">{t(T.NO_HARVESTS_YET)}</p>
                 ) : (
-                  submissions.map((submission) => (
+                  submissionsRecord.map((submission) => (
                     <HarvestRecordCard key={submission.id} submission={submission} characterMap={characterMap} />
                   ))
                 )}

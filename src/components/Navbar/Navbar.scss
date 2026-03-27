@@ -167,8 +167,8 @@
   }
 
   .topbar__home {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--ci-primary, #c0a062), var(--ci-primary-dark, color-mix(in srgb, var(--ci-primary, #c0a062) 60%, var(--ci-dark, #000))));
     display: flex;
@@ -186,8 +186,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
     border: 1px solid var(--ci-border);
     background: transparent;
@@ -195,8 +195,8 @@
     cursor: pointer;
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: 17px;
+      height: 17px;
     }
   }
 

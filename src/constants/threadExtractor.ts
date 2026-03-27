@@ -157,9 +157,9 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
   // Final verification scans
   console.log("🔍 Final verification...");
   const beforeFinal = tweets.size;
-  await sleep(2000);
+  await sleep(1000);
   scan();
-  await sleep(2000);
+  await sleep(1000);
   scan();
   const afterFinal = tweets.size;
   
@@ -179,9 +179,6 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
     )
     .join("\\n\\n");
 
-  console.log("\\n=== COPY START ===\\n");
-  console.log(combined);
-  console.log("\\n=== COPY END ===\\n");
   console.log(\`✅ Extracted \${ordered.length} tweets\`);
   
   const finalScan = scan();

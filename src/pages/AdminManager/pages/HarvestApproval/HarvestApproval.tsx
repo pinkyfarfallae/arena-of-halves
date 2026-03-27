@@ -2,49 +2,97 @@ import { useState, useEffect } from 'react';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
 import Drachma from '../../../../icons/Drachma';
-import { fetchHarvests, approveHarvest, rejectHarvest } from '../../../../services/harvest/fetchHarvest';
-import { type HarvestSubmission, HarvestScriptCopyStatus } from '../../../../types/harvest';
+import { fetchHarvests, approveHarvest, rejectHarvest, } from '../../../../services/harvest/fetchHarvest';
+import { type HarvestSubmission, HarvestScriptCopyStatus, HarvestSubmissionStatus, } from '../../../../types/harvest';
 import { THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
 import { useAuth } from '../../../../hooks/useAuth';
-import { HARVEST_SCRIPT_COPY_STATUS, HARVEST_SUBMISSION_STATUS } from '../../../../constants/harvest';
+import { HARVEST_SCRIPT_COPY_STATUS, HARVEST_SUBMISSION_STATUS, } from '../../../../constants/harvest';
 import { parseScriptOutput, extractTwitterHandle } from '../../../../services/harvest/harvestApproval';
+import Close from '../../../../icons/Close';
+import ChevronLeft from '../../../../icons/ChevronLeft';
+import SubmissionCard from '../../../StrawberryFields/components/SubmissionCard/SubmissionCard';
+import { useScreenSize } from '../../../../hooks/useScreenSize';
+import InfoCircle from '../../../Shop/icons/InfoCircle';
+import OpenLink from '../../../StrawberryFields/components/SubmissionCard/icons/OpenLink';
+import CopyIcon from '../../../Arena/icons/CopyIcon';
+import ApproveModal from './components/ApproveModal/ApproveModal';
+import RejectModal from './components/RejectModal/RejectModal';
+import SuccessModal from './components/SuccessModal/SuccessModal';
 import './HarvestApproval.scss';
 
 function HarvestApproval() {
   const { user } = useAuth();
+  const { width } = useScreenSize();
+
   const [characters, setCharacters] = useState<Character[]>([]);
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [activeSubmission, setActiveSubmission] = useState<string | null>(null);
+
   const [reviewText, setReviewText] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+
   const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
   const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
-  const [scriptCopyStatus, setScriptCopyStatus] = useState<HarvestScriptCopyStatus>(HARVEST_SCRIPT_COPY_STATUS.IDLE);
 
-  // Load characters
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarView, setSidebarView] = useState<HarvestSubmissionStatus>(HARVEST_SUBMISSION_STATUS.PENDING);
+
+  const [reviewingSubmission, setReviewingSubmission] = useState<HarvestSubmission | null>(submissions[0] || null);
+
+  const [scriptCopyStatus, setScriptCopyStatus] =
+    useState<HarvestScriptCopyStatus>(
+      HARVEST_SCRIPT_COPY_STATUS.IDLE
+    );
+
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [tempRejectReason, setTempRejectReason] = useState('');
+  const [approveData, setApproveData] = useState<{
+    charCount: number;
+    tweetCount: number;
+    reward: number;
+    roleplayers: string[];
+    isSolo: boolean;
+  } | null>(null);
+
   useEffect(() => {
     fetchAllCharacters().then(setCharacters);
   }, []);
 
   useEffect(() => {
     const loadHarvests = async () => {
+      setLoading(true);
       const result = await fetchHarvests();
+
       if (result.error) {
         setLoadError(result.error);
+        setLoading(false);
         return;
       }
 
       setLoadError('');
       setSubmissions(result.harvests);
+      setLoading(false);
+
+      const firstPending = result.harvests.find((s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING);
+      setReviewingSubmission(firstPending || null);
     };
 
     loadHarvests();
   }, []);
 
-  // Auto-match characters when review text changes
   useEffect(() => {
+    if (!reviewText.trim()) {
+      setMatchedCharacters([]);
+      setSelectedRoleplayers([]);
+      return;
+    }
+
     const scriptParsed = parseScriptOutput(reviewText);
+
     if (!scriptParsed) {
       setMatchedCharacters([]);
       setSelectedRoleplayers([]);
@@ -52,403 +100,591 @@ function HarvestApproval() {
     }
 
     const mentions = scriptParsed.authors;
-    const matched = characters.filter(char => {
+
+    const matched = characters.filter((char) => {
       if (!char.twitter) return false;
+
       const charHandle = extractTwitterHandle(char.twitter);
       if (!charHandle) return false;
-      return mentions.some(m => {
+
+      return mentions.some((m) => {
         const mentionHandle = extractTwitterHandle(m);
         return mentionHandle && mentionHandle === charHandle;
       });
     });
 
     setMatchedCharacters(matched);
-    setSelectedRoleplayers(matched.map(c => c.characterId));
+    setSelectedRoleplayers(matched.map((c) => c.characterId));
   }, [reviewText, characters]);
 
-  // Count characters excluding whitespace
-  const countCharacters = (text: string): number => {
-    return text.replace(/\s+/g, '').length;
+  const countCharacters = (text: string) =>
+    text.replace(/\s+/g, '').length;
+
+  const calculateRewards = (charCount: number, isSolo: boolean) => {
+    const base = (charCount / 200) * 10;
+    return isSolo ? Math.ceil(base * 1.5) : Math.ceil(base);
   };
 
-  // Calculate rewards: 10 drachma per 200 characters (1.5x for solo roleplay)
-  const calculateRewards = (charCount: number, isSolo: boolean): number => {
-    const baseReward = (charCount / 200) * 10;
-    return isSolo ? Math.ceil(baseReward * 1.5) : Math.ceil(baseReward);
-  };
-
-  // Toggle roleplayer selection
-  const toggleRoleplayer = (characterId: string) => {
-    setSelectedRoleplayers(prev =>
-      prev.includes(characterId)
-        ? prev.filter(id => id !== characterId)
-        : [...prev, characterId]
+  const toggleRoleplayer = (id: string) => {
+    setSelectedRoleplayers((prev) =>
+      prev.includes(id)
+        ? prev.filter((i) => i !== id)
+        : [...prev, id]
     );
   };
 
-  const handleApprove = async (submissionId: string) => {
+  const getCharacterName = (id: string) => {
+    const c = characters.find((x) => x.characterId === id);
+    return c ? c.nicknameEng || id : id;
+  };
+
+  const navigateToNextPending = () => {
+    const pending = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== reviewingSubmission?.id
+    );
+    
+    if (pending.length > 0) {
+      setReviewingSubmission(pending[0]);
+      setReviewText('');
+      setSelectedRoleplayers([]);
+      setMatchedCharacters([]);
+    } else {
+      setReviewingSubmission(null);
+      setReviewText('');
+      setSelectedRoleplayers([]);
+      setMatchedCharacters([]);
+    }
+  };
+
+  const handleApproveClick = () => {
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
-      alert('Please paste script output (use "Copy Script" button above)');
+      alert('Please paste script output');
       return;
     }
 
     if (selectedRoleplayers.length === 0) {
-      alert('No characters matched. Please add participants manually.');
+      alert('No characters selected');
       return;
     }
 
     const charCount = countCharacters(scriptParsed.text);
     const mentionCount = scriptParsed.tweetCount;
     const isSolo = selectedRoleplayers.length === 1;
-    const drachmaReward = calculateRewards(charCount, isSolo);
+    const reward = calculateRewards(charCount, isSolo);
 
-    // Call API to approve and award drachma
-    const result = await approveHarvest(
-      submissionId,
-      user?.characterId || 'admin-character-id',
+    setApproveData({
       charCount,
-      mentionCount,
-      drachmaReward,
-      selectedRoleplayers
-    );
-
-    if (result.success) {
-      // Update local state on success
-      setSubmissions(prev =>
-        prev.map(sub =>
-          sub.id === submissionId
-            ? {
-              ...sub,
-              status: HARVEST_SUBMISSION_STATUS.APPROVED,
-              reviewedAt: new Date().toISOString(),
-              reviewedBy: user?.characterId || 'admin-character-id',
-              charCount,
-              mentionCount,
-              drachmaReward,
-              roleplayers: selectedRoleplayers.join(','),
-            }
-            : sub
-        )
-      );
-
-      // Reset
-      setActiveSubmission(null);
-      setReviewText('');
-      setMatchedCharacters([]);
-      setSelectedRoleplayers([]);
-
-      const bonusText = isSolo ? ' (Solo Bonus: +50%)' : '';
-      alert(`Approved! ${drachmaReward} drachma${bonusText} awarded to ${selectedRoleplayers.length} character(s)\n${result.awarded?.join('\n') || ''}`);
-    } else {
-      alert(`Failed to approve: ${result.error || 'Unknown error'}`);
-    }
+      tweetCount: mentionCount,
+      reward,
+      roleplayers: selectedRoleplayers,
+      isSolo,
+    });
+    setShowApproveModal(true);
   };
 
-  const handleReject = async (submissionId: string) => {
-    if (!rejectReason.trim()) {
-      alert('Please provide a reject reason');
+  const handleApprove = async (submissionId: string) => {
+    if (!approveData) return;
+
+    const result = await approveHarvest(
+      submissionId,
+      user?.characterId || 'admin',
+      approveData.charCount,
+      approveData.tweetCount,
+      approveData.reward,
+      approveData.roleplayers
+    );
+
+    if (!result.success) {
+      alert('Failed to approve');
       return;
     }
 
-    // Call API to reject
-    const result = await rejectHarvest(
-      submissionId,
-      user?.characterId || 'admin-character-id',
-      rejectReason
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.id === submissionId
+          ? {
+            ...s,
+            status: HARVEST_SUBMISSION_STATUS.APPROVED,
+            reviewedAt: new Date().toISOString(),
+            drachmaReward: approveData.reward,
+            roleplayers: approveData.roleplayers.join(','),
+          }
+          : s
+      )
     );
 
-    if (result.success) {
-      // Update local state on success
-      setSubmissions(prev =>
-        prev.map(sub =>
-          sub.id === submissionId
-            ? {
-              ...sub,
-              status: HARVEST_SUBMISSION_STATUS.REJECTED,
-              reviewedAt: new Date().toISOString(),
-              reviewedBy: user?.characterId || 'admin-character-id',
-              rejectReason,
-            }
-            : sub
-        )
-      );
-
-      // Reset
-      setActiveSubmission(null);
-      setRejectReason('');
-      alert('Submission rejected');
+    setShowApproveModal(false);
+    setApproveData(null);
+    
+    const pendingCount = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+    ).length;
+    
+    if (pendingCount > 0) {
+      setSuccessMessage(`Approved successfully!\nMoving to next pending submission...`);
     } else {
-      alert(`Failed to reject: ${result.error || 'Unknown error'}`);
+      setSuccessMessage('Approved successfully!\nNo more pending submissions.');
     }
+    setShowSuccessModal(true);
+    
+    setTimeout(() => {
+      setShowSuccessModal(false);
+      navigateToNextPending();
+    }, 2000);
   };
 
-  const getCharacterName = (characterId: string): string => {
-    const char = characters.find(c => c.characterId === characterId);
-    return char ? char.nicknameEng || char.characterId : characterId;
+  const handleRejectClick = () => {
+    setTempRejectReason('');
+    setShowRejectModal(true);
   };
 
-  const pendingSubmissions = submissions.filter(s => s.status === HARVEST_SUBMISSION_STATUS.PENDING);
-  const reviewedSubmissions = submissions.filter(s => s.status !== HARVEST_SUBMISSION_STATUS.PENDING);
+  const handleReject = async (submissionId: string) => {
+    if (!tempRejectReason.trim()) return;
 
-  const handleCopyExtractorScript = async () => {
+    const result = await rejectHarvest(
+      submissionId,
+      user?.characterId || 'admin',
+      tempRejectReason
+    );
+
+    if (!result.success) {
+      alert('Failed to reject');
+      return;
+    }
+
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.id === submissionId
+          ? {
+            ...s,
+            status: HARVEST_SUBMISSION_STATUS.REJECTED,
+            rejectReason: tempRejectReason,
+          }
+          : s
+      )
+    );
+
+    setShowRejectModal(false);
+    setTempRejectReason('');
+    setRejectReason('');
+    
+    const pendingCount = submissions.filter(
+      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+    ).length;
+    
+    if (pendingCount > 0) {
+      setSuccessMessage('Rejected successfully!\nMoving to next pending submission...');
+    } else {
+      setSuccessMessage('Rejected successfully!\nNo more pending submissions.');
+    }
+    setShowSuccessModal(true);
+    
+    setTimeout(() => {
+      setShowSuccessModal(false);
+      navigateToNextPending();
+    }, 2000);
+  };
+
+  const handleCopyScript = async () => {
     try {
-      await navigator.clipboard.writeText(THREAD_EXTRACTOR_SCRIPT);
+      await navigator.clipboard.writeText(
+        THREAD_EXTRACTOR_SCRIPT
+      );
       setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.SUCCESS);
-      window.setTimeout(() => setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.IDLE), 2500);
-    } catch (err) {
+    } catch {
       setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.ERROR);
-      window.setTimeout(() => setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.IDLE), 2500);
     }
+
+    setTimeout(
+      () => setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.IDLE),
+      2000
+    );
   };
 
   return (
     <div className="harvest-approval">
-      <div className="harvest-approval__header">
-        <h2 className="harvest-approval__title">Harvest Submission Approval</h2>
-        <button
-          type="button"
-          className={`harvest-approval__script-copy ${scriptCopyStatus !== HARVEST_SCRIPT_COPY_STATUS.IDLE ? 'harvest-approval__script-copy--' + scriptCopyStatus : ''}`}
-          onClick={handleCopyExtractorScript}
-          data-tooltip="Copy thread extractor script"
-          data-tooltip-pos="left"
-        >
-          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS
-            ? '✓ Copied!'
-            : scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.ERROR
-              ? '✗ Failed'
-              : '📋 Copy Script'}
-        </button>
-      </div>
 
-      {loadError && <p className="harvest-approval__empty">{loadError}</p>}
+      {/* Layout */}
+      <div className={`harvest-approval__container ${sidebarOpen ? 'harvest-approval__container--sidebar-open' : ''}`}>
+        {/* Main */}
+        <main className="harvest-approval__main">
+          {/* Top bar */}
+          <header className="harvest-approval__bar">
+            <div className="harvest-approval__bar-title">
+              {reviewingSubmission?.id
+                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${new Date(reviewingSubmission.submittedAt).toLocaleDateString()}`
+                : 'Harvest Submissions'}
+            </div>
 
-      {/* Pending Section */}
-      <section className="harvest-approval__section">
-        <h3 className="harvest-approval__section-title">
-          Pending ({pendingSubmissions.length})
-        </h3>
+            {/* Mobile toggle */}
+            <button className={`harvest-approval__bar-chevron ${sidebarOpen ? 'harvest-approval__bar-chevron--open' : ''}`} onClick={() => setSidebarOpen(true)}>
+              <ChevronLeft />
+            </button>
+          </header>
 
-        {pendingSubmissions.length === 0 ? (
-          <p className="harvest-approval__empty">No pending submissions</p>
-        ) : (
-          <div className="harvest-approval__list">
-            {pendingSubmissions.map(submission => (
-              <div key={submission.id} className="harvest-approval__card">
-                <div className="harvest-approval__card-header">
-                  <div>
-                    <strong>Submitted by: {getCharacterName(submission.characterId)}</strong>
-                    <span className="harvest-approval__card-time">
-                      {new Date(submission.submittedAt).toLocaleString('th-TH', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+          {/* Review area */}
+          <div className="harvest-approval__review-area">
+            {loading ? (
+              <div className="harvest-approval__review-loading">Loading...</div>
+            ) : loadError ? (
+              <div className="harvest-approval__review-error">Something went wrong</div>
+            ) : reviewingSubmission ? (
+              (
+                <div className="harvest-approval__review-sheet">
+                  {/* 1. Open link of tweet */}
+                  <div className="harvest-approval__review-section">
+                    <div className="harvest-approval__review-section-header">
+                      <span className='harvest-approval__review-section-number'>1</span>
+                      <span className='harvest-approval__review-section-title'>Open link of tweet</span>
+                      <button
+                        className="harvest-approval__open-link-btn"
+                        onClick={() => {
+                          if (reviewingSubmission?.firstTweetUrl) {
+                            window.open(reviewingSubmission.firstTweetUrl, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                        data-tooltip={"Open"}
+                        data-tooltip-pos="left"
+                      >
+                        <OpenLink />
+                      </button>
+                    </div>
+                    <div className="harvest-approval__review-section-content">
+                      Open the submitted thread link in a new tab. Make sure the thread is accessible, complete, and not deleted or restricted.
+                      Review the overall conversation flow to ensure it is a valid roleplay interaction and not spam, duplicate content, or unrelated posts.
+                    </div>
+                  </div>
+
+              {/* Quick Reject Option */}
+              {reviewingSubmission && (
+                <div className="harvest-approval__quick-reject">
+                  <div className="harvest-approval__quick-reject-content">
+                    <span className="harvest-approval__quick-reject-label">
+                      Need to reject this submission?
                     </span>
+                    <button
+                      className="harvest-approval__quick-reject-btn"
+                      onClick={handleRejectClick}
+                    >
+                      Reject Submission
+                    </button>
                   </div>
                 </div>
+              )}
 
-                <div className="harvest-approval__card-link">
-                  <div>
-                    <strong>Thread:</strong>{' '}
-                    <a href={submission.firstTweetUrl} target="_blank" rel="noopener noreferrer">
-                      {submission.firstTweetUrl}
-                    </a>
-                  </div>
-                </div>
+              {/* 2. Open console */}
+              <div className="harvest-approval__review-section">
+                    <div className="harvest-approval__review-section-header">
+                      <span className='harvest-approval__review-section-number'>2</span>
+                      <span className='harvest-approval__review-section-title'>Open console</span>
+                    </div>
+                    <div className="harvest-approval__review-section-content">
+                      Open your browser's developer console using any of these methods:
+                      <br />
+                      <div className="harvest-approval__console-options">
+                        <div className="harvest-approval__option-box">
+                          <span className="harvest-approval__option-box-title">Option 1: Right-click</span>
+                          <div className="harvest-approval__option-box-steps">
+                            • Right-click anywhere on the page
+                            <br />• Click <strong>"Inspect"</strong>
+                            <br />• Go to the <strong>Console</strong> tab
+                          </div>
+                        </div>
 
-                {activeSubmission === submission.id ? (
-                  <div className="harvest-approval__review-form">
-                    <textarea
-                      className="harvest-approval__textarea"
-                      placeholder="Paste script output here (click 'Copy Script' button above)"
-                      value={reviewText}
-                      onChange={(e) => setReviewText(e.target.value)}
-                      rows={10}
-                    />
+                        <div className="harvest-approval__option-box">
+                          <span className="harvest-approval__option-box-title">Option 2: Menu</span>
+                          <div className="harvest-approval__option-box-steps">
+                            • Click the <strong>⋮ (three-dot menu)</strong>
+                            <br />• Go to <strong>More tools → Developer tools</strong>
+                            <br />• Switch to the <strong>Console</strong> tab
+                          </div>
+                        </div>
 
-                    {matchedCharacters.length > 0 && (
-                      <div className="harvest-approval__matched-characters">
-                        <strong>Matched Characters ({matchedCharacters.length}):</strong>
-                        <div className="harvest-approval__character-list">
-                          {matchedCharacters.map(char => (
-                            <label key={char.characterId} className="harvest-approval__character-item">
-                              <input
-                                type="checkbox"
-                                checked={selectedRoleplayers.includes(char.characterId)}
-                                onChange={() => toggleRoleplayer(char.characterId)}
-                              />
-                              <span>
-                                {char.nicknameEng} (@{char.twitter})
-                              </span>
-                            </label>
-                          ))}
+                        <div className="harvest-approval__option-box">
+                          <span className="harvest-approval__option-box-title">Option 3: Shortcut</span>
+                          <div className="harvest-approval__option-box-steps">
+                            • Windows: <strong>F12</strong> or <strong>Ctrl + Shift + I</strong>
+                            <br />• Mac: <strong>Cmd + Option + I</strong>
+                          </div>
                         </div>
                       </div>
-                    )}
+                      <br />
+                      Make sure you are on the <strong>Console</strong> tab before running the script.
+                    </div>
+                  </div>
 
-                    <div className="harvest-approval__preview">
-                      {reviewText && (() => {
-                        const scriptParsed = parseScriptOutput(reviewText);
+                  {/* 3. Paste script output */}
+                  <div className="harvest-approval__review-section">
+                    <div className="harvest-approval__review-section-header">
+                      <span className='harvest-approval__review-section-number'>3</span>
+                      <span className='harvest-approval__review-section-title'>Get Roleplay Content</span>
+                      {width > 420 ? (
+                        <button
+                          className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
+                          onClick={handleCopyScript}
+                        >
+                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE && 'Copy Script'}
+                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS && 'Copied!'}
+                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.ERROR && 'Error'}
+                        </button>
+                      ) : (
+                        <button
+                          className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
+                          onClick={handleCopyScript}
+                          data-tooltip={scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE ? "Copy Script" : scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS ? "Copied!" : "Error"}
+                        >
+                          <CopyIcon />
+                        </button>
+                      )}
+                    </div>
+                    <div className="harvest-approval__review-section-content">
+                      Click <strong>Copy Script</strong> and paste it into the browser console, then press <b>Enter</b>.
+                      Wait for the script to complete. Once completed, copy the generated output and paste it into the textarea below.
+                      This data will be used to calculate character count, detect participants, and determine reward distribution.
+                    </div>
+                    <textarea
+                      className="harvest-approval__review-section-content harvest-approval__review-section-content--textarea"
+                      placeholder="Paste script output here"
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      required
+                    />
+                  </div>
 
-                        if (!scriptParsed) {
-                          return (
-                            <div style={{ color: '#e8385d' }}>
-                              ⚠️ Please paste script output format (use "Copy Script" button)
+                  {/* 4. Review Harvest Result */}
+                  {reviewText.trim() && (() => {
+                    const scriptParsed = parseScriptOutput(reviewText);
+
+                    if (!scriptParsed) {
+                      return (
+                        <div className="harvest-approval__review-section">
+                          <div className="harvest-approval__review-section-header">
+                            <span className='harvest-approval__review-section-number'>4</span>
+                            <span className='harvest-approval__review-section-title'>Review Harvest Result</span>
+                          </div>
+                          <div className="harvest-approval__review-section-content">
+                            <div className="harvest-approval__error-message">
+                              Invalid script output format. Please paste the correct output from the console.
                             </div>
-                          );
-                        }
+                          </div>
+                        </div>
+                      );
+                    }
 
-                        const charCount = countCharacters(scriptParsed.text);
-                        const isSolo = selectedRoleplayers.length === 1;
-                        const reward = calculateRewards(charCount, isSolo);
+                    const charCount = countCharacters(scriptParsed.text);
+                    const isSolo = selectedRoleplayers.length === 1;
+                    const baseReward = Math.ceil((charCount / 200) * 10);
+                    const finalReward = isSolo ? Math.ceil(baseReward * 1.5) : baseReward;
 
-                        return (
-                          <>
-                            <strong>🎯 Script Format Detected</strong>
-                            <br />
-                            <strong>Tweets extracted:</strong> {scriptParsed.tweetCount}
-                            <br />
-                            <strong>Characters (no spaces):</strong> {charCount}
-                            <br />
-                            <strong>Unique authors:</strong> {scriptParsed.authors.length}
-                            <br />
-                            <strong>Matched participants:</strong> {selectedRoleplayers.length}
-                            <br />
-                            <strong>Reward per character:</strong> <Drachma /> {reward} drachma
-                            {isSolo && (
-                              <>
-                                <br />
-                                <strong style={{ color: '#72e990' }}>✨ Solo Bonus: +50%</strong>
-                              </>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
+                    return (
+                      <div className="harvest-approval__review-section harvest-approval__review-section--result">
+                        <div className="harvest-approval__review-section-header">
+                          <span className='harvest-approval__review-section-number'>4</span>
+                          <span className='harvest-approval__review-section-title'>Review Harvest Result</span>
+                        </div>
+                        <div className="harvest-approval__review-section-content">
+                          {/* Statistics */}
+                          <div className="harvest-approval__stats">
+                            <div className="harvest-approval__stat-item">
+                              <span className="harvest-approval__stat-label">{width > 420 ? 'Character Count' : 'Chars'}</span>
+                              <span className="harvest-approval__stat-value">{charCount.toLocaleString()}</span>
+                            </div>
+                            <div className="harvest-approval__stat-item">
+                              <span className="harvest-approval__stat-label">{width > 420 ? 'Tweet Count' : 'Tweets'}</span>
+                              <span className="harvest-approval__stat-value">{scriptParsed.tweetCount}</span>
+                            </div>
+                            <div className="harvest-approval__stat-item">
+                              <span className="harvest-approval__stat-label">{width > 420 ? 'Participants' : 'Players'}</span>
+                              <span className="harvest-approval__stat-value">{selectedRoleplayers.length}</span>
+                            </div>
+                          </div>
 
-                    <div className="harvest-approval__actions">
-                      <button
-                        className="harvest-approval__btn harvest-approval__btn--approve"
-                        onClick={() => handleApprove(submission.id)}
-                        disabled={!reviewText.trim() || selectedRoleplayers.length === 0}
-                      >
-                        Approve & Award
-                      </button>
-                      <button
-                        className="harvest-approval__btn harvest-approval__btn--cancel"
-                        onClick={() => {
-                          setActiveSubmission(null);
-                          setReviewText('');
-                          setMatchedCharacters([]);
-                          setSelectedRoleplayers([]);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                          <div className="harvest-approval__reward-calc__wrapper">
+                            {/* Reward Calculation */}
+                            <div className="harvest-approval__reward-calc">
+                              <div className="harvest-approval__reward-row">
+                                <span className="harvest-approval__reward-label">Base Reward:</span>
+                                <span className="harvest-approval__reward-value">
+                                  <Drachma /> {baseReward}
+                                </span>
+                              </div>
+                              <div className="harvest-approval__reward-row harvest-approval__reward-row--bonus">
+                                <span className="harvest-approval__reward-label">Solo Bonus (50%)</span>
+                                <span className="harvest-approval__reward-value">
+                                  {isSolo ? (
+                                    <>
+                                      <Drachma /> {Math.ceil(baseReward * 0.5)}
+                                    </>
+                                  ) : (
+                                    0
+                                  )}
+                                </span>
+                              </div>
+                              <div className="harvest-approval__reward-row harvest-approval__reward-row--total">
+                                <span className="harvest-approval__reward-label">Final Reward:</span>
+                                <span className="harvest-approval__reward-value">
+                                  <Drachma /> {finalReward}
+                                </span>
+                              </div>
+                            </div>
 
-                    <div className="harvest-approval__reject-section">
-                      <input
-                        type="text"
-                        className="harvest-approval__reject-input"
-                        placeholder="Or type reject reason..."
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                      />
-                      <button
-                        className="harvest-approval__btn harvest-approval__btn--reject"
-                        onClick={() => handleReject(submission.id)}
-                        disabled={!rejectReason.trim()}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className="harvest-approval__btn harvest-approval__btn--review"
-                    onClick={() => setActiveSubmission(submission.id)}
-                  >
-                    Review
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+                            {/* Roleplayer Selection */}
+                            <div className="harvest-approval__roleplayers">
+                              <div className="harvest-approval__roleplayers-title">
+                                Detected Roleplayers ({matchedCharacters.length})
+                              </div>
+                              {matchedCharacters.length === 0 ? (
+                                <div className="harvest-approval__no-match">
+                                  No characters matched. Make sure the participants have their Twitter handles registered.
+                                </div>
+                              ) : (
+                                <div className="harvest-approval__roleplayer-list">
+                                  {matchedCharacters.map((char) => (
+                                    <label
+                                      key={char.characterId}
+                                      className="harvest-approval__roleplayer-item"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedRoleplayers.includes(char.characterId)}
+                                        onChange={() => toggleRoleplayer(char.characterId)}
+                                      />
+                                      <div className="harvest-approval__roleplayer-avatar">
+                                        {char.image ? (
+                                          <img src={char.image} alt={char.nicknameEng} referrerPolicy="no-referrer" />
+                                        ) : (
+                                          <span>{(char.nicknameEng || char.characterId)[0]?.toUpperCase() || '?'}</span>
+                                        )}
+                                      </div>
+                                      <div className="harvest-approval__roleplayer-info">
+                                        <span className="harvest-approval__roleplayer-name">
+                                          {char.nicknameEng || char.characterId}
+                                        </span>
+                                        {char.twitter && (
+                                          <span className="harvest-approval__roleplayer-handle">
+                                            @{extractTwitterHandle(char.twitter)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
-      {/* Reviewed Section */}
-      <section className="harvest-approval__section">
-        <h3 className="harvest-approval__section-title">
-          Recently Reviewed ({reviewedSubmissions.length})
-        </h3>
-
-        {reviewedSubmissions.length === 0 ? (
-          <p className="harvest-approval__empty">No reviewed submissions yet</p>
-        ) : (
-          <div className="harvest-approval__list">
-            {reviewedSubmissions.map(submission => (
-              <div
-                key={submission.id}
-                className={`harvest-approval__card harvest-approval__card--${submission.status}`}
-              >
-                <div className="harvest-approval__card-header">
-                  <div>
-                    <strong>{getCharacterName(submission.characterId)}</strong>
-                    <span className={`harvest-approval__status harvest-approval__status--${submission.status}`}>
-                      {submission.status === HARVEST_SUBMISSION_STATUS.APPROVED ? 'Approved' : 'Rejected'}
-                    </span>
-                  </div>
-                  <span className="harvest-approval__card-time">
-                    {submission.reviewedAt &&
-                      new Date(submission.reviewedAt).toLocaleString('th-TH', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                  </span>
-                </div>
-
-                <div className="harvest-approval__card-link">
-                  <div>
-                    <a href={submission.firstTweetUrl} target="_blank" rel="noopener noreferrer">
-                      Thread
-                    </a>
-                  </div>
-                </div>
-
-                {submission.status === HARVEST_SUBMISSION_STATUS.APPROVED && (
-                  <div className="harvest-approval__reward">
-                    <Drachma /> {submission.drachmaReward} drachma × {submission.roleplayers ? submission.roleplayers.split(',').filter(Boolean).length : 0} characters
-                    {submission.roleplayers && submission.roleplayers.split(',').filter(Boolean).length === 1 && (
-                      <span style={{ color: '#72e990', marginLeft: '0.5rem' }}>✨ +50% Solo</span>
-                    )}
-                    <div className="harvest-approval__details">
-                      ({submission.charCount} chars, {submission.mentionCount} tweets)
-                    </div>
-                    {submission.roleplayers && submission.roleplayers.length > 0 && (
-                      <div className="harvest-approval__roleplayers">
-                        {submission.roleplayers.split(',').map((id: string) => getCharacterName(id.trim())).join(', ')}
+                          {/* Actions */}
+                          {selectedRoleplayers.length > 0 && reviewingSubmission && (
+                            <div className="harvest-approval__actions">
+                              <button
+                                className="harvest-approval__action-btn harvest-approval__action-btn--approve"
+                                onClick={handleApproveClick}
+                              >
+                                Approve & Reward
+                              </button>
+                              <button
+                                className="harvest-approval__action-btn harvest-approval__action-btn--reject"
+                                onClick={handleRejectClick}
+                              >
+                                Reject Submission
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {submission.status === HARVEST_SUBMISSION_STATUS.REJECTED && submission.rejectReason && (
-                  <div className="harvest-approval__reject-note">
-                    Reason: {submission.rejectReason}
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
+              )
+            ) : (
+              <div className="harvest-approval__empty-state">
+                <div className="harvest-approval__empty-state-icon">✓</div>
+                <div className="harvest-approval__empty-state-title">All caught up!</div>
+                <div className="harvest-approval__empty-state-message">
+                  {submissions.filter(s => s.status === HARVEST_SUBMISSION_STATUS.PENDING).length === 0
+                    ? "No pending submissions to review."
+                    : "Select a submission from the sidebar to review."}
+                </div>
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </section>
+        </main>
+
+        {/* Sidebar (right) */}
+        <aside className={`harvest-approval__sidebar ${sidebarOpen ? 'harvest-approval__sidebar--open' : ''}`}>
+          <div className="harvest-approval__sidebar__head">
+            <div className="harvest-approval__sidebar__head-tabs">
+              {Object.values(HARVEST_SUBMISSION_STATUS).map((status) => (
+                <button
+                  key={status}
+                  className={`harvest-approval__sidebar__tab harvest-approval__sidebar__tab--${status.toLowerCase()}${sidebarView === status ? '--active' : ''}`}
+                  onClick={() => setSidebarView(status)}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <button className="harvest-approval__sidebar__close" onClick={() => setSidebarOpen(false)}>
+              <Close />
+            </button>
+          </div>
+
+          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && (
+            <div className="harvest-approval__sidebar__note">
+              <InfoCircle />
+              Click on a submission to review.
+            </div>
+          )}
+
+          <div className="harvest-approval__sidebar__content">
+            {loading ? (
+              <div className="harvest-approval__sidebar__content--loading">Loading...</div>
+            ) : loadError ? (
+              <div className="harvest-approval__sidebar__content--error">Something went wrong</div>
+            ) : (
+              submissions
+                .filter((s) => s.status === sidebarView)
+                .map((submission) => (
+                  <SubmissionCard
+                    key={submission.id}
+                    submission={submission}
+                    onClick={sidebarView === HARVEST_SUBMISSION_STATUS.PENDING ? () => {
+                      setReviewingSubmission(submission);
+                      setReviewText('');
+                      setSelectedRoleplayers([]);
+                      setMatchedCharacters([]);
+
+                      if (width < 900) setSidebarOpen(false);
+                    } : undefined}
+                    forcedCompact
+                  />
+                ))
+            )}
+          </div>
+        </aside>
+      </div>
+
+      <ApproveModal
+        show={showApproveModal && !!approveData && !!reviewingSubmission}
+        approveData={approveData}
+        onClose={() => setShowApproveModal(false)}
+        onConfirm={() => reviewingSubmission && handleApprove(reviewingSubmission.id)}
+      />
+
+      <RejectModal
+        show={showRejectModal && !!reviewingSubmission}
+        reason={tempRejectReason}
+        onReasonChange={setTempRejectReason}
+        onClose={() => setShowRejectModal(false)}
+        onConfirm={() => reviewingSubmission && handleReject(reviewingSubmission.id)}
+      />
+
+      <SuccessModal
+        show={showSuccessModal}
+        message={successMessage}
+      />
     </div>
   );
 }
