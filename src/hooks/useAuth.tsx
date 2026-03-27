@@ -3,6 +3,9 @@ import { Character, fetchCharacter } from '../data/characters';
 import { GID, csvUrl } from '../constants/sheets';
 import type { RoleName } from '../types/role';
 import { ROLE } from '../constants/role';
+import { loginCharacter, registerCharacter } from '../services/auth/firebaseAnonymous';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface AuthContextType {
   user: Character | null;
@@ -71,11 +74,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem(AUTH_KEY);
     if (saved) {
       Promise.all([fetchCharacter(saved), fetchUsers()])
-        .then(([c, users]) => {
+        .then(async ([c, users]) => {
           if (c) {
+            const userRow = users.find(u => u.characterId.toLowerCase() === saved.toLowerCase());
+            if (userRow) {
+              // Re-authenticate with Firebase on session restore
+              await loginCharacter(userRow.characterId, userRow.password);
+            }
+            
             setUser(c);
             localStorage.setItem(THEME_KEY, JSON.stringify(c.theme));
-            const userRow = users.find(u => u.characterId.toLowerCase() === saved.toLowerCase());
             const r = userRow?.role ?? ROLE.PLAYER;
             setRole(r);
             localStorage.setItem(ROLE_KEY, r);
@@ -95,6 +103,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (u) => u.characterId === characterId && u.password === password
     );
     if (found) {
+      // First authenticate with Firebase using fake email
+      const firebaseUser = await loginCharacter(found.characterId, password);
+      if (!firebaseUser) {
+        // If login fails, try to register (first time user)
+        const registeredUser = await registerCharacter(found.characterId, password);
+        if (!registeredUser) {
+          console.error('Firebase authentication failed');
+          return false;
+        }
+      }
+      
       const character = await fetchCharacter(found.characterId);
       if (character) {
         localStorage.setItem(AUTH_KEY, found.characterId);
@@ -109,6 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    signOut(auth).catch(err => console.error('Firebase sign out error:', err));
+    
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(THEME_KEY);
     localStorage.removeItem(ROLE_KEY);
