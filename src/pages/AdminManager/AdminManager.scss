@@ -41,7 +41,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 0.65rem 1rem;
+  padding: 0.65rem 0.75rem;
   background: none;
   border: none;
   text-decoration: none;
@@ -70,6 +70,10 @@
       border-radius: 2px 2px 0 0;
       background: var(--ci-primary, #c0a062);
     }
+  }
+
+  @media (max-width: $bp-medium) {
+    padding: 0.6rem;
   }
 
   @media (max-width: $bp-mobile) {

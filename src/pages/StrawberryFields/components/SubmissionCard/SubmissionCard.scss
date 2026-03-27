@@ -58,6 +58,81 @@
       opacity: 1;
     }
   }
+
+  &--compact {
+    .strawberry-fields__submission-preview {
+      .strawberry-fields__submission-preview-inner {
+        width: 130px;
+        min-width: 130px;
+      }
+
+      .strawberry-fields__submission-preview-block {
+        margin-top: -6px;
+      }
+    }
+
+    .strawberry-fields__stat-item {
+      gap: 0.3rem;
+      font-size: 0.65rem;
+
+      svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .strawberry-fields__stat-label {
+      display: none;
+    }
+
+    .strawberry-fields__submission-pending,
+    .strawberry-fields__submission-submitted-at,
+    .strawberry-fields__submission-error {
+      svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .strawberry-fields__submission-pending {
+      span {
+        font-size: 0.55rem;
+      }
+
+      svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .strawberry-fields__roleplayers-header {
+      font-size: 0.5rem;
+
+      svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .strawberry-fields__solo-badge {
+      font-size: 0.5rem;
+
+      svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .strawberry-fields__roleplayer-tag {
+      font-size: 0.55rem;
+      padding: 0.15rem 0.6rem;
+      border-radius: 8px;
+    }
+
+    .strawberry-fields__stat-value {
+      font-size: 0.65rem;
+    }
+  }
 }
 
 .strawberry-fields__submission-top {

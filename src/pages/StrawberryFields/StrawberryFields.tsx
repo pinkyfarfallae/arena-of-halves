@@ -274,7 +274,7 @@ function StrawberryFields() {
           <QuestionMark />
         </button>
 
-        {/* Mobile cart toggle */}
+        {/* Mobile toggle */}
         <button className="strawberry-fields__bar-book" onClick={() => setSidebarOpen(!sidebarOpen)}>
           <Book />
         </button>
