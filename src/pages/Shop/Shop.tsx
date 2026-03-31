@@ -16,15 +16,16 @@ import WingedSandal from './icons/WingedSandal';
 import Trash from './icons/Trash';
 import Close from '../../icons/Close';
 import Coupon from './icons/Coupon';
-import './Shop.scss';
 import { LANGUAGE } from '../../constants/language';
+import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
+import './Shop.scss';
 
 function Shop() {
   const { t, lang } = useTranslation();
   const [items, setItems] = useState<ShopItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem('camp_store_cart');
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
@@ -38,7 +39,7 @@ function Shop() {
 
   // Save cart to localStorage
   useEffect(() => {
-    localStorage.setItem('camp_store_cart', JSON.stringify(cart));
+    localStorage.setItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART, JSON.stringify(cart));
   }, [cart]);
 
   // Fetch items initially and poll every 5 seconds
@@ -98,7 +99,7 @@ function Shop() {
 
   const handlePay = () => {
     setCart([]);
-    localStorage.removeItem('camp_store_cart');
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
     setPaySuccess(true);
   };
 

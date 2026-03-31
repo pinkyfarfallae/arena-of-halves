@@ -4,6 +4,7 @@ import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { Deity } from '../constants/deities';
+import { ACTIONS } from '../constants/action';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export type { PowerDefinition };
@@ -303,7 +304,7 @@ export async function patchCharacter(
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'patch', characterId, fields }),
+      body: JSON.stringify({ action: ACTIONS.PATCH, characterId, fields }),
     });
     return res.ok;
   } catch (e) {
@@ -315,7 +316,7 @@ export async function updateTheme(characterId: string, theme: string[]): Promise
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'updateTheme', characterId, theme: theme.join(',') }),
+      body: JSON.stringify({ action: ACTIONS.UPDATE_THEME, characterId, theme: theme.join(',') }),
     });
     return res.ok;
   } catch (e) {
@@ -371,7 +372,7 @@ export async function createUser(payload: CreateUserPayload): Promise<boolean> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'createUser', ...payload }),
+      body: JSON.stringify({ action: ACTIONS.CREATE_USER, ...payload }),
     });
     return res.ok;
   } catch (e) {
@@ -386,7 +387,7 @@ export async function editUser(
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'editUser', characterId, fields }),
+      body: JSON.stringify({ action: ACTIONS.EDIT_USER, characterId, fields }),
     });
     return res.ok;
   } catch (e) {
@@ -398,7 +399,7 @@ export async function deleteUser(characterId: string): Promise<boolean> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'deleteUser', characterId }),
+      body: JSON.stringify({ action: ACTIONS.DELETE_USER, characterId }),
     });
     return res.ok;
   } catch (e) {

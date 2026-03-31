@@ -7,17 +7,23 @@ import './TrainingGrounds.scss';
 
 export default function TrainingGrounds() {
   const navigate = useNavigate();
-  const [showModeSelector, setShowModeSelector] = useState(false);
 
   const handleTrainWithAdmin = () => {
-    setShowModeSelector(false);
     navigate('/training-grounds/guided');
   };
+
+  const handlePvPMode = () => {
+    // navigate(`/training-grounds/pvp/${randomRoomId}`);
+  }
+
+  const handleRolePlaySubmission = () => {
+    // navigate(`/training-grounds/roleplay-submission`);
+  }
 
   return (
     <div className="training-grounds">
       <Routes>
-        <Route path="/" element={<Stats onSelectMode={() => setShowModeSelector(true)} />} />
+        <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} />} />
         <Route path="/pvp/:roomId" element={<PvP />} />
         <Route path="/guided" element={<TrainWithAdmin />} />
       </Routes>

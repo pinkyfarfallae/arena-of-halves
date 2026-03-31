@@ -13,6 +13,7 @@ var SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
+var DAILY_TRAINING_DICE = 'Daily Training Dice';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -71,6 +72,8 @@ function doGet(e) {
   if (action === 'updateTrainingPoints') {
     return updateTrainingPoints(e.parameter.characterId, e.parameter.amount);
   }
+
+  if (action === ')
 
   return jsonResponse({ status: 'ok', message: 'Updater is running' });
 }
@@ -138,6 +141,10 @@ function doPost(e) {
 
     if (data.action === 'refundStat') {
       return refundStat(data.characterId, data.statId);
+    }
+
+    if (data.action === 'appendDailyTraining') {
+      return handleAppendDailyTraining(data);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -1226,4 +1233,69 @@ function handleFetchTopHarvesters(limit) {
   }
 
   return jsonResponse({ topHarvesters: leaderboard });
+}
+
+/* ══════════════════════════════════════
+   DAILY TRAINING DICE
+   - Append daily training roll results
+   ══════════════════════════════════════ */
+
+/**
+ * Append a daily training roll to the sheet
+ * Expects:
+ *   - date: YYYY-MM-DD
+ *   - userId: characterId
+ *   - rolls: array [1-6, 1-6, 1-6, 1-6, 1-6]
+ *   - target: 1-12
+ *   - success: boolean
+ *   - roleplay: optional string
+ */
+function handleAppendDailyTraining(params) {
+  var date = (params.date || '').toString().trim();
+  var userId = (params.userId || '').toString().trim();
+  var rolls = params.rolls || [];
+  var target = parseInt(params.target || '0', 10);
+  var success = params.success === true || params.success === 'true';
+  var roleplay = (params.roleplay || '').toString().trim();
+
+  if (!date || !userId || !Array.isArray(rolls) || rolls.length !== 5 || target < 1 || target > 12) {
+    return jsonResponse({ error: 'Missing or invalid fields for daily training' });
+  }
+
+  // Validate rolls are all 1-12
+  for (var i = 0; i < rolls.length; i++) {
+    var roll = parseInt(rolls[i], 10);
+    if (isNaN(roll) || roll < 1 || roll > 12) {
+      return jsonResponse({ error: 'Invalid dice roll: ' + rolls[i] });
+    }
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  // Build row according to schema:
+  // Date, User, Rolls, Target, Success, Roleplay, Verified
+  var row = [];
+  var rollsString = rolls.join(',');
+
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (h === 'date') row.push(date);
+    else if (h === 'user') row.push(userId);
+    else if (h === 'rolls') row.push(rollsString);
+    else if (h === 'target') row.push(target);
+    else if (h === 'success') row.push(success);
+    else if (h === 'roleplay') row.push(roleplay);
+    else if (h === 'verified') row.push(false); // Default to false, admin can update manually
+    else row.push('');
+  }
+
+  sheet.appendRow(row);
+  return jsonResponse({ success: true, date: date, userId: userId });
 }
