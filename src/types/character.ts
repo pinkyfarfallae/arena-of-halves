@@ -84,4 +84,7 @@ export interface Character {
   technique: number;
   experience: number;
   fortune: number;
+
+  /* Training points */
+  trainingPoints: number;
 }

@@ -138,6 +138,8 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
     technique: num('technique'),
     experience: num('experience'),
     fortune: num('fortune'),
+
+    trainingPoints: num('trainingpoints'),
   };
 }
 
