@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isValidDate(date) {
+      return date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // Daily Training Configs
+    match /dailyConfigs/{date} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+      // Anyone authenticated can create/update (admin check done in app)
+      allow create, update: if isAuthenticated() && 
+                                isValidDate(date) &&
+                                request.resource.data.target is int &&
+                                request.resource.data.target >= 1 &&
+                                request.resource.data.target <= 12 &&
+                                request.resource.data.date == date;
+      allow delete: if false; // Don't allow deletion
+    }
+
+    // User Daily Progress
+    match /userDailyProgress/{docId} {
+      // Document ID format: {userId}_{date}
+      // Allow users to read their own progress
+      allow read: if isAuthenticated() && 
+                     docId.split('_')[0] == request.auth.uid;
+      
+      // Allow anyone authenticated to read (for leaderboards, etc.)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own progress (once per day)
+      allow create: if isAuthenticated() &&
+                       docId == request.auth.uid + '_' + request.resource.data.date &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.rolls.size() == 5 &&
+                       request.resource.data.rolls[0] >= 1 && request.resource.data.rolls[0] <= 12 &&
+                       request.resource.data.rolls[1] >= 1 && request.resource.data.rolls[1] <= 12 &&
+                       request.resource.data.rolls[2] >= 1 && request.resource.data.rolls[2] <= 12 &&
+                       request.resource.data.rolls[3] >= 1 && request.resource.data.rolls[3] <= 12 &&
+                       request.resource.data.rolls[4] >= 1 && request.resource.data.rolls[4] <= 12 &&
+                       request.resource.data.target is int &&
+                       request.resource.data.target >= 1 &&
+                       request.resource.data.target <= 12 &&
+                       request.resource.data.success is bool &&
+                       request.resource.data.verified == false &&
+                       isValidDate(request.resource.data.date);
+      
+      // No updates allowed (one attempt only)
+      allow update: if false;
+      
+      // No deletes allowed
+      allow delete: if false;
+    }
+  }
+}

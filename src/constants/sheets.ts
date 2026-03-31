@@ -13,6 +13,8 @@ export const GID = {
   PLAYER_BAG: '927684470',
   SHOP: '819284917',
   HARVEST: '390673925',
+  NPC: '1431163652',
+  DAILY_TRAINING_DICE: '383013042',
 } as const;
 
 export const csvUrl = (gid: string) =>

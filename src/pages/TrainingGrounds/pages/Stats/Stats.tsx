@@ -136,7 +136,7 @@ const BG_ELEMENTS = (
   </>
 );
 
-export default function Stats({ onSelectMode }: { onSelectMode: () => void }) {
+export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void }) {
   const { user, updateUser } = useAuth();
   const { width } = useScreenSize();
   const [upgrading, setUpgrading] = useState<string | null>(null);
@@ -326,18 +326,16 @@ export default function Stats({ onSelectMode }: { onSelectMode: () => void }) {
                 <div className="training-stats__card-value">{value} / {maxValue}</div>
                 <div className="training-stats__card-progress">
                   {Array.from({ length: maxValue }).map((_, index) => (
-                    <>
+                    <React.Fragment key={index}>
                       <span
-                        key={index}
                         className={`training-stats__card-progress-dot ${value >= index + 1 ? 'active' : ''}`}
                       />
                       {index < maxValue - 1 && (
                         <span
-                          key={`connector-${index}`}
                           className={`training-stats__card-progress-dot-connector ${value >= index + 2 ? 'active' : ''}`}
                         />
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </div>
                 <div className="training-stats__card-actions">
@@ -371,13 +369,13 @@ export default function Stats({ onSelectMode }: { onSelectMode: () => void }) {
         </div>
 
         <div className="training-stats__modes">
-          <div className="training-stats__mode" onClick={onSelectMode}>
-            Train with Admin
+          <div className="training-stats__mode" onClick={onSelectTrainingWithAdminMode}>
+            Normal Mode
           </div>
-          <div className="training-stats__mode disabled">
-            PvP Training
+          <div className="training-stats__mode disabled" onClick={onSelectPvPMode}>
+            PvP Mode
           </div>
-          <div className="training-stats__mode training-stats__roleplay-submission">
+          <div className="training-stats__mode training-stats__roleplay-submission" onClick={onSelectRolePlaySubmission}>
             Roleplay Submission
           </div>
         </div>

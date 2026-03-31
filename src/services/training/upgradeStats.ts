@@ -1,5 +1,6 @@
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 import { PRACTICE_STATES } from "../../constants/practiceStates";
+import { ACTIONS } from "../../constants/action";
 
 /**
  * Upgrade a specific stat using training points
@@ -26,7 +27,7 @@ export async function upgradeStat(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'upgradeStat',
+        action: ACTIONS.UPGRADE_STAT,
         characterId,
         statId,
         pointsToSpend,
@@ -82,7 +83,7 @@ export async function refundStat(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'refundStat',
+        action: ACTIONS.REFUND_STAT,
         characterId,
         statId,
       }),

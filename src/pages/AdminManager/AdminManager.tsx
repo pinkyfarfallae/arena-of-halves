@@ -6,12 +6,14 @@ import SystemTesting, { SystemTestDice, SystemTestIris } from './pages/SystemTes
 import PowerVfxDemo from './pages/PowerVfxDemo/PowerVfxDemo';
 import HarvestApproval from './pages/HarvestApproval/HarvestApproval';
 import './AdminManager.scss';
+import DailyTrainingConfig from './pages/DailyTrainingConfig/DailyTrainingConfig';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
+  { label: 'Daily Training Config', path: 'daily-training-config', developerOnly: true },
 ] as const;
 
 function AdminManager() {
@@ -50,6 +52,7 @@ function AdminManager() {
           <Route path="testing/dice" element={<SystemTestDice />} />
           <Route path="testing/iris-message" element={<SystemTestIris />} />
           <Route path="power-vfx-demo" element={<PowerVfxDemo />} />
+          <Route path="daily-training-config" element={<DailyTrainingConfig />} />
         </Routes>
       </div>
     </div>

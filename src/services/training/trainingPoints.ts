@@ -1,3 +1,4 @@
+import { ACTIONS } from "../../constants/action";
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 
 /**
@@ -21,7 +22,7 @@ export async function updateTrainingPoints(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'updateTrainingPoints',
+        action: ACTIONS.UPDATE_TRAINING_POINTS,
         characterId,
         amount,
       }),
