@@ -158,7 +158,7 @@ export const UI_TEXT = {
     en: 'After submitting your harvest report, please wait for Pan review before receiving the reward.',
     th: 'เมื่อส่งเอกสารประเมินราคาแล้ว กรุณารอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทนดังกล่าว'
   },
-  SUBMIT: { 
+  SUBMIT: {
     en: 'Submit Harvest',
     th: 'นำส่งผลการเก็บเกี่ยว'
   },
@@ -778,9 +778,54 @@ export const UI_TEXT = {
     en: 'No',
     th: 'ไม่'
   },
+  // Training Grounds
+  STRENGTH: {
+    en: 'Strength',
+    th: 'พละกำลัง'
+  },
+  AGILITY: {
+    en: 'Agility',
+    th: 'ความคล่องแคล่ว'
+  },
+  INTELLIGENCE: {
+    en: 'Intelligence',
+    th: 'สติปัญญา'
+  },
+  // TeCHNIQUE: {
+  //     en: 'Technique',
+  //     th: 'เทคนิค'
+  //   },
+  EXPERIENCE: {
+    en: 'Experience',
+    th: 'ประสบการณ์'
+  },
+  FORTUNE: {
+    en: 'Fortune',
+    th: 'โชคชะตา'
+  },
+  STRENGTH_DESC: {
+    en: 'Power, physical prowess and endurance',
+    th: 'พละกำลัง ความแข็งแรงและความถึกทน'
+  },
+  AGILITY_DESC: {
+    en: 'Mobility, nimbleness and reflexes',
+    th: 'การเคลื่อนไหวและความคล่องแคล่วว่องไว'
+  },
+  INTELLIGENCE_DESC: {
+    en: 'Intelligence, wisdom and wit',
+    th: 'สติปัญญา ความฉลาดและไหวพริบปฏิภาณ'
+  },
+  EXPERIENCE_DESC: {
+    en: 'Experience, combat proficiency and mastery of powers',
+    th: 'ประสบการณ์ ความชำนาญในการต่อสู้และความเชี่ยวชาญในพลัง'
+  },
+  FORTUNE_DESC: {
+    en: 'Fortune, luck and serendipity',
+    th: 'โชคลาภ ดวงและการเสี่ยงทาย'
+  },
 } as const;
 
-/**
+/**))
  * Translation keys as constants to avoid hardcoded strings.
  * Usage: t(TRANSLATION_KEYS.SHOP_TITLE, language)
  */

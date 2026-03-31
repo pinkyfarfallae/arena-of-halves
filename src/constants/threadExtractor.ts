@@ -189,20 +189,7 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
   
   // Store in global for easy access
   window.__harvestResult = combined;
-  
-  try {
-    // Try clipboard API first
-    await navigator.clipboard.writeText(combined);
-    console.log("✅ Copied to clipboard!");
-  } catch {
-    try {
-      // Try DevTools copy() function
-      copy(combined);
-      console.log("✅ Copied using copy()!");
-    } catch {
-      console.log("⚠️  Auto-copy failed. Use one of these:");
-      console.log("1. Select text between === markers and Cmd+C");
-      console.log("2. Type: copy(window.__harvestResult)");
-    }
-  }
 })();` as const;
+
+
+export const COPY_RESULT_SCRIPT = 'copy(window.__harvestResult)';

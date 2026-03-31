@@ -16,6 +16,7 @@ import Eye from '../../../../icons/Eye';
 import Pencil from '../../../../icons/Pencil';
 import Trash from '../../../../icons/Trash';
 import './User.scss';
+import { USER_MANAGEMENT_MODE } from '../../../../constants/userManagement';
 
 export type MergedUser = UserRecord & Partial<Character>;
 
@@ -184,7 +185,7 @@ export default function User() {
 
       {createOpen && (
         <UserModal
-          mode="create"
+          mode={USER_MANAGEMENT_MODE.CREATE}
           onClose={() => setCreateOpen(false)}
           onDone={(apiCall) => {
             setCreateOpen(false);
@@ -196,7 +197,7 @@ export default function User() {
 
       {editUser && (
         <UserModal
-          mode="edit"
+          mode={USER_MANAGEMENT_MODE.EDIT}
           user={editUser}
           isDev={isDev}
           onClose={() => setEditUser(null)}

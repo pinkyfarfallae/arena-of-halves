@@ -19,6 +19,7 @@ import Reset from './icons/Reset';
 import { ROLE } from '../../constants/role';
 import SettingsModal from '../SettingsModal/SettingsModal';
 import './Navbar.scss';
+import { isLifeSubPage } from '../../data/lifeSubPage';
 
 /* ── Theme Picker Panel ── */
 function ThemePicker({ colors, deityBlood, onClose, onSave }: {
@@ -173,7 +174,7 @@ function Navbar() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const isViewingMember = location.pathname.startsWith('/character/');
-  const isLifeSubPage = location.pathname === '/iris-message' || location.pathname === '/shop' || location.pathname === '/craft-forge' || location.pathname === '/strawberry-fields';
+  const isLifeSubPageActive = isLifeSubPage(location.pathname);
   const isAdmin = role === ROLE.ADMIN || role === ROLE.DEVELOPER;
 
   const close = () => setOpen(false);
@@ -209,7 +210,7 @@ function Navbar() {
           <People />
           <span>{t(T.CAMP_MEMBERS)}</span>
         </NavLink>
-        <NavLink to="/life" className={({ isActive }) => `topbar-menu__item ${isActive || isLifeSubPage ? 'topbar-menu__item--active' : ''}`} onClick={close}>
+        <NavLink to="/life" className={({ isActive }) => `topbar-menu__item ${isActive || isLifeSubPageActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
           <MapIcon />
           <span>{t(T.LIFE_IN_CAMP)}</span>
         </NavLink>
@@ -251,7 +252,7 @@ function Navbar() {
           <People />
         </NavLink>
 
-        <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPage ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.LIFE_IN_CAMP)} data-tooltip-pos="right">
+        <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPageActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.LIFE_IN_CAMP)} data-tooltip-pos="right">
           <MapIcon />
         </NavLink>
 

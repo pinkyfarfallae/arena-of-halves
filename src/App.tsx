@@ -14,6 +14,7 @@ import AdminManager from './pages/AdminManager/AdminManager';
 import Lobby from './pages/Lobby/Lobby';
 import Arena from './pages/Arena/Arena';
 import StrawberryFields from './pages/StrawberryFields/StrawberryFields';
+import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -76,6 +77,7 @@ function AppRoutes() {
           <Route path="/shop" element={<Shop />} />
           <Route path="/craft-forge" element={<Forge />} />
           <Route path="/strawberry-fields" element={<StrawberryFields />} />
+          <Route path="/training-grounds/*" element={<TrainingGrounds />} />
           <Route path="/arena" element={<Lobby />} />
           <Route path="/arena/:arenaId" element={<Arena />} />
           <Route path="/admin/*" element={<AdminManager />} />

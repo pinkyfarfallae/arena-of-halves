@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link as NavigatedLink } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -68,9 +68,9 @@ import TeamPanel from './components/TeamPanel/TeamPanel';
 import SeasonalEffects from './components/SeasonalEffects/SeasonalEffects';
 import ChevronLeft from '../../icons/ChevronLeft';
 import BattleLogModal from '../Lobby/components/BattleLogModal/BattleLogModal';
-import CopyIcon from './icons/CopyIcon';
-import LinkIcon from './icons/LinkIcon';
-import CheckIcon from './icons/CheckIcon';
+import Copy from './icons/Copy';
+import Link from './icons/Link';
+import CheckIcon from './icons/Check';
 import Eye from '../../icons/Eye';
 import './Arena.scss';
 import { CHARACTER } from '../../constants/characters';
@@ -936,7 +936,7 @@ function Arena(props?: ArenaDemoProps) {
       <div className="arena">
         <div className="arena__state">
           <p className="arena__state-msg">{error}</p>
-          <Link to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</Link>
+          <NavigatedLink to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</NavigatedLink>
         </div>
       </div>
     );
@@ -1229,10 +1229,10 @@ function Arena(props?: ArenaDemoProps) {
 
       {/* ── Top bar ── */}
       <header className="arena__bar">
-        <Link to="/arena" className="arena__bar-back">
+        <NavigatedLink to="/arena" className="arena__bar-back">
           <ChevronLeft width={15} height={15} />
           Leave Arena
-        </Link>
+        </NavigatedLink>
 
         <div className="arena__bar-title">
           <span className="arena__bar-name">
@@ -1286,7 +1286,7 @@ function Arena(props?: ArenaDemoProps) {
               data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
-              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <LinkIcon />}
+              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <Link />}
             </button>
           </div>
         ) : (
@@ -1298,7 +1298,7 @@ function Arena(props?: ArenaDemoProps) {
                 data-tooltip={copied === COPY_TYPE.CODE ? 'Copied!' : 'Copy room code'}
                 data-tooltip-pos="bottom"
               >
-                {copied === COPY_TYPE.CODE ? <CheckIcon /> : <CopyIcon />}
+                {copied === COPY_TYPE.CODE ? <CheckIcon /> : <Copy />}
               </button>
             )}
             <button
@@ -1307,7 +1307,7 @@ function Arena(props?: ArenaDemoProps) {
               data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
-              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <LinkIcon />}
+              {copied === COPY_TYPE.LINK ? <CheckIcon /> : <Link />}
             </button>
           </div>
         )}

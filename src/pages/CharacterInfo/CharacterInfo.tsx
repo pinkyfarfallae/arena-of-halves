@@ -37,6 +37,7 @@ import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
 import './CharacterInfo.scss';
+import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -277,14 +278,7 @@ function CharacterInfo() {
           <div className="cs__practice">
             <h3 className="cs__practice-title"><span className="cs__practice-diamond">◆</span>Practice Progress</h3>
             <div className="cs__practice-grid">
-              {([
-                ['Strength', char.strength],
-                ['Mobility', char.mobility],
-                ['Intelligence', char.intelligence],
-                ['Technique', char.technique],
-                ['Experience', char.experience],
-                ['Fortune', char.fortune],
-              ] as [string, number][]).map(([label, val]) => (
+              {(CHARACTER_PRACTICE_STATES(char) as [string, number][]).map(([label, val]) => (
                 <div key={label} className="cs__practice-row">
                   <span className="cs__practice-label">{label}</span>
                   <span className="cs__practice-stars">

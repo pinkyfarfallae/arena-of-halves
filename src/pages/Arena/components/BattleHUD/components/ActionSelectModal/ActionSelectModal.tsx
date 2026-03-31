@@ -7,7 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCK } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
 import { PANEL_SIDE, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
-import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/power-disable-reason';
+import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/powerDisableReason';
 import { lightenColor, contrastText } from '../../../../../../utils/color';
 import './ActionSelectModal.scss';
 

@@ -25,7 +25,7 @@ import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal'
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
-import { getDisabledPowersAndReasons } from '../../../../data/power-disable-reason';
+import { getDisabledPowersAndReasons } from '../../../../data/powerDisableReason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import {
   ARENA_PATH,
