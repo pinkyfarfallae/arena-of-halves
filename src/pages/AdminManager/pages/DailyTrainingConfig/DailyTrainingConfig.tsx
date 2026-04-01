@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { getTodayTarget, setDailyTarget, getTodayDate } from '../../../../services/training/dailyTrainingDice';
 import './DailyTrainingConfig.scss';
+import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
+import { useAuth } from '../../../../hooks/useAuth';
+import { hexToRgb } from '../../../../utils/color';
+
+interface PaperTarget {
+  value: number | null;
+  rolled: boolean;
+}
 
 export default function DailyTrainingConfig() {
-  const [target, setTarget] = useState<number>(4);
-  const [currentTarget, setCurrentTarget] = useState<number | null>(null);
+  const { user } = useAuth();
+  const [papers, setPapers] = useState<PaperTarget[]>([
+    { value: null, rolled: false },
+    { value: null, rolled: false },
+    { value: null, rolled: false },
+    { value: null, rolled: false },
+    { value: null, rolled: false },
+  ]);
+  const [activePaperIndex, setActivePaperIndex] = useState<number>(0);
+  const [confirmed, setConfirmed] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -17,18 +33,23 @@ export default function DailyTrainingConfig() {
     try {
       setLoading(true);
       const todayTarget = await getTodayTarget();
-      setCurrentTarget(todayTarget);
+      // For now, just load into first paper if exists
       if (todayTarget !== null) {
-        setTarget(todayTarget);
+        setPapers([
+          { value: todayTarget, rolled: true },
+          { value: null, rolled: false },
+          { value: null, rolled: false },
+          { value: null, rolled: false },
+          { value: null, rolled: false },
+        ]);
+        setConfirmed(true); // If target exists, assume it's confirmed
       }
     } catch (err: any) {
       console.error('Failed to load current target:', err);
-      
-      // Check if it's a Firestore offline error
       if (err.code === 'unavailable' || err.message?.includes('offline')) {
-        setMessage({ 
-          type: 'error', 
-          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md for instructions.' 
+        setMessage({
+          type: 'error',
+          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md for instructions.'
         });
       } else {
         setMessage({ type: 'error', text: `Failed to load current target: ${err.message}` });
@@ -38,25 +59,73 @@ export default function DailyTrainingConfig() {
     }
   };
 
-  const handleSave = async () => {
+  const handleRollResult = (result: number) => {
+    if (confirmed) return;
+
+    // result is just a number from the DiceRoller
+    const diceValue = result;
+
+    // Update the active paper
+    const newPapers = [...papers];
+    newPapers[activePaperIndex] = {
+      value: diceValue,
+      rolled: true,
+    };
+    setPapers(newPapers);
+
+    // Move to next unrolled paper
+    const nextIndex = newPapers.findIndex((p, i) => i > activePaperIndex && !p.rolled);
+    if (nextIndex !== -1) {
+      setActivePaperIndex(nextIndex);
+    }
+  };
+
+  const handlePaperClick = (index: number) => {
+    if (confirmed) return;
+    setActivePaperIndex(index);
+  };
+
+  const handleClear = () => {
+    if (confirmed) return;
+    setPapers([
+      { value: null, rolled: false },
+      { value: null, rolled: false },
+      { value: null, rolled: false },
+      { value: null, rolled: false },
+      { value: null, rolled: false },
+    ]);
+    setActivePaperIndex(0);
+    setMessage(null);
+  };
+
+  const handleConfirm = async () => {
+    // Check if all papers are rolled
+    const allRolled = papers.every(p => p.rolled);
+    if (!allRolled) {
+      setMessage({ type: 'error', text: 'Please roll all 5 papers before confirming' });
+      return;
+    }
+
     try {
       setSaving(true);
       setMessage(null);
 
-      await setDailyTarget(target);
-      setCurrentTarget(target);
-      setMessage({ type: 'success', text: `Successfully set today's target to ${target}` });
+      // For now, save the first paper's value as the daily target
+      // TODO: Update backend to store all 5 targets
+      const firstValue = papers[0].value!;
+      await setDailyTarget(firstValue);
+
+      setConfirmed(true);
+      setMessage({ type: 'success', text: 'Successfully confirmed all targets!' });
     } catch (err: any) {
-      console.error('Failed to save target:', err);
-      
-      // Check if it's a Firestore offline error
+      console.error('Failed to confirm targets:', err);
       if (err.code === 'unavailable' || err.message?.includes('offline')) {
-        setMessage({ 
-          type: 'error', 
-          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md' 
+        setMessage({
+          type: 'error',
+          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md'
         });
       } else {
-        setMessage({ type: 'error', text: err.message || 'Failed to save target' });
+        setMessage({ type: 'error', text: err.message || 'Failed to confirm targets' });
       }
     } finally {
       setSaving(false);
@@ -73,71 +142,59 @@ export default function DailyTrainingConfig() {
 
   return (
     <div className="daily-training-config">
-      <div className="daily-training-config__header">
-        <h2>Daily Training Configuration</h2>
-        <p className="daily-training-config__date">
-          Date: {getTodayDate()}
-        </p>
+      <div className="daily-training-config__papers">
+        {papers.map((paper, index) => (
+          <div
+            key={index}
+            className={`daily-training-config__paper ${activePaperIndex === index ? 'active' : ''
+              } ${paper.rolled ? 'rolled' : ''} ${confirmed ? 'confirmed' : ''}`}
+            style={{
+              '--primary-color': user?.theme[0] || '#000',
+              '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
+              '--primary-hover-color': user?.theme[0] || '#000',
+              '--foreground-color': user?.theme[5] || '#fff',
+              '--background-color': user?.theme[1] || '#f0f0f0',
+            } as React.CSSProperties}
+            onClick={() => handlePaperClick(index)}
+          >
+            <div className="daily-training-config__paper-number">#{index + 1}</div>
+            <div className="daily-training-config__paper-value">
+              {paper.value !== null ? paper.value : '?'}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="daily-training-config__content">
-        <div className="daily-training-config__current">
-          <h3>Current Target</h3>
-          {currentTarget !== null ? (
-            <div className="daily-training-config__current-value">
-              {currentTarget}
-            </div>
-          ) : (
-            <div className="daily-training-config__no-target">
-              No target set for today
-            </div>
-          )}
-        </div>
+      {!confirmed && (
+        <DiceRoller
+          className="daily-training-config-dice-roller"
+          lockedDie={12}
+          onRollResult={handleRollResult}
+          hidePrompt
+        />
+      )}
 
-        <div className="daily-training-config__form">
-          <h3>Set New Target</h3>
-          <p className="daily-training-config__description">
-            Players need at least 3 dice rolls ≥ target to succeed
-          </p>
-
-          <div className="daily-training-config__target-selector">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-              <button
-                key={num}
-                className={`daily-training-config__target-button ${target === num ? 'active' : ''}`}
-                onClick={() => setTarget(num)}
-                disabled={saving}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="daily-training-config__save-button"
-            onClick={handleSave}
-            disabled={saving || target === currentTarget}
-          >
-            {saving ? 'Saving...' : 'Set Target'}
-          </button>
-
-          {message && (
-            <div className={`daily-training-config__message daily-training-config__message--${message.type}`}>
-              {message.text}
-            </div>
-          )}
-        </div>
-
-        <div className="daily-training-config__info">
-          <h3>How It Works</h3>
-          <ul>
-            <li>Each player can train once per day</li>
-            <li>They roll 5 twelve-sided dice (d12, values 1-12)</li>
-            <li>Need at least 3 rolls ≥ target to succeed</li>
-            <li>Results are saved to Firestore</li>
-            <li>Results are appended to Google Sheets</li>
-          </ul>
-        </div>
+      <div
+        className="daily-training-config__actions"
+        style={{
+          '--primary-color': user?.theme[0] || '#000',
+          '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
+        } as React.CSSProperties}
+      >
+        <button
+          className="daily-training-config__clear-btn"
+          onClick={handleClear}
+          disabled={confirmed || saving || papers.every(p => !p.rolled)}
+        >
+          Clear All
+        </button>
+        <button
+          className="daily-training-config__confirm-btn"
+          onClick={handleConfirm}
+          disabled={confirmed || saving || !papers.every(p => p.rolled)}
+        >
+          {saving ? 'Confirming...' : confirmed ? 'Confirmed' : 'Confirm'}
+        </button>
       </div>
     </div>
   );
