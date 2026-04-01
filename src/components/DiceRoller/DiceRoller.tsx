@@ -24,6 +24,8 @@ interface Props {
   accentColor?: string;
   /** Override 3D die colors (primary + primaryDark) */
   themeColors?: { primary: string; primaryDark: string };
+  /** Disable rolling (show but non-interactive) */
+  disabled?: boolean;
   /** Called when a roll finishes with the result number */
   onRollResult?: (n: number) => void;
   /** Called when the roll animation fully ends */
@@ -42,7 +44,7 @@ const DIE_COMPONENTS: Record<Die, React.ComponentType<DieRendererProps>> = {
   100: D100Die,
 };
 
-export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, onRollResult, onRollEnd: onRollEndProp, onRollStart }: Props) {
+export default function DiceRoller({ className, lockedDie, hidePrompt = false, autoRoll, fixedResult, accentColor, themeColors, disabled = false, onRollResult, onRollEnd: onRollEndProp, onRollStart }: Props) {
   const { user } = useAuth();
   const accent = accentColor ?? user?.theme[9] ?? '#b8860b';
   const [die, setDie] = useState<Die>(lockedDie ?? 20);
@@ -53,17 +55,17 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
 
   // Auto-roll on mount
   useEffect(() => {
-    if (autoRoll && !autoRolled.current) {
+    if (autoRoll && !autoRolled.current && !disabled) {
       autoRolled.current = true;
       setRolling(true);
     }
-  }, [autoRoll]);
+  }, [autoRoll, disabled]);
 
   const roll = useCallback(() => {
-    if (rolling) return;
+    if (rolling || disabled) return;
     onRollStart?.();
     setRolling(true);
-  }, [rolling, onRollStart]);
+  }, [rolling, disabled, onRollStart]);
 
   const handleResult = useCallback((n: number) => {
     const val = fixedResult ?? n;
@@ -80,7 +82,7 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
   const DieComponent = DIE_COMPONENTS[die];
 
   return (
-    <div className={`dr${className ? ` ${className}` : ''}`}>
+    <div className={`dr${className ? ` ${className}` : ''}${disabled ? ' dr--disabled' : ''}`}>
       {/* Prism light rays */}
       <div className="dr__prism dr__prism--1" />
       <div className="dr__prism dr__prism--2" />

@@ -6,9 +6,12 @@ import { useLanguage } from '../../../../contexts/LanguageContext';
 import LocationIcon from '../LocationIcon/LocationIcon';
 import ActionIcon from '../ActionIcon/ActionIcon';
 import './LocationPin.scss';
+import { useAuth } from '../../../../hooks/useAuth';
+import { ROLE } from '../../../../constants/role';
 
-function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: boolean }) {
+function LocationPin({ location, dimmed, adminOnly = false }: { location: CampLocation; dimmed?: boolean; adminOnly?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { role } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const pinRef = useRef<HTMLDivElement>(null);
@@ -63,7 +66,7 @@ function LocationPin({ location, dimmed }: { location: CampLocation; dimmed?: bo
           )}
 
           {/* Action buttons */}
-          {location.actionLabels?.map((label, i) => (
+          {(!adminOnly || (adminOnly && (role === ROLE.ADMIN || role === ROLE.DEVELOPER))) && location.actionLabels?.map((label, i) => (
             <button
               key={label}
               className="life__card-action"

@@ -75,6 +75,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionLabels: ['Enter Battle'],
     actionIcons: ['battle'],
     actionPaths: ['/arena'],
+    adminOnly: true,
   },
   {
     id: CAMP_LOCATION.FORGE,
