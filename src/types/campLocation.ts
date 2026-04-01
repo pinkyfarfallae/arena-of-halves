@@ -11,4 +11,5 @@ export interface CampLocation {
   actionLabels?: string[];
   actionIcons?: string[];
   actionPaths?: string[];
+  adminOnly?: boolean;
 }

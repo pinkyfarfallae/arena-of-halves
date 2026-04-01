@@ -4,21 +4,33 @@ import './TrainWithAdmin.scss';
 import { useAuth } from '../../../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import DoorExit from '../../../IrisMessage/icons/DoorExit';
+import { hexToRgb } from '../../../../utils/color';
 import {
-  getTodayTarget,
+  getTodayTargets,
   hasTrainedToday,
-  performDailyTraining,
+  savePartialProgress,
+  completeTraining,
   getTodayProgress,
   UserDailyProgress,
+  checkSuccess,
 } from '../../../../services/training/dailyTrainingDice';
+
+interface PaperRoll {
+  target: number;
+  roll: number | null;
+  rolled: boolean;
+}
 
 export default function TrainWithAdmin() {
   const { user } = useAuth();
-  const [target, setTarget] = useState<number | null>(null);
+  const [targets, setTargets] = useState<number[] | null>(null);
+  const [papers, setPapers] = useState<PaperRoll[]>([]);
+  const [currentRollIndex, setCurrentRollIndex] = useState<number>(0);
   const [alreadyTrained, setAlreadyTrained] = useState<boolean>(false);
-  const [todayProgress, setTodayProgress] = useState<UserDailyProgress | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [rolling, setRolling] = useState<boolean>(false);
+  const [finalResult, setFinalResult] = useState<{ success: boolean; rolls: number[] } | null>(null);
+  const [showEarlyFailModal, setShowEarlyFailModal] = useState<boolean>(false);
+  const [showEarlyWinModal, setShowEarlyWinModal] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -32,22 +44,41 @@ export default function TrainWithAdmin() {
       setLoading(true);
       setError('');
 
-      // Load today's target
-      const todayTarget = await getTodayTarget();
-      setTarget(todayTarget);
+      // Load all 5 today's targets
+      const todayTargets = await getTodayTargets();
+      setTargets(todayTargets);
+
+      if (todayTargets && todayTargets.length === 5) {
+        // Initialize papers with targets
+        const initialPapers: PaperRoll[] = todayTargets.map(target => ({
+          target,
+          roll: null,
+          rolled: false,
+        }));
+        setPapers(initialPapers);
+      }
 
       // Check if already trained
       const trained = await hasTrainedToday(user.characterId);
       setAlreadyTrained(trained);
 
-      // If already trained, load progress
-      if (trained) {
+      // If already trained, load progress and update papers
+      if (trained && todayTargets) {
         const progress = await getTodayProgress(user.characterId);
-        setTodayProgress(progress);
+        if (progress && progress.rolls.length === 5) {
+          const completedPapers: PaperRoll[] = todayTargets.map((target, idx) => ({
+            target,
+            roll: progress.rolls[idx],
+            rolled: true,
+          }));
+          setPapers(completedPapers);
+          setCurrentRollIndex(5);
+          setFinalResult({ success: progress.success, rolls: progress.rolls });
+        }
       }
     } catch (err: any) {
       console.error('Failed to load training data:', err);
-      
+
       // Check if it's a Firestore offline error
       if (err.code === 'unavailable' || err.message?.includes('offline')) {
         setError('Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md');
@@ -59,58 +90,145 @@ export default function TrainWithAdmin() {
     }
   };
 
-  const handleRoll = async (rolls: number[]) => {
-    if (!user?.characterId) return;
+  const handleRollResult = async (result: number) => {
+    if (alreadyTrained || currentRollIndex >= 5) return;
+
+    // Update current paper with roll result
+    const newPapers = [...papers];
+    newPapers[currentRollIndex] = {
+      ...newPapers[currentRollIndex],
+      roll: result,
+      rolled: true,
+    };
+    setPapers(newPapers);
+
+    const nextIndex = currentRollIndex + 1;
+    setCurrentRollIndex(nextIndex);
+
+    // Save partial progress to Firestore after each roll
+    try {
+      const currentRolls = newPapers
+        .filter(p => p.rolled)
+        .map(p => p.roll!);
+      const target = newPapers[0].target;
+
+      await savePartialProgress(user!.characterId!, currentRolls, target);
+    } catch (err: any) {
+      console.error('Failed to save partial progress:', err);
+      setError(err.message || 'Failed to save progress');
+    }
+
+    // Check for early failure (3 or more fails before 5th roll)
+    const failedCount = newPapers
+      .filter(p => p.rolled && p.roll! < p.target)
+      .length;
+
+    // Check for early win (3 or more passes before 5th roll)
+    const passedCount = newPapers
+      .filter(p => p.rolled && p.roll! >= p.target)
+      .length;
+
+    if (failedCount >= 3 && nextIndex < 5) {
+      // Early failure detected - show modal
+      setShowEarlyFailModal(true);
+      return;
+    }
+
+    if (passedCount >= 3 && nextIndex < 5) {
+      // Early win detected - show modal
+      setShowEarlyWinModal(true);
+      return;
+    }
+
+    // If all 5 rolls complete, save final result
+    if (nextIndex === 5) {
+      try {
+        const rolls = newPapers.map(p => p.roll!);
+        const target = newPapers[0].target;
+        const success = checkSuccess(rolls, target);
+
+        await completeTraining(user!.characterId!, rolls, target, success, false);
+
+        setAlreadyTrained(true);
+        setFinalResult({ success, rolls });
+      } catch (err: any) {
+        console.error('Failed to save training result:', err);
+
+        if (err.code === 'unavailable' || err.message?.includes('offline')) {
+          setError('Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md');
+        } else {
+          setError(err.message || 'Failed to save training result');
+        }
+      }
+    }
+  };
+
+  const handleEarlyFailConfirm = async () => {
+    // Fill remaining papers with 0 (unrolled placeholder)
+    const completedPapers = [...papers];
+    for (let i = currentRollIndex; i < 5; i++) {
+      completedPapers[i] = {
+        ...completedPapers[i],
+        roll: 0, // Placeholder for unrolled dice
+        rolled: false,
+      };
+    }
+
+    const rolls = completedPapers.map(p => p.roll || 0);
+    const target = completedPapers[0].target;
 
     try {
-      setRolling(true);
-      setError('');
+      await completeTraining(user!.characterId!, rolls, target, false, true);
 
-      const result = await performDailyTraining(user.characterId);
-      
-      // Update UI
+      setPapers(completedPapers);
+      setCurrentRollIndex(5);
       setAlreadyTrained(true);
-      setTodayProgress({
-        userId: user.characterId,
-        date: new Date().toISOString().split('T')[0],
-        rolls: result.rolls,
-        target: result.target,
-        success: result.success,
-        roleplay: null,
-        verified: false,
-        createdAt: null as any,
-      });
+      setShowEarlyFailModal(false);
+      setFinalResult({ success: false, rolls });
     } catch (err: any) {
-      console.error('Training failed:', err);
-      
-      // Check if it's a Firestore offline error
-      if (err.code === 'unavailable' || err.message?.includes('offline')) {
-        setError('Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md');
-      } else {
-        setError(err.message || 'Training failed');
-      }
-    } finally {
-      setRolling(false);
+      console.error('Failed to complete training:', err);
+      setError(err.message || 'Failed to complete training');
+    }
+  };
+
+  const handleEarlyWinConfirm = async () => {
+    // Fill remaining papers with 0 (unrolled placeholder)
+    const completedPapers = [...papers];
+    for (let i = currentRollIndex; i < 5; i++) {
+      completedPapers[i] = {
+        ...completedPapers[i],
+        roll: 0, // Placeholder for unrolled dice
+        rolled: false,
+      };
+    }
+
+    const rolls = completedPapers.map(p => p.roll || 0);
+    const target = completedPapers[0].target;
+
+    try {
+      await completeTraining(user!.characterId!, rolls, target, true, false);
+
+      setPapers(completedPapers);
+      setCurrentRollIndex(5);
+      setAlreadyTrained(true);
+      setShowEarlyWinModal(false);
+      setFinalResult({ success: true, rolls });
+    } catch (err: any) {
+      console.error('Failed to complete training:', err);
+      setError(err.message || 'Failed to complete training');
     }
   };
 
   if (loading) {
-    return (
-      <div className="train-with-admin">
-        <div className="train-with-admin__loading">Loading...</div>
-        <Link to="/training-grounds" className="train-with-admin__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
-          <DoorExit />
-        </Link>
-      </div>
-    );
+    return null;
   }
 
-  if (target === null) {
+  if (targets === null || targets.length !== 5) {
     return (
       <div className="train-with-admin">
         <div className="train-with-admin__error">
           <h2>No Training Available</h2>
-          <p>The admin hasn't set today's training target yet.</p>
+          <p>The admin hasn't set today's training targets yet.</p>
           <p>Please check back later.</p>
         </div>
         <Link to="/training-grounds" className="train-with-admin__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
@@ -122,15 +240,107 @@ export default function TrainWithAdmin() {
 
   return (
     <div className="train-with-admin">
-      <div className="train-with-admin__header">
-        <h2>Daily Training</h2>
-        <div className="train-with-admin__target">
-          Today's Target: <span className="train-with-admin__target-number">{target}</span>
-        </div>
-        <p className="train-with-admin__rules">
-          Roll 5 twelve-sided dice (d12). Get at least 3 rolls ≥ {target} to succeed!
-        </p>
+      {/* Papers showing targets and results */}
+      <div className="train-with-admin__papers">
+        {papers.map((paper, index) => (
+          <div
+            key={index}
+            className={`train-with-admin__paper ${index === currentRollIndex && !alreadyTrained ? 'active' : ''
+              } ${paper.rolled ? 'rolled' : ''} ${paper.rolled && paper.roll! >= paper.target ? 'passed' : ''
+              } ${paper.rolled && paper.roll! < paper.target ? 'failed' : ''}`}
+            style={{
+              '--primary-color': user?.theme[0] || '#000',
+              '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
+              '--foreground-color': user?.theme[5] || '#fff',
+            } as React.CSSProperties}
+          >
+            <div className={`train-with-admin__paper-label ${paper.rolled ? (paper.roll! >= paper.target ? 'passed' : 'failed') : ''}`}>
+              {paper.rolled ? (paper.roll! >= paper.target ? 'Passed' : 'Failed') : 'Target'}
+            </div>
+            <div className={`train-with-admin__paper-target ${paper.rolled ? 'rolled' : ''}`}>{paper.target}</div>
+            {paper.rolled && (
+              <>
+                <div className="train-with-admin__paper-divider"></div>
+                <div className="train-with-admin__paper-result">{paper.roll}</div>
+                <div className={`train-with-admin__paper-status ${paper.roll! >= paper.target ? 'passed' : 'failed'}`}>
+                  {paper.roll! >= paper.target ? '✓' : '✗'}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* Dice Roller */}
+      <div className="train-with-admin__roller" style={finalResult ? { opacity: 0.5 } : {}}>
+        <DiceRoller
+          className="train-with-admin-dice-roller"
+          lockedDie={12}
+          onRollResult={handleRollResult}
+          hidePrompt={alreadyTrained || currentRollIndex >= 5}
+          disabled={alreadyTrained || currentRollIndex >= 5 || showEarlyFailModal || showEarlyWinModal}
+        />
+      </div>
+
+      {/* Early Failure Modal */}
+      {showEarlyFailModal && (
+        <div className="train-with-admin__modal-overlay">
+          <div className="train-with-admin__modal train-with-admin__modal--fail">
+            <h2 className="train-with-admin__modal-title train-with-admin__modal-title--fail">Training Failed</h2>
+            <p className="train-with-admin__modal-message">
+              You've failed 3 targets. <br />
+              Unfortunately, you cannot continue.
+            </p>
+            <button
+              className="train-with-admin__modal-button train-with-admin__modal-button--fail"
+              onClick={handleEarlyFailConfirm}
+            >
+              Roger that
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Early Win Modal */}
+      {showEarlyWinModal && (
+        <div className="train-with-admin__modal-overlay">
+          <div className="train-with-admin__modal train-with-admin__modal--win">
+            <h2 className="train-with-admin__modal-title train-with-admin__modal-title--win">Training Passed!</h2>
+            <p className="train-with-admin__modal-message">
+              You've passed 3 targets. <br />
+              Congratulations, you've already succeeded!
+            </p>
+            <button
+              className="train-with-admin__modal-button train-with-admin__modal-button--win"
+              onClick={handleEarlyWinConfirm}
+            >
+              Roger that
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Final Result Overlay */}
+      {finalResult && (
+        <div className="train-with-admin__overlay">
+          <div className="train-with-admin__overlay-content">
+            <h1 className={`train-with-admin__overlay-title ${finalResult.success ? 'success' : 'failed'}`}>
+              {finalResult.success ? 'PASSED' : 'FAILED'}
+            </h1>
+            <p className="train-with-admin__overlay-message">
+              {finalResult.success
+                ? 'Great job! You passed today\'s training!'
+                : 'Not your day. Try again tomorrow!'}
+            </p>
+            <Link
+              to="/training-grounds"
+              className={`train-with-admin__overlay-button ${finalResult.success ? 'success' : 'failed'}`}
+            >
+              Back to Camp
+            </Link>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="train-with-admin__error-message">
@@ -138,55 +348,11 @@ export default function TrainWithAdmin() {
         </div>
       )}
 
-      {alreadyTrained && todayProgress ? (
-        <div className="train-with-admin__results">
-          <h3>{todayProgress.success ? '✓ Success!' : '✗ Failed'}</h3>
-          <div className="train-with-admin__dice-results">
-            {todayProgress.rolls.map((roll, index) => (
-              <div
-                key={index}
-                className={`train-with-admin__die ${roll >= todayProgress.target ? 'success' : 'fail'}`}
-              >
-                {roll}
-              </div>
-            ))}
-          </div>
-          <p className="train-with-admin__status">
-            You've already trained today. Come back tomorrow for another attempt!
-          </p>
-        </div>
-      ) : (
-        <div className="train-with-admin__roller">
-          <DiceRoller
-            className="train-with-admin-dice-roller"
-            lockedDie={12}
-            onRollResult={(result) => {
-              // Extract the 5 dice rolls from result
-              const rolls = Array.isArray(result) ? result.slice(0, 5) : [];
-              if (!rolling && !alreadyTrained) {
-                handleRoll(rolls);
-              }
-            }}
-          />
-          {!alreadyTrained && (
-            <button
-              className="train-with-admin__roll-button"
-              onClick={() => {
-                // Trigger dice roller
-                const rollButton = document.querySelector('.dice-roller__roll-button') as HTMLButtonElement;
-                rollButton?.click();
-              }}
-              disabled={rolling}
-            >
-              {rolling ? 'Rolling...' : 'Roll Dice'}
-            </button>
-          )}
-        </div>
+      {!finalResult && !showEarlyFailModal && !showEarlyWinModal && (
+        <Link to="/training-grounds" className="train-with-admin__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
+          <DoorExit />
+        </Link>
       )}
-
-      <Link to="/training-grounds" className="train-with-admin__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
-        <DoorExit />
-      </Link>
     </div>
   );
 }

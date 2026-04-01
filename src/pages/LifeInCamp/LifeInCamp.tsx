@@ -53,7 +53,7 @@ function LifeInCamp() {
         {CAMP_LOCATIONS.map(loc => {
           const match = !q || loc.name.toLowerCase().startsWith(q);
           return (
-            <LocationPin key={loc.id} location={loc} dimmed={!match} />
+            <LocationPin key={loc.id} location={loc} dimmed={!match} adminOnly={loc.adminOnly} />
           );
         })}
       </div>

@@ -15,48 +15,80 @@ service cloud.firestore {
     match /dailyConfigs/{date} {
       // Anyone authenticated can read
       allow read: if isAuthenticated();
+      
       // Anyone authenticated can create/update (admin check done in app)
+      // Allow both old format (target) and new format (targets array + confirmed)
       allow create, update: if isAuthenticated() && 
                                 isValidDate(date) &&
-                                request.resource.data.target is int &&
-                                request.resource.data.target >= 1 &&
-                                request.resource.data.target <= 12 &&
-                                request.resource.data.date == date;
-      allow delete: if false; // Don't allow deletion
+                                request.resource.data.date == date &&
+                                (
+                                  // New format: targets array
+                                  (request.resource.data.keys().hasAll(['targets', 'confirmed']) &&
+                                   request.resource.data.targets is list &&
+                                   request.resource.data.confirmed is bool) ||
+                                  // Old format: single target
+                                  (request.resource.data.target is int &&
+                                   request.resource.data.target >= 1 &&
+                                   request.resource.data.target <= 12)
+                                );
+      // Allow delete for development/testing
+      allow delete: if isAuthenticated();
     }
 
     // User Daily Progress
     match /userDailyProgress/{docId} {
       // Document ID format: {userId}_{date}
-      // Allow users to read their own progress
-      allow read: if isAuthenticated() && 
-                     docId.split('_')[0] == request.auth.uid;
-      
-      // Allow anyone authenticated to read (for leaderboards, etc.)
+      // Allow users to read their own progress or anyone authenticated to read
       allow read: if isAuthenticated();
       
-      // Users can create their own progress (once per day)
+      // Helper to validate roll value (1-12 or 0 for placeholder)
+      function isValidRoll(roll) {
+        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
+      }
+      
+      // Helper to validate verified status
+      function isValidVerified(verified) {
+        return verified is string && (verified == 'pending' || verified == 'approved' || verified == 'rejected');
+      }
+      
+      // Users can create their own progress (partial or complete)
+      // The userId comes from Google Sheets characterId, not Firebase Auth UID
       allow create: if isAuthenticated() &&
-                       docId == request.auth.uid + '_' + request.resource.data.date &&
-                       request.resource.data.userId == request.auth.uid &&
+                       docId == request.resource.data.userId + '_' + request.resource.data.date &&
                        request.resource.data.rolls.size() == 5 &&
-                       request.resource.data.rolls[0] >= 1 && request.resource.data.rolls[0] <= 12 &&
-                       request.resource.data.rolls[1] >= 1 && request.resource.data.rolls[1] <= 12 &&
-                       request.resource.data.rolls[2] >= 1 && request.resource.data.rolls[2] <= 12 &&
-                       request.resource.data.rolls[3] >= 1 && request.resource.data.rolls[3] <= 12 &&
-                       request.resource.data.rolls[4] >= 1 && request.resource.data.rolls[4] <= 12 &&
+                       isValidRoll(request.resource.data.rolls[0]) &&
+                       isValidRoll(request.resource.data.rolls[1]) &&
+                       isValidRoll(request.resource.data.rolls[2]) &&
+                       isValidRoll(request.resource.data.rolls[3]) &&
+                       isValidRoll(request.resource.data.rolls[4]) &&
                        request.resource.data.target is int &&
                        request.resource.data.target >= 1 &&
                        request.resource.data.target <= 12 &&
                        request.resource.data.success is bool &&
-                       request.resource.data.verified == false &&
+                       request.resource.data.completed is bool &&
+                       isValidVerified(request.resource.data.verified) &&
                        isValidDate(request.resource.data.date);
       
-      // No updates allowed (one attempt only)
-      allow update: if false;
+      // Allow updates for partial progress (only if not yet completed)
+      allow update: if isAuthenticated() &&
+                       docId == request.resource.data.userId + '_' + request.resource.data.date &&
+                       resource.data.completed == false &&
+                       request.resource.data.rolls.size() == 5 &&
+                       isValidRoll(request.resource.data.rolls[0]) &&
+                       isValidRoll(request.resource.data.rolls[1]) &&
+                       isValidRoll(request.resource.data.rolls[2]) &&
+                       isValidRoll(request.resource.data.rolls[3]) &&
+                       isValidRoll(request.resource.data.rolls[4]) &&
+                       request.resource.data.target is int &&
+                       request.resource.data.target >= 1 &&
+                       request.resource.data.target <= 12 &&
+                       request.resource.data.success is bool &&
+                       request.resource.data.completed is bool &&
+                       isValidVerified(request.resource.data.verified) &&
+                       isValidDate(request.resource.data.date);
       
-      // No deletes allowed
-      allow delete: if false;
+      // Allow deletes for development/testing (in production, you can restrict this to admins)
+      allow delete: if isAuthenticated();
     }
   }
 }

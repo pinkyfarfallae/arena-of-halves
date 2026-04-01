@@ -22,4 +22,10 @@ export const ACTIONS = {
   UPDATE_TRAINING_POINTS: 'updateTrainingPoints',
   UPGRADE_STAT: 'upgradeStat',
   REFUND_STAT: 'refundStat',
+  FETCH_TRAININGS: 'fetchTrainings',
+  FETCH_ALL_TRAININGS: 'fetchAllTrainings',
+  APPEND_DAILY_TRAINING: 'appendDailyTraining',
+  SUBMIT_TRAINING_ROLEPLAY: 'submitTrainingRoleplay',
+  VERIFY_TRAINING: 'verifyTraining',
+  RECHECK_TRAINING: 'recheckTraining',
 };
