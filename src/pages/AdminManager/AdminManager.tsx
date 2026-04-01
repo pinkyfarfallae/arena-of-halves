@@ -10,10 +10,10 @@ import DailyTrainingConfig from './pages/DailyTrainingConfig/DailyTrainingConfig
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
-  { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'System Testing', path: 'testing' },
+  { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
-  { label: 'Daily Training Config', path: 'daily-training-config', developerOnly: true },
+  { label: 'Daily Training Config', path: 'daily-training-config' },
 ] as const;
 
 function AdminManager() {
