@@ -162,16 +162,15 @@
       color: var(--dark-color, #2c2c2c);
 
       @media (max-width: $bp-medium) {
+        width: fit-content;
         font-size: 1.5rem;
         letter-spacing: 0.1em;
         padding: 0 2rem;
-        position: static;
-        transform: scaleY(1.07);
+        transform: scaleY(1.07) translateX(-50%);
         margin: 0 auto;
       }
     }
 
-    &-refund-ticket,
     &-points {
       display: inline-flex;
       align-items: center;
@@ -194,7 +193,6 @@
         margin-left: auto;
 
         @media (max-width: $bp-medium) {
-          width: 100%;
           justify-content: space-between;
           order: 1;
           gap: 0.5rem;
@@ -252,6 +250,10 @@
           font-size: 0.6rem;
           font-weight: 600;
           color: var(--dark-color, #2c2c2c);
+
+          @media (max-width: $bp-compact) {
+            display: none;
+          }
         }
 
         .value {
@@ -436,9 +438,27 @@
       align-items: center;
       justify-content: center;
       font-size: 1rem;
+      line-height: 2;
       font-weight: 600;
       color: var(--dark-color, #2c2c2c);
       opacity: 0.5;
+      padding: 0 5rem;
+      text-align: center;
+
+      @media (max-width: $bp-medium) {
+        font-size: 0.9rem;
+        padding: 0 10rem;
+      }
+
+      @media (max-width: $bp-compact) {
+        font-size: 0.85rem;
+        padding: 0 6rem;
+      }
+
+      @media (max-width: $bp-mobile) {
+        font-size: 0.75rem;
+        padding: 0 3rem;
+      }
     }
 
     &-approved {
