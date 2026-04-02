@@ -33,6 +33,7 @@ function footerWithBoldQuotes(text: string): React.ReactNode {
 
 interface Props {
   attacker: FighterState;
+  practiceMode?: boolean;
   defenderName?: string;
   isMyTurn: boolean;
   phase: string;
@@ -163,7 +164,8 @@ function PowerTooltip({
   );
 }
 
-export default function ActionSelectModal({ attacker, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, disabledPowerReasons, infoReasons, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
+export default function ActionSelectModal({ attacker, practiceMode, defenderName, isMyTurn, phase, themeColor, themeColorDark, side = PANEL_SIDE.LEFT, disabledPowerNames, disabledPowerReasons, infoReasons, teammates, deadTeammateIds, onSelectAction, initialShowPowers }: Props) {
+  const attackerPowers = attacker.powers ?? [];
   // When returning from "choose target" (Back), open on power list immediately to avoid jitter of action buttons
   const [showPowerPicker, setShowPowerPicker] = useState(() => !!initialShowPowers);
   const [selectedPowerIdx, setSelectedPowerIdx] = useState<number | null>(null);
@@ -205,7 +207,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   // When user confirms a power, check if it's ally-targeting
   const handlePowerConfirm = () => {
     if (selectedPowerIdx == null) return;
-    const power = attacker.powers[selectedPowerIdx];
+    const power = attackerPowers[selectedPowerIdx];
     // Floral Fragrance, Apollo's Hymn: use target select modal (so "Healing nullified" can show there)
     const useTargetModalForAlly = power?.name === POWER_NAMES.FLORAL_FRAGRANCE || power?.name === POWER_NAMES.APOLLO_S_HYMN;
     if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0 && !useTargetModalForAlly) {
@@ -226,7 +228,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
 
   const handleAllyConfirm = () => {
     if (allyPowerIdx != null && selectedAllyId) {
-      const allyPowerName = attacker.powers[allyPowerIdx]?.name;
+      const allyPowerName = attackerPowers[allyPowerIdx]?.name;
       onSelectAction(TURN_ACTION.POWER, allyPowerName, selectedAllyId);
     }
   };
@@ -238,7 +240,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
   };
 
   // Find the hovered power's description
-  const hoveredPower = hoveredIdx != null ? attacker.powers[hoveredIdx] : null;
+  const hoveredPower = hoveredIdx != null ? attackerPowers[hoveredIdx] : null;
 
   // Opponent is deciding
   if (!isMyTurn) {
@@ -255,7 +257,7 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
 
   // Ally selection step
   if (allyStep && allyPowerIdx != null) {
-    const allyPower = attacker.powers[allyPowerIdx];
+    const allyPower = attackerPowers[allyPowerIdx];
     const isDeathKeeper = allyPower?.name === POWER_NAMES.DEATH_KEEPER;
     const allAlive = (teammates || []).filter(m => m.currentHp > 0);
     const allDead = (teammates || []).filter(m => m.currentHp <= 0);
@@ -318,73 +320,76 @@ export default function ActionSelectModal({ attacker, defenderName, isMyTurn, ph
       <span className="bhud__dice-sub">{attacker.nicknameEng}{defenderName ? ` → ${defenderName}` : "'s turn"}</span>
 
       {/* Quota pips */}
-      <div className="bhud__quota">
-        {(() => {
-          const quota = typeof attacker.quota === 'number' && !isNaN(attacker.quota) ? attacker.quota : attacker.maxQuota;
-          const maxQuota = typeof attacker.maxQuota === 'number' && !isNaN(attacker.maxQuota) ? attacker.maxQuota : 0;
-          return (
-            <>
-              {Array.from({ length: maxQuota }, (_, i) => (
-                <span key={i} className={`bhud__quota-pip ${i < quota ? 'bhud__quota-pip--filled' : ''}`} />
-              ))}
-              <span className="bhud__quota-label">{quota}/{maxQuota} SP</span>
-            </>
-          );
-        })()}
-      </div>
+      {!practiceMode && (
+        <div className="bhud__quota">
+          {(() => {
+            const quota = typeof attacker.quota === 'number' && !isNaN(attacker.quota) ? attacker.quota : attacker.maxQuota;
+            const maxQuota = typeof attacker.maxQuota === 'number' && !isNaN(attacker.maxQuota) ? attacker.maxQuota : 0;
+            return (
+              <>
+                {Array.from({ length: maxQuota }, (_, i) => (
+                  <span key={i} className={`bhud__quota-pip ${i < quota ? 'bhud__quota-pip--filled' : ''}`} />
+                ))}
+                <span className="bhud__quota-label">{quota}/{maxQuota} SP</span>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {!showPowerPicker ? (
         <div className="bhud__action-btns">
           <button className="bhud__action-btn bhud__action-btn--attack" onClick={() => onSelectAction(TURN_ACTION.ATTACK)}>
             Attack
           </button>
-          <button
-            className="bhud__action-btn bhud__action-btn--power"
-            disabled={getAffordablePowers(attacker).length === 0}
-            onClick={() => setShowPowerPicker(true)}
-          >
-            Use Power
-          </button>
+          {!practiceMode && (
+            <button
+              className="bhud__action-btn bhud__action-btn--power"
+              disabled={getAffordablePowers({ ...attacker, powers: attackerPowers }).length === 0}
+              onClick={() => setShowPowerPicker(true)}
+            >
+              Use Power
+            </button>)}
         </div>
       ) : (
         <>
           <div className="bhud__power-picker">
-            {attacker.powers.filter(p => {
+            {attackerPowers.filter(p => {
               if (p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.DEATH_KEEPER) return true;
-              return p.type !== 'Passive';
+              return p.type !== POWER_TYPES.PASSIVE;
             }).map((p, idx: number) => {
-            const realIdx = attacker.powers.indexOf(p);
-            const cost = getQuotaCost(p.type);
-            const isDK = p.name === POWER_NAMES.DEATH_KEEPER;
-            const unlocked = isDK || (
-              (p.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
-              ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
-            );
-            const canAfford = isDK || attacker.quota >= cost;
-            const usable = isDK
-              ? (deadTeammateIds?.size ?? 0) > 0 && !disabledPowerNames?.has(p.name)
-              : unlocked && canAfford && !disabledPowerNames?.has(p.name);
-            const selected = selectedPowerIdx === realIdx;
-            return (
-              <div
-                key={idx}
-                className="bhud__power-item"
-                onMouseEnter={(e) => handleMouseEnter(realIdx, e)}
-                onMouseLeave={handleMouseLeave}
-              >
-                <button
-                  className={`bhud__power-btn ${!usable ? 'bhud__power-btn--disabled' : ''} ${selected ? 'bhud__power-btn--selected' : ''}`}
-                  disabled={!usable}
-                  onClick={() => setSelectedPowerIdx(selected ? null : realIdx)}
+              const realIdx = attackerPowers.indexOf(p);
+              const cost = getQuotaCost(p.type);
+              const isDK = p.name === POWER_NAMES.DEATH_KEEPER;
+              const unlocked = isDK || (
+                (p.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
+                ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
+              );
+              const canAfford = isDK || attacker.quota >= cost;
+              const usable = isDK
+                ? (deadTeammateIds?.size ?? 0) > 0 && !disabledPowerNames?.has(p.name)
+                : unlocked && canAfford && !disabledPowerNames?.has(p.name);
+              const selected = selectedPowerIdx === realIdx;
+              return (
+                <div
+                  key={idx}
+                  className="bhud__power-item"
+                  onMouseEnter={(e) => handleMouseEnter(realIdx, e)}
+                  onMouseLeave={handleMouseLeave}
                 >
-                  <span className="bhud__power-type">{isDK ? 'Passive' : p.type}</span>
-                  <span className="bhud__power-name">{p.name}</span>
-                  <span className="bhud__power-cost">{isDK ? 'FREE' : `${cost} SP`}</span>
-                  {!unlocked && <span className="bhud__power-lock">Locked</span>}
-                </button>
-              </div>
-            );
-          })}
+                  <button
+                    className={`bhud__power-btn ${!usable ? 'bhud__power-btn--disabled' : ''} ${selected ? 'bhud__power-btn--selected' : ''}`}
+                    disabled={!usable}
+                    onClick={() => setSelectedPowerIdx(selected ? null : realIdx)}
+                  >
+                    <span className="bhud__power-type">{isDK ? 'Passive' : p.type}</span>
+                    <span className="bhud__power-name">{p.name}</span>
+                    <span className="bhud__power-cost">{isDK ? 'FREE' : `${cost} SP`}</span>
+                    {!unlocked && <span className="bhud__power-lock">Locked</span>}
+                  </button>
+                </div>
+              );
+            })}
           </div>
           <div className="bhud__power-actions">
             <button className="bhud__power-back" onClick={() => { setShowPowerPicker(false); setSelectedPowerIdx(null); }}>

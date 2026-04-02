@@ -11,6 +11,18 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    
+    "trainingQuotas": {
+      ".read": "auth != null",
+      
+      "$characterId": {
+        ".write": "auth != null && auth.uid != null",
+        
+        "$date": {
+          ".validate": "newData.hasChildren(['used', 'timestamp'])"
+        }
+      }
     }
   }
 }

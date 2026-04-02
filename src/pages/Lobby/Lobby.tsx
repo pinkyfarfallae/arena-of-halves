@@ -314,19 +314,20 @@ function Lobby() {
               <div className="lobby__empty">
                 <Colosseum className="lobby__empty-icon" width={64} height={64} />
                 <p>No active battles. Create one to begin.</p>
-                {/* {role === ROLE.DEVELOPER && (
-                  <button
-                    type="button"
-                    className="lobby__delete-all"
-                    onClick={handleDeleteAllRooms}
-                    disabled={deletingAll}
-                    title="Delete all arena rooms on server"
-                  >
-                    {deletingAll ? 'Deleting...' : 'Delete all rooms'}
-                  </button>
-                )} */}
               </div>
             )}
+
+            {/* {role === ROLE.DEVELOPER && (
+              <button
+                type="button"
+                className="lobby__delete-all"
+                onClick={handleDeleteAllRooms}
+                disabled={deletingAll}
+                title="Delete all arena rooms on server"
+              >
+                {deletingAll ? 'Deleting...' : 'Delete all rooms'}
+              </button>
+            )} */}
           </div>
         </div>
       </div>

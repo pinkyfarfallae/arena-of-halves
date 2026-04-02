@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  getTodayTarget,
-  getTodayDate,
   getDraftTargets,
   saveDraftTargets,
   confirmTargets

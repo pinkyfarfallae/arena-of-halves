@@ -1,15 +1,14 @@
 import {
-  collection,
   doc,
   getDoc,
   setDoc,
-  deleteDoc,
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { APPS_SCRIPT_URL } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
+import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/practiceStates';
 
 const DAILY_CONFIGS_COLLECTION = 'dailyConfigs';
@@ -26,7 +25,7 @@ export interface UserDailyProgress {
   userId: string;
   date: string;
   rolls: number[];
-  target: number;
+  target: number; // Target at time of training (for historical accuracy)
   success: boolean;
   completed: boolean; // true when all 5 rolls done or early failed
   earlyFailed?: boolean; // true if failed before 5th roll
@@ -37,6 +36,30 @@ export interface UserDailyProgress {
   rejectReason?: string;
   tickets: number;
   createdAt: Timestamp;
+  practiceMode?: 'admin' | 'pvp';
+  practiceState?: 'live' | 'finished';
+  practiceArenaId?: string;
+  practiceRoomCode?: string;
+  practiceRole?: typeof ARENA_ROLE.TEAM_A | typeof ARENA_ROLE.TEAM_B;
+  practiceOpponentId?: string;
+  practiceOpponentName?: string;
+  practiceBattleRounds?: number;
+  practiceBattleWinner?: boolean;
+  practiceBattleRolls?: number[];
+}
+
+export interface PracticeProgressInput {
+  userId: string;
+  arenaId: string;
+  roomCode: string;
+  role: typeof ARENA_ROLE.TEAM_A | typeof ARENA_ROLE.TEAM_B;
+  rolls?: number[];
+  battleRolls?: number[];
+  opponentId?: string;
+  opponentName?: string;
+  state: 'live' | 'finished';
+  rounds?: number;
+  winner?: boolean;
 }
 
 // Get today's date in YYYY-MM-DD format
@@ -238,6 +261,8 @@ export const savePartialProgress = async (
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
     tickets: 0,
+    practiceMode: 'admin',
+    practiceState: 'live',
     createdAt: serverTimestamp(),
   }, { merge: true });
 };
@@ -255,7 +280,7 @@ export const completeTraining = async (
   }
 
   rolls.forEach(roll => {
-    if (roll < 1 && roll !== 0 || roll > 12) {
+    if ((roll < 1 && roll !== 0) || roll > 12) {
       throw new Error('Each roll must be between 0 and 12');
     }
   });
@@ -275,6 +300,8 @@ export const completeTraining = async (
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
     tickets: 0,
+    practiceMode: 'admin',
+    practiceState: 'finished',
     createdAt: serverTimestamp(),
   }, { merge: true });
 
@@ -376,6 +403,60 @@ const appendToGoogleSheets = async (
     console.error('Failed to append to Google Sheets:', error);
     throw error;
   }
+};
+
+export const savePracticeProgress = async (progress: PracticeProgressInput): Promise<void> => {
+  const date = getTodayDate();
+  const docId = `${progress.userId}_${date}`;
+  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const existingSnap = await getDoc(progressRef);
+  const existing = existingSnap.exists() ? (existingSnap.data() as UserDailyProgress) : null;
+
+  if (existing) {
+    const isSameLivePvp =
+      existing.practiceMode === 'pvp' &&
+      existing.practiceArenaId === progress.arenaId &&
+      existing.practiceState === 'live';
+
+    if (!isSameLivePvp) {
+      throw new Error('You already used your practice quota for today.');
+    }
+  }
+
+  await setDoc(progressRef, {
+    userId: progress.userId,
+    date,
+    rolls: (() => {
+      const source = progress.rolls ?? [0, 0, 0, 0, 0];
+      const padded = [...source.slice(0, 5)];
+      while (padded.length < 5) padded.push(0);
+      return padded;
+    })(),
+    target: 1,
+    success: progress.state === 'finished' ? !!progress.winner : false,
+    completed: progress.state === 'finished',
+    earlyFailed: false,
+    roleplay: null,
+    verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+    verifiedBy: '',
+    verifiedAt: '',
+    rejectReason: '',
+    tickets: 0,
+    practiceMode: 'pvp',
+    practiceState: progress.state,
+    practiceArenaId: progress.arenaId,
+    practiceRoomCode: progress.roomCode,
+    practiceRole: progress.role,
+    practiceOpponentId: progress.opponentId || '',
+    practiceOpponentName: progress.opponentName || '',
+    practiceBattleRounds: progress.rounds ?? 0,
+    practiceBattleWinner: progress.state === 'finished' ? !!progress.winner : false,
+    practiceBattleRolls: (() => {
+      const source = progress.battleRolls ?? progress.rolls ?? [];
+      return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
+    })(),
+    createdAt: serverTimestamp(),
+  }, { merge: true });
 };
 
 // Fetch training records from Google Sheets

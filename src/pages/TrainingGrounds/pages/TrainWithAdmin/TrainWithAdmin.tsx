@@ -39,10 +39,6 @@ export default function TrainWithAdmin() {
   const [showEarlyWinModal, setShowEarlyWinModal] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
-  useEffect(() => {
-    loadTodayData();
-  }, [user]);
-
   const loadTodayData = async () => {
     setLoading(true);
 
@@ -62,13 +58,12 @@ export default function TrainWithAdmin() {
       const todayTargets = await getTodayTargets();
       setTargets(todayTargets);
 
-      const trainings = await fetchTrainings(user.characterId);
-      if (trainings && trainings.length > 0) {
-        // Get the most recent training (last element)
-        setUserTasks(trainings[trainings.length - 1]);
-      } else {
-        setUserTasks(null);
-      }
+      const [trainings, todayProgress] = await Promise.all([
+        fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+        getTodayProgress(user.characterId).catch(() => null),
+      ]);
+      const latestTraining = todayProgress ?? (trainings && trainings.length > 0 ? trainings[trainings.length - 1] : null);
+      setUserTasks(latestTraining);
 
       if (todayTargets && todayTargets.length === 5) {
         // Initialize papers with targets
@@ -111,6 +106,10 @@ export default function TrainWithAdmin() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadTodayData();
+  }, [user]);
 
   const handleRollResult = async (result: number) => {
     if (alreadyTrained || currentRollIndex >= 5) return;
@@ -254,6 +253,8 @@ export default function TrainWithAdmin() {
     } as React.CSSProperties
   }, [user]);
 
+  const isPvpPractice = userTasks?.practiceMode === 'pvp';
+
   if (loading) {
     return (
       <div
@@ -281,6 +282,42 @@ export default function TrainWithAdmin() {
             className="train-with-admin__error-back-button"
           >
             Back to Camp
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPvpPractice && userTasks?.practiceState === 'live') {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>PvP practice in progress</h2>
+          <p>Your training room is still live. Rejoin the room and finish the battle before starting guided training.</p>
+          <Link
+            to={userTasks.practiceArenaId ? `/training-grounds/pvp/${userTasks.practiceArenaId}` : '/training-grounds'}
+            className="train-with-admin__error-back-button"
+          >
+            Return to PvP
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPvpPractice && userTasks?.practiceState === 'finished') {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>PvP task ready</h2>
+          <p>Your battle has ended. Submit the roleplay for this PvP practice to complete the task.</p>
+          <Link
+            to="/training-grounds/tasks"
+            className="train-with-admin__error-back-button"
+          >
+            Go to Tasks
           </Link>
         </div>
       </div>
