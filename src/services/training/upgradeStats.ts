@@ -1,5 +1,4 @@
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
-import { PRACTICE_STATES } from "../../constants/practiceStates";
 import { ACTIONS } from "../../constants/action";
 
 /**
@@ -94,5 +93,37 @@ export async function refundStat(
   } catch (error) {
     console.error('Error refunding stat:', error);
     return { error: 'Failed to refund stat' };
+  }
+}
+
+/**
+ * Refund all training stats at once and return all spent training points.
+ * The backend should zero all stats and add the total refunded TP back to the user.
+ */
+export async function refundAllStats(
+  characterId: string
+): Promise<{
+  success?: boolean;
+  characterId?: string;
+  previousValues?: Record<string, number>;
+  newValues?: Record<string, number>;
+  pointsRefunded?: number;
+  remainingPoints?: number;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: ACTIONS.REFUND_ALL_STATS,
+        characterId,
+      }),
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error('Error refunding all stats:', error);
+    return { error: 'Failed to refund all stats' };
   }
 }

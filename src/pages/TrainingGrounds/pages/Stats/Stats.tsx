@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { PRACTICE_STATES } from '../../../../constants/practiceStates';
+import { ROLE } from '../../../../constants/role';
 import { hexToRgb } from '../../../../utils/color';
-import { upgradeStat, getUpgradeCost } from '../../../../services/training/upgradeStats';
+import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
 import { fetchAllCharacters } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
@@ -45,25 +46,27 @@ const statIcons: Record<string, string> = {
 };
 
 export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void }) {
-  const { user, updateUser } = useAuth();
+  const { user, role, updateUser, refreshUser } = useAuth();
   const { width } = useScreenSize();
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [isUpgradeOverlayVisible, setIsUpgradeOverlayVisible] = useState(false);
+  const [isRefundOverlayVisible, setIsRefundOverlayVisible] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [noticeModal, setNoticeModal] = useState<{ title: string; message: string } | null>(null);
-  const refundTicketCount = 1; // Mock for now. Replace with real ticket data later.
+  const refundTicketCount = (role === ROLE.DEVELOPER || role === ROLE.ADMIN) ? 1 : 0;
   const MIN_UPGRADE_OVERLAY_MS = 3000;
   const UPGRADE_FADE_MS = 280;
   const showUpgradeOverlay = upgrading !== null;
   const upgradeOverlayVisible = isUpgradeOverlayVisible;
+  const showRefundOverlay = isRefundOverlayVisible;
 
   const activeUpgradeStat = upgrading
     ? PRACTICE_STATES_DETAIL.find((stat) => stat.id === upgrading)
     : null;
-  const emberParticles = Array.from({ length: 30 }, (_, index) => {
+  const emberParticles = Array.from({ length: 48 }, (_, index) => {
     const left = (index * 7.5 + (index % 3) * 4.25) % 100;
-    const delay = (index % 10) * 0.24 + Math.floor(index / 10) * 0.16;
-    const duration = 5.2 + (index % 6) * 0.42;
+    const delay = (index % 12) * 0.18 + Math.floor(index / 12) * 0.12;
+    const duration = 4.8 + (index % 6) * 0.34;
     const size = 2 + (index % 5);
     const bottom = -18 + (index % 6) * 3;
 
@@ -73,13 +76,13 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       size: `${size}px`,
       delay: `${delay}s`,
       duration: `${duration}s`,
-      opacity: 0.28 + (index % 5) * 0.12,
+      opacity: 0.34 + (index % 5) * 0.12,
     };
   });
-  const fallingEmberParticles = Array.from({ length: 24 }, (_, index) => {
+  const fallingEmberParticles = Array.from({ length: 36 }, (_, index) => {
     const left = (index * 8.8 + (index % 4) * 3.5) % 100;
-    const delay = (index % 8) * 0.3 + Math.floor(index / 8) * 0.14;
-    const duration = 5.6 + (index % 5) * 0.38;
+    const delay = (index % 9) * 0.22 + Math.floor(index / 9) * 0.12;
+    const duration = 5.2 + (index % 5) * 0.3;
     const size = 2 + (index % 4);
     const top = -12 + (index % 6) * 2;
 
@@ -89,7 +92,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       size: `${size}px`,
       delay: `${delay}s`,
       duration: `${duration}s`,
-      opacity: 0.24 + (index % 4) * 0.12,
+      opacity: 0.3 + (index % 4) * 0.12,
     };
   });
 
@@ -181,7 +184,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setShowRefundConfirm(true);
   };
 
-  const handleConfirmRefundAllStats = () => {
+  const handleConfirmRefundAllStats = async () => {
     if (!user) return;
 
     const statIds = PRACTICE_STATES_DETAIL.map((stat) => stat.id);
@@ -196,16 +199,36 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       return;
     }
 
-    updateUser({
-      strength: 0,
-      mobility: 0,
-      intelligence: 0,
-      technique: 0,
-      experience: 0,
-      fortune: 0,
-      trainingPoints: (user.trainingPoints || 0) + totalRefundPoints,
-    });
+    setShowRefundConfirm(false);
+    setIsRefundOverlayVisible(true);
+    const startedAt = Date.now();
 
+    const result = await refundAllStats(user.characterId);
+
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < MIN_UPGRADE_OVERLAY_MS) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_UPGRADE_OVERLAY_MS - elapsed));
+    }
+
+    if (result.error) {
+      setIsRefundOverlayVisible(false);
+      await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
+      setNoticeModal({
+        title: 'Refund Failed',
+        message: `Error: ${result.error}`,
+      });
+      return;
+    }
+
+    await refreshUser();
+    const characters = await fetchAllCharacters();
+    const updated = characters.find((c) => c.characterId === user.characterId);
+    if (updated) {
+      updateUser(updated);
+    }
+
+    setIsRefundOverlayVisible(false);
+    await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
     setShowRefundConfirm(false);
   };
 
@@ -370,10 +393,10 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
                   height: ember.size,
                   animationDelay: ember.delay,
                   animationDuration: ember.duration,
-                opacity: ember.opacity,
-              }}
-            />
-          ))}
+                  opacity: ember.opacity,
+                }}
+              />
+            ))}
             {fallingEmberParticles.map((ember, index) => (
               <span
                 key={`falling-${index}`}
@@ -416,6 +439,61 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           onConfirm={handleConfirmRefundAllStats}
           onCancel={() => setShowRefundConfirm(false)}
         />
+      )}
+
+      {showRefundOverlay && (
+        <div
+          className={`training-stats__refund-overlay ${showRefundOverlay ? 'training-stats__refund-overlay--visible' : 'training-stats__refund-overlay--hidden'}`}
+          role="status"
+          aria-live="polite"
+          aria-label="Refunding stats"
+          style={{
+            '--overlay-stat-rgb': '255, 255, 255',
+          } as React.CSSProperties}
+        >
+          <div className="training-stats__refund-overlay-embers" aria-hidden="true">
+            {emberParticles.map((ember, index) => (
+              <span
+                key={`refund-rise-${index}`}
+                className="training-stats__refund-overlay-ember training-stats__refund-overlay-ember--rise"
+                style={{
+                  '--ember-rgb': '255, 255, 255',
+                  left: ember.left,
+                  bottom: ember.bottom,
+                  width: ember.size,
+                  height: ember.size,
+                  animationDelay: ember.delay,
+                  animationDuration: ember.duration,
+                  opacity: ember.opacity,
+                } as React.CSSProperties}
+              />
+            ))}
+            {fallingEmberParticles.map((ember, index) => (
+              <span
+                key={`refund-fall-${index}`}
+                className="training-stats__refund-overlay-ember training-stats__refund-overlay-ember--falling"
+                style={{
+                  '--ember-rgb': '255, 255, 255',
+                  left: ember.left,
+                  top: ember.top,
+                  width: ember.size,
+                  height: ember.size,
+                  animationDelay: ember.delay,
+                  animationDuration: ember.duration,
+                  opacity: ember.opacity,
+                } as React.CSSProperties}
+              />
+            ))}
+          </div>
+
+          <div className="training-stats__refund-overlay-card">
+            <div className="training-stats__refund-overlay-arc" />
+            <div className="training-stats__refund-overlay-text">
+              <span className="training-stats__refund-overlay-title">Refunding your bloodline</span>
+              <span className="training-stats__refund-overlay-subtitle">Training points are flowing back to you...</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {noticeModal && (

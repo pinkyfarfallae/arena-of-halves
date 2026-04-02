@@ -12,7 +12,6 @@ import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
-import Refund from '../Stats/icons/Refund';
 import { fetchTrainings, getTodayDate, getTodayProgress, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/practiceStates';
 import Swords from '../../../../icons/Swords';
