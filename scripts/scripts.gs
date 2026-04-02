@@ -149,6 +149,10 @@ function doPost(e) {
       return refundStat(data.characterId, data.statId);
     }
 
+    if (data.action === 'refundAllStats') {
+      return refundAllStats(data.characterId);
+    }
+
     if (data.action === 'appendDailyTraining') {
       return handleAppendDailyTraining(data);
     }
@@ -1054,6 +1058,88 @@ function refundStat(characterId, statId) {
         previousValue: currentStatValue,
         newValue: newStatValue,
         pointsRefunded: REFUND_AMOUNT,
+        remainingPoints: newPoints
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
+   REFUND ALL STATS
+   - Resets all practice stats to 0
+   - Returns all spent training points to the character
+   ══════════════════════════════════════ */
+function refundAllStats(characterId) {
+  characterId = (characterId || '').toString().trim();
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  var validStats = ['strength', 'mobility', 'intelligence', 'technique', 'experience', 'fortune'];
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var trainingPointsCol = headers.indexOf('trainingpoints');
+
+  if (idCol === -1) {
+    return jsonResponse({ error: 'characterid column not found' });
+  }
+
+  if (trainingPointsCol === -1) {
+    return jsonResponse({ error: 'trainingpoints column not found' });
+  }
+
+  var statCols = {};
+  for (var s = 0; s < validStats.length; s++) {
+    var statId = validStats[s];
+    var col = headers.indexOf(statId);
+    if (col === -1) {
+      return jsonResponse({ error: statId + ' column not found' });
+    }
+    statCols[statId] = col;
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentPoints = parseInt(data[i][trainingPointsCol] || '0', 10);
+      var previousValues = {};
+      var pointsRefunded = 0;
+
+      for (var j = 0; j < validStats.length; j++) {
+        var statKey = validStats[j];
+        var currentStatValue = parseInt(data[i][statCols[statKey]] || '0', 10);
+        previousValues[statKey] = currentStatValue;
+        pointsRefunded += currentStatValue;
+        sheet.getRange(i + 1, statCols[statKey] + 1).setValue(0);
+      }
+
+      var newPoints = currentPoints + pointsRefunded;
+      sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
+
+      return jsonResponse({
+        success: true,
+        characterId: characterId,
+        previousValues: previousValues,
+        newValues: {
+          strength: 0,
+          mobility: 0,
+          intelligence: 0,
+          technique: 0,
+          experience: 0,
+          fortune: 0
+        },
+        pointsRefunded: pointsRefunded,
         remainingPoints: newPoints
       });
     }

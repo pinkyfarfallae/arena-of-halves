@@ -22,6 +22,7 @@ export const ACTIONS = {
   UPDATE_TRAINING_POINTS: 'updateTrainingPoints',
   UPGRADE_STAT: 'upgradeStat',
   REFUND_STAT: 'refundStat',
+  REFUND_ALL_STATS: 'refundAllStats',
   FETCH_TRAININGS: 'fetchTrainings',
   FETCH_ALL_TRAININGS: 'fetchAllTrainings',
   APPEND_DAILY_TRAINING: 'appendDailyTraining',
