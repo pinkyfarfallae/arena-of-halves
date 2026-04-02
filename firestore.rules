@@ -50,9 +50,20 @@ service cloud.firestore {
       function isValidVerified(verified) {
         return verified is string && (verified == 'pending' || verified == 'approved' || verified == 'rejected');
       }
+
+      // Helper to validate practice mode
+      function isValidPracticeMode(mode) {
+        return mode is string && (mode == 'admin' || mode == 'pvp');
+      }
+
+      // Helper to validate practice state
+      function isValidPracticeState(state) {
+        return state is string && (state == 'waiting' || state == 'live' || state == 'finished');
+      }
       
       // Users can create their own progress (partial or complete)
       // The userId comes from Google Sheets characterId, not Firebase Auth UID
+      // Supports both normal training and PvP practice with optional fields
       allow create: if isAuthenticated() &&
                        docId == request.resource.data.userId + '_' + request.resource.data.date &&
                        request.resource.data.rolls.size() == 5 &&
@@ -67,12 +78,15 @@ service cloud.firestore {
                        request.resource.data.success is bool &&
                        request.resource.data.completed is bool &&
                        isValidVerified(request.resource.data.verified) &&
-                       isValidDate(request.resource.data.date);
+                       isValidDate(request.resource.data.date) &&
+                       // Validate practice mode if present
+                       (!request.resource.data.keys().hasAny(['practiceMode']) || isValidPracticeMode(request.resource.data.practiceMode)) &&
+                       (!request.resource.data.keys().hasAny(['practiceState']) || isValidPracticeState(request.resource.data.practiceState));
       
-      // Allow updates for partial progress (only if not yet completed)
+      // Allow updates for partial progress or PvP practice updates
+      // PvP can update even when completed (to change from 'live' to 'finished')
       allow update: if isAuthenticated() &&
                        docId == request.resource.data.userId + '_' + request.resource.data.date &&
-                       resource.data.completed == false &&
                        request.resource.data.rolls.size() == 5 &&
                        isValidRoll(request.resource.data.rolls[0]) &&
                        isValidRoll(request.resource.data.rolls[1]) &&
@@ -85,7 +99,10 @@ service cloud.firestore {
                        request.resource.data.success is bool &&
                        request.resource.data.completed is bool &&
                        isValidVerified(request.resource.data.verified) &&
-                       isValidDate(request.resource.data.date);
+                       isValidDate(request.resource.data.date) &&
+                       // Validate practice mode if present
+                       (!request.resource.data.keys().hasAny(['practiceMode']) || isValidPracticeMode(request.resource.data.practiceMode)) &&
+                       (!request.resource.data.keys().hasAny(['practiceState']) || isValidPracticeState(request.resource.data.practiceState));
       
       // Allow deletes for development/testing (in production, you can restrict this to admins)
       allow delete: if isAuthenticated();

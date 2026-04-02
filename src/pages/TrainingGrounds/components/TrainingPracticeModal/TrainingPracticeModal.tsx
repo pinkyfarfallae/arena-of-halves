@@ -32,6 +32,7 @@ interface Props {
   initialJoinCode?: string;
   arenaId?: string; // Match arena pattern: room exists before modal opens
   roomStatus?: string;
+  keepCreateTabAfterFinalize?: boolean;
 }
 
 function copyText(text: string) {
@@ -64,6 +65,7 @@ export default function TrainingPracticeModal({
   initialJoinCode = '',
   arenaId = '', // Match arena pattern
   roomStatus = '',
+  keepCreateTabAfterFinalize = false,
 }: Props) {
   const navigate = useNavigate();
   const isDeveloper = role === ROLE.DEVELOPER;
@@ -105,7 +107,7 @@ export default function TrainingPracticeModal({
   useEffect(() => {
     if (open) {
       // If room is already joined (not configuring), force Join tab
-      if (arenaId && roomStatus && roomStatus !== ROOM_STATUS.CONFIGURING) {
+      if (arenaId && roomStatus && roomStatus !== ROOM_STATUS.CONFIGURING && !keepCreateTabAfterFinalize) {
         setTab('join');
       } else {
         setTab(initialTab);
@@ -120,7 +122,7 @@ export default function TrainingPracticeModal({
       setError('');
       setCopied(null);
     }
-  }, [open, initialTab, initialJoinCode, arenaId, roomStatus]);
+  }, [open, initialTab, initialJoinCode, arenaId, roomStatus, keepCreateTabAfterFinalize]);
 
   useEffect(() => {
     if (!open) return;
@@ -227,7 +229,9 @@ export default function TrainingPracticeModal({
       setSubmitting(true);
       setError('');
       try {
-        await onFinalizePracticeRoom(selectedOpponent);
+        const finalizedArenaId = await onFinalizePracticeRoom(selectedOpponent);
+        onClose();
+        navigate(`/training-grounds/pvp/${finalizedArenaId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to configure training room');
       } finally {

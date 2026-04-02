@@ -5,14 +5,15 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { firestore } from '../../firebase';
+import { firestore, db } from '../../firebase';
+import { ref, set } from 'firebase/database';
 import { APPS_SCRIPT_URL } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
-import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/practiceStates';
+import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
 
 const DAILY_CONFIGS_COLLECTION = 'dailyConfigs';
-const USER_DAILY_PROGRESS_COLLECTION = 'userDailyProgress';
+export const USER_DAILY_PROGRESS_COLLECTION = 'userDailyProgress';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -37,7 +38,7 @@ export interface UserDailyProgress {
   tickets: number;
   createdAt: Timestamp;
   practiceMode?: 'admin' | 'pvp';
-  practiceState?: 'live' | 'finished';
+  practiceState?: 'live' | 'finished' | 'waiting';
   practiceArenaId?: string;
   practiceRoomCode?: string;
   practiceRole?: typeof ARENA_ROLE.TEAM_A | typeof ARENA_ROLE.TEAM_B;
@@ -57,7 +58,7 @@ export interface PracticeProgressInput {
   battleRolls?: number[];
   opponentId?: string;
   opponentName?: string;
-  state: 'live' | 'finished';
+  state: 'live' | 'finished' | 'waiting';
   rounds?: number;
   winner?: boolean;
 }
@@ -198,6 +199,13 @@ export const checkSuccess = (rolls: number[], target: number): boolean => {
   return successfulRolls >= 3;
 };
 
+// Check if rolls are successful when each roll has its own target
+export const checkSuccessWithTargets = (rolls: number[], targets: number[]): boolean => {
+  if (rolls.length !== targets.length) return false;
+  const successfulRolls = rolls.filter((roll, index) => roll >= targets[index]).length;
+  return successfulRolls >= 3;
+};
+
 // Check if user has already trained today
 export const hasTrainedToday = async (userId: string): Promise<boolean> => {
   const date = getTodayDate();
@@ -246,6 +254,20 @@ export const savePartialProgress = async (
   const existing = await getTodayProgress(userId);
   if (existing?.completed) {
     throw new Error('You have already completed training today');
+  }
+
+  // Mark quota as used on first roll
+  if (rolls.length === 1) {
+    try {
+      await set(ref(db, `trainingQuotas/${userId}/${date}`), {
+        used: true,
+        timestamp: Date.now(),
+        mode: 'admin',
+      });
+    } catch (err) {
+      console.error('Failed to set training quota:', err);
+      // Continue anyway - don't block training if quota write fails
+    }
   }
 
   // Pad rolls array with nulls for partial progress
@@ -422,16 +444,17 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   }
 
   if (existing) {
-    const isSameLivePvp =
+    const isSamePvp =
       existing.practiceMode === 'pvp' &&
       existing.practiceArenaId === progress.arenaId &&
-      existing.practiceState === 'live';
+      (existing.practiceState === 'live' || existing.practiceState === 'waiting');
 
-    if (!isSameLivePvp) {
+    if (!isSamePvp) {
       throw new Error('You already used your practice quota for today.');
     }
   }
 
+  // Create/update Firestore document first
   await setDoc(progressRef, {
     userId: progress.userId,
     date,
@@ -466,6 +489,20 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     })(),
     createdAt: serverTimestamp(),
   }, { merge: true });
+
+  // After successful Firestore write, mark quota as used (only for new records)
+  if (!existing) {
+    try {
+      await set(ref(db, `trainingQuotas/${progress.userId}/${date}`), {
+        used: true,
+        timestamp: Date.now(),
+        mode: 'pvp',
+      });
+    } catch (err) {
+      console.error('Failed to set training quota:', err);
+      // Continue anyway - document is already created
+    }
+  }
 
   if (progress.state === 'finished') {
     const battleRolls = (() => {

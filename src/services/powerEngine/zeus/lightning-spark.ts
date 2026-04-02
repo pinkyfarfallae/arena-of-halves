@@ -20,6 +20,7 @@ export function applyLightningSparkPassive(
   battle: BattleState,
   baseDamage: number,
 ): { updates: Record<string, unknown>; bonusDamage: number } {
+  if (room.practiceMode) return { updates: {}, bonusDamage: 0 };
   const updates: Record<string, unknown> = {};
   const attacker = findFighter(room, attackerId);
   if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCK) return { updates, bonusDamage: 0 };

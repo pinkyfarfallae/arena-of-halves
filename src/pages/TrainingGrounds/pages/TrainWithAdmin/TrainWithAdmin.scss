@@ -131,6 +131,11 @@
       }
     }
 
+    &.passed {
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.4) 0%, rgba(76, 175, 80, 0.2) 100%);
+      border-color: #4caf50;
+    }
+
     &.failed {
       background: linear-gradient(135deg, rgba(244, 67, 54, 0.5) 0%, rgba(244, 67, 54, 0.3) 100%);
       border-color: #f44336;
@@ -142,6 +147,10 @@
       color: rgba(0, 0, 0, 0.5);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+
+      &.passed {
+        color: #2e7d32;
+      }
 
       &.failed {
         color: #b71c1c;
@@ -207,6 +216,10 @@
       position: absolute;
       top: 2px;
       right: 6px;
+
+      &.passed {
+        color: #2e7d32;
+      }
 
       &.failed {
         color: #b71c1c;
