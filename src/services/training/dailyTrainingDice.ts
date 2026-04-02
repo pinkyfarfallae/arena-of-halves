@@ -65,7 +65,10 @@ export interface PracticeProgressInput {
 // Get today's date in YYYY-MM-DD format
 export const getTodayDate = (): string => {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Admin: Set today's target (legacy - for single target)
