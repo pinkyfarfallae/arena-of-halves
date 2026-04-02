@@ -1274,6 +1274,7 @@ function handleFetchTopHarvesters(limit) {
  *   - success: boolean
  *   - attempt: number of rolls attempted (1-5)
  *   - roleplay: optional string
+ *   - tickets: number (default 0)
  */
 function handleAppendDailyTraining(params) {
   var date = (params.date || '').toString().trim();
@@ -1283,6 +1284,7 @@ function handleAppendDailyTraining(params) {
   var target = parseInt(params.target || '0', 10);
   var success = params.success === true || params.success === 'true';
   var roleplay = (params.roleplay || '').toString().trim();
+  var tickets = parseInt(params.tickets || '0', 10);
 
   if (!date || !userId || !Array.isArray(rolls) || rolls.length !== 5 || target < 1 || target > 12) {
     return jsonResponse({ error: 'Missing or invalid fields for daily training' });
@@ -1306,7 +1308,7 @@ function handleAppendDailyTraining(params) {
   var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
 
   // Build row according to schema:
-  // Date, User, Attempt, Rolls, Target, Success, Roleplay, Verified
+  // Date, User, Attempt, Rolls, Target, Success, Roleplay, Verified, Tickets
   var row = [];
   var rollsString = rolls.join(',');
 
@@ -1320,6 +1322,7 @@ function handleAppendDailyTraining(params) {
     else if (h === 'success') row.push(success);
     else if (h === 'roleplay') row.push(roleplay);
     else if (h === 'verified') row.push('pending'); // Default to pending, admin can update
+    else if (h === 'tickets') row.push(tickets); // Training tickets earned
     else row.push('');
   }
 

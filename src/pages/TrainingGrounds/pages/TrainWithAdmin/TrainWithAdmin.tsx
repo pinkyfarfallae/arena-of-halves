@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import './TrainWithAdmin.scss';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -13,7 +13,12 @@ import {
   getTodayProgress,
   UserDailyProgress,
   checkSuccess,
+  fetchTrainings,
 } from '../../../../services/training/dailyTrainingDice';
+import { BG_ELEMENTS } from '../../components/Background/Background';
+import EarlyFailModal from './components/EarlyFailModal/EarlyFailModal';
+import EarlyWinModal from './components/EarlyWinModal/EarlyWinModal';
+import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/practiceStates';
 
 interface PaperRoll {
   target: number;
@@ -27,6 +32,7 @@ export default function TrainWithAdmin() {
   const [papers, setPapers] = useState<PaperRoll[]>([]);
   const [currentRollIndex, setCurrentRollIndex] = useState<number>(0);
   const [alreadyTrained, setAlreadyTrained] = useState<boolean>(false);
+  const [userTasks, setUserTasks] = useState<UserDailyProgress | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [finalResult, setFinalResult] = useState<{ success: boolean; rolls: number[] } | null>(null);
   const [showEarlyFailModal, setShowEarlyFailModal] = useState<boolean>(false);
@@ -38,15 +44,31 @@ export default function TrainWithAdmin() {
   }, [user]);
 
   const loadTodayData = async () => {
-    if (!user?.characterId) return;
+    setLoading(true);
+
+    if (!user?.characterId) {
+      setLoading(false);
+      return;
+    }
 
     try {
-      setLoading(true);
       setError('');
+      setUserTasks(null);
+      setFinalResult(null);
+      setShowEarlyFailModal(false);
+      setShowEarlyWinModal(false);
 
       // Load all 5 today's targets
       const todayTargets = await getTodayTargets();
       setTargets(todayTargets);
+
+      const trainings = await fetchTrainings(user.characterId);
+      if (trainings && trainings.length > 0) {
+        // Get the most recent training (last element)
+        setUserTasks(trainings[trainings.length - 1]);
+      } else {
+        setUserTasks(null);
+      }
 
       if (todayTargets && todayTargets.length === 5) {
         // Initialize papers with targets
@@ -219,21 +241,69 @@ export default function TrainWithAdmin() {
     }
   };
 
+  const colorStyle = useMemo(() => {
+    return {
+      '--primary-color': user?.theme[0] || '#C0A062',
+      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
+      '--dark-color': user?.theme[1] || '#2c2c2c',
+      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--light-color': user?.theme[2] || '#f5f5f5',
+      '--surface-hover': user?.theme[11] || '#e8e8e8',
+      '--overlay-text': user?.theme[17] || '#333333',
+      '--accent-dark': user?.theme[19] || '#0f1a2e',
+    } as React.CSSProperties
+  }, [user]);
+
   if (loading) {
-    return null;
+    return (
+      <div
+        className="train-with-admin train-with-admin__loading"
+        style={colorStyle}
+      >
+        {BG_ELEMENTS}
+        <div className="train-with-admin__loading-spinner" aria-label="Loading" role="status" />
+      </div>
+    );
   }
 
   if (targets === null || targets.length !== 5) {
     return (
-      <div className="train-with-admin">
+      <div
+        className="train-with-admin"
+        style={colorStyle}
+      >
+        {BG_ELEMENTS}
         <div className="train-with-admin__error">
           <h2>No Training Available</h2>
-          <p>The admin hasn't set today's training targets yet.</p>
-          <p>Please check back later.</p>
+          <p>The admin hasn't set today's training targets yet. <br /> Please check back later.</p>
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Camp
+          </Link>
         </div>
-        <Link to="/training-grounds" className="train-with-admin__back" data-tooltip="Back to Camp" data-tooltip-pos="left">
-          <DoorExit />
-        </Link>
+      </div>
+    );
+  }
+
+  if (userTasks && userTasks.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) {
+    return (
+      <div
+        className="train-with-admin"
+        style={colorStyle}
+      >
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>You have pending training tasks</h2>
+          <p>Please complete your pending tasks before starting new training.</p>
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Camp
+          </Link>
+        </div>
       </div>
     );
   }
@@ -248,11 +318,7 @@ export default function TrainWithAdmin() {
             className={`train-with-admin__paper ${index === currentRollIndex && !alreadyTrained ? 'active' : ''
               } ${paper.rolled ? 'rolled' : ''} ${paper.rolled && paper.roll! >= paper.target ? 'passed' : ''
               } ${paper.rolled && paper.roll! < paper.target ? 'failed' : ''}`}
-            style={{
-              '--primary-color': user?.theme[0] || '#000',
-              '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
-              '--foreground-color': user?.theme[5] || '#fff',
-            } as React.CSSProperties}
+            style={colorStyle}
           >
             <div className={`train-with-admin__paper-label ${paper.rolled ? (paper.roll! >= paper.target ? 'passed' : 'failed') : ''}`}>
               {paper.rolled ? (paper.roll! >= paper.target ? 'Passed' : 'Failed') : 'Target'}
@@ -283,42 +349,10 @@ export default function TrainWithAdmin() {
       </div>
 
       {/* Early Failure Modal */}
-      {showEarlyFailModal && (
-        <div className="train-with-admin__modal-overlay">
-          <div className="train-with-admin__modal train-with-admin__modal--fail">
-            <h2 className="train-with-admin__modal-title train-with-admin__modal-title--fail">Training Failed</h2>
-            <p className="train-with-admin__modal-message">
-              You've failed 3 targets. <br />
-              Unfortunately, you cannot continue.
-            </p>
-            <button
-              className="train-with-admin__modal-button train-with-admin__modal-button--fail"
-              onClick={handleEarlyFailConfirm}
-            >
-              Roger that
-            </button>
-          </div>
-        </div>
-      )}
+      {showEarlyFailModal && (<EarlyFailModal handleEarlyFailConfirm={handleEarlyFailConfirm} />)}
 
       {/* Early Win Modal */}
-      {showEarlyWinModal && (
-        <div className="train-with-admin__modal-overlay">
-          <div className="train-with-admin__modal train-with-admin__modal--win">
-            <h2 className="train-with-admin__modal-title train-with-admin__modal-title--win">Training Passed!</h2>
-            <p className="train-with-admin__modal-message">
-              You've passed 3 targets. <br />
-              Congratulations, you've already succeeded!
-            </p>
-            <button
-              className="train-with-admin__modal-button train-with-admin__modal-button--win"
-              onClick={handleEarlyWinConfirm}
-            >
-              Roger that
-            </button>
-          </div>
-        </div>
-      )}
+      {showEarlyWinModal && (<EarlyWinModal handleEarlyWinConfirm={handleEarlyWinConfirm} />)}
 
       {/* Final Result Overlay */}
       {finalResult && (

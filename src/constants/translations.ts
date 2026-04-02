@@ -823,6 +823,19 @@ export const UI_TEXT = {
     en: 'Fortune, luck and serendipity',
     th: 'โชคลาภ ดวงและการเสี่ยงทาย'
   },
+  // Training Roleplay Submission
+  ROLEPLAY_SUBMISSION_DESC: {
+    en: "Complete the training task by posting a roleplay thread on Twitter (X), then submit the thread URL here to earn a Training Point (TP).Each valid submission will be reviewed by an administrator, who will award points accordingly. If no submission is made, or if the submission is rejected, you must resubmit. Failure to do so will prevent you from proceeding to the next training session.",
+    th: 'ทำภารกิจการฝึกให้เสร็จโดยการโพสต์เธรดโรลเพลย์บน Twitter (X) จากนั้นส่งลิงก์เธรดที่นี่เพื่อรับ Training Point (TP) การส่งแต่ละครั้งจะถูกตรวจสอบโดยผู้ดูแลระบบ และจะมีการให้คะแนนตามความเหมาะสม หากคุณไม่ส่งผลงาน หรือผลงานถูกปฏิเสธ คุณจะต้องส่งใหม่ มิฉะนั้นจะไม่สามารถทำการฝึกในครั้งถัดไปได้'
+  },
+  SUBMIT_TRAINING_TASK: {
+    en: 'Submit Training Task',
+    th: 'ส่งผลงานการฝึกฝน'
+  },
+  SUBMITTING_TRAINING_TASK: { 
+    en: 'Submitting Training Task...',
+    th: 'กำลังส่งผลงานการฝึกฝน...'
+  },
 } as const;
 
 /**))

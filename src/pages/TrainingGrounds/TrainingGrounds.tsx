@@ -4,6 +4,7 @@ import Stats from './pages/Stats/Stats';
 import PvP from './pages/PvP/PvP';
 import TrainWithAdmin from './pages/TrainWithAdmin/TrainWithAdmin';
 import './TrainingGrounds.scss';
+import TrainingRoleplaySubmission from './pages/TrainingRoleplaySubmission/TrainingRoleplaySubmission';
 
 export default function TrainingGrounds() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function TrainingGrounds() {
   }
 
   const handleRolePlaySubmission = () => {
-    // navigate(`/training-grounds/roleplay-submission`);
+    navigate('/training-grounds/tasks');
   }
 
   return (
@@ -26,6 +27,7 @@ export default function TrainingGrounds() {
         <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} />} />
         <Route path="/pvp/:roomId" element={<PvP />} />
         <Route path="/guided" element={<TrainWithAdmin />} />
+        <Route path="/tasks" element={<TrainingRoleplaySubmission />} />
       </Routes>
     </div>
   );
