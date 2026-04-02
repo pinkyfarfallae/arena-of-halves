@@ -366,7 +366,8 @@ const appendToGoogleSheets = async (
   rolls: number[],
   target: number,
   success: boolean,
-  attempt: number
+  attempt: number,
+  extraFields?: Record<string, unknown>,
 ): Promise<void> => {
   const date = getTodayDate();
 
@@ -380,6 +381,7 @@ const appendToGoogleSheets = async (
     success,
     roleplay: '',
     tickets: 0,
+    ...(extraFields ?? {}),
   };
 
   try {
@@ -411,6 +413,10 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
   const existingSnap = await getDoc(progressRef);
   const existing = existingSnap.exists() ? (existingSnap.data() as UserDailyProgress) : null;
+
+  if (existing?.practiceMode === 'pvp' && existing.practiceState === 'finished') {
+    return;
+  }
 
   if (existing) {
     const isSameLivePvp =
@@ -457,6 +463,33 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     })(),
     createdAt: serverTimestamp(),
   }, { merge: true });
+
+  if (progress.state === 'finished') {
+    const battleRolls = (() => {
+      const source = progress.battleRolls ?? progress.rolls ?? [];
+      return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
+    })();
+    const attempt = battleRolls.length > 0 ? battleRolls.length : 5;
+    await appendToGoogleSheets(
+      progress.userId,
+      battleRolls.length > 0 ? battleRolls : [0, 0, 0, 0, 0],
+      1,
+      !!progress.winner,
+      attempt,
+      {
+        practiceMode: 'pvp',
+        practiceState: 'finished',
+        practiceArenaId: progress.arenaId,
+        practiceRoomCode: progress.roomCode,
+        practiceRole: progress.role,
+        practiceOpponentId: progress.opponentId || '',
+        practiceOpponentName: progress.opponentName || '',
+        practiceBattleRounds: progress.rounds ?? 0,
+        practiceBattleWinner: !!progress.winner,
+        practiceBattleRolls: battleRolls,
+      },
+    );
+  }
 };
 
 // Fetch training records from Google Sheets
