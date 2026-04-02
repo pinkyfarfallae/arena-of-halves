@@ -22,6 +22,7 @@ export function applySecretOfDryadPassive(
   battle: BattleState,
   _atkTotal: number,
 ): Record<string, unknown> {
+  if (room.practiceMode) return {};
   const attacker = findFighter(room, attackerId);
   if (!attacker) return {};
 
@@ -77,6 +78,7 @@ export function onEfflorescenceMuseTurnStart(
   battle: BattleState,
   nextAttackerId: string,
 ): Record<string, unknown> | null {
+  if (room.practiceMode) return null;
   const effects = [...(battle.activeEffects || [])];
   const hasEfflorescenceMuse = effects.some(
     e => e.targetId === nextAttackerId && e.tag === EFFECT_TAGS.EFFLORESCENCE_MUSE,

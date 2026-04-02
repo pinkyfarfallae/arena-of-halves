@@ -727,6 +727,8 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   }
 
   &--primary {
+    max-width: 120px;
+    min-width: 120px;
     background: linear-gradient(145deg, $gold, darken($gold, 8%));
     color: #fff;
     border: 1px solid rgba($gold-dark, 0.3);
@@ -738,6 +740,8 @@ $soul-total-duration: $soul-float-duration + $soul-explode-duration;
   }
 
   &--danger {
+    max-width: 120px;
+    min-width: 120px;
     background: $crimson-soft;
     color: $crimson-bright;
     border: 1px solid rgba($crimson, 0.12);

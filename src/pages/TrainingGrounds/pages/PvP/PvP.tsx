@@ -8,10 +8,9 @@ import {
   fetchTrainings,
   getTodayDate,
   getTodayProgress,
-  getTodayTargets,
   UserDailyProgress,
 } from '../../../../services/training/dailyTrainingDice';
-import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/practiceStates';
+import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import Arena from '../../../Arena/Arena';
 import './PvP.scss';
@@ -19,13 +18,13 @@ import './PvP.scss';
 export default function PvP() {
   const { arenaId } = useParams<{ arenaId: string }>();
   const { user } = useAuth();
-  const [targets, setTargets] = useState<number[] | null>(null);
   const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [quotaUsed, setQuotaUsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Skip validation loading when entering an arena directly - let Arena component handle it
     if (arenaId) {
       setLoading(false);
       return;
@@ -41,8 +40,7 @@ export default function PvP() {
       try {
         const todayDate = getTodayDate();
         const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-        const [targetData, quotaSnapshot, trainings, todayProgress] = await Promise.all([
-          getTodayTargets().catch(() => null),
+        const [quotaSnapshot, trainings, todayProgress] = await Promise.all([
           get(ref(db, quotaPath)).catch(() => null),
           fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
           getTodayProgress(user.characterId).catch(() => null),
@@ -50,7 +48,6 @@ export default function PvP() {
 
         if (!mounted) return;
 
-        setTargets(targetData);
         setLivePractice(todayProgress);
         setQuotaUsed(!!quotaSnapshot?.exists());
         setSheetTask([...trainings].reverse().find((training) => training.date === todayDate) || null);
@@ -80,48 +77,30 @@ export default function PvP() {
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
   const hasLiveNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'live';
   const isFinishedNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'finished';
-  const hasLivePvp = livePractice?.practiceMode === 'pvp' && livePractice.practiceState === 'live';
+  // PvP is considered "in progress" if it's in waiting, live, or configuring state (not current arena)
+  const hasLivePvp = livePractice?.practiceMode === 'pvp' && 
+    (livePractice.practiceState === 'live' || livePractice.practiceState === 'waiting') && 
+    livePractice.practiceArenaId !== arenaId;
   const isFinishedPvpTask = sheetTask?.practiceMode === 'pvp' && sheetTask.practiceState === 'finished';
+
+  // If entering an arena directly, wait for user then render Arena
+  if (arenaId) {
+    if (!user) {
+      return (
+        <div className="train-with-admin train-with-admin__loading" style={colorStyle}>
+          {BG_ELEMENTS}
+          <div className="train-with-admin__loading-spinner" aria-label="Loading" role="status" />
+        </div>
+      );
+    }
+    return <Arena />;
+  }
+
   if (loading) {
     return (
       <div className="train-with-admin train-with-admin__loading" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__loading-spinner" aria-label="Loading" role="status" />
-      </div>
-    );
-  }
-
-  if (targets === null || targets.length !== 5) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>No PvP Training Available</h2>
-          <p>The admin hasn't set today's training targets yet. <br /> Please check back later.</p>
-          <Link to="/training-grounds" className="train-with-admin__error-back-button">
-            Back to Camp
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasLivePvp) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>PvP practice in progress</h2>
-          <p>Your PvP room is still live. <br /> Rejoin the room and finish the battle first.</p>
-          {livePractice?.practiceArenaId && (
-            <Link
-              to={`/training-grounds/pvp/${livePractice.practiceArenaId}`}
-              className="train-with-admin__error-back-button"
-            >
-              Return to PvP
-            </Link>
-          )}
-        </div>
       </div>
     );
   }
@@ -141,13 +120,32 @@ export default function PvP() {
     );
   }
 
+  if (hasPendingSheetTask) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>You have a pending task</h2>
+          <p>Please complete your current task before starting PvP. <br />
+          Submit the roleplay and wait for approval.</p>
+          <Link to="/training-grounds/tasks" className="train-with-admin__error-back-button">
+            Go to Tasks
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (hasLiveNormalTraining || isFinishedNormalTraining) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
-          <h2>Normal Training is live</h2>
-          <p>Please finish the normal training session first, then come back to PvP.</p>
+          <h2>Normal Training is {hasLiveNormalTraining ? 'in progress' : 'finished'}</h2>
+          <p>
+            Please complete the normal training session first, <br />
+            then come back to PvP tomorrow. We will wait for you!
+            </p>
           <Link to="/training-grounds" className="train-with-admin__error-back-button">
             Back to Camp
           </Link>
@@ -156,7 +154,11 @@ export default function PvP() {
     );
   }
 
-  if (quotaUsed && !hasPendingSheetTask) {
+  // Allow continuing in-progress PvP practice (waiting or live state)
+  const hasInProgressPvp = livePractice?.practiceMode === 'pvp' && 
+    (livePractice.practiceState === 'waiting' || livePractice.practiceState === 'live');
+  
+  if (quotaUsed && !hasInProgressPvp) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
@@ -186,9 +188,16 @@ export default function PvP() {
     );
   }
 
-  if (arenaId) {
-    return <Arena />;
-  }
-
-  return null;
+  return (
+    <div className="train-with-admin" style={colorStyle}>
+      {BG_ELEMENTS}
+      <div className="train-with-admin__error">
+        <h2>PvP Training</h2>
+        <p>Open or join a practice room from Camp when you are ready.</p>
+        <Link to="/training-grounds" className="train-with-admin__error-back-button">
+          Back to Camp
+        </Link>
+      </div>
+    </div>
+  );
 }

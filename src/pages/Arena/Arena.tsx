@@ -1,8 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, Link as NavigatedLink } from 'react-router-dom';
-import { ref, update } from 'firebase/database';
-import { db } from '../../firebase';
+import { ref, update, remove, get } from 'firebase/database';
+import { db, firestore } from '../../firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { getPowers } from '../../data/powers';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
@@ -61,7 +62,7 @@ import {
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
 } from '../../services/battleRoom/battleRoom';
-import { savePracticeProgress, getTodayDate } from '../../services/training/dailyTrainingDice';
+import { savePracticeProgress, getTodayDate, USER_DAILY_PROGRESS_COLLECTION } from '../../services/training/dailyTrainingDice';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
@@ -131,11 +132,16 @@ function Arena(props?: ArenaDemoProps) {
   const watchOnly = searchParams.get('watch') === 'true';
   const { user } = useAuth();
   const navigate = useNavigate();
+
   /** Suppress hit visuals briefly when user clicks Back from target modal (no opposite frame shake) */
   const [suppressHitAfterBack, setSuppressHitAfterBack] = useState(false);
   const suppressHitAfterBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [room, setRoom] = useState<BattleRoom | null>(null);
+
+  const effectiveRoom = isDemo ? (demoRoom ?? null) : room;
+  const isPracticeRoom = !!effectiveRoom?.practiceMode || location.pathname.startsWith('/training-grounds/pvp/');
+
   const [role, setRole] = useState<ArenaRole | null>(null);
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState('');
@@ -414,11 +420,33 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
   }, [arenaId, room]);
 
-  const effectiveRoom = isDemo ? (demoRoom ?? null) : room;
-
   const handleClose = useCallback(async () => {
-    if (!arenaId || !effectiveRoom) return;
-    if (effectiveRoom.practiceMode && effectiveRoom.status !== ROOM_STATUS.WAITING) return;
+    if (!arenaId || !room) return;
+    // Allow closing practice rooms in CONFIGURING or WAITING status
+    if (room.practiceMode &&
+      room.status !== ROOM_STATUS.CONFIGURING &&
+      room.status !== ROOM_STATUS.WAITING) {
+      return;
+    }
+
+    // Clean up practice quota and Firestore progress before deleting room
+    if (room.practiceMode && user?.characterId) {
+      const todayDate = getTodayDate();
+      try {
+        // Delete quota from Realtime Database
+        const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
+        await remove(ref(db, quotaPath));
+
+        // Delete practice progress from Firestore
+        const progressDocId = `${user.characterId}_${todayDate}`;
+        const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, progressDocId);
+        await deleteDoc(progressRef);
+      } catch (err) {
+        console.error('Failed to cleanup practice data:', err);
+        // Continue with room deletion even if cleanup fails
+      }
+    }
+
     await deleteRoom(arenaId);
     if (user?.characterId) {
       try {
@@ -427,8 +455,12 @@ function Arena(props?: ArenaDemoProps) {
         // Ignore storage failures.
       }
     }
-    navigate('/arena');
-  }, [arenaId, effectiveRoom, navigate, user?.characterId]);
+    if (isPracticeRoom) {
+      navigate('/training-grounds');
+    } else {
+      navigate('/arena');
+    }
+  }, [arenaId, room, navigate, user?.characterId, isPracticeRoom]);
 
   const runAsync = useCallback((fn: () => void | Promise<void>) => {
     setTimeout(() => { fn(); }, 0);
@@ -594,11 +626,17 @@ function Arena(props?: ArenaDemoProps) {
     const reserved = inviteReservationsFromFirebase(room.inviteReservations);
     const hasReservedSlot = reserved.some((r) => idEq(r.characterId, myId));
 
-    // Practice rooms only allow the invited opponent to join as fighter; everyone else becomes viewer.
-    const practiceRoomBlocksFighterJoin = !!room.practiceMode && !hasReservedSlot;
+    // Practice rooms: allow room creator (when teamA is empty) or invited opponent to join as fighter
+    const isRoomCreatorJoining = room.practiceMode && teamAMembers.length === 0 && !teamAFull;
+    const practiceRoomBlocksFighterJoin = !!room.practiceMode && !hasReservedSlot && !isRoomCreatorJoining;
 
-    // WAITING: join as fighter if there is open capacity OR this login matches host invite (correct team in joinRoom)
-    if (!watchOnly && room.status === ROOM_STATUS.WAITING && !practiceRoomBlocksFighterJoin && (hasReservedSlot || !teamBFull || !teamAFull)) {
+    // CONFIGURING or WAITING: join as fighter if there is open capacity OR this login matches host invite
+    const canJoinAsFighter = !watchOnly &&
+      (room.status === ROOM_STATUS.CONFIGURING || room.status === ROOM_STATUS.WAITING) &&
+      !practiceRoomBlocksFighterJoin &&
+      (hasReservedSlot || !teamBFull || !teamAFull);
+
+    if (canJoinAsFighter) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = room.practiceMode ? [] : getPowers(powerDeity);
@@ -615,7 +653,7 @@ function Arena(props?: ArenaDemoProps) {
           setRole(ARENA_ROLE.VIEWER);
           setJoined(true);
         }
-      } catch {
+      } catch (err) {
         setError('Failed to join as fighter.');
       }
       return;
@@ -1012,7 +1050,7 @@ function Arena(props?: ArenaDemoProps) {
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
   const isBattling = (effectiveRoom?.status === ROOM_STATUS.BATTLING || effectiveRoom?.status === ROOM_STATUS.FINISHED);
-  const isPracticeRoom = !!effectiveRoom?.practiceMode || location.pathname.startsWith('/training-grounds/pvp/');
+
   /**
    * Exactly one human client should write NPC sub-phase rolls (crit D4, chain, dodge sim) to Firebase.
    * Previously only `isCreator` (team A slot 0) drove — team-B humans (or non-slot-0) never got `isPlaybackDriver`,
@@ -1073,6 +1111,91 @@ function Arena(props?: ArenaDemoProps) {
       npcCharacterIdSet.has(pomCoAtkNpcId.toLowerCase())
     ) && !effectiveRoom.devPlayAllFightersSelf;
 
+  // Save practice progress when PvP room is created/joined (CONFIGURING or WAITING)
+  useEffect(() => {
+    const room = effectiveRoom;
+    if (!room?.practiceMode || !arenaId || !user?.characterId) return;
+    if (room.status !== ROOM_STATUS.CONFIGURING && room.status !== ROOM_STATUS.WAITING) return;
+    if (role == null || role === ARENA_ROLE.VIEWER) return;
+
+    const opponent =
+      role === ARENA_ROLE.TEAM_A
+        ? teamBLead
+        : teamALead;
+
+    // Save initial practice record with state: 'waiting' when room is created/joined
+    savePracticeProgress({
+      userId: user.characterId,
+      arenaId,
+      roomCode: arenaId,
+      role,
+      rolls: [0, 0, 0, 0, 0],
+      battleRolls: [],
+      opponentId: opponent?.characterId,
+      opponentName: opponent?.nicknameEng,
+      state: 'waiting',
+      rounds: 0,
+      winner: false,
+    }).catch(() => { });
+  }, [
+    arenaId,
+    effectiveRoom?.practiceMode,
+    effectiveRoom?.status,
+    role,
+    user?.characterId,
+    teamALead?.characterId,
+    teamBLead?.characterId,
+  ]);
+
+  // Save practice progress when PvP battle starts (not just when it finishes)
+  useEffect(() => {
+    const room = effectiveRoom;
+    if (!room?.practiceMode || !arenaId || !user?.characterId) return;
+    if (!room.battle || room.status === ROOM_STATUS.WAITING || room.status === ROOM_STATUS.FINISHED) return;
+    if (role == null || role === ARENA_ROLE.VIEWER) return;
+
+    const opponent =
+      role === ARENA_ROLE.TEAM_A
+        ? teamBLead
+        : teamALead;
+
+    // Save initial practice record with state: 'live' when battle starts
+    savePracticeProgress({
+      userId: user.characterId,
+      arenaId,
+      roomCode: arenaId,
+      role,
+      rolls: [0, 0, 0, 0, 0],
+      battleRolls: [],
+      opponentId: opponent?.characterId,
+      opponentName: opponent?.nicknameEng,
+      state: 'live',
+      rounds: 0,
+      winner: false,
+    }).catch(() => { });
+
+    try {
+      localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({
+        arenaId,
+        roomCode: arenaId,
+        state: 'live',
+        date: getTodayDate(),
+      }));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [
+    arenaId,
+    effectiveRoom?.practiceMode,
+    effectiveRoom?.battle,
+    effectiveRoom?.status,
+    role,
+    user?.characterId,
+    teamALead?.characterId,
+    teamBLead?.characterId,
+  ]);
+
+  // Save practice progress when PvP battle finishes
   useEffect(() => {
     const room = effectiveRoom;
     if (!room?.practiceMode || !arenaId || !user?.characterId) return;
@@ -1645,7 +1768,7 @@ function Arena(props?: ArenaDemoProps) {
             Start Battle
           </button>
         )}
-        {isCreator && effectiveRoom.status === ROOM_STATUS.WAITING && (
+        {isCreator && (effectiveRoom.status === ROOM_STATUS.CONFIGURING || effectiveRoom.status === ROOM_STATUS.WAITING || effectiveRoom.status === ROOM_STATUS.READY) && (
           <button className="arena__action-btn arena__action-btn--danger" onClick={() => runAsync(handleClose)}>
             Close Room
           </button>

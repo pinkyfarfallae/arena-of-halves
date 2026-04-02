@@ -459,6 +459,7 @@ export function tickEffects(
  * Returns the initial activeEffects array.
  */
 export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
+  if (room.practiceMode) return [];
   const effects: ActiveEffect[] = [];
   const allMembers = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
 

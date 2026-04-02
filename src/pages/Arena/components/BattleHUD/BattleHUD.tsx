@@ -3506,7 +3506,7 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. Disoriented: no manual target — server picks at random. */}
-      {turn.phase === PHASE.SELECT_TARGET && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {turn.phase === PHASE.SELECT_TARGET && !practiceMode && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
             <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -3702,7 +3702,7 @@ export default function BattleHUD({
       })()}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). Hide when skip card is showing (card before next attacker turn). */}
-      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && !pomCoLogPlaybackPending && !pomegranateCoResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !practiceMode && !showResolve && !pomCoLogPlaybackPending && !pomegranateCoResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}

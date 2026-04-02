@@ -105,6 +105,10 @@ function Lobby() {
         setError('Room not found. Check the code.');
         return;
       }
+      if (room.status !== ROOM_STATUS.WAITING) {
+        setError('Room is not open for joining.');
+        return;
+      }
       navigate(`/arena/${code}`);
     } catch {
       setError('Failed to join room. Try again.');
