@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import './TrainWithAdmin.scss';
 import { useAuth } from '../../../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import DoorExit from '../../../IrisMessage/icons/DoorExit';
 import { hexToRgb } from '../../../../utils/color';
+import { db } from '../../../../firebase';
+import { get, ref } from 'firebase/database';
+import { getRoom } from '../../../../services/battleRoom/battleRoom';
+import { ROOM_STATUS } from '../../../../constants/battle';
 import {
   getTodayTargets,
-  hasTrainedToday,
   savePartialProgress,
   completeTraining,
+  getTodayDate,
   getTodayProgress,
   UserDailyProgress,
   checkSuccess,
@@ -32,14 +36,19 @@ export default function TrainWithAdmin() {
   const [papers, setPapers] = useState<PaperRoll[]>([]);
   const [currentRollIndex, setCurrentRollIndex] = useState<number>(0);
   const [alreadyTrained, setAlreadyTrained] = useState<boolean>(false);
-  const [userTasks, setUserTasks] = useState<UserDailyProgress | null>(null);
+  const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
+  const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [finalResult, setFinalResult] = useState<{ success: boolean; rolls: number[] } | null>(null);
   const [showEarlyFailModal, setShowEarlyFailModal] = useState<boolean>(false);
   const [showEarlyWinModal, setShowEarlyWinModal] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [quotaUsed, setQuotaUsed] = useState<boolean>(false);
+  const [activePvpArenaId, setActivePvpArenaId] = useState<string>('');
+  const [activePvpRoomStatus, setActivePvpRoomStatus] = useState<string>('');
+  const practiceSessionKey = user?.characterId ? `training-pvp-session:${user.characterId}` : '';
 
-  const loadTodayData = async () => {
+  const loadTodayData = useCallback(async () => {
     setLoading(true);
 
     if (!user?.characterId) {
@@ -49,10 +58,12 @@ export default function TrainWithAdmin() {
 
     try {
       setError('');
-      setUserTasks(null);
+      setSheetTask(null);
+      setLivePractice(null);
       setFinalResult(null);
       setShowEarlyFailModal(false);
       setShowEarlyWinModal(false);
+      setQuotaUsed(false);
 
       // Load all 5 today's targets
       const todayTargets = await getTodayTargets();
@@ -62,8 +73,40 @@ export default function TrainWithAdmin() {
         fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
         getTodayProgress(user.characterId).catch(() => null),
       ]);
-      const latestTraining = todayProgress ?? (trainings && trainings.length > 0 ? trainings[trainings.length - 1] : null);
-      setUserTasks(latestTraining);
+      setLivePractice(todayProgress);
+      const todaySheetTask = [...trainings].reverse().find((training) => training.date === getTodayDate()) || null;
+      setSheetTask(todaySheetTask);
+
+      const quotaDoc = await get(ref(db, `trainingQuotas/${user.characterId}/${getTodayDate()}`)).catch(() => null);
+      setQuotaUsed(!!quotaDoc?.exists());
+
+      if (practiceSessionKey) {
+        const rawSession = localStorage.getItem(practiceSessionKey);
+        if (rawSession) {
+          try {
+            const session = JSON.parse(rawSession) as { arenaId?: string; date?: string };
+            if (session?.arenaId && session.date === getTodayDate()) {
+              const room = await getRoom(session.arenaId).catch(() => null);
+              if (room && room.status !== ROOM_STATUS.FINISHED) {
+                setActivePvpArenaId(session.arenaId);
+                setActivePvpRoomStatus(room.status);
+              } else {
+                setActivePvpArenaId('');
+                setActivePvpRoomStatus('');
+              }
+            } else {
+              setActivePvpArenaId('');
+              setActivePvpRoomStatus('');
+            }
+          } catch {
+            setActivePvpArenaId('');
+            setActivePvpRoomStatus('');
+          }
+        } else {
+          setActivePvpArenaId('');
+          setActivePvpRoomStatus('');
+        }
+      }
 
       if (todayTargets && todayTargets.length === 5) {
         // Initialize papers with targets
@@ -75,22 +118,24 @@ export default function TrainWithAdmin() {
         setPapers(initialPapers);
       }
 
-      // Check if already trained
-      const trained = await hasTrainedToday(user.characterId);
-      setAlreadyTrained(trained);
+      const progress = todayProgress;
+      const isCompletedTraining = !!progress?.completed;
+      setAlreadyTrained(isCompletedTraining);
 
-      // If already trained, load progress and update papers
-      if (trained && todayTargets) {
-        const progress = await getTodayProgress(user.characterId);
-        if (progress && progress.rolls.length === 5) {
-          const completedPapers: PaperRoll[] = todayTargets.map((target, idx) => ({
-            target,
-            roll: progress.rolls[idx],
-            rolled: true,
-          }));
-          setPapers(completedPapers);
-          setCurrentRollIndex(5);
-          setFinalResult({ success: progress.success, rolls: progress.rolls });
+      if (progress && todayTargets) {
+        const currentRolls = progress.rolls || [];
+        const rolledCount = currentRolls.filter((roll) => roll > 0).length;
+        const hydratedPapers: PaperRoll[] = todayTargets.map((target, idx) => ({
+          target,
+          roll: currentRolls[idx] && currentRolls[idx] > 0 ? currentRolls[idx] : null,
+          rolled: idx < rolledCount && currentRolls[idx] > 0,
+        }));
+
+        setPapers(hydratedPapers);
+        setCurrentRollIndex(isCompletedTraining ? 5 : rolledCount);
+
+        if (isCompletedTraining) {
+          setFinalResult({ success: progress.success, rolls: currentRolls });
         }
       }
     } catch (err: any) {
@@ -105,11 +150,11 @@ export default function TrainWithAdmin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.characterId, practiceSessionKey]);
 
   useEffect(() => {
     loadTodayData();
-  }, [user]);
+  }, [loadTodayData]);
 
   const handleRollResult = async (result: number) => {
     if (alreadyTrained || currentRollIndex >= 5) return;
@@ -253,7 +298,12 @@ export default function TrainWithAdmin() {
     } as React.CSSProperties
   }, [user]);
 
-  const isPvpPractice = userTasks?.practiceMode === 'pvp';
+  const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
+  const hasOpenPvpRoom =
+    activePvpRoomStatus === ROOM_STATUS.CONFIGURING ||
+    activePvpRoomStatus === ROOM_STATUS.WAITING;
+  const hasLivePvp = livePractice?.practiceMode === 'pvp' && livePractice.practiceState === 'live';
+  const isFinishedPvpTask = sheetTask?.practiceMode === 'pvp' && sheetTask.practiceState === 'finished';
 
   if (loading) {
     return (
@@ -288,15 +338,16 @@ export default function TrainWithAdmin() {
     );
   }
 
-  if (isPvpPractice && userTasks?.practiceState === 'live') {
+  if (hasLivePvp) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
           <h2>PvP practice in progress</h2>
-          <p>Your training room is still live. Rejoin the room and finish the battle before starting guided training.</p>
+          <p>Your PvP room is still live. <br />
+            Rejoin the room and finish the battle first. The task will appear after the match ends.</p>
           <Link
-            to={userTasks.practiceArenaId ? `/training-grounds/pvp/${userTasks.practiceArenaId}` : '/training-grounds'}
+            to={livePractice?.practiceArenaId ? `/training-grounds/pvp/${livePractice.practiceArenaId}` : '/training-grounds'}
             className="train-with-admin__error-back-button"
           >
             Return to PvP
@@ -306,13 +357,14 @@ export default function TrainWithAdmin() {
     );
   }
 
-  if (isPvpPractice && userTasks?.practiceState === 'finished') {
+  if (isFinishedPvpTask) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
           <h2>PvP task ready</h2>
-          <p>Your battle has ended. Submit the roleplay for this PvP practice to complete the task.</p>
+          <p>Your battle has ended. <br />
+          The task is ready, so submit the roleplay to complete it.</p>
           <Link
             to="/training-grounds/tasks"
             className="train-with-admin__error-back-button"
@@ -324,7 +376,51 @@ export default function TrainWithAdmin() {
     );
   }
 
-  if (userTasks && userTasks.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) {
+  if (hasOpenPvpRoom) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>PvP room still open</h2>
+          <p>
+            Your PvP room is still {activePvpRoomStatus.toLowerCase()}. Close that room first to refund the quota,
+            then you can start normal training again.
+          </p>
+          {activePvpArenaId && (
+            <p>
+              Room: <strong>{activePvpArenaId}</strong>
+            </p>
+          )}
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Training Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (quotaUsed && !hasPendingSheetTask) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>Training quota already used</h2>
+          <p>You already started training for today. Please finish the current task before starting a new one.</p>
+          <Link
+            to="/training-grounds/tasks"
+            className="train-with-admin__error-back-button"
+          >
+            Go to Tasks
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasPendingSheetTask) {
     return (
       <div
         className="train-with-admin"
@@ -333,7 +429,7 @@ export default function TrainWithAdmin() {
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
           <h2>You have pending training tasks</h2>
-          <p>Please complete your pending tasks before starting new training.</p>
+          <p>Please complete the task before starting new training.</p>
           <Link
             to="/training-grounds"
             className="train-with-admin__error-back-button"

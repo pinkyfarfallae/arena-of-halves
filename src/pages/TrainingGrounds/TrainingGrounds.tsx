@@ -8,6 +8,7 @@ import './TrainingGrounds.scss';
 import { useAuth } from '../../hooks/useAuth';
 import { Character } from '../../data/characters';
 import { createRoom, getRoom, deleteRoom, toFighterState } from '../../services/battleRoom/battleRoom';
+import { getPowers } from '../../data/powers';
 import { db } from '../../firebase';
 import { ref, update, get, remove } from 'firebase/database';
 import { ARENA_ROLE, ROOM_STATUS } from '../../constants/battle';
@@ -16,6 +17,9 @@ import { InviteReservation } from '../../types/battle';
 import TrainingPracticeModal from './components/TrainingPracticeModal/TrainingPracticeModal';
 import { hexToRgb } from '../../utils/color';
 import { getTodayDate } from '../../services/training/dailyTrainingDice';
+import { fetchTrainings, getTodayProgress, UserDailyProgress } from '../../services/training/dailyTrainingDice';
+import { TRAINING_POINT_REQUEST_STATUS } from '../../constants/practiceStates';
+import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 
 function getPreviousDate(dateStr: string): string {
   // dateStr format: "YYYY-MM-DD"
@@ -32,203 +36,111 @@ export default function TrainingGrounds() {
   const [practiceModalJoinCode, setPracticeModalJoinCode] = useState('');
   const [createdPracticeArenaId, setCreatedPracticeArenaId] = useState<string>(''); // Match arena pattern
   const [createdPracticeArenaStatus, setCreatedPracticeArenaStatus] = useState<string>('');
+  const [pvpGateReady, setPvpGateReady] = useState(false);
+  const [pvpGateOpenModal, setPvpGateOpenModal] = useState(false);
   const todayDate = getTodayDate();
-  const practiceSessionKey = user?.characterId ? `training-pvp-session:${user.characterId}` : '';
 
-  const getPracticeSession = () => {
-    if (!practiceSessionKey) return null;
-    const raw = localStorage.getItem(practiceSessionKey);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as { arenaId?: string; roomCode?: string; date?: string; state?: string };
-    } catch {
-      return null;
+  useEffect(() => {
+    if (!openPracticeArena || !createdPracticeArenaId) {
+      setCreatedPracticeArenaStatus('');
     }
-  };
+  }, [openPracticeArena, createdPracticeArenaId]);
 
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const arenaId = createdPracticeArenaId || getPracticeSession()?.arenaId || '';
-      if (!openPracticeArena || !arenaId) {
-        if (mounted) setCreatedPracticeArenaStatus('');
+      if (!user?.characterId) {
+        if (mounted) {
+          setCreatedPracticeArenaId('');
+          setCreatedPracticeArenaStatus('');
+          setPvpGateReady(true);
+          setPvpGateOpenModal(true);
+          setPracticeModalTab('create');
+          setPracticeModalJoinCode('');
+        }
         return;
       }
 
-      const room = await getRoom(arenaId).catch(() => null);
-      if (!mounted) return;
-      setCreatedPracticeArenaStatus(room?.status ?? '');
-    })();
+      try {
+        const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
+        const [quotaSnapshot, trainings, todayProgress] = await Promise.all([
+          get(ref(db, quotaPath)).catch(() => null),
+          fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+          getTodayProgress(user.characterId).catch(() => null),
+        ]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [openPracticeArena, createdPracticeArenaId, practiceSessionKey, todayDate]);
+        if (!mounted) return;
 
-  useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      const session = getPracticeSession();
-      if (!session?.arenaId || !session.date || session.date === todayDate) return;
-      const room = await getRoom(session.arenaId).catch(() => null);
-      if (!mounted) return;
-      if (room) {
-        await deleteRoom(session.arenaId).catch(() => { });
+        const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
+        const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
+        const hasLiveNormalTraining = todayProgress?.practiceMode === 'admin' && todayProgress.practiceState === 'live';
+        const isFinishedNormalTraining = todayProgress?.practiceMode === 'admin' && todayProgress.practiceState === 'finished';
+        const quotaUsed = !!quotaSnapshot?.exists();
+
+        const canOpenModal = !hasPendingSheetTask && !hasLiveNormalTraining && !isFinishedNormalTraining && !quotaUsed;
+        if (canOpenModal) {
+          if (!createdPracticeArenaId) {
+            const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
+            const powers = getPowers(powerDeity);
+            const fighter = toFighterState(user, powers);
+            const arenaId = await createRoom(
+              fighter,
+              `Training: ${user.nicknameEng} vs ???`,
+              1,
+              1,
+              { practiceMode: true },
+            );
+            setCreatedPracticeArenaId(arenaId);
+            setCreatedPracticeArenaStatus(ROOM_STATUS.CONFIGURING);
+          }
+          setCreatedPracticeArenaStatus(ROOM_STATUS.CONFIGURING);
+          setPracticeModalTab('create');
+          setPracticeModalJoinCode('');
+          setPvpGateOpenModal(true);
+        } else {
+          setCreatedPracticeArenaId('');
+          setCreatedPracticeArenaStatus('');
+          setPracticeModalTab('create');
+          setPracticeModalJoinCode('');
+          setPvpGateOpenModal(false);
+        }
+      } finally {
+        if (mounted) setPvpGateReady(true);
       }
-      localStorage.removeItem(practiceSessionKey);
     })();
+
     return () => {
       mounted = false;
     };
-  }, [practiceSessionKey, todayDate]);
+  }, [todayDate, user, createdPracticeArenaId]);
 
   const handleTrainWithAdmin = () => {
     navigate('/training-grounds/guided');
   };
 
   const handlePvPMode = () => {
-    void (async () => {
-      if (!user?.characterId) {
-        setCreatedPracticeArenaId('');
-        setCreatedPracticeArenaStatus('');
-        setPracticeModalTab('create');
-        setPracticeModalJoinCode('');
-        setOpenPracticeArena(true);
-        return;
-      }
-
-      try {
-        const session = getPracticeSession();
-        if (session?.arenaId && session.date && session.date !== todayDate) {
-          const room = await getRoom(session.arenaId);
-          if (room) {
-            await deleteRoom(session.arenaId).catch(() => { });
-          }
-          localStorage.removeItem(practiceSessionKey);
-        }
-
-        if (session?.arenaId && session.date === todayDate) {
-          const room = await getRoom(session.arenaId);
-          if (room && (room.status === ROOM_STATUS.CONFIGURING || room.status === ROOM_STATUS.WAITING)) {
-            setCreatedPracticeArenaId(session.arenaId);
-            setCreatedPracticeArenaStatus(room.status);
-            setPracticeModalTab('create');
-            setPracticeModalJoinCode('');
-            setOpenPracticeArena(true);
-            return;
-          }
-          if (room && room.status !== ROOM_STATUS.FINISHED) {
-            setCreatedPracticeArenaId('');
-            setCreatedPracticeArenaStatus(room.status);
-            setPracticeModalTab('join');
-            setPracticeModalJoinCode(session.roomCode || session.arenaId);
-            setOpenPracticeArena(true);
-            return;
-          }
-          // Room is FINISHED or doesn't exist - clear the session so quota path doesn't use stale arenaId
-          if (!room || room.status === ROOM_STATUS.FINISHED) {
-            localStorage.removeItem(practiceSessionKey);
-          }
-        }
-
-        // Check quota from Firebase instead of localStorage
-        const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-        const quotaSnapshot = await get(ref(db, quotaPath));
-        const quotaUsed = quotaSnapshot.exists();
-        
-        if (quotaUsed) {
-          // Re-check session after potential cleanup above
-          const currentSession = getPracticeSession();
-          const existingArenaId = currentSession?.arenaId ?? '';
-          setCreatedPracticeArenaId(existingArenaId);
-          setCreatedPracticeArenaStatus(currentSession?.state === 'configuring' ? ROOM_STATUS.CONFIGURING : '');
-          setPracticeModalTab('create');
-          setPracticeModalJoinCode(currentSession?.roomCode || existingArenaId);
-          setOpenPracticeArena(true);
-          return;
-        }
-
-        const arenaId = await handleStartPractice();
-        setCreatedPracticeArenaId(arenaId);
-        setCreatedPracticeArenaStatus(ROOM_STATUS.CONFIGURING);
-        setPracticeModalTab('create');
-        setPracticeModalJoinCode('');
-        setOpenPracticeArena(true);
-      } catch (error) {
-        setCreatedPracticeArenaId('');
-        setCreatedPracticeArenaStatus('');
-        setPracticeModalTab('create');
-        setPracticeModalJoinCode('');
-        setOpenPracticeArena(true);
-      }
-    })();
+    if (!pvpGateReady) return;
+    if (pvpGateOpenModal) {
+      setOpenPracticeArena(true);
+      return;
+    }
+    navigate('/training-grounds/pvp');
   };
 
   const handleRolePlaySubmission = () => {
     navigate('/training-grounds/tasks');
   };
 
-  const handleStartPractice = async (): Promise<string> => {
-    if (!user) throw new Error('User not authenticated');
-    const session = getPracticeSession();
-    if (session?.arenaId) {
-      const room = await getRoom(session.arenaId);
-      if (room && room.status !== ROOM_STATUS.FINISHED) {
-        throw new Error('You already have a PvP practice for today. Rejoin it instead.');
-      }
-    }
-
-    // Check quota from Firebase instead of localStorage
-    const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-    const quotaRef = ref(db, quotaPath);
-    const quotaSnapshot = await get(quotaRef);
-    if (quotaSnapshot.exists()) {
-      throw new Error('You already used your practice quota for today.');
-    }
-
-    const host = toFighterState(user, []);
-    try {
-      const arenaId = await createRoom(
-        host,
-        `Training: ${user.nicknameEng}`,
-        1,
-        1,
-        { practiceMode: true },
-      );
-      await update(ref(db, `arenas/${arenaId}`), {
-        inviteReservations: null,
-        status: ROOM_STATUS.CONFIGURING,
-      });
-
-      // Store quota in Firebase
-      await update(quotaRef, {
-        used: true,
-        arenaId,
-        timestamp: Date.now(),
-      });
-      setCreatedPracticeArenaStatus(ROOM_STATUS.CONFIGURING);
-
-      if (practiceSessionKey) {
-        localStorage.setItem(practiceSessionKey, JSON.stringify({
-          arenaId,
-          roomCode: arenaId,
-          date: todayDate,
-          state: 'configuring',
-        }));
-      }
-
-      // Match arena pattern: set state after creating room
-      setCreatedPracticeArenaId(arenaId);
-      return arenaId;
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to create training room');
-    }
-  };
-
   const handleFinalizePracticeRoom = async (opponent: Character): Promise<string> => {
     if (!user) throw new Error('User not authenticated');
-    const session = getPracticeSession();
-    const arenaId = createdPracticeArenaId || session?.arenaId || '';
+    const inviteReservations: InviteReservation[] = [
+      {
+        characterId: opponent.characterId,
+        team: ARENA_ROLE.TEAM_B,
+      },
+    ];
+
+    const arenaId = createdPracticeArenaId;
     if (!arenaId) {
       throw new Error('No configuring training room found.');
     }
@@ -241,29 +153,14 @@ export default function TrainingGrounds() {
       throw new Error('This room can no longer be configured.');
     }
 
-    const inviteReservations: InviteReservation[] = [
-      {
-        characterId: opponent.characterId,
-        team: ARENA_ROLE.TEAM_B,
-      },
-    ];
-
     await update(ref(db, `arenas/${arenaId}`), {
       roomName: `Training: ${user.nicknameEng} vs ${opponent.nicknameEng}`,
       inviteReservations,
       status: ROOM_STATUS.WAITING,
+      practiceMode: true,
     });
 
     setCreatedPracticeArenaStatus(ROOM_STATUS.WAITING);
-    if (practiceSessionKey) {
-      localStorage.setItem(practiceSessionKey, JSON.stringify({
-        arenaId,
-        roomCode: arenaId,
-        date: todayDate,
-        state: 'waiting',
-      }));
-    }
-
     return arenaId;
   };
 
@@ -273,13 +170,9 @@ export default function TrainingGrounds() {
     if (!room) {
       throw new Error('Room not found. Check the code.');
     }
-    if (room.practiceMode && practiceSessionKey) {
+    if (room.practiceMode) {
+      setCreatedPracticeArenaId(code);
       setCreatedPracticeArenaStatus(room.status);
-      localStorage.setItem(practiceSessionKey, JSON.stringify({
-        arenaId: code,
-        roomCode: code,
-        date: todayDate,
-      }));
     }
     return code;
   };
@@ -298,11 +191,6 @@ export default function TrainingGrounds() {
 
     await deleteRoom(code);
 
-    const session = getPracticeSession();
-    if (session?.arenaId === code && practiceSessionKey) {
-      localStorage.removeItem(practiceSessionKey);
-    }
-    
     // Refund practice quota from Firebase
     // For developers: reset the room owner's quota
     // For regular users: reset their own quota
@@ -336,7 +224,8 @@ export default function TrainingGrounds() {
     setCreatedPracticeArenaStatus('');
   };
 
-  const activePracticeArenaId = createdPracticeArenaId || getPracticeSession()?.arenaId || '';
+  const activePracticeArenaId = createdPracticeArenaId;
+  const activePracticeArenaStatus = createdPracticeArenaId ? (createdPracticeArenaStatus || ROOM_STATUS.CONFIGURING) : '';
 
   const themeStyle = {
     primaryColor: user?.theme[0] || '#C0A062',
@@ -353,6 +242,7 @@ export default function TrainingGrounds() {
     <div className="training-grounds">
       <Routes>
         <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} />} />
+        <Route path="/pvp" element={<PvP />} />
         <Route path="/pvp/:arenaId" element={<PvP />} />
         <Route path="/guided" element={<TrainWithAdmin />} />
         <Route path="/tasks" element={<TrainingRoleplaySubmission />} />
@@ -369,7 +259,7 @@ export default function TrainingGrounds() {
         initialTab={practiceModalTab}
         initialJoinCode={practiceModalJoinCode}
         arenaId={activePracticeArenaId}
-        roomStatus={createdPracticeArenaStatus}
+        roomStatus={activePracticeArenaStatus}
       />
     </div>
   );

@@ -158,6 +158,12 @@
       border-color: var(--primary-color, #c0a062);
       background: linear-gradient(135deg, var(--primary-color, #c0a062) 0%, color-mix(in srgb, var(--primary-color, #c0a062) 78%, var(--dark-color, #2c2218)) 100%);
       color: #fff;
+
+      &:hover {
+        border-color: var(--primary-color, #c0a062);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color, #c0a062) 86%, black) 0%, color-mix(in srgb, var(--primary-color, #c0a062) 78%, var(--dark-color, #2c2218)) 100%);
+        color: #fff;
+      }
     }
   }
 
@@ -207,6 +213,21 @@
     min-height: 170px;
     display: grid;
     place-items: center;
+  }
+
+  &__loading-block {
+    min-height: 170px;
+    display: grid;
+    place-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  &__loading-text {
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--dark-color, #2c2218) 64%, white);
   }
 
   &__spinner {
@@ -480,7 +501,9 @@
       border-color: transparent;
 
       &:hover {
-        filter: brightness(0.9);
+        border-color: var(--primary-color, #c0a062);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color, #c0a062) 86%, black) 0%, color-mix(in srgb, var(--primary-color, #c0a062) 78%, var(--dark-color, #2c2218)) 100%);
+        color: #fff;
       }
     }
 

@@ -75,6 +75,8 @@ export default function TrainingPracticeModal({
   const [joinCode, setJoinCode] = useState(initialJoinCode);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const isBusy = loading || submitting;
+  const busyLabel = loading ? 'Loading players...' : submitting ? 'Creating room...' : '';
 
   useEffect(() => {
     if (!open) return;
@@ -225,9 +227,7 @@ export default function TrainingPracticeModal({
       setSubmitting(true);
       setError('');
       try {
-        const roomId = await onFinalizePracticeRoom(selectedOpponent);
-        onClose();
-        navigate(`/training-grounds/pvp/${roomId}`);
+        await onFinalizePracticeRoom(selectedOpponent);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to configure training room');
       } finally {
@@ -281,9 +281,14 @@ export default function TrainingPracticeModal({
         <div className="tpm__body">
           {error && <div className="tpm__error">{error}</div>}
 
-          {isCreateTab ? (
+          {isBusy ? (
+            <div className="tpm__loading-block">
+              <div className="tpm__spinner" />
+              <div className="tpm__loading-text">{busyLabel}</div>
+            </div>
+          ) : isCreateTab ? (
             <>
-              {loading ? (<div className="tpm__grid">
+              <div className="tpm__grid">
                 {characters.map((character) => {
                   const selected = character.characterId === selectedId;
                   return (
@@ -307,58 +312,30 @@ export default function TrainingPracticeModal({
                     </button>
                   );
                 })}
-              </div>) : (
-                <>
-                  <div className="tpm__grid">
-                    {characters.map((character) => {
-                      const selected = character.characterId === selectedId;
-                      return (
-                        <button
-                          key={character.characterId}
-                          type="button"
-                          className={`tpm__card ${selected ? 'tpm__card--selected' : ''}`}
-                          onClick={() => handleSelectOpponent(character)}
-                          style={{ '--accent': character.theme[0] } as CSSProperties}
-                        >
-                          {character.image ? (
-                            <img className="tpm__avatar" src={character.image} alt={character.nicknameEng} referrerPolicy="no-referrer" />
-                          ) : (
-                            <div className="tpm__avatar tpm__avatar--placeholder" style={{ background: character.theme[0] }}>
-                              {character.nicknameEng.charAt(0)}
-                            </div>
-                          )}
-                          <span className="tpm__name">{character.nicknameEng}</span>
-                          <span className="tpm__sub">{character.deityBlood}</span>
-                          {selected && <span className="tpm__check">✓</span>}
-                        </button>
-                      );
-                    })}
+              </div>
+              {arenaId && (
+                <div className="tpm__created">
+                  <div className="tpm__section-head">
+                    <div className="tpm__section-title">Training room ready</div>
+                    <div className="tpm__section-note">Share this code or link with the invited opponent.</div>
                   </div>
-                  {arenaId && (
-                    <div className="tpm__created">
-                      <div className="tpm__section-head">
-                        <div className="tpm__section-title">Training room ready</div>
-                        <div className="tpm__section-note">Share this code or link with the invited opponent.</div>
-                      </div>
-                      <div className="tpm__share-grid">
-                        <div className="tpm__share-row">
-                          <span className="tpm__share-label">Code</span>
-                          <span className="tpm__share-value">{arenaId}</span>
-                          <button type="button" className="tpm__copy" onClick={() => handleCopy('code')}>
-                            {copied === 'code' ? 'Copied' : 'Copy'}
-                          </button>
-                        </div>
-                        <div className="tpm__share-row">
-                          <span className="tpm__share-label">Link</span>
-                          <span className="tpm__share-value tpm__share-value--link">{viewerLink}</span>
-                          <button type="button" className="tpm__copy" onClick={() => handleCopy('link')}>
-                            {copied === 'link' ? 'Copied' : 'Copy'}
-                          </button>
-                        </div>
-                      </div>
+                  <div className="tpm__share-grid">
+                    <div className="tpm__share-row">
+                      <span className="tpm__share-label">Code</span>
+                      <span className="tpm__share-value">{arenaId}</span>
+                      <button type="button" className="tpm__copy" onClick={() => handleCopy('code')}>
+                        {copied === 'code' ? 'Copied' : 'Copy'}
+                      </button>
                     </div>
-                  )}
-                </>
+                    <div className="tpm__share-row">
+                      <span className="tpm__share-label">Link</span>
+                      <span className="tpm__share-value tpm__share-value--link">{viewerLink}</span>
+                      <button type="button" className="tpm__copy" onClick={() => handleCopy('link')}>
+                        {copied === 'link' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </>
           ) : (

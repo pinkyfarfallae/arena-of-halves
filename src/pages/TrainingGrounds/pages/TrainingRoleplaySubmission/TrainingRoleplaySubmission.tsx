@@ -13,7 +13,7 @@ import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
 import Refund from '../Stats/icons/Refund';
-import { fetchTrainings, getTodayProgress, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
+import { fetchTrainings, getTodayDate, getTodayProgress, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/practiceStates';
 import Swords from '../../../../icons/Swords';
 import './TrainingRoleplaySubmission.scss';
@@ -24,7 +24,8 @@ function TrainingRoleplaySubmission() {
   const { t, lang } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userTasks, setUserTasks] = useState<UserDailyProgress | null>(null);
+  const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
+  const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
   const [showDescription, setShowDescription] = useState(true);
@@ -41,9 +42,10 @@ function TrainingRoleplaySubmission() {
       fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
       getTodayProgress(user.characterId).catch(() => null),
     ]).then(([data, todayProgress]) => {
-      const latest = todayProgress ?? (data && data.length > 0 ? data[data.length - 1] : null);
       if (mounted) {
-        setUserTasks(latest);
+        setLivePractice(todayProgress);
+        const todaySheetTask = [...data].reverse().find((training) => training.date === getTodayDate()) || null;
+        setSheetTask(todaySheetTask);
       }
     }).catch(console.error)
       .finally(() => {
@@ -56,8 +58,8 @@ function TrainingRoleplaySubmission() {
   }, [user?.characterId]);
 
   const isValidTwitterUrl = useMemo(() => {
-    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
-    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^\/]+\/status\/\d+/i;
+    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^/]+\/status\/\d+/i;
+    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^/]+\/status\/\d+/i;
     return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
   }, [firstTweetUrl]);
 
@@ -72,8 +74,15 @@ function TrainingRoleplaySubmission() {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
 
-  const isPracticeLive = userTasks?.practiceMode === 'pvp' && userTasks?.practiceState === 'live';
-  const pvpBattleRolls = (userTasks?.practiceBattleRolls || []).filter((n): n is number => typeof n === 'number' && n > 0);
+  const isPvpPracticeLive = livePractice?.practiceMode === 'pvp' && livePractice.practiceState === 'live';
+  const isAdminPracticeLive = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'live';
+  const sheetTaskVerified = sheetTask?.verified ?? null;
+  const sheetTaskDate = sheetTask?.date ?? '';
+  const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
+  const sheetTaskTickets = sheetTask?.tickets ?? 0;
+  const sheetTaskRejectReason = sheetTask?.rejectReason ?? '';
+  const isPvpSheetTask = sheetTask?.practiceMode === 'pvp';
+  const pvpBattleRolls = (sheetTask?.practiceBattleRolls || livePractice?.practiceBattleRolls || []).filter((n): n is number => typeof n === 'number' && n > 0);
 
   const handleSubmit = async () => {
     if (!user?.characterId) {
@@ -94,7 +103,7 @@ function TrainingRoleplaySubmission() {
       }
     }
 
-    if (!userTasks?.date) {
+    if (!sheetTaskDate) {
       setError('No training date found');
       return;
     }
@@ -105,12 +114,12 @@ function TrainingRoleplaySubmission() {
     try {
       await submitTrainingRoleplay(
         user.characterId,
-        userTasks.date,
+        sheetTaskDate,
         firstTweetUrl.trim(),
         ticketsToApply
       );
 
-      setUserTasks((prev) => prev ? {
+      setSheetTask((prev) => prev ? {
         ...prev,
         roleplay: firstTweetUrl.trim() || null,
         tickets: ticketsToApply,
@@ -199,51 +208,62 @@ function TrainingRoleplaySubmission() {
         <div className="training-roleplay-submission__form">
           {isLoading ? (
             <div className="training-roleplay-submission__form-loading">Loading...</div>
-          ) : !userTasks ? (
+          ) : !sheetTask && !livePractice ? (
             <div className="training-roleplay-submission__form-no-data">
               No training data found. Start training to submit your roleplay and earn points!
             </div>
-          ) : isPracticeLive ? (
+          ) : isPvpPracticeLive ? (
             <div className="training-roleplay-submission__form-waiting">
               <div className="training-roleplay-submission__form-waiting-title">
                 PvP practice is still live
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
-                Finish the battle first. Once the match ends, this page will turn into the roleplay task for both fighters.
+                Finish the battle first. <br />
+                The task will appear after the match ends.
               </div>
-              {userTasks.practiceArenaId && (
+              {livePractice?.practiceArenaId && (
                 <div className="training-roleplay-submission__form-waiting-link">
                   <strong>Room:</strong>{' '}
-                  <Link to={`/training-grounds/pvp/${userTasks.practiceArenaId}`}>{userTasks.practiceArenaId}</Link>
+                  <Link to={`/training-grounds/pvp/${livePractice.practiceArenaId}`}>{livePractice.practiceArenaId}</Link>
                 </div>
               )}
             </div>
-          ) : userTasks.practiceMode === 'pvp' ? (
+          ) : isAdminPracticeLive ? (
+            <div className="training-roleplay-submission__form-waiting">
+              <div className="training-roleplay-submission__form-waiting-title">
+                Normal training is still live
+              </div>
+              <div className="training-roleplay-submission__form-waiting-text">
+                Finish the dice training first. <br />
+                The task will be created after the session ends.
+              </div>
+            </div>
+          ) : isPvpSheetTask ? (
             <div className="training-roleplay-submission__form-waiting">
               <div className="training-roleplay-submission__form-waiting-title">
                 PvP practice task ready
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
-                Battle rounds: <strong>{userTasks.practiceBattleRounds || 0}</strong>
+                Battle rounds: <strong>{sheetTask.practiceBattleRounds || 0}</strong>
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
-                Result: <strong>{userTasks.practiceBattleWinner ? 'Winner' : 'Loser'}</strong>
+                Result: <strong>{sheetTask.practiceBattleWinner ? 'Winner' : 'Loser'}</strong>
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
                 Attack / defend rolls: <strong>{pvpBattleRolls.join(' / ') || 'pvp'}</strong>
               </div>
             </div>
-          ) : userTasks.verified === TRAINING_POINT_REQUEST_STATUS.APPROVED ? (
+          ) : sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.APPROVED ? (
             <div className="training-roleplay-submission__form-approved">
               Training already approved! You can train more to upgrade your skills.
             </div>
-          ) : userTasks.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((userTasks.roleplay && userTasks.roleplay.trim() !== '') || userTasks?.tickets > 0) ? (
+          ) : sheetTask && sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((sheetTaskRoleplay && sheetTaskRoleplay.trim() !== '') || sheetTaskTickets > 0) ? (
             // Pending with submission - show waiting message
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${userTasks?.date ? new Date(userTasks.date).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${userTasks?.date ? new Date(userTasks.date).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
               <div className="training-roleplay-submission__form-waiting">
                 <div className="training-roleplay-submission__form-waiting-icon">
@@ -253,13 +273,13 @@ function TrainingRoleplaySubmission() {
                   Submission Under Review
                 </div>
                 <div className="training-roleplay-submission__form-waiting-text">
-                  Your roleplay submission is pending approval from administrators.
+                  Your task is pending approval from administrators.
                   <br />
                   Please wait for the review process to complete.
                 </div>
-                {userTasks.roleplay && (
+                {sheetTaskRoleplay && (
                   <div className="training-roleplay-submission__form-waiting-link">
-                    <strong>Submitted:</strong> <a href={userTasks.roleplay} target="_blank" rel="noopener noreferrer">{userTasks.roleplay}</a>
+                    <strong>Submitted:</strong> <a href={sheetTaskRoleplay} target="_blank" rel="noopener noreferrer">{sheetTaskRoleplay}</a>
                   </div>
                 )}
               </div>
@@ -269,18 +289,18 @@ function TrainingRoleplaySubmission() {
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${userTasks?.date ? new Date(userTasks.date).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${userTasks?.date ? new Date(userTasks.date).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
 
               {/* Roleplay URL Input - Primary Section */}
               <div className="training-roleplay-submission__form-content">
-                {userTasks.verified === TRAINING_POINT_REQUEST_STATUS.REJECTED && (
+                {sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.REJECTED && (
                   <div className="training-roleplay-submission__form-rejected">
                     <div className="training-roleplay-submission__form-rejected-content">
                       <strong>Submission Rejected</strong>
-                      {userTasks.rejectReason && (
-                        <p>{userTasks.rejectReason}</p>
+                      {sheetTaskRejectReason && (
+                        <p>{sheetTaskRejectReason}</p>
                       )}
                       <p className="training-roleplay-submission__form-rejected-hint">
                         Please review the feedback and submit again.
@@ -332,7 +352,7 @@ function TrainingRoleplaySubmission() {
                       <Trophy width={14} height={14} />
                       <span className="training-roleplay-submission__tickets-label">
                         {/* waiting for edit */}
-                        Available Tickets: <strong>{userTasks?.tickets || 0}</strong>
+                        Available Tickets: <strong>{sheetTaskTickets}</strong>
                       </span>
                     </div>
                     <div className="training-roleplay-submission__tickets-controls">
@@ -342,11 +362,11 @@ function TrainingRoleplaySubmission() {
                       <input
                         type="number"
                         min="0"
-                        max={Math.min(userTasks?.tickets || 0, 5)}
+                        max={Math.min(sheetTaskTickets, 5)}
                         value={ticketsToApply}
                         onChange={(e) => {
                           const value = parseInt(e.target.value) || 0;
-                          const maxTickets = Math.min(userTasks?.tickets || 0, 5);
+                          const maxTickets = Math.min(sheetTaskTickets, 5);
                           setTicketsToApply(Math.max(0, Math.min(value, maxTickets)));
                         }}
                         className="training-roleplay-submission__tickets-input"
@@ -354,12 +374,12 @@ function TrainingRoleplaySubmission() {
                       <button
                         className="training-roleplay-submission__tickets-button"
                         onClick={() => {
-                          const maxTickets = Math.min(userTasks?.tickets || 0, 5);
+                          const maxTickets = Math.min(sheetTaskTickets, 5);
                           setTicketsToApply(maxTickets);
                         }}
-                        disabled={!userTasks?.tickets || userTasks.tickets === 0}
+                        disabled={sheetTaskTickets === 0}
                       >
-                        Use Max ({Math.min(userTasks?.tickets || 0, 5)})
+                        Use Max ({Math.min(sheetTaskTickets, 5)})
                       </button>
                     </div>
                   </div>
@@ -380,6 +400,12 @@ function TrainingRoleplaySubmission() {
                   <Swords className="training-roleplay-submission__form-button-icon" />
                   <span>{isSubmitting ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>
                 </button>
+
+                {error && (
+                  <div className="training-roleplay-submission__form-error">
+                    {error}
+                  </div>
+                )}
               </div>
             </>
           )}
