@@ -4,9 +4,10 @@ import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { PRACTICE_STATES } from '../../../../constants/practiceStates';
 import { hexToRgb } from '../../../../utils/color';
-import { upgradeStat, refundStat, getUpgradeCost } from '../../../../services/training/upgradeStats';
+import { upgradeStat, getUpgradeCost } from '../../../../services/training/upgradeStats';
 import { fetchAllCharacters } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
+import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 import './Stats.scss';
 import TrainingPoint from './icons/TrainingPoint';
 import Refund from './icons/Refund';
@@ -47,7 +48,50 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const { user, updateUser } = useAuth();
   const { width } = useScreenSize();
   const [upgrading, setUpgrading] = useState<string | null>(null);
-  const [refunding, setRefunding] = useState<string | null>(null);
+  const [isUpgradeOverlayVisible, setIsUpgradeOverlayVisible] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [noticeModal, setNoticeModal] = useState<{ title: string; message: string } | null>(null);
+  const refundTicketCount = 1; // Mock for now. Replace with real ticket data later.
+  const MIN_UPGRADE_OVERLAY_MS = 3000;
+  const UPGRADE_FADE_MS = 280;
+  const showUpgradeOverlay = upgrading !== null;
+  const upgradeOverlayVisible = isUpgradeOverlayVisible;
+
+  const activeUpgradeStat = upgrading
+    ? PRACTICE_STATES_DETAIL.find((stat) => stat.id === upgrading)
+    : null;
+  const emberParticles = Array.from({ length: 30 }, (_, index) => {
+    const left = (index * 7.5 + (index % 3) * 4.25) % 100;
+    const delay = (index % 10) * 0.24 + Math.floor(index / 10) * 0.16;
+    const duration = 5.2 + (index % 6) * 0.42;
+    const size = 2 + (index % 5);
+    const bottom = -18 + (index % 6) * 3;
+
+    return {
+      left: `${left}%`,
+      bottom: `${bottom}px`,
+      size: `${size}px`,
+      delay: `${delay}s`,
+      duration: `${duration}s`,
+      opacity: 0.28 + (index % 5) * 0.12,
+    };
+  });
+  const fallingEmberParticles = Array.from({ length: 24 }, (_, index) => {
+    const left = (index * 8.8 + (index % 4) * 3.5) % 100;
+    const delay = (index % 8) * 0.3 + Math.floor(index / 8) * 0.14;
+    const duration = 5.6 + (index % 5) * 0.38;
+    const size = 2 + (index % 4);
+    const top = -12 + (index % 6) * 2;
+
+    return {
+      left: `${left}%`,
+      top: `${top}px`,
+      size: `${size}px`,
+      delay: `${delay}s`,
+      duration: `${duration}s`,
+      opacity: 0.24 + (index % 4) * 0.12,
+    };
+  });
 
   const getStatValue = (id: string) => {
     if (!user) return 0;
@@ -76,21 +120,38 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     const cost = getUpgradeCost(currentValue);
 
     if (cost === 0) {
-      alert('This stat is already at maximum level (5)');
+      setNoticeModal({
+        title: 'Stat Maxed',
+        message: 'This stat is already at maximum level (5).',
+      });
       return;
     }
 
     if ((user.trainingPoints || 0) < cost) {
-      alert(`Not enough training points. Need ${cost}, have ${user.trainingPoints || 0}`);
+      setNoticeModal({
+        title: 'Not Enough Training Points',
+        message: `Need ${cost} training points, but you only have ${user.trainingPoints || 0}.`,
+      });
       return;
     }
 
     setUpgrading(statId);
+    setIsUpgradeOverlayVisible(true);
+    const startedAt = Date.now();
 
     const result = await upgradeStat(user.characterId, statId, cost);
 
     if (result.error) {
-      alert(`Error: ${result.error}`);
+      setNoticeModal({
+        title: 'Upgrade Failed',
+        message: `Error: ${result.error}`,
+      });
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_UPGRADE_OVERLAY_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_UPGRADE_OVERLAY_MS - elapsed));
+      }
+      setIsUpgradeOverlayVisible(false);
+      await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
       setUpgrading(null);
       return;
     }
@@ -104,43 +165,48 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       }
     }
 
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < MIN_UPGRADE_OVERLAY_MS) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_UPGRADE_OVERLAY_MS - elapsed));
+    }
+
+    setIsUpgradeOverlayVisible(false);
+    await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
     setUpgrading(null);
   };
 
-  const handleRefund = async (statId: string) => {
-    if (!user?.characterId) return;
+  const handleOpenRefundModal = () => {
+    if (!user) return;
+    if (refundTicketCount <= 0) return;
+    setShowRefundConfirm(true);
+  };
 
-    const currentValue = getStatValue(statId);
+  const handleConfirmRefundAllStats = () => {
+    if (!user) return;
 
-    if (currentValue === 0) {
-      alert('This stat is already at minimum level (0)');
+    const statIds = PRACTICE_STATES_DETAIL.map((stat) => stat.id);
+    const totalRefundPoints = statIds.reduce((sum, statId) => sum + getStatValue(statId), 0);
+
+    if (totalRefundPoints <= 0) {
+      setShowRefundConfirm(false);
+      setNoticeModal({
+        title: 'Nothing To Refund',
+        message: 'There are no stat points to refund.',
+      });
       return;
     }
 
-    if (!window.confirm(`Refund 1 level from ${PRACTICE_STATES_DETAIL.find(s => s.id === statId)?.name}? You will get 1 training point back.`)) {
-      return;
-    }
+    updateUser({
+      strength: 0,
+      mobility: 0,
+      intelligence: 0,
+      technique: 0,
+      experience: 0,
+      fortune: 0,
+      trainingPoints: (user.trainingPoints || 0) + totalRefundPoints,
+    });
 
-    setRefunding(statId);
-
-    const result = await refundStat(user.characterId, statId);
-
-    if (result.error) {
-      alert(`Error: ${result.error}`);
-      setRefunding(null);
-      return;
-    }
-
-    if (result.success) {
-      // Refresh character data
-      const characters = await fetchAllCharacters();
-      const updated = characters.find(c => c.characterId === user.characterId);
-      if (updated) {
-        updateUser(updated);
-      }
-    }
-
-    setRefunding(null);
+    setShowRefundConfirm(false);
   };
 
   return (
@@ -171,17 +237,21 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           </Link>
           <div className="training-stats__header-title">Stats</div>
           <div className="training-stats__header-points-container">
-            <div className="training-stats__header-refund-ticket">
+            <button
+              type="button"
+              className="training-stats__header-refund-ticket"
+              onClick={handleOpenRefundModal}
+              disabled={refundTicketCount <= 0}
+              data-tooltip={refundTicketCount <= 0 ? 'No refund ticket available' : 'Refund all stats'}
+              data-tooltip-pos="bottom"
+            >
               <span className="training-stats__header-refund-ticket-icon">
                 <Refund />
               </span>
               <span className="training-stats__header-refund-ticket-text">
                 <span className="label">Refunds</span>
-                <span className="value">
-                  5
-                </span>
               </span>
-            </div>
+            </button>
             <div className="training-stats__header-points">
               <span className="training-stats__header-points-icon">
                 <TrainingPoint />
@@ -210,9 +280,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
             const maxValue = 5;
             const cost = getUpgradeCost(value);
             const canUpgrade = cost > 0 && (user?.trainingPoints || 0) >= cost;
-            const canRefund = value > 0;
             const isUpgrading = upgrading === stat.id;
-            const isRefunding = refunding === stat.id;
 
             return (
               <div
@@ -249,18 +317,10 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
                   <button
                     className="training-stats__card-upgrade"
                     onClick={() => handleUpgrade(stat.id)}
-                    disabled={!canUpgrade || isUpgrading || isRefunding}
+                    disabled={!canUpgrade || isUpgrading}
                     style={{ borderColor: stat.color }}
                   >
                     Upgrade
-                  </button>
-                  <button
-                    className="training-stats__card-refund"
-                    onClick={() => handleRefund(stat.id)}
-                    disabled={!canRefund || isUpgrading || isRefunding}
-                    style={{ borderColor: stat.color }}
-                  >
-                    Refund
                   </button>
                 </div>
               </div>
@@ -287,6 +347,94 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           </div>
         </div>
       </div>
+
+      {showUpgradeOverlay && (
+        <div
+          className={`training-stats__upgrade-overlay ${upgradeOverlayVisible ? 'training-stats__upgrade-overlay--visible' : 'training-stats__upgrade-overlay--hidden'}`}
+          role="status"
+          aria-live="polite"
+          aria-label="Upgrading stat"
+          style={{
+            '--overlay-stat-rgb': hexToRgb(activeUpgradeStat?.color || user?.theme[0] || '#C0A062'),
+          } as React.CSSProperties}
+        >
+          <div className="training-stats__upgrade-overlay-embers" aria-hidden="true">
+            {emberParticles.map((ember, index) => (
+              <span
+                key={index}
+                className="training-stats__upgrade-overlay-ember"
+                style={{
+                  left: ember.left,
+                  bottom: ember.bottom,
+                  width: ember.size,
+                  height: ember.size,
+                  animationDelay: ember.delay,
+                  animationDuration: ember.duration,
+                opacity: ember.opacity,
+              }}
+            />
+          ))}
+            {fallingEmberParticles.map((ember, index) => (
+              <span
+                key={`falling-${index}`}
+                className="training-stats__upgrade-overlay-ember training-stats__upgrade-overlay-ember--falling"
+                style={{
+                  left: ember.left,
+                  top: ember.top,
+                  width: ember.size,
+                  height: ember.size,
+                  animationDelay: ember.delay,
+                  animationDuration: ember.duration,
+                  opacity: ember.opacity,
+                }}
+              />
+            ))}
+          </div>
+          <div className="training-stats__upgrade-overlay-card">
+            <div className="training-stats__upgrade-overlay-icon">
+              <img src={statIcons[upgrading || PRACTICE_STATES.STRENGTH]} alt="" aria-hidden="true" />
+            </div>
+            <div className="training-stats__upgrade-overlay-text">
+              <span className="training-stats__upgrade-overlay-title">
+                Upgrading {activeUpgradeStat?.name || 'Strength'}
+              </span>
+              <span className="training-stats__upgrade-overlay-subtitle">
+                {(activeUpgradeStat?.name || 'Strength')} is rising through the camp...
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRefundConfirm && (
+        <ConfirmModal
+          title="Refund All Stats?"
+          message="This will reset all of your stats to 0 and return the spent training points to your account."
+          confirmLabel="Refund"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={handleConfirmRefundAllStats}
+          onCancel={() => setShowRefundConfirm(false)}
+        />
+      )}
+
+      {noticeModal && (
+        <div className="training-stats__notice-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-stats-notice-title">
+          <div className="training-stats__notice-modal">
+            <h3 id="training-stats-notice-title" className="training-stats__notice-modal-title">
+              {noticeModal.title}
+            </h3>
+            <p className="training-stats__notice-modal-message">{noticeModal.message}</p>
+            <button
+              type="button"
+              className="training-stats__notice-modal-button"
+              onClick={() => setNoticeModal(null)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

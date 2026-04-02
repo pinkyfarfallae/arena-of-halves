@@ -164,17 +164,6 @@ function TrainingRoleplaySubmission() {
         <div className="training-roleplay-submission__header-title">Tasks</div>
 
         <div className="training-roleplay-submission__header-points-container">
-          <div className="training-roleplay-submission__header-refund-ticket">
-            <span className="training-roleplay-submission__header-refund-ticket-icon">
-              <Refund />
-            </span>
-            <span className="training-roleplay-submission__header-refund-ticket-text">
-              <span className="label">Refunds</span>
-              <span className="value">
-                5
-              </span>
-            </span>
-          </div>
           <div className="training-roleplay-submission__header-points">
             <span className="training-roleplay-submission__header-points-icon">
               <TrainingPoint />
@@ -210,7 +199,8 @@ function TrainingRoleplaySubmission() {
             <div className="training-roleplay-submission__form-loading">Loading...</div>
           ) : !sheetTask && !livePractice ? (
             <div className="training-roleplay-submission__form-no-data">
-              No training data found. Start training to submit your roleplay and earn points!
+              No training data found. <br />
+              Start training to submit your roleplay and earn points!
             </div>
           ) : isPvpPracticeLive ? (
             <div className="training-roleplay-submission__form-waiting">
