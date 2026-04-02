@@ -448,6 +448,7 @@ export async function createRoom(
   customName?: string,
   teamAMax: number = 1,
   teamBMax?: number,
+  extraFields?: Partial<BattleRoom>,
 ): Promise<string> {
   let arenaId = generateArenaId();
 
@@ -480,6 +481,7 @@ export async function createRoom(
     teamB: { members: [], maxSize: maxB, minions: [] },
     viewers: {},
     createdAt: Date.now(),
+    ...extraFields,
   };
 
   await set(roomRef(arenaId), room);
@@ -591,7 +593,7 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
-        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING)
+        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING && !r.practiceMode)
         .sort((a, b) => b.createdAt - a.createdAt));
     setTimeout(() => callback(rooms), 0);
   });

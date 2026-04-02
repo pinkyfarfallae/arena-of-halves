@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
-import { useParams, useNavigate, useSearchParams, Link as NavigatedLink } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation, Link as NavigatedLink } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -61,6 +61,7 @@ import {
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
 } from '../../services/battleRoom/battleRoom';
+import { savePracticeProgress, getTodayDate } from '../../services/training/dailyTrainingDice';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
@@ -126,6 +127,7 @@ function Arena(props?: ArenaDemoProps) {
   const { isDemo = false, demoRoom = null, demoSeason = null } = props ?? {};
   const { arenaId } = useParams<{ arenaId: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const watchOnly = searchParams.get('watch') === 'true';
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -246,7 +248,7 @@ function Arena(props?: ArenaDemoProps) {
   // Debug log: deps array must have fixed length so it doesn't change between renders (e.g. before/after user loads).
   const phase = room?.battle?.turn?.phase;
   const characterId = user?.characterId ?? null;
-  
+
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost';
     const isRosabella = characterId === CHARACTER.ROSABELLA;
@@ -412,12 +414,21 @@ function Arena(props?: ArenaDemoProps) {
     if (arenaId) await selectAction(arenaId, action, powerIndex, allyTargetId);
   }, [arenaId, room]);
 
+  const effectiveRoom = isDemo ? (demoRoom ?? null) : room;
+
   const handleClose = useCallback(async () => {
-    if (arenaId) {
-      await deleteRoom(arenaId);
-      navigate('/arena');
+    if (!arenaId || !effectiveRoom) return;
+    if (effectiveRoom.practiceMode && effectiveRoom.status !== ROOM_STATUS.WAITING) return;
+    await deleteRoom(arenaId);
+    if (user?.characterId) {
+      try {
+        localStorage.removeItem(`training-pvp-session:${user.characterId}`);
+      } catch {
+        // Ignore storage failures.
+      }
     }
-  }, [arenaId, navigate]);
+    navigate('/arena');
+  }, [arenaId, effectiveRoom, navigate, user?.characterId]);
 
   const runAsync = useCallback((fn: () => void | Promise<void>) => {
     setTimeout(() => { fn(); }, 0);
@@ -448,8 +459,12 @@ function Arena(props?: ArenaDemoProps) {
   }, [arenaId, room, runAsync]);
 
   const onSelectTargetDeferred = useCallback((defenderId: string) => {
+    if (effectiveRoom?.practiceMode) {
+      void handleSelectTarget(defenderId);
+      return;
+    }
     runAsync(() => handleSelectTarget(defenderId));
-  }, [runAsync, handleSelectTarget]);
+  }, [runAsync, handleSelectTarget, effectiveRoom?.practiceMode]);
 
   const onSelectKeraunosTier2BatchDeferred = useCallback(
     (defenderIds: string[]) => {
@@ -475,8 +490,12 @@ function Arena(props?: ArenaDemoProps) {
     } else {
       setLastConfirmedPowerName(null);
     }
+    if (effectiveRoom?.practiceMode && action === TURN_ACTION.ATTACK && !powerName && !allyTargetId) {
+      void handleSelectAction(action, powerName, allyTargetId);
+      return;
+    }
     runAsync(() => handleSelectAction(action, powerName, allyTargetId));
-  }, [runAsync, handleSelectAction]);
+  }, [runAsync, handleSelectAction, effectiveRoom?.practiceMode]);
 
   useEffect(() => {
     return () => {
@@ -575,11 +594,14 @@ function Arena(props?: ArenaDemoProps) {
     const reserved = inviteReservationsFromFirebase(room.inviteReservations);
     const hasReservedSlot = reserved.some((r) => idEq(r.characterId, myId));
 
+    // Practice rooms only allow the invited opponent to join as fighter; everyone else becomes viewer.
+    const practiceRoomBlocksFighterJoin = !!room.practiceMode && !hasReservedSlot;
+
     // WAITING: join as fighter if there is open capacity OR this login matches host invite (correct team in joinRoom)
-    if (!watchOnly && room.status === ROOM_STATUS.WAITING && (hasReservedSlot || !teamBFull || !teamAFull)) {
+    if (!watchOnly && room.status === ROOM_STATUS.WAITING && !practiceRoomBlocksFighterJoin && (hasReservedSlot || !teamBFull || !teamAFull)) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
-        const powers = getPowers(powerDeity);
+        const powers = room.practiceMode ? [] : getPowers(powerDeity);
         const fighter = toFighterState(user, powers);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
@@ -928,54 +950,34 @@ function Arena(props?: ArenaDemoProps) {
     setTimeout(() => { setCopied(null); setToast(null); }, 2000);
   };
 
-  const effectiveRoom = isDemo ? (demoRoom ?? null) : room;
-
-  /* ── Loading / Error states (skip when demo mode) ─────────────────── */
-  if (!isDemo && error) {
-    return (
-      <div className="arena">
-        <div className="arena__state">
-          <p className="arena__state-msg">{error}</p>
-          <NavigatedLink to="/arena" className="arena__action-btn arena__action-btn--secondary">Back to Lobby</NavigatedLink>
-        </div>
-      </div>
-    );
-  }
-
-  if (!effectiveRoom) {
-    return (
-      <div className="arena">
-        <div className="arena__state">
-          <div className="arena__state-loader">
-            <div className="app-loader__ring" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const viewerCount = effectiveRoom.viewers ? Object.keys(effectiveRoom.viewers).length : 0;
-  const teamAMembers = teamMembersFromFirebase<FighterState>(
-    effectiveRoom.teamA?.members as FighterState[] | Record<string, FighterState> | undefined,
-  ).map((m: FighterState) => normalizeFighter(m));
-  const teamBMembers = teamMembersFromFirebase<FighterState>(
-    effectiveRoom.teamB?.members as FighterState[] | Record<string, FighterState> | undefined,
-  ).map((m: FighterState) => normalizeFighter(m));
-  const teamBFull = teamBMembers.length >= (effectiveRoom.teamB?.maxSize ?? 1);
+  const viewerCount = effectiveRoom?.viewers ? Object.keys(effectiveRoom.viewers).length : 0;
+  const teamAMembers = effectiveRoom
+    ? teamMembersFromFirebase<FighterState>(
+      effectiveRoom.teamA?.members as FighterState[] | Record<string, FighterState> | undefined,
+    ).map((m: FighterState) => normalizeFighter(m))
+    : [];
+  const teamBMembers = effectiveRoom
+    ? teamMembersFromFirebase<FighterState>(
+      effectiveRoom.teamB?.members as FighterState[] | Record<string, FighterState> | undefined,
+    ).map((m: FighterState) => normalizeFighter(m))
+    : [];
+  const teamALead = teamAMembers[0] ?? null;
+  const teamBLead = teamBMembers[0] ?? null;
+  const teamBFull = teamBMembers.length >= (effectiveRoom?.teamB?.maxSize ?? 1);
   const isCreator = teamAMembers[0]?.characterId === user?.characterId;
   /** Solo “play all camp”: any logged-in fighter on team A may drive every camp turn (not only devPlayAllHostCharacterId / slot 0 — fixes ally-slot login or host id drift). */
   const userIsOnTeamA = !!(
     user?.characterId &&
     teamAMembers.some((m) => m.characterId.toLowerCase() === user.characterId.toLowerCase())
   );
-  const isPlayAllHost = !!(effectiveRoom.devPlayAllFightersSelf && userIsOnTeamA);
+  const isPlayAllHost = !!(effectiveRoom?.devPlayAllFightersSelf && userIsOnTeamA);
   /** Play-all-fighters: only the configurated host drives; embedded teammates watch like viewers. */
-  const playAllNonHostViewer = !!(effectiveRoom.devPlayAllFightersSelf && !isPlayAllHost);
-  const battle = effectiveRoom.battle;
+  const playAllNonHostViewer = !!(effectiveRoom?.devPlayAllFightersSelf && !isPlayAllHost);
+  const battle = effectiveRoom?.battle;
   /** Play-all-camp only: host controls whichever fighter is acting. */
   const devUiActAsAttacker =
     !!(
-      effectiveRoom.devPlayAllFightersSelf &&
+      effectiveRoom?.devPlayAllFightersSelf &&
       isPlayAllHost &&
       battle?.turn?.attackerId
     );
@@ -1009,14 +1011,15 @@ function Arena(props?: ArenaDemoProps) {
   const battleHudMyId = playAllNonHostViewer ? undefined : battleUiMyId;
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
-  const isBattling = effectiveRoom.status === ROOM_STATUS.BATTLING || effectiveRoom.status === ROOM_STATUS.FINISHED;
+  const isBattling = (effectiveRoom?.status === ROOM_STATUS.BATTLING || effectiveRoom?.status === ROOM_STATUS.FINISHED);
+  const isPracticeRoom = !!effectiveRoom?.practiceMode || location.pathname.startsWith('/training-grounds/pvp/');
   /**
    * Exactly one human client should write NPC sub-phase rolls (crit D4, chain, dodge sim) to Firebase.
    * Previously only `isCreator` (team A slot 0) drove — team-B humans (or non-slot-0) never got `isPlaybackDriver`,
    * so NPC critical checks stuck on "waiting" with no auto-roll.
    */
   const npcAutomationAnchorId = (() => {
-    if (!effectiveRoom.testMode || npcCharacterIdSet.size === 0) return null;
+    if (!effectiveRoom || !effectiveRoom.testMode || npcCharacterIdSet.size === 0) return null;
     const humans = [...teamAMembers, ...teamBMembers].filter(
       (m) => m?.characterId && !npcCharacterIdSet.has(String(m.characterId).toLowerCase()),
     );
@@ -1026,11 +1029,12 @@ function Arena(props?: ArenaDemoProps) {
     )[0].characterId;
   })();
   const isPlaybackDriver = !!(
-    effectiveRoom.devPlayAllFightersSelf
+    effectiveRoom && effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
       : (
         battle?.turn?.attackerId === user?.characterId ||
         (
+          effectiveRoom &&
           effectiveRoom.testMode &&
           !!user?.characterId &&
           role !== ARENA_ROLE.VIEWER &&
@@ -1045,6 +1049,7 @@ function Arena(props?: ArenaDemoProps) {
   );
   const isAttackerNpc =
     !!(
+      effectiveRoom &&
       effectiveRoom.testMode &&
       battle?.turn?.attackerId &&
       npcCharacterIdSet.size > 0 &&
@@ -1052,6 +1057,7 @@ function Arena(props?: ArenaDemoProps) {
     ) && !effectiveRoom.devPlayAllFightersSelf;
   const isDefenderNpc =
     !!(
+      effectiveRoom &&
       effectiveRoom.testMode &&
       battle?.turn?.defenderId &&
       npcCharacterIdSet.size > 0 &&
@@ -1060,11 +1066,101 @@ function Arena(props?: ArenaDemoProps) {
   const pomCoAtkNpcId = battle?.turn ? effectivePomCoAttackerId(battle.turn) : undefined;
   const isPomCoCasterNpc =
     !!(
+      effectiveRoom &&
       effectiveRoom.testMode &&
       pomCoAtkNpcId &&
       npcCharacterIdSet.size > 0 &&
       npcCharacterIdSet.has(pomCoAtkNpcId.toLowerCase())
     ) && !effectiveRoom.devPlayAllFightersSelf;
+
+  useEffect(() => {
+    const room = effectiveRoom;
+    if (!room?.practiceMode || !arenaId || !user?.characterId) return;
+    if (room.status !== ROOM_STATUS.FINISHED) return;
+    if (role == null || role === ARENA_ROLE.VIEWER) return;
+
+    const opponent =
+      role === ARENA_ROLE.TEAM_A
+        ? teamBLead
+        : teamALead;
+    const practiceBattleRolls = (room.battle?.log ?? []).reduce<number[]>((rolls, entry) => {
+      if (typeof entry.attackRoll === 'number') rolls.push(entry.attackRoll);
+      if (typeof entry.defendRoll === 'number') rolls.push(entry.defendRoll);
+      return rolls;
+    }, []);
+
+    const practiceRolls = (() => {
+      const rolls = [...practiceBattleRolls.slice(0, 5)];
+      while (rolls.length < 5) rolls.push(0);
+      return rolls;
+    })();
+
+    savePracticeProgress({
+      userId: user.characterId,
+      arenaId,
+      roomCode: arenaId,
+      role,
+      rolls: practiceRolls,
+      battleRolls: practiceBattleRolls,
+      opponentId: opponent?.characterId,
+      opponentName: opponent?.nicknameEng,
+      state: 'finished',
+      rounds: room.battle?.roundNumber ?? 0,
+      winner: room.battle?.winner === role,
+    }).catch(() => { });
+
+    try {
+      localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({
+        arenaId,
+        roomCode: arenaId,
+        state: 'finished',
+        date: getTodayDate(),
+      }));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [
+    arenaId,
+    effectiveRoom?.practiceMode,
+    effectiveRoom?.status,
+    effectiveRoom?.battle?.roundNumber,
+    effectiveRoom?.battle?.winner,
+    role,
+    user?.characterId,
+    teamALead?.characterId,
+    teamALead?.nicknameEng,
+    teamBLead?.characterId,
+    teamBLead?.nicknameEng,
+  ]);
+
+  /* ── Loading / Error states (skip when demo mode) ─────────────────── */
+  if (!isDemo && error) {
+    return (
+      <div className="arena">
+        <div className="arena__state">
+          <p className="arena__state-msg">{error}</p>
+          <NavigatedLink
+            to={isPracticeRoom ? '/training-grounds' : '/arena'}
+            className="arena__action-btn arena__action-btn--secondary"
+          >
+            {isPracticeRoom ? 'Back to Training Grounds' : 'Back to Arena Lobby'}
+          </NavigatedLink>
+        </div>
+      </div>
+    );
+  }
+
+  if (!effectiveRoom) {
+    return (
+      <div className="arena">
+        <div className="arena__state">
+          <div className="arena__state-loader">
+            <div className="app-loader__ring" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /** Disoriented + player's turn: target must be chosen via modal (Random → Confirm), not by clicking panel. */
   const isDisorientedPlayerTurn = !!(battle?.turn?.phase === PHASE.SELECT_TARGET && battle?.turn?.attackerId === battleHudMyId && battle?.turn?.attackerId && (battle?.activeEffects || []).some((e: { targetId?: string; tag?: string }) => e.targetId === battle?.turn?.attackerId && e.tag === EFFECT_TAGS.DISORIENTED));
@@ -1183,6 +1279,7 @@ function Arena(props?: ArenaDemoProps) {
           >
             {teamBMembers.length > 0 ? (
               <TeamPanel
+                isPracticeRoom={isPracticeRoom}
                 members={teamBMembers}
                 allMembers={[...teamAMembers, ...teamBMembers]}
                 side={PANEL_SIDE.RIGHT}
@@ -1229,9 +1326,9 @@ function Arena(props?: ArenaDemoProps) {
 
       {/* ── Top bar ── */}
       <header className="arena__bar">
-        <NavigatedLink to="/arena" className="arena__bar-back">
+        <NavigatedLink to={isPracticeRoom ? '/training-grounds' : '/arena'} className="arena__bar-back">
           <ChevronLeft width={15} height={15} />
-          Leave Arena
+          {isPracticeRoom ? 'Back' : 'Back to Lobby'}
         </NavigatedLink>
 
         <div className="arena__bar-title">
@@ -1321,6 +1418,7 @@ function Arena(props?: ArenaDemoProps) {
           style={teamAMembers.length ? buildHalfStyle(teamAMembers, teamBMembers, PANEL_SIDE.LEFT) : undefined}
         >
           <TeamPanel
+            isPracticeRoom={isPracticeRoom}
             members={teamAMembers}
             allMembers={[...teamAMembers, ...teamBMembers]}
             side={PANEL_SIDE.LEFT}
@@ -1362,6 +1460,7 @@ function Arena(props?: ArenaDemoProps) {
         >
           {teamBMembers.length > 0 ? (
             <TeamPanel
+              isPracticeRoom={isPracticeRoom}
               members={teamBMembers}
               allMembers={[...teamAMembers, ...teamBMembers]}
               side={PANEL_SIDE.RIGHT}
@@ -1511,6 +1610,7 @@ function Arena(props?: ArenaDemoProps) {
             isViewer={role === ARENA_ROLE.VIEWER || playAllNonHostViewer}
             isAttackerNpc={isAttackerNpc}
             isDefenderNpc={isDefenderNpc}
+            practiceMode={!!effectiveRoom.practiceMode}
             isPomCoCasterNpc={isPomCoCasterNpc}
             onAdvancePomegranateCoAttackPhase={handleAdvancePomegranateCoAttackPhase}
             devPlayAllFightersSelf={!!effectiveRoom.devPlayAllFightersSelf}

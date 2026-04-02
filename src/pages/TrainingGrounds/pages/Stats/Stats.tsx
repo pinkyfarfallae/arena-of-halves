@@ -279,7 +279,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           <div className="training-stats__mode" onClick={onSelectTrainingWithAdminMode}>
             Normal Mode
           </div>
-          <div className="training-stats__mode disabled" onClick={onSelectPvPMode}>
+          <div className="training-stats__mode" onClick={onSelectPvPMode}>
             PvP Mode
           </div>
           <div className="training-stats__mode training-stats__roleplay-submission" onClick={onSelectRolePlaySubmission}>

@@ -819,6 +819,9 @@
   &__mode {
     flex: 1;
     position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     padding: 0.7rem 2.5rem;
 
     $corner-distance: 14px;

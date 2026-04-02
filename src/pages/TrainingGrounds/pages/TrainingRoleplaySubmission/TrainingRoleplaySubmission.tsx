@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, use } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { useTranslation } from '../../../../hooks/useTranslation';
@@ -7,14 +7,13 @@ import ChevronLeft from '../../../../icons/ChevronLeft';
 import Trophy from '../../../../icons/Trophy';
 import { LANGUAGE } from '../../../../constants/language';
 import Close from '../../../../icons/Close';
-import { Character, fetchAllCharacters } from '../../../../data/characters';
 import { hexToRgb } from '../../../../utils/color';
 import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
 import Refund from '../Stats/icons/Refund';
-import { fetchTrainings, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
+import { fetchTrainings, getTodayProgress, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/practiceStates';
 import Swords from '../../../../icons/Swords';
 import './TrainingRoleplaySubmission.scss';
@@ -28,38 +27,9 @@ function TrainingRoleplaySubmission() {
   const [userTasks, setUserTasks] = useState<UserDailyProgress | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
-  const [allCampData, setAllCampData] = useState<Character[]>([]);
   const [showDescription, setShowDescription] = useState(true);
   const [error, setError] = useState('');
   const [ticketsToApply, setTicketsToApply] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-
-    fetchAllCharacters()
-      .then((data) => {
-        if (mounted) setAllCampData(data || []);
-      })
-      .catch(console.error);
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    fetchAllCharacters()
-      .then((data) => {
-        if (mounted) setAllCampData(data || []);
-      })
-      .catch(console.error);
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!user?.characterId) return;
@@ -67,10 +37,13 @@ function TrainingRoleplaySubmission() {
     let mounted = true;
     setIsLoading(true);
 
-    fetchTrainings(user.characterId).then((data) => {
-      if (mounted && data && data.length > 0) {
-        // Get the most recent training (last element)
-        setUserTasks(data[data.length - 1]);
+    Promise.all([
+      fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+      getTodayProgress(user.characterId).catch(() => null),
+    ]).then(([data, todayProgress]) => {
+      const latest = todayProgress ?? (data && data.length > 0 ? data[data.length - 1] : null);
+      if (mounted) {
+        setUserTasks(latest);
       }
     }).catch(console.error)
       .finally(() => {
@@ -81,14 +54,6 @@ function TrainingRoleplaySubmission() {
       mounted = false;
     };
   }, [user?.characterId]);
-
-  const characterMap = useMemo(() => {
-    const map: Record<string, Character> = {};
-    allCampData.forEach((c) => {
-      map[c.characterId.toLowerCase()] = c;
-    });
-    return map;
-  }, [allCampData]);
 
   const isValidTwitterUrl = useMemo(() => {
     const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
@@ -106,6 +71,9 @@ function TrainingRoleplaySubmission() {
   const canSubmitWithoutTweet = useMemo(() => {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
+
+  const isPracticeLive = userTasks?.practiceMode === 'pvp' && userTasks?.practiceState === 'live';
+  const pvpBattleRolls = (userTasks?.practiceBattleRolls || []).filter((n): n is number => typeof n === 'number' && n > 0);
 
   const handleSubmit = async () => {
     if (!user?.characterId) {
@@ -234,6 +202,36 @@ function TrainingRoleplaySubmission() {
           ) : !userTasks ? (
             <div className="training-roleplay-submission__form-no-data">
               No training data found. Start training to submit your roleplay and earn points!
+            </div>
+          ) : isPracticeLive ? (
+            <div className="training-roleplay-submission__form-waiting">
+              <div className="training-roleplay-submission__form-waiting-title">
+                PvP practice is still live
+              </div>
+              <div className="training-roleplay-submission__form-waiting-text">
+                Finish the battle first. Once the match ends, this page will turn into the roleplay task for both fighters.
+              </div>
+              {userTasks.practiceArenaId && (
+                <div className="training-roleplay-submission__form-waiting-link">
+                  <strong>Room:</strong>{' '}
+                  <Link to={`/training-grounds/pvp/${userTasks.practiceArenaId}`}>{userTasks.practiceArenaId}</Link>
+                </div>
+              )}
+            </div>
+          ) : userTasks.practiceMode === 'pvp' ? (
+            <div className="training-roleplay-submission__form-waiting">
+              <div className="training-roleplay-submission__form-waiting-title">
+                PvP practice task ready
+              </div>
+              <div className="training-roleplay-submission__form-waiting-text">
+                Battle rounds: <strong>{userTasks.practiceBattleRounds || 0}</strong>
+              </div>
+              <div className="training-roleplay-submission__form-waiting-text">
+                Result: <strong>{userTasks.practiceBattleWinner ? 'Winner' : 'Loser'}</strong>
+              </div>
+              <div className="training-roleplay-submission__form-waiting-text">
+                Attack / defend rolls: <strong>{pvpBattleRolls.join(' / ') || 'pvp'}</strong>
+              </div>
             </div>
           ) : userTasks.verified === TRAINING_POINT_REQUEST_STATUS.APPROVED ? (
             <div className="training-roleplay-submission__form-approved">

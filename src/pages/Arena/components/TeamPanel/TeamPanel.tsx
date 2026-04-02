@@ -16,6 +16,7 @@ import { SKILL_UNLOCK } from '../../../../constants/character';
 import { CHARACTER } from '../../../../constants/characters';
 
 interface Props {
+  isPracticeRoom?: boolean;
   members: FighterState[];
   allMembers?: FighterState[];
   side: PanelSide;
@@ -72,7 +73,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
+export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
 
@@ -543,6 +544,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           <MemberChip
             key={m.characterId}
             fighter={m}
+            isPracticeRoom={isPracticeRoom}
             isAttacker={isAttacker}
             isDefender={isDefender}
             isEliminated={isEliminated}
