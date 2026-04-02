@@ -35,6 +35,7 @@ export interface UserDailyProgress {
   verifiedBy?: string;
   verifiedAt?: string;
   rejectReason?: string;
+  tickets: number;
   createdAt: Timestamp;
 }
 
@@ -236,6 +237,7 @@ export const savePartialProgress = async (
     completed: false,
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+    tickets: 0,
     createdAt: serverTimestamp(),
   }, { merge: true });
 };
@@ -272,6 +274,7 @@ export const completeTraining = async (
     earlyFailed,
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+    tickets: 0,
     createdAt: serverTimestamp(),
   }, { merge: true });
 
@@ -348,7 +351,8 @@ const appendToGoogleSheets = async (
     rolls,
     target,
     success,
-    roleplay: '', // Optional field, empty by default
+    roleplay: '',
+    tickets: 0,
   };
 
   try {
@@ -425,7 +429,8 @@ export const fetchAllTrainings = async (): Promise<UserDailyProgress[]> => {
 export const submitTrainingRoleplay = async (
   userId: string,
   date: string,
-  roleplayUrl: string
+  roleplayUrl: string,
+  tickets: number = 0
 ): Promise<void> => {
   try {
     const payload = {
@@ -433,13 +438,11 @@ export const submitTrainingRoleplay = async (
       userId,
       date,
       roleplayUrl,
+      tickets,
     };
 
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(payload),
     });
 
