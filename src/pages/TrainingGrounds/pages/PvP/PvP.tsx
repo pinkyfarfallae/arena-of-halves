@@ -14,6 +14,7 @@ import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPoi
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import Arena from '../../../Arena/Arena';
 import './PvP.scss';
+import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 
 export default function PvP() {
   const { arenaId } = useParams<{ arenaId: string }>();
@@ -75,13 +76,13 @@ export default function PvP() {
   }, [user]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-  const hasLiveNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'live';
-  const isFinishedNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'finished';
+  const hasLiveNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE;
+  const isFinishedNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.FINISHED;
   // PvP is considered "in progress" if it's in waiting, live, or configuring state (not current arena)
-  const hasLivePvp = livePractice?.practiceMode === 'pvp' && 
-    (livePractice.practiceState === 'live' || livePractice.practiceState === 'waiting') && 
+  const hasLivePvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
+    (livePractice.practiceState === PRACTICE_STATES.LIVE || livePractice.practiceState === PRACTICE_STATES.WAITING) && 
     livePractice.practiceArenaId !== arenaId;
-  const isFinishedPvpTask = sheetTask?.practiceMode === 'pvp' && sheetTask.practiceState === 'finished';
+  const isFinishedPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.FINISHED;
 
   // If entering an arena directly, wait for user then render Arena
   if (arenaId) {
@@ -155,8 +156,8 @@ export default function PvP() {
   }
 
   // Allow continuing in-progress PvP practice (waiting or live state)
-  const hasInProgressPvp = livePractice?.practiceMode === 'pvp' && 
-    (livePractice.practiceState === 'waiting' || livePractice.practiceState === 'live');
+  const hasInProgressPvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
+    (livePractice.practiceState === PRACTICE_STATES.WAITING || livePractice.practiceState === PRACTICE_STATES.LIVE);
   
   if (quotaUsed && !hasInProgressPvp) {
     return (

@@ -4,7 +4,6 @@ import Stats from './pages/Stats/Stats';
 import PvP from './pages/PvP/PvP';
 import TrainWithAdmin from './pages/TrainWithAdmin/TrainWithAdmin';
 import TrainingRoleplaySubmission from './pages/TrainingRoleplaySubmission/TrainingRoleplaySubmission';
-import './TrainingGrounds.scss';
 import { useAuth } from '../../hooks/useAuth';
 import { Character } from '../../data/characters';
 import { createRoom, getRoom, deleteRoom, toFighterState } from '../../services/battleRoom/battleRoom';
@@ -18,9 +17,11 @@ import { InviteReservation } from '../../types/battle';
 import TrainingPracticeModal from './components/TrainingPracticeModal/TrainingPracticeModal';
 import { hexToRgb } from '../../utils/color';
 import { getTodayDate } from '../../services/training/dailyTrainingDice';
-import { fetchTrainings, getTodayProgress, UserDailyProgress, savePracticeProgress, USER_DAILY_PROGRESS_COLLECTION } from '../../services/training/dailyTrainingDice';
+import { fetchTrainings, getTodayProgress, UserDailyProgress, USER_DAILY_PROGRESS_COLLECTION } from '../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../constants/trainingPointRequestStatus';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
+import './TrainingGrounds.scss';
+import { PRACTICE_MODE, PRACTICE_STATES } from '../../constants/practice';
 
 function getPreviousDate(dateStr: string): string {
   // dateStr format: "YYYY-MM-DD"
@@ -89,12 +90,12 @@ export default function TrainingGrounds() {
 
         const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
         const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-        const hasLiveNormalTraining = todayProgress?.practiceMode === 'admin' && todayProgress.practiceState === 'live';
-        const isFinishedNormalTraining = todayProgress?.practiceMode === 'admin' && todayProgress.practiceState === 'finished';
+        const hasLiveNormalTraining = todayProgress?.practiceMode === PRACTICE_MODE.NORMAL && todayProgress.practiceState === PRACTICE_STATES.LIVE;
+        const isFinishedNormalTraining = todayProgress?.practiceMode === PRACTICE_MODE.NORMAL && todayProgress.practiceState === PRACTICE_STATES.FINISHED;
         const hasActivePracticeRoom = !!createdPracticeArenaId;
 
         // Check if there's an existing PvP room in database (any state: waiting, live, or finished)
-        const hasExistingPvpRoom = todayProgress?.practiceMode === 'pvp' && todayProgress?.practiceArenaId;
+        const hasExistingPvpRoom = todayProgress?.practiceMode === PRACTICE_MODE.PVP && todayProgress?.practiceArenaId;
         
         // If existing PvP room found, verify user is a fighter or creator before storing for auto-navigation
         if (hasExistingPvpRoom && todayProgress?.practiceArenaId) {
@@ -173,9 +174,9 @@ export default function TrainingGrounds() {
       try {
         const todayProgress = await getTodayProgress(user.characterId);
         // Only navigate to existing room if progress exists AND it's in 'waiting' or 'live' state
-        if (todayProgress?.practiceMode === 'pvp' && 
+        if (todayProgress?.practiceMode === PRACTICE_MODE.PVP && 
             todayProgress?.practiceArenaId && 
-            (todayProgress.practiceState === 'waiting' || todayProgress.practiceState === 'live')) {
+            (todayProgress.practiceState === PRACTICE_STATES.WAITING || todayProgress.practiceState === PRACTICE_STATES.LIVE)) {
           const room = await getRoom(todayProgress.practiceArenaId);
           if (room) {
             navigate(`/training-grounds/pvp/${todayProgress.practiceArenaId}`);
@@ -321,7 +322,7 @@ export default function TrainingGrounds() {
         for (const date of dates) {
           const checkPath = `trainingQuotas/${quotaOwnerId}/${date}`;
           const snapshot = await get(ref(db, checkPath));
-          if (snapshot.exists() && snapshot.val()?.mode === 'pvp') {
+          if (snapshot.exists() && snapshot.val()?.mode === PRACTICE_MODE.PVP) {
             quotaDate = date;
             break;
           }

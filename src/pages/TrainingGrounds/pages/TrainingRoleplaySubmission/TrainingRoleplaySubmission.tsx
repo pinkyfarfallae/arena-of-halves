@@ -16,6 +16,7 @@ import { fetchTrainings, getTodayDate, getTodayProgress, submitTrainingRoleplay,
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
 import './TrainingRoleplaySubmission.scss';
+import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -73,14 +74,14 @@ function TrainingRoleplaySubmission() {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
 
-  const isPvpPracticeLive = livePractice?.practiceMode === 'pvp' && livePractice.practiceState === 'live';
-  const isAdminPracticeLive = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'live';
+  const isPvpPracticeLive = livePractice?.practiceMode === PRACTICE_MODE.PVP && livePractice.practiceState === PRACTICE_STATES.LIVE;
+  const isAdminPracticeLive = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE;
   const sheetTaskVerified = sheetTask?.verified ?? null;
   const sheetTaskDate = sheetTask?.date ?? '';
   const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
   const sheetTaskTickets = sheetTask?.tickets ?? 0;
   const sheetTaskRejectReason = sheetTask?.rejectReason ?? '';
-  const isPvpSheetTask = sheetTask?.practiceMode === 'pvp';
+  const isPvpSheetTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP;
   const pvpBattleRolls = (sheetTask?.practiceBattleRolls || livePractice?.practiceBattleRolls || []).filter((n): n is number => typeof n === 'number' && n > 0);
 
   const handleSubmit = async () => {
