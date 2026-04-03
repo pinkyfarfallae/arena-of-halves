@@ -14,9 +14,11 @@ import {
   getTodayDate,
   getTodayProgress,
   UserDailyProgress,
-  checkSuccess,
+  TrainingTask,
   checkSuccessWithTargets,
-  fetchTrainings,
+  fetchUserTrainingTasks,
+  canUserTrain,
+  TrainingValidation,
 } from '../../../../services/training/dailyTrainingDice';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import EarlyFailModal from './components/EarlyFailModal/EarlyFailModal';
@@ -36,7 +38,7 @@ export default function TrainWithAdmin() {
   const [papers, setPapers] = useState<PaperRoll[]>([]);
   const [currentRollIndex, setCurrentRollIndex] = useState<number>(0);
   const [alreadyTrained, setAlreadyTrained] = useState<boolean>(false);
-  const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
+  const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [finalResult, setFinalResult] = useState<{ success: boolean; rolls: number[] } | null>(null);
@@ -44,6 +46,7 @@ export default function TrainWithAdmin() {
   const [showEarlyWinModal, setShowEarlyWinModal] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [quotaUsed, setQuotaUsed] = useState<boolean>(false);
+  const [validation, setValidation] = useState<TrainingValidation | null>(null);
 
   const loadTodayData = useCallback(async () => {
     setLoading(true);
@@ -67,7 +70,7 @@ export default function TrainWithAdmin() {
       setTargets(todayTargets);
 
       const [trainings, todayProgress] = await Promise.all([
-        fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+        fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
         getTodayProgress(user.characterId).catch(() => null),
       ]);
       setLivePractice(todayProgress);
@@ -76,6 +79,10 @@ export default function TrainWithAdmin() {
 
       const quotaDoc = await get(ref(db, `trainingQuotas/${user.characterId}/${getTodayDate()}`)).catch(() => null);
       setQuotaUsed(!!quotaDoc?.exists());
+
+      // Check comprehensive validation
+      const validationResult = await canUserTrain(user.characterId, PRACTICE_MODE.NORMAL);
+      setValidation(validationResult);
 
       if (todayTargets && todayTargets.length === 5) {
         // Initialize papers with targets
@@ -88,28 +95,43 @@ export default function TrainWithAdmin() {
       }
 
       const progress = todayProgress;
-      const isCompletedTraining = !!progress?.completed || (progress?.practiceMode === PRACTICE_MODE.NORMAL && progress?.practiceState === PRACTICE_STATES.FINISHED) || (progress?.practiceMode === PRACTICE_MODE.PVP && progress?.practiceState === PRACTICE_STATES.FINISHED);
+      const isCompletedTraining = (progress?.mode === PRACTICE_MODE.NORMAL && progress?.state === PRACTICE_STATES.FINISHED) ||
+        (progress?.mode === PRACTICE_MODE.PVP && progress?.state === PRACTICE_STATES.FINISHED);
       setAlreadyTrained(isCompletedTraining);
 
-      if (progress && todayTargets) {
-        const currentRolls = progress.rolls || [];
-        const rolledCount = currentRolls.filter((roll) => roll > 0).length;
-        const hydratedPapers: PaperRoll[] = todayTargets.map((target, idx) => ({
-          target,
-          roll: currentRolls[idx] && currentRolls[idx] > 0 ? currentRolls[idx] : null,
-          rolled: idx < rolledCount && currentRolls[idx] > 0,
-        }));
+      // Restore partial progress from Firestore or Sheet
+      if (todayTargets && todayTargets.length === 5) {
+        let rolledCount = 0;
+        let currentRolls: number[] = [];
 
-        setPapers(hydratedPapers);
-        setCurrentRollIndex(isCompletedTraining ? 5 : rolledCount);
+        // Priority 1: If finished, use Sheet data (final source of truth)
+        if (isCompletedTraining && todaySheetTask) {
+          currentRolls = todaySheetTask.rolls || [];
+          rolledCount = currentRolls.filter((roll: number) => roll > 0).length;
+        }
+        // Priority 2: If in progress, use Firestore data (has partial rolls)
+        else if (progress?.state === PRACTICE_STATES.LIVE && progress.rolls) {
+          currentRolls = progress.rolls;
+          rolledCount = currentRolls.filter((roll: number) => roll > 0).length;
+        }
 
-        if (isCompletedTraining) {
-          setFinalResult({ success: progress.success, rolls: currentRolls });
+        // Restore papers with existing rolls
+        if (rolledCount > 0) {
+          const hydratedPapers: PaperRoll[] = todayTargets.map((target, idx) => ({
+            target,
+            roll: currentRolls[idx] && currentRolls[idx] > 0 ? currentRolls[idx] : null,
+            rolled: idx < rolledCount && currentRolls[idx] > 0,
+          }));
+
+          setPapers(hydratedPapers);
+          setCurrentRollIndex(isCompletedTraining ? 5 : rolledCount);
+
+          if (isCompletedTraining && todaySheetTask && todaySheetTask.success !== undefined) {
+            setFinalResult({ success: todaySheetTask.success, rolls: currentRolls });
+          }
         }
       }
     } catch (err: any) {
-      console.error('Failed to load training data:', err);
-
       // Check if it's a Firestore offline error
       if (err.code === 'unavailable' || err.message?.includes('offline')) {
         setError('Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md');
@@ -149,7 +171,6 @@ export default function TrainWithAdmin() {
 
       await savePartialProgress(user!.characterId!, currentRolls, target);
     } catch (err: any) {
-      console.error('Failed to save partial progress:', err);
       setError(err.message || 'Failed to save progress');
     }
 
@@ -189,8 +210,6 @@ export default function TrainWithAdmin() {
         setAlreadyTrained(true);
         setFinalResult({ success, rolls });
       } catch (err: any) {
-        console.error('Failed to save training result:', err);
-
         if (err.code === 'unavailable' || err.message?.includes('offline')) {
           setError('Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md');
         } else {
@@ -225,7 +244,6 @@ export default function TrainWithAdmin() {
       setShowEarlyFailModal(false);
       setFinalResult({ success: false, rolls });
     } catch (err: any) {
-      console.error('Failed to complete training:', err);
       setError(err.message || 'Failed to complete training');
     }
   };
@@ -255,7 +273,6 @@ export default function TrainWithAdmin() {
       setShowEarlyWinModal(false);
       setFinalResult({ success: true, rolls });
     } catch (err: any) {
-      console.error('Failed to complete training:', err);
       setError(err.message || 'Failed to complete training');
     }
   };
@@ -274,13 +291,10 @@ export default function TrainWithAdmin() {
   }, [user]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-  // PvP is considered \"in progress\" if it's in waiting or live state
-  const hasLivePvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
-    (livePractice.practiceState === PRACTICE_STATES.LIVE || livePractice.practiceState === PRACTICE_STATES.WAITING);
-  const hasWaitingPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.WAITING;
-  const isFinishedPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.FINISHED;
-  const isFinishedNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.FINISHED;
-  const hasInProgressNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE && !livePractice.completed;
+  // PvP is considered "in progress" if it's in waiting or live state
+  const hasLivePvp = livePractice?.mode === PRACTICE_MODE.PVP &&
+    (livePractice.state === PRACTICE_STATES.LIVE || livePractice.state === PRACTICE_STATES.WAITING);
+  const isFinishedPvpTask = sheetTask?.mode === PRACTICE_MODE.PVP;
 
   if (loading) {
     return (
@@ -290,6 +304,69 @@ export default function TrainWithAdmin() {
       >
         {BG_ELEMENTS}
         <div className="train-with-admin__loading-spinner" aria-label="Loading" role="status" />
+      </div>
+    );
+  }
+
+  if (hasPendingSheetTask) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>Your last training is not completed yet</h2>
+          <p>
+            Your training submission is currently pending review by the admin. <br />
+            Please check back later for the results.
+          </p>
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasLivePvp) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>PvP Training In Progress</h2>
+          <p>
+            You have an active PvP training. <br />
+            Please come back again tomorrow after it has been reviewed by the admin.
+          </p>
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFinishedPvpTask) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>PvP Training Completed</h2>
+          <p>
+            Your PvP training has been completed. <br />
+            Please finishyour task and come back again tomorrow for the next training.
+          </p>
+          <Link
+            to="/training-grounds"
+            className="train-with-admin__error-back-button"
+          >
+            Back to Grounds
+          </Link>
+        </div>
       </div>
     );
   }
@@ -308,103 +385,25 @@ export default function TrainWithAdmin() {
             to="/training-grounds"
             className="train-with-admin__error-back-button"
           >
-            Back to Camp
+            Back to Grounds
           </Link>
         </div>
       </div>
     );
   }
 
-  if (hasPendingSheetTask) {
+  if (validation && !validation.canTrain) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
-          <h2>You have a pending task</h2>
-          <p>Please complete your current task before starting new training. <br />
-          Submit the roleplay and wait for approval.</p>
-          <Link
-            to="/training-grounds/tasks"
-            className="train-with-admin__error-back-button"
-          >
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasLivePvp || hasWaitingPvpTask) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>PvP practice in progress</h2>
-          <p>Your PvP room is still live. <br />
-            Rejoin the room and finish the battle first. The task will appear after the match ends.</p>
-          <Link
-            to={livePractice?.practiceArenaId ? `/training-grounds/pvp/${livePractice.practiceArenaId}` : '/training-grounds'}
-            className="train-with-admin__error-back-button"
-          >
-            Return to PvP
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (isFinishedPvpTask) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>PvP task ready</h2>
-          <p>Your battle has ended. <br />
-          The task is ready, so submit the roleplay to complete it.</p>
-          <Link
-            to="/training-grounds/tasks"
-            className="train-with-admin__error-back-button"
-          >
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (quotaUsed && !hasInProgressNormalTraining && !isFinishedNormalTraining) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>Training quota already used</h2>
-          <p>You already started training for today. Please finish the current task before starting a new one.</p>
-          <Link
-            to="/training-grounds/tasks"
-            className="train-with-admin__error-back-button"
-          >
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasPendingSheetTask) {
-    return (
-      <div
-        className="train-with-admin"
-        style={colorStyle}
-      >
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>You have pending training tasks</h2>
-          <p>Please complete the task before starting new training.</p>
+          <h2>Training Not Available</h2>
+          <p>{validation.reason}</p>
           <Link
             to="/training-grounds"
             className="train-with-admin__error-back-button"
           >
-            Back to Camp
+            Back to Grounds
           </Link>
         </div>
       </div>

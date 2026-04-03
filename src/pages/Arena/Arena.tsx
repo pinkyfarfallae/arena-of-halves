@@ -123,10 +123,12 @@ export interface ArenaDemoProps {
   demoRoom?: BattleRoom | null;
   /** Season to show in demo (e.g. for SeasonalEffects preview). */
   demoSeason?: SeasonKey | null;
+  // Optional callback to mark local mode (e.g. for practice quota) when entering arena from Training Grounds PvP or Train With Admin modes.
+  markLocalMode?: () => void;
 }
 
 function Arena(props?: ArenaDemoProps) {
-  const { isDemo = false, demoRoom = null, demoSeason = null } = props ?? {};
+  const { isDemo = false, demoRoom = null, demoSeason = null, markLocalMode } = props ?? {};
   const { arenaId } = useParams<{ arenaId: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -390,6 +392,7 @@ function Arena(props?: ArenaDemoProps) {
   const handleStartBattle = useCallback(async () => {
     if (!arenaId) return;
     await startBattle(arenaId);
+    markLocalMode?.();
   }, [arenaId]);
 
   const handleSelectTarget = useCallback(async (defenderId: string) => {
@@ -443,7 +446,6 @@ function Arena(props?: ArenaDemoProps) {
         const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, progressDocId);
         await deleteDoc(progressRef);
       } catch (err) {
-        console.error('Failed to cleanup practice data:', err);
         // Continue with room deletion even if cleanup fails
       }
     }
@@ -1118,6 +1120,7 @@ function Arena(props?: ArenaDemoProps) {
     if (!room?.practiceMode || !arenaId || !user?.characterId) return;
     if (room.status !== ROOM_STATUS.CONFIGURING && room.status !== ROOM_STATUS.WAITING) return;
     if (role == null || role === ARENA_ROLE.VIEWER) return;
+    if (!joined) return; // Only save after successfully joining
 
     const opponent =
       role === ARENA_ROLE.TEAM_A
@@ -1137,12 +1140,15 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.WAITING,
       rounds: 0,
       winner: false,
-    }).catch(() => { });
+    }).catch((err) => {
+      console.error('[Arena] Failed to save PVP WAITING state:', err);
+    });
   }, [
     arenaId,
     effectiveRoom?.practiceMode,
     effectiveRoom?.status,
     role,
+    joined,
     user?.characterId,
     teamALead?.characterId,
     teamBLead?.characterId,
@@ -1154,6 +1160,7 @@ function Arena(props?: ArenaDemoProps) {
     if (!room?.practiceMode || !arenaId || !user?.characterId) return;
     if (!room.battle || room.status === ROOM_STATUS.WAITING || room.status === ROOM_STATUS.FINISHED) return;
     if (role == null || role === ARENA_ROLE.VIEWER) return;
+    if (!joined) return; // Only save after successfully joining
 
     const opponent =
       role === ARENA_ROLE.TEAM_A
@@ -1173,7 +1180,9 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.LIVE,
       rounds: 0,
       winner: false,
-    }).catch(() => { });
+    }).catch((err) => {
+      console.error('[Arena] Failed to save PVP LIVE state:', err);
+    });
 
     try {
       localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({
@@ -1191,6 +1200,7 @@ function Arena(props?: ArenaDemoProps) {
     effectiveRoom?.battle,
     effectiveRoom?.status,
     role,
+    joined,
     user?.characterId,
     teamALead?.characterId,
     teamBLead?.characterId,
@@ -1231,7 +1241,10 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.FINISHED,
       rounds: room.battle?.roundNumber ?? 0,
       winner: room.battle?.winner === role,
-    }).catch(() => { });
+    }).catch((err) => {
+      console.error('[Arena] Failed to save PVP practice result:', err);
+      // Still save local state even if sheet submission fails
+    });
 
     try {
       localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({

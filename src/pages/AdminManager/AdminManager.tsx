@@ -7,13 +7,15 @@ import PowerVfxDemo from './pages/PowerVfxDemo/PowerVfxDemo';
 import HarvestApproval from './pages/HarvestApproval/HarvestApproval';
 import './AdminManager.scss';
 import DailyTrainingConfig from './pages/DailyTrainingConfig/DailyTrainingConfig';
+import TrainingApproval from './pages/TrainingApproval/TrainingApproval';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Harvest Approval', path: 'harvest-approval' },
-  { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
   { label: 'Daily Training Config', path: 'daily-training-config' },
+  { label: 'Training Approval', path: 'training-approval' },
+  { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
 
 function AdminManager() {
@@ -53,6 +55,7 @@ function AdminManager() {
           <Route path="testing/iris-message" element={<SystemTestIris />} />
           <Route path="power-vfx-demo" element={<PowerVfxDemo />} />
           <Route path="daily-training-config" element={<DailyTrainingConfig />} />
+          <Route path="training-approval" element={<TrainingApproval />} />
         </Routes>
       </div>
     </div>

@@ -106,7 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If login fails, try to register (first time user)
         const registeredUser = await registerCharacter(found.characterId, password);
         if (!registeredUser) {
-          console.error('Firebase authentication failed');
           return false;
         }
       }
@@ -125,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    signOut(auth).catch(err => console.error('Firebase sign out error:', err));
+    signOut(auth);
     
     localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);

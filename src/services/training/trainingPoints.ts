@@ -31,7 +31,6 @@ export async function updateTrainingPoints(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error updating training points:', error);
     return { error: 'Failed to update training points' };
   }
 }

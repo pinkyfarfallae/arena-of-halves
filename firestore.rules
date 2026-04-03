@@ -35,22 +35,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
-    // User Daily Progress
+    // User Daily Progress (Lightweight quota tracking with partial progress)
     match /userDailyProgress/{docId} {
       // Document ID format: {userId}_{date}
-      // Allow users to read their own progress or anyone authenticated to read
+      // Firestore: quota tracking + partial progress (to prevent refresh exploits)
+      // Google Sheets: complete training task data
+      
       allow read: if isAuthenticated();
       
-      // Helper to validate roll value (1-12 or 0 for placeholder)
-      function isValidRoll(roll) {
-        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
-      }
-      
-      // Helper to validate verified status
-      function isValidVerified(verified) {
-        return verified is string && (verified == 'pending' || verified == 'approved' || verified == 'rejected');
-      }
-
       // Helper to validate practice mode
       function isValidPracticeMode(mode) {
         return mode is string && (mode == 'admin' || mode == 'pvp');
@@ -61,50 +53,39 @@ service cloud.firestore {
         return state is string && (state == 'waiting' || state == 'live' || state == 'finished');
       }
       
-      // Users can create their own progress (partial or complete)
-      // The userId comes from Google Sheets characterId, not Firebase Auth UID
-      // Supports both normal training and PvP practice with optional fields
-      allow create: if isAuthenticated() &&
-                       docId == request.resource.data.userId + '_' + request.resource.data.date &&
-                       request.resource.data.rolls.size() == 5 &&
-                       isValidRoll(request.resource.data.rolls[0]) &&
-                       isValidRoll(request.resource.data.rolls[1]) &&
-                       isValidRoll(request.resource.data.rolls[2]) &&
-                       isValidRoll(request.resource.data.rolls[3]) &&
-                       isValidRoll(request.resource.data.rolls[4]) &&
-                       request.resource.data.target is int &&
-                       request.resource.data.target >= 1 &&
-                       request.resource.data.target <= 12 &&
-                       request.resource.data.success is bool &&
-                       request.resource.data.completed is bool &&
-                       isValidVerified(request.resource.data.verified) &&
-                       isValidDate(request.resource.data.date) &&
-                       // Validate practice mode if present
-                       (!request.resource.data.keys().hasAny(['practiceMode']) || isValidPracticeMode(request.resource.data.practiceMode)) &&
-                       (!request.resource.data.keys().hasAny(['practiceState']) || isValidPracticeState(request.resource.data.practiceState));
+      // Helper to validate roll value (1-12 or 0 for placeholder)
+      function isValidRoll(roll) {
+        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
+      }
       
-      // Allow updates for partial progress or PvP practice updates
-      // PvP can update even when completed (to change from 'live' to 'finished')
-      allow update: if isAuthenticated() &&
-                       docId == request.resource.data.userId + '_' + request.resource.data.date &&
-                       request.resource.data.rolls.size() == 5 &&
-                       isValidRoll(request.resource.data.rolls[0]) &&
-                       isValidRoll(request.resource.data.rolls[1]) &&
-                       isValidRoll(request.resource.data.rolls[2]) &&
-                       isValidRoll(request.resource.data.rolls[3]) &&
-                       isValidRoll(request.resource.data.rolls[4]) &&
-                       request.resource.data.target is int &&
-                       request.resource.data.target >= 1 &&
-                       request.resource.data.target <= 12 &&
-                       request.resource.data.success is bool &&
-                       request.resource.data.completed is bool &&
-                       isValidVerified(request.resource.data.verified) &&
-                       isValidDate(request.resource.data.date) &&
-                       // Validate practice mode if present
-                       (!request.resource.data.keys().hasAny(['practiceMode']) || isValidPracticeMode(request.resource.data.practiceMode)) &&
-                       (!request.resource.data.keys().hasAny(['practiceState']) || isValidPracticeState(request.resource.data.practiceState));
+      // Helper to validate rolls array (optional, for normal training mode)
+      function isValidRolls() {
+        return !request.resource.data.keys().hasAny(['rolls']) ||
+               (request.resource.data.rolls is list &&
+                request.resource.data.rolls.size() >= 1 &&
+                request.resource.data.rolls.size() <= 5 &&
+                isValidRoll(request.resource.data.rolls[0]));
+      }
       
-      // Allow deletes for development/testing (in production, you can restrict this to admins)
+      // Helper to validate target (optional, for normal training mode)
+      function isValidTarget() {
+        return !request.resource.data.keys().hasAny(['target']) ||
+               (request.resource.data.target is int &&
+                request.resource.data.target >= 1 &&
+                request.resource.data.target <= 12);
+      }
+      
+      // Allow create/update for UserDailyProgress
+      // Required: userId, date, mode, state
+      // Optional: arenaId (PVP), rolls (normal mode), target (normal mode)
+      allow create, update: if isAuthenticated() &&
+                              docId == request.resource.data.userId + '_' + request.resource.data.date &&
+                              isValidDate(request.resource.data.date) &&
+                              isValidPracticeMode(request.resource.data.mode) &&
+                              isValidPracticeState(request.resource.data.state) &&
+                              isValidRolls() &&
+                              isValidTarget();
+      
       allow delete: if isAuthenticated();
     }
   }

@@ -5,10 +5,13 @@ import { hexToRgb } from '../../../../utils/color';
 import { db } from '../../../../firebase';
 import { get, ref } from 'firebase/database';
 import {
-  fetchTrainings,
+  fetchUserTrainingTasks,
   getTodayDate,
   getTodayProgress,
   UserDailyProgress,
+  TrainingTask,
+  canUserTrain,
+  TrainingValidation,
 } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { BG_ELEMENTS } from '../../components/Background/Background';
@@ -16,13 +19,14 @@ import Arena from '../../../Arena/Arena';
 import './PvP.scss';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 
-export default function PvP() {
+export default function PvP({ markLocalMode }: { markLocalMode?: () => void }) {
   const { arenaId } = useParams<{ arenaId: string }>();
   const { user } = useAuth();
-  const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
+  const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [quotaUsed, setQuotaUsed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [validation, setValidation] = useState<TrainingValidation | null>(null);
 
   useEffect(() => {
     // Skip validation loading when entering an arena directly - let Arena component handle it
@@ -43,7 +47,7 @@ export default function PvP() {
         const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
         const [quotaSnapshot, trainings, todayProgress] = await Promise.all([
           get(ref(db, quotaPath)).catch(() => null),
-          fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+          fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
         ]);
 
@@ -52,6 +56,10 @@ export default function PvP() {
         setLivePractice(todayProgress);
         setQuotaUsed(!!quotaSnapshot?.exists());
         setSheetTask([...trainings].reverse().find((training) => training.date === todayDate) || null);
+
+        // Check comprehensive validation
+        const validationResult = await canUserTrain(user.characterId, PRACTICE_MODE.PVP);
+        setValidation(validationResult);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -76,13 +84,10 @@ export default function PvP() {
   }, [user]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-  const hasLiveNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE;
-  const isFinishedNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.FINISHED;
+  const hasLiveNormalTraining = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;
+  const isFinishedNormalTraining = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.FINISHED;
   // PvP is considered "in progress" if it's in waiting, live, or configuring state (not current arena)
-  const hasLivePvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
-    (livePractice.practiceState === PRACTICE_STATES.LIVE || livePractice.practiceState === PRACTICE_STATES.WAITING) && 
-    livePractice.practiceArenaId !== arenaId;
-  const isFinishedPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.FINISHED;
+  const isFinishedPvpTask = sheetTask?.mode === PRACTICE_MODE.PVP;
 
   // If entering an arena directly, wait for user then render Arena
   if (arenaId) {
@@ -106,83 +111,87 @@ export default function PvP() {
     );
   }
 
+  if (hasPendingSheetTask) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>Your last training is not completed yet</h2>
+          <p>
+            Your training submission is currently pending review by the admin. <br />
+            Please check back later for the results.
+          </p>
+          <Link to="/training-grounds" className="train-with-admin__error-back-button">
+            Back to Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasLiveNormalTraining) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>Your normal training is still in progress</h2>
+          <p>
+            You have an ongoing normal training session. <br />
+            Please finish it before starting PvP training.
+          </p>
+          <Link to="/training-grounds" className="train-with-admin__error-back-button">
+            Back to Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFinishedNormalTraining) {
+    return (
+      <div className="train-with-admin" style={colorStyle}>
+        {BG_ELEMENTS}
+        <div className="train-with-admin__error">
+          <h2>Your normal training just finished</h2>
+          <p>
+            Your normal training session has just finished. <br />
+            Please wait a moment for the results to be processed before starting PvP training.
+          </p>
+          <Link to="/training-grounds" className="train-with-admin__error-back-button">
+            Back to Grounds
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (isFinishedPvpTask) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
-          <h2>PvP task ready</h2>
-          <p>Your battle has ended. <br /> The task is ready, so submit the roleplay to complete it.</p>
-          <Link to="/training-grounds/tasks" className="train-with-admin__error-back-button">
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasPendingSheetTask) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>You have a pending task</h2>
-          <p>Please complete your current task before starting PvP. <br />
-          Submit the roleplay and wait for approval.</p>
-          <Link to="/training-grounds/tasks" className="train-with-admin__error-back-button">
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasLiveNormalTraining || isFinishedNormalTraining) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>Normal Training is {hasLiveNormalTraining ? 'in progress' : 'finished'}</h2>
+          <h2>Your PvP training just finished</h2>
           <p>
-            Please complete the normal training session first, <br />
-            then come back to PvP tomorrow. We will wait for you!
-            </p>
+            Your PvP training session has just finished. <br />
+            Please wait a moment for the results to be processed before starting another PvP training.
+          </p>
           <Link to="/training-grounds" className="train-with-admin__error-back-button">
-            Back to Camp
+            Back to Grounds
           </Link>
         </div>
       </div>
     );
   }
 
-  // Allow continuing in-progress PvP practice (waiting or live state)
-  const hasInProgressPvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
-    (livePractice.practiceState === PRACTICE_STATES.WAITING || livePractice.practiceState === PRACTICE_STATES.LIVE);
-  
-  if (quotaUsed && !hasInProgressPvp) {
+  if (validation && !validation.canTrain) {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
         <div className="train-with-admin__error">
-          <h2>Training quota already used</h2>
-          <p>You already started training for today. Please finish the current task before starting a new one.</p>
-          <Link to="/training-grounds/tasks" className="train-with-admin__error-back-button">
-            Go to Tasks
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasPendingSheetTask) {
-    return (
-      <div className="train-with-admin" style={colorStyle}>
-        {BG_ELEMENTS}
-        <div className="train-with-admin__error">
-          <h2>You have pending training tasks</h2>
-          <p>Please complete the task before starting new PvP.</p>
-          <Link to="/training-grounds/pvp" className="train-with-admin__error-back-button">
-            Back to PvP
+          <h2>PvP Training Not Available</h2>
+          <p>{validation.reason}</p>
+          <Link to="/training-grounds" className="train-with-admin__error-back-button">
+            Back to Grounds
           </Link>
         </div>
       </div>
@@ -196,7 +205,7 @@ export default function PvP() {
         <h2>PvP Training</h2>
         <p>Open or join a practice room from Camp when you are ready.</p>
         <Link to="/training-grounds" className="train-with-admin__error-back-button">
-          Back to Camp
+          Back to Grounds
         </Link>
       </div>
     </div>
