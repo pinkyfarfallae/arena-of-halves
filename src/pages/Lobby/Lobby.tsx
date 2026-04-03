@@ -17,6 +17,7 @@ import Trash from '../../icons/Trash';
 import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import BattleLogModal from './components/BattleLogModal/BattleLogModal';
+import {ArenaAction, ARENA_ACTIONS} from '../../constants/arenaAction';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -41,7 +42,7 @@ function Lobby() {
 
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState<'create' | 'join' | null>(null);
+  const [loading, setLoading] = useState<ArenaAction | null>(null);
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
@@ -71,7 +72,7 @@ function Lobby() {
 
   const handleCreate = async () => {
     if (!user) return;
-    setLoading('create');
+    setLoading(ARENA_ACTIONS.CREATE);
     setError('');
     try {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
@@ -96,7 +97,7 @@ function Lobby() {
       setError('Enter a room code.');
       return;
     }
-    setLoading('join');
+    setLoading(ARENA_ACTIONS.JOIN);
     setError('');
     try {
       const code = joinCode.trim().toUpperCase();
@@ -195,7 +196,7 @@ function Lobby() {
                   onClick={handleCreate}
                   disabled={!!loading}
                 >
-                  {loading === 'create' ? 'Creating...' : 'Create Room'}
+                  {loading === ARENA_ACTIONS.CREATE ? 'Creating...' : 'Create Room'}
                 </button>
               </div>
 
@@ -231,7 +232,7 @@ function Lobby() {
                   onClick={handleJoin}
                   disabled={!!loading || !joinCode.trim()}
                 >
-                  {loading === 'join' ? 'Joining...' : 'Join Room'}
+                  {loading === ARENA_ACTIONS.JOIN ? 'Joining...' : 'Join Room'}
                 </button>
               </div>
             </div>

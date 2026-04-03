@@ -1,7 +1,7 @@
 import { ROLE } from '../../../../../../constants/role';
 import type { MergedUser } from '../../User';
 import Close from '../../../../../../icons/Close';
-import { PRACTICE_STATES } from '../../../../../../constants/practiceStates';
+import { PRACTICE_STATS } from '../../../../../../constants/practice';
 import './UserOverview.scss';
 
 interface Props {
@@ -11,12 +11,12 @@ interface Props {
 }
 
 const PRACTICE_STATS_LIST = [
-  { key: PRACTICE_STATES.STRENGTH, label: 'STR' },
-  { key: PRACTICE_STATES.MOBILITY, label: 'MOB' },
-  { key: PRACTICE_STATES.INTELLIGENCE, label: 'INT' },
-  { key: PRACTICE_STATES.TECHNIQUE, label: 'TEC' },
-  { key: PRACTICE_STATES.EXPERIENCE, label: 'EXP' },
-  { key: PRACTICE_STATES.FORTUNE, label: 'FOR' },
+  { key: PRACTICE_STATS.STRENGTH, label: 'STR' },
+  { key: PRACTICE_STATS.MOBILITY, label: 'MOB' },
+  { key: PRACTICE_STATS.INTELLIGENCE, label: 'INT' },
+  { key: PRACTICE_STATS.TECHNIQUE, label: 'TEC' },
+  { key: PRACTICE_STATS.EXPERIENCE, label: 'EXP' },
+  { key: PRACTICE_STATS.FORTUNE, label: 'FOR' },
 ] as const;
 
 function InfoRow({ label, value }: { label: string; value: string | number | undefined }) {

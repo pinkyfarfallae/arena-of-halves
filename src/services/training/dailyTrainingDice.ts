@@ -11,6 +11,7 @@ import { APPS_SCRIPT_URL } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
+import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../../constants/practice';
 
 const DAILY_CONFIGS_COLLECTION = 'dailyConfigs';
 export const USER_DAILY_PROGRESS_COLLECTION = 'userDailyProgress';
@@ -37,8 +38,8 @@ export interface UserDailyProgress {
   rejectReason?: string;
   tickets: number;
   createdAt: Timestamp;
-  practiceMode?: 'admin' | 'pvp';
-  practiceState?: 'live' | 'finished' | 'waiting';
+  practiceMode?: PracticeMode;
+  practiceState?: PracticeState;
   practiceArenaId?: string;
   practiceRoomCode?: string;
   practiceRole?: typeof ARENA_ROLE.TEAM_A | typeof ARENA_ROLE.TEAM_B;
@@ -58,7 +59,7 @@ export interface PracticeProgressInput {
   battleRolls?: number[];
   opponentId?: string;
   opponentName?: string;
-  state: 'live' | 'finished' | 'waiting';
+  state: PracticeState;
   rounds?: number;
   winner?: boolean;
 }
@@ -262,7 +263,7 @@ export const savePartialProgress = async (
       await set(ref(db, `trainingQuotas/${userId}/${date}`), {
         used: true,
         timestamp: Date.now(),
-        mode: 'admin',
+        mode: PRACTICE_MODE.NORMAL,
       });
     } catch (err) {
       console.error('Failed to set training quota:', err);
@@ -286,8 +287,8 @@ export const savePartialProgress = async (
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
     tickets: 0,
-    practiceMode: 'admin',
-    practiceState: 'live',
+    practiceMode: PRACTICE_MODE.NORMAL,
+    practiceState: PRACTICE_STATES.LIVE,
     createdAt: serverTimestamp(),
   }, { merge: true });
 };
@@ -325,8 +326,8 @@ export const completeTraining = async (
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
     tickets: 0,
-    practiceMode: 'admin',
-    practiceState: 'finished',
+    practiceMode: PRACTICE_MODE.NORMAL,
+    practiceState: PRACTICE_STATES.FINISHED,
     createdAt: serverTimestamp(),
   }, { merge: true });
 
@@ -439,15 +440,15 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   const existingSnap = await getDoc(progressRef);
   const existing = existingSnap.exists() ? (existingSnap.data() as UserDailyProgress) : null;
 
-  if (existing?.practiceMode === 'pvp' && existing.practiceState === 'finished') {
+  if (existing?.practiceMode === PRACTICE_MODE.PVP && existing.practiceState === PRACTICE_STATES.FINISHED) {
     return;
   }
 
   if (existing) {
     const isSamePvp =
-      existing.practiceMode === 'pvp' &&
+      existing.practiceMode === PRACTICE_MODE.PVP &&
       existing.practiceArenaId === progress.arenaId &&
-      (existing.practiceState === 'live' || existing.practiceState === 'waiting');
+      (existing.practiceState === PRACTICE_STATES.LIVE || existing.practiceState === PRACTICE_STATES.WAITING);
 
     if (!isSamePvp) {
       throw new Error('You already used your practice quota for today.');
@@ -465,8 +466,8 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
       return padded;
     })(),
     target: 1,
-    success: progress.state === 'finished' ? !!progress.winner : false,
-    completed: progress.state === 'finished',
+    success: progress.state === PRACTICE_STATES.FINISHED ? !!progress.winner : false,
+    completed: progress.state === PRACTICE_STATES.FINISHED,
     earlyFailed: false,
     roleplay: null,
     verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
@@ -474,7 +475,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     verifiedAt: '',
     rejectReason: '',
     tickets: 0,
-    practiceMode: 'pvp',
+    practiceMode: PRACTICE_MODE.PVP,
     practiceState: progress.state,
     practiceArenaId: progress.arenaId,
     practiceRoomCode: progress.roomCode,
@@ -482,7 +483,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     practiceOpponentId: progress.opponentId || '',
     practiceOpponentName: progress.opponentName || '',
     practiceBattleRounds: progress.rounds ?? 0,
-    practiceBattleWinner: progress.state === 'finished' ? !!progress.winner : false,
+    practiceBattleWinner: progress.state === PRACTICE_STATES.FINISHED ? !!progress.winner : false,
     practiceBattleRolls: (() => {
       const source = progress.battleRolls ?? progress.rolls ?? [];
       return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
@@ -496,7 +497,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
       await set(ref(db, `trainingQuotas/${progress.userId}/${date}`), {
         used: true,
         timestamp: Date.now(),
-        mode: 'pvp',
+        mode: PRACTICE_MODE.PVP,
       });
     } catch (err) {
       console.error('Failed to set training quota:', err);
@@ -504,7 +505,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     }
   }
 
-  if (progress.state === 'finished') {
+  if (progress.state === PRACTICE_STATES.FINISHED) {
     const battleRolls = (() => {
       const source = progress.battleRolls ?? progress.rolls ?? [];
       return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
@@ -517,8 +518,8 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
       !!progress.winner,
       attempt,
       {
-        practiceMode: 'pvp',
-        practiceState: 'finished',
+        practiceMode: PRACTICE_MODE.PVP,
+        practiceState: PRACTICE_STATES.FINISHED,
         practiceArenaId: progress.arenaId,
         practiceRoomCode: progress.roomCode,
         practiceRole: progress.role,

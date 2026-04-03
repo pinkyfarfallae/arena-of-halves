@@ -4,9 +4,9 @@ import { Character, fetchAllCharacters } from '../../../../data/characters';
 import Close from '../../../../icons/Close';
 import { ROLE } from '../../../../constants/role';
 import { ROOM_STATUS } from '../../../../constants/battle';
+import { ArenaAction, ARENA_ACTIONS } from '../../../../constants/arenaAction';
+import { COPY_TYPE, CopyType } from '../../../../constants/lobby';
 import './TrainingPracticeModal.scss';
-
-type TabKey = 'create' | 'join';
 
 interface ThemeVars {
   primaryColor: string;
@@ -28,7 +28,7 @@ interface Props {
   onFinalizePracticeRoom: (opponent: Character) => Promise<string>;
   onJoinPracticeRoom: (roomCode: string) => Promise<string>;
   onDeletePracticeRoom?: (roomCode: string) => Promise<void>;
-  initialTab?: TabKey;
+  initialTab?: ArenaAction;
   initialJoinCode?: string;
   arenaId?: string; // Match arena pattern: room exists before modal opens
   roomStatus?: string;
@@ -61,7 +61,7 @@ export default function TrainingPracticeModal({
   onFinalizePracticeRoom,
   onJoinPracticeRoom,
   onDeletePracticeRoom,
-  initialTab = 'create',
+  initialTab = ARENA_ACTIONS.CREATE,
   initialJoinCode = '',
   arenaId = '', // Match arena pattern
   roomStatus = '',
@@ -69,14 +69,14 @@ export default function TrainingPracticeModal({
 }: Props) {
   const navigate = useNavigate();
   const isDeveloper = role === ROLE.DEVELOPER;
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const [tab, setTab] = useState<ArenaAction>(initialTab);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [joinCode, setJoinCode] = useState(initialJoinCode);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState<CopyType | null>(null);
   const isBusy = loading || submitting;
   const busyLabel = loading ? 'Loading players...' : submitting ? 'Creating room...' : '';
 
@@ -108,14 +108,14 @@ export default function TrainingPracticeModal({
     if (open) {
       // If room is already joined (not configuring), force Join tab
       if (arenaId && roomStatus && roomStatus !== ROOM_STATUS.CONFIGURING && !keepCreateTabAfterFinalize) {
-        setTab('join');
+        setTab(ARENA_ACTIONS.JOIN);
       } else {
         setTab(initialTab);
       }
       setJoinCode(initialJoinCode);
     } else {
       // Reset state when closing
-      setTab('create');
+      setTab(ARENA_ACTIONS.CREATE);
       setSelectedId('');
       setJoinCode('');
       setSubmitting(false);
@@ -180,7 +180,7 @@ export default function TrainingPracticeModal({
     }
   };
 
-  const handleCopy = async (type: 'code' | 'link') => {
+  const handleCopy = async (type: CopyType) => {
     if (!arenaId) return;
     await copyText(type === 'code' ? arenaId : viewerLink);
     setCopied(type);
@@ -218,7 +218,7 @@ export default function TrainingPracticeModal({
     onClose();
   };
 
-  const isCreateTab = tab === 'create';
+  const isCreateTab = tab === ARENA_ACTIONS.CREATE;
   const canEnterRoom = roomStatus === ROOM_STATUS.CONFIGURING ? !!selectedOpponent : !!arenaId;
 
   const handleEnterRoom = async () => {
@@ -274,7 +274,7 @@ export default function TrainingPracticeModal({
                 role="tab"
                 aria-selected={!isCreateTab}
                 className={`tpm__tab ${!isCreateTab ? 'tpm__tab--active' : ''}`}
-                onClick={() => setTab('join')}
+                onClick={() => setTab(ARENA_ACTIONS.JOIN)}
               >
                 Join
               </button>
@@ -290,7 +290,7 @@ export default function TrainingPracticeModal({
               <div className="tpm__spinner" />
               <div className="tpm__loading-text">{busyLabel}</div>
             </div>
-          ) : isCreateTab ? (
+          ) : tab === ARENA_ACTIONS.CREATE ? (
             <>
               <div className="tpm__grid">
                 {characters.map((character) => {
@@ -327,15 +327,15 @@ export default function TrainingPracticeModal({
                     <div className="tpm__share-row">
                       <span className="tpm__share-label">Code</span>
                       <span className="tpm__share-value">{arenaId}</span>
-                      <button type="button" className="tpm__copy" onClick={() => handleCopy('code')}>
-                        {copied === 'code' ? 'Copied' : 'Copy'}
+                      <button type="button" className="tpm__copy" onClick={() => handleCopy(COPY_TYPE.CODE)}>
+                        {copied === COPY_TYPE.CODE ? 'Copied' : 'Copy'}
                       </button>
                     </div>
                     <div className="tpm__share-row">
                       <span className="tpm__share-label">Link</span>
                       <span className="tpm__share-value tpm__share-value--link">{viewerLink}</span>
-                      <button type="button" className="tpm__copy" onClick={() => handleCopy('link')}>
-                        {copied === 'link' ? 'Copied' : 'Copy'}
+                      <button type="button" className="tpm__copy" onClick={() => handleCopy(COPY_TYPE.LINK)}>
+                        {copied === COPY_TYPE.LINK ? 'Copied' : 'Copy'}
                       </button>
                     </div>
                   </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
-import { PRACTICE_STATES } from '../../../../constants/practiceStates';
+import { PRACTICE_STATS } from '../../../../constants/practice';
 import { ROLE } from '../../../../constants/role';
 import { hexToRgb } from '../../../../utils/color';
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
@@ -99,17 +99,17 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const getStatValue = (id: string) => {
     if (!user) return 0;
     switch (id) {
-      case PRACTICE_STATES.STRENGTH:
+      case PRACTICE_STATS.STRENGTH:
         return user.strength || 0;
-      case PRACTICE_STATES.MOBILITY:
+      case PRACTICE_STATS.MOBILITY:
         return user.mobility || 0;
-      case PRACTICE_STATES.INTELLIGENCE:
+      case PRACTICE_STATS.INTELLIGENCE:
         return user.intelligence || 0;
-      case PRACTICE_STATES.TECHNIQUE:
+      case PRACTICE_STATS.TECHNIQUE:
         return user.technique || 0;
-      case PRACTICE_STATES.EXPERIENCE:
+      case PRACTICE_STATS.EXPERIENCE:
         return user.experience || 0;
-      case PRACTICE_STATES.FORTUNE:
+      case PRACTICE_STATS.FORTUNE:
         return user.fortune || 0;
       default:
         return 0;
@@ -415,7 +415,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           </div>
           <div className="training-stats__upgrade-overlay-card">
             <div className="training-stats__upgrade-overlay-icon">
-              <img src={statIcons[upgrading || PRACTICE_STATES.STRENGTH]} alt="" aria-hidden="true" />
+              <img src={statIcons[upgrading || PRACTICE_STATS.STRENGTH]} alt="" aria-hidden="true" />
             </div>
             <div className="training-stats__upgrade-overlay-text">
               <span className="training-stats__upgrade-overlay-title">

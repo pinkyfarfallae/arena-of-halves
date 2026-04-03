@@ -22,6 +22,7 @@ import { BG_ELEMENTS } from '../../components/Background/Background';
 import EarlyFailModal from './components/EarlyFailModal/EarlyFailModal';
 import EarlyWinModal from './components/EarlyWinModal/EarlyWinModal';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
+import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 
 interface PaperRoll {
   target: number;
@@ -87,7 +88,7 @@ export default function TrainWithAdmin() {
       }
 
       const progress = todayProgress;
-      const isCompletedTraining = !!progress?.completed || (progress?.practiceMode === 'admin' && progress?.practiceState === 'finished');
+      const isCompletedTraining = !!progress?.completed || (progress?.practiceMode === PRACTICE_MODE.NORMAL && progress?.practiceState === PRACTICE_STATES.FINISHED) || (progress?.practiceMode === PRACTICE_MODE.PVP && progress?.practiceState === PRACTICE_STATES.FINISHED);
       setAlreadyTrained(isCompletedTraining);
 
       if (progress && todayTargets) {
@@ -274,12 +275,12 @@ export default function TrainWithAdmin() {
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
   // PvP is considered \"in progress\" if it's in waiting or live state
-  const hasLivePvp = livePractice?.practiceMode === 'pvp' && 
-    (livePractice.practiceState === 'live' || livePractice.practiceState === 'waiting');
-  const hasWaitingPvpTask = sheetTask?.practiceMode === 'pvp' && sheetTask.practiceState === 'waiting';
-  const isFinishedPvpTask = sheetTask?.practiceMode === 'pvp' && sheetTask.practiceState === 'finished';
-  const isFinishedNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'finished';
-  const hasInProgressNormalTraining = livePractice?.practiceMode === 'admin' && livePractice.practiceState === 'live' && !livePractice.completed;
+  const hasLivePvp = livePractice?.practiceMode === PRACTICE_MODE.PVP && 
+    (livePractice.practiceState === PRACTICE_STATES.LIVE || livePractice.practiceState === PRACTICE_STATES.WAITING);
+  const hasWaitingPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.WAITING;
+  const isFinishedPvpTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP && sheetTask.practiceState === PRACTICE_STATES.FINISHED;
+  const isFinishedNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.FINISHED;
+  const hasInProgressNormalTraining = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE && !livePractice.completed;
 
   if (loading) {
     return (

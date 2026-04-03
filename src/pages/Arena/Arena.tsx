@@ -77,6 +77,7 @@ import Eye from '../../icons/Eye';
 import './Arena.scss';
 import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
+import { PRACTICE_STATES } from '../../constants/practice';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -1133,7 +1134,7 @@ function Arena(props?: ArenaDemoProps) {
       battleRolls: [],
       opponentId: opponent?.characterId,
       opponentName: opponent?.nicknameEng,
-      state: 'waiting',
+      state: PRACTICE_STATES.WAITING,
       rounds: 0,
       winner: false,
     }).catch(() => { });
@@ -1169,7 +1170,7 @@ function Arena(props?: ArenaDemoProps) {
       battleRolls: [],
       opponentId: opponent?.characterId,
       opponentName: opponent?.nicknameEng,
-      state: 'live',
+      state: PRACTICE_STATES.LIVE,
       rounds: 0,
       winner: false,
     }).catch(() => { });
@@ -1178,7 +1179,7 @@ function Arena(props?: ArenaDemoProps) {
       localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({
         arenaId,
         roomCode: arenaId,
-        state: 'live',
+        state: PRACTICE_STATES.LIVE,
         date: getTodayDate(),
       }));
     } catch {
@@ -1227,7 +1228,7 @@ function Arena(props?: ArenaDemoProps) {
       battleRolls: practiceBattleRolls,
       opponentId: opponent?.characterId,
       opponentName: opponent?.nicknameEng,
-      state: 'finished',
+      state: PRACTICE_STATES.FINISHED,
       rounds: room.battle?.roundNumber ?? 0,
       winner: room.battle?.winner === role,
     }).catch(() => { });
@@ -1236,7 +1237,7 @@ function Arena(props?: ArenaDemoProps) {
       localStorage.setItem(`training-pvp-session:${user.characterId}`, JSON.stringify({
         arenaId,
         roomCode: arenaId,
-        state: 'finished',
+        state: PRACTICE_STATES.FINISHED,
         date: getTodayDate(),
       }));
     } catch {
