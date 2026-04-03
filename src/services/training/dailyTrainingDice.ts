@@ -23,31 +23,39 @@ export interface DailyConfig {
   confirmedAt?: Timestamp;
 }
 
+// Simplified UserDailyProgress for lightweight quota tracking in Firestore
 export interface UserDailyProgress {
   userId: string;
   date: string;
+  mode: PracticeMode; // 'admin' or 'pvp'
+  state: PracticeState; // 'waiting', 'live', 'finished'
+  arenaId?: string; // Only for PVP mode
+  // Normal mode: store partial progress to prevent refresh exploits
+  rolls?: number[]; // Current rolls (for normal training mode)
+  target?: number; // Current target (for normal training mode)
+  createdAt: Timestamp;
+}
+
+// Training task structure that matches Google Sheets
+export interface TrainingTask {
+  id: string; // Format: userId_date
+  date: string;
+  userId: string;
+  attempt: number;
   rolls: number[];
-  target: number; // Target at time of training (for historical accuracy)
+  mode: PracticeMode;
   success: boolean;
-  completed: boolean; // true when all 5 rolls done or early failed
-  earlyFailed?: boolean; // true if failed before 5th roll
-  roleplay: string | null;
+  roleplay: string;
+  tickets: number;
   verified: TrainingPointRequestStatus;
   verifiedBy?: string;
   verifiedAt?: string;
   rejectReason?: string;
-  tickets: number;
-  createdAt: Timestamp;
-  practiceMode?: PracticeMode;
-  practiceState?: PracticeState;
-  practiceArenaId?: string;
-  practiceRoomCode?: string;
-  practiceRole?: typeof ARENA_ROLE.TEAM_A | typeof ARENA_ROLE.TEAM_B;
-  practiceOpponentId?: string;
-  practiceOpponentName?: string;
-  practiceBattleRounds?: number;
-  practiceBattleWinner?: boolean;
-  practiceBattleRolls?: number[];
+  // PVP specific fields (optional)
+  arenaId?: string;
+  opponentId?: string;
+  opponentName?: string;
+  battleRounds?: number;
 }
 
 export interface PracticeProgressInput {
@@ -217,7 +225,7 @@ export const hasTrainedToday = async (userId: string): Promise<boolean> => {
   return progressSnap.exists();
 };
 
-// Get user's training progress for today
+// Get user's training progress for today (lightweight - only quota/state tracking)
 export const getTodayProgress = async (userId: string): Promise<UserDailyProgress | null> => {
   const date = getTodayDate();
   const docId = `${userId}_${date}`;
@@ -231,7 +239,70 @@ export const getTodayProgress = async (userId: string): Promise<UserDailyProgres
   return progressSnap.data() as UserDailyProgress;
 };
 
-// Save partial training progress (after each roll)
+// Submit training result to Google Sheets (called once success is determined)
+export const submitTrainingResult = async (params: {
+  userId: string;
+  rolls: number[];
+  mode: PracticeMode;
+  success: boolean;
+  // Optional PVP fields
+  arenaId?: string;
+  opponentId?: string;
+  opponentName?: string;
+  battleRounds?: number;
+}): Promise<void> => {
+  const date = getTodayDate();
+  const attempt = params.rolls.filter(r => r > 0).length;
+
+  const payload = {
+    action: ACTIONS.SUBMIT_TRAINING,
+    date,
+    userId: params.userId,
+    attempt,
+    rolls: params.rolls,
+    mode: params.mode,
+    success: params.success,
+    roleplay: '', // Will be filled later
+    tickets: 0,
+    arenaId: params.arenaId || '',
+    opponentId: params.opponentId || '',
+    opponentName: params.opponentName || '',
+    battleRounds: params.battleRounds || 0,
+  };
+
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Training] Sheets HTTP error:', response.status, errorText);
+    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  if (result.error) {
+    console.error('[Training] Sheets API error:', result.error);
+    throw new Error(result.error);
+  }
+
+  // Update Firestore progress to 'finished' state
+  const docId = `${params.userId}_${date}`;
+  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+
+  await setDoc(progressRef, {
+    userId: params.userId,
+    date,
+    mode: params.mode,
+    state: PRACTICE_STATES.FINISHED,
+    arenaId: params.arenaId || null,
+    createdAt: serverTimestamp(),
+  }, { merge: true });
+};
+
+// Save partial training progress (after each roll) - lightweight
 export const savePartialProgress = async (
   userId: string,
   rolls: number[],
@@ -253,7 +324,7 @@ export const savePartialProgress = async (
 
   // Check if already completed training today
   const existing = await getTodayProgress(userId);
-  if (existing?.completed) {
+  if (existing?.state === PRACTICE_STATES.FINISHED) {
     throw new Error('You have already completed training today');
   }
 
@@ -266,34 +337,24 @@ export const savePartialProgress = async (
         mode: PRACTICE_MODE.NORMAL,
       });
     } catch (err) {
-      console.error('Failed to set training quota:', err);
-      // Continue anyway - don't block training if quota write fails
+      console.error('[Training] Failed to set quota:', err);
+      throw err; // Re-throw to prevent training from continuing
     }
   }
 
-  // Pad rolls array with nulls for partial progress
-  const paddedRolls = [...rolls];
-  while (paddedRolls.length < 5) {
-    paddedRolls.push(0); // Use 0 as placeholder for unrolled dice
-  }
-
+  // Save lightweight progress to Firestore (including partial rolls to prevent refresh exploits)
   await setDoc(progressRef, {
     userId,
     date,
-    rolls: paddedRolls,
-    target,
-    success: false, // Not determined yet
-    completed: false,
-    roleplay: null,
-    verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-    tickets: 0,
-    practiceMode: PRACTICE_MODE.NORMAL,
-    practiceState: PRACTICE_STATES.LIVE,
+    mode: PRACTICE_MODE.NORMAL,
+    state: PRACTICE_STATES.LIVE,
+    rolls, // Save current rolls to prevent refresh exploits
+    target, // Save target for reference
     createdAt: serverTimestamp(),
   }, { merge: true });
 };
 
-// Complete training (final save with success status)
+// Complete training (save result to Google Sheets)
 export const completeTraining = async (
   userId: string,
   rolls: number[],
@@ -311,38 +372,16 @@ export const completeTraining = async (
     }
   });
 
-  const date = getTodayDate();
-  const docId = `${userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
-
-  await setDoc(progressRef, {
+  // Submit to Google Sheets
+  await submitTrainingResult({
     userId,
-    date,
     rolls,
-    target,
+    mode: PRACTICE_MODE.NORMAL,
     success,
-    completed: true,
-    earlyFailed,
-    roleplay: null,
-    verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-    tickets: 0,
-    practiceMode: PRACTICE_MODE.NORMAL,
-    practiceState: PRACTICE_STATES.FINISHED,
-    createdAt: serverTimestamp(),
-  }, { merge: true });
-
-  // Calculate attempt number (count non-zero rolls)
-  const attempt = rolls.filter(r => r > 0).length;
-
-  // Append to Google Sheets
-  try {
-    await appendToGoogleSheets(userId, rolls, target, success, attempt);
-  } catch (err) {
-    // Don't throw - allow training to complete even if sheets fails
-  }
+  });
 };
 
-// Save training result (legacy - for backward compatibility)
+// Legacy function - now redirects to completeTraining
 export const saveTrainingResult = async (
   userId: string,
   rolls: number[],
@@ -352,87 +391,6 @@ export const saveTrainingResult = async (
   await completeTraining(userId, rolls, target, success, false);
 };
 
-// Perform complete training (roll + save + sheets)
-export const performDailyTraining = async (userId: string): Promise<{
-  rolls: number[];
-  target: number;
-  success: boolean;
-}> => {
-  // Check if already trained
-  const alreadyTrained = await hasTrainedToday(userId);
-  if (alreadyTrained) {
-    throw new Error('You have already trained today');
-  }
-
-  // Get today's target
-  const target = await getTodayTarget();
-  if (target === null) {
-    throw new Error('No training target set for today');
-  }
-
-  // Roll dice
-  const rolls = rollDice();
-  const success = checkSuccess(rolls, target);
-
-  // Save result
-  await saveTrainingResult(userId, rolls, target, success);
-
-  // Append to Google Sheets (async, non-blocking)
-  // For performDailyTraining, all 5 rolls are attempted
-  appendToGoogleSheets(userId, rolls, target, success, 5).catch(err => {
-    console.error('Failed to append to Google Sheets:', err);
-  });
-
-  return { rolls, target, success };
-};
-
-// Append to Google Sheets
-const appendToGoogleSheets = async (
-  userId: string,
-  rolls: number[],
-  target: number,
-  success: boolean,
-  attempt: number,
-  extraFields?: Record<string, unknown>,
-): Promise<void> => {
-  const date = getTodayDate();
-
-  const payload = {
-    action: ACTIONS.APPEND_DAILY_TRAINING,
-    date,
-    userId,
-    attempt,
-    rolls,
-    target,
-    success,
-    roleplay: '',
-    tickets: 0,
-    ...(extraFields ?? {}),
-  };
-
-  try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Response error text:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    if (result.error) {
-      throw new Error(result.error);
-    }
-  } catch (error) {
-    console.error('Failed to append to Google Sheets:', error);
-    throw error;
-  }
-};
-
 export const savePracticeProgress = async (progress: PracticeProgressInput): Promise<void> => {
   const date = getTodayDate();
   const docId = `${progress.userId}_${date}`;
@@ -440,251 +398,265 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   const existingSnap = await getDoc(progressRef);
   const existing = existingSnap.exists() ? (existingSnap.data() as UserDailyProgress) : null;
 
-  if (existing?.practiceMode === PRACTICE_MODE.PVP && existing.practiceState === PRACTICE_STATES.FINISHED) {
+  if (existing?.mode === PRACTICE_MODE.PVP && existing.state === PRACTICE_STATES.FINISHED) {
     return;
   }
 
   if (existing) {
     const isSamePvp =
-      existing.practiceMode === PRACTICE_MODE.PVP &&
-      existing.practiceArenaId === progress.arenaId &&
-      (existing.practiceState === PRACTICE_STATES.LIVE || existing.practiceState === PRACTICE_STATES.WAITING);
+      existing.mode === PRACTICE_MODE.PVP &&
+      existing.arenaId === progress.arenaId &&
+      (existing.state === PRACTICE_STATES.LIVE || existing.state === PRACTICE_STATES.WAITING);
 
     if (!isSamePvp) {
       throw new Error('You already used your practice quota for today.');
     }
   }
 
-  // Create/update Firestore document first
+  // Save lightweight progress to Firestore (quota tracking only)
   await setDoc(progressRef, {
     userId: progress.userId,
     date,
-    rolls: (() => {
-      const source = progress.rolls ?? [0, 0, 0, 0, 0];
-      const padded = [...source.slice(0, 5)];
-      while (padded.length < 5) padded.push(0);
-      return padded;
-    })(),
-    target: 1,
-    success: progress.state === PRACTICE_STATES.FINISHED ? !!progress.winner : false,
-    completed: progress.state === PRACTICE_STATES.FINISHED,
-    earlyFailed: false,
-    roleplay: null,
-    verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-    verifiedBy: '',
-    verifiedAt: '',
-    rejectReason: '',
-    tickets: 0,
-    practiceMode: PRACTICE_MODE.PVP,
-    practiceState: progress.state,
-    practiceArenaId: progress.arenaId,
-    practiceRoomCode: progress.roomCode,
-    practiceRole: progress.role,
-    practiceOpponentId: progress.opponentId || '',
-    practiceOpponentName: progress.opponentName || '',
-    practiceBattleRounds: progress.rounds ?? 0,
-    practiceBattleWinner: progress.state === PRACTICE_STATES.FINISHED ? !!progress.winner : false,
-    practiceBattleRolls: (() => {
-      const source = progress.battleRolls ?? progress.rolls ?? [];
-      return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
-    })(),
+    mode: PRACTICE_MODE.PVP,
+    state: progress.state,
+    arenaId: progress.arenaId,
     createdAt: serverTimestamp(),
   }, { merge: true });
 
-  // After successful Firestore write, mark quota as used (only for new records)
-  if (!existing) {
+  // Mark quota as used (always ensure quota is set, even if progress already exists)
+  // This handles cases where quota save might have failed on a previous attempt
+  try {
+    await set(ref(db, `trainingQuotas/${progress.userId}/${date}`), {
+      used: true,
+      timestamp: Date.now(),
+      mode: PRACTICE_MODE.PVP,
+    });
+  } catch (err) {
+    console.error('Failed to set quota:', err);
+    // Don't throw - allow progress save to succeed even if quota fails
+  }
+
+  // If battle is finished, submit result to Google Sheets
+  if (progress.state === PRACTICE_STATES.FINISHED) {
+    const battleRolls = progress.battleRolls ?? progress.rolls ?? [];
+    const validRolls = battleRolls.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
+
     try {
-      await set(ref(db, `trainingQuotas/${progress.userId}/${date}`), {
-        used: true,
-        timestamp: Date.now(),
+      await submitTrainingResult({
+        userId: progress.userId,
+        rolls: validRolls.length > 0 ? validRolls : [0, 0, 0, 0, 0],
         mode: PRACTICE_MODE.PVP,
+        success: !!progress.winner,
+        arenaId: progress.arenaId,
+        opponentId: progress.opponentId,
+        opponentName: progress.opponentName,
+        battleRounds: progress.rounds ?? 0,
       });
     } catch (err) {
-      console.error('Failed to set training quota:', err);
-      // Continue anyway - document is already created
+      console.error('[Training] Failed to submit PVP result to Sheets:', err);
+      throw err; // Re-throw so caller can handle it
     }
-  }
-
-  if (progress.state === PRACTICE_STATES.FINISHED) {
-    const battleRolls = (() => {
-      const source = progress.battleRolls ?? progress.rolls ?? [];
-      return source.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);
-    })();
-    const attempt = battleRolls.length > 0 ? battleRolls.length : 5;
-    await appendToGoogleSheets(
-      progress.userId,
-      battleRolls.length > 0 ? battleRolls : [0, 0, 0, 0, 0],
-      1,
-      !!progress.winner,
-      attempt,
-      {
-        practiceMode: PRACTICE_MODE.PVP,
-        practiceState: PRACTICE_STATES.FINISHED,
-        practiceArenaId: progress.arenaId,
-        practiceRoomCode: progress.roomCode,
-        practiceRole: progress.role,
-        practiceOpponentId: progress.opponentId || '',
-        practiceOpponentName: progress.opponentName || '',
-        practiceBattleRounds: progress.rounds ?? 0,
-        practiceBattleWinner: !!progress.winner,
-        practiceBattleRolls: battleRolls,
-      },
-    );
   }
 };
 
-// Fetch training records from Google Sheets
-export const fetchTrainings = async (userId?: string, verified?: TrainingPointRequestStatus): Promise<UserDailyProgress[]> => {
-  try {
-    const params = new URLSearchParams({ action: ACTIONS.FETCH_TRAININGS });
-    if (userId) params.append('userId', userId);
-    if (verified) params.append('verified', verified);
+// Fetch all training tasks from Google Sheets
+export const fetchAllTrainingTasks = async (params?: {
+  userId?: string;
+  verified?: TrainingPointRequestStatus;
+  mode?: PracticeMode;
+}): Promise<TrainingTask[]> => {
+  const queryParams = new URLSearchParams({ action: ACTIONS.FETCH_TRAININGS });
+  if (params?.userId) queryParams.append('userId', params.userId);
+  if (params?.verified) queryParams.append('verified', params.verified);
+  if (params?.mode) queryParams.append('mode', params.mode);
 
-    const response = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
+  const response = await fetch(`${APPS_SCRIPT_URL}?${queryParams.toString()}`);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    return result.trainings || [];
-  } catch (error) {
-    console.error('Failed to fetch trainings:', error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
   }
+
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error);
+  }
+
+  return result.trainings || [];
 };
 
-// Fetch all training records (admin)
-export const fetchAllTrainings = async (): Promise<UserDailyProgress[]> => {
-  try {
-    const params = new URLSearchParams({ action: ACTIONS.FETCH_ALL_TRAININGS });
-    const response = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    return result.trainings || [];
-  } catch (error) {
-    console.error('Failed to fetch all trainings:', error);
-    throw error;
-  }
+// Fetch user's training tasks
+export const fetchUserTrainingTasks = async (userId: string): Promise<TrainingTask[]> => {
+  return fetchAllTrainingTasks({ userId });
 };
 
-// Submit roleplay link for training
+// Fetch pending training tasks for approval
+export const fetchPendingTrainingTasks = async (): Promise<TrainingTask[]> => {
+  return fetchAllTrainingTasks({ verified: TRAINING_POINT_REQUEST_STATUS.PENDING });
+};
+
+// Submit roleplay link for training task
 export const submitTrainingRoleplay = async (
   userId: string,
   date: string,
   roleplayUrl: string,
   tickets: number = 0
 ): Promise<void> => {
-  try {
-    const payload = {
-      action: ACTIONS.SUBMIT_TRAINING_ROLEPLAY,
-      userId,
-      date,
-      roleplayUrl,
-      tickets,
-    };
+  const payload = {
+    action: ACTIONS.SUBMIT_TRAINING_ROLEPLAY,
+    userId,
+    date,
+    roleplayUrl,
+    tickets,
+  };
 
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
 
-    const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-  } catch (error) {
-    console.error('Failed to submit training roleplay:', error);
-    throw error;
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error);
   }
 };
 
-// Verify training (admin approve/reject)
-export const verifyTraining = async (
+// Verify training task (admin approve/reject)
+export const verifyTrainingTask = async (
   userId: string,
   date: string,
   verified: TrainingPointRequestStatus,
   verifiedBy: string,
   rejectReason?: string
 ): Promise<void> => {
-  try {
-    const payload = {
-      action: ACTIONS.VERIFY_TRAINING,
-      userId,
-      date,
-      verified,
-      verifiedBy,
-      rejectReason: rejectReason || '',
-    };
+  const payload = {
+    action: ACTIONS.VERIFY_TRAINING,
+    userId,
+    date,
+    verified,
+    verifiedBy,
+    rejectReason: rejectReason || '',
+  };
 
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
 
-    const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-  } catch (error) {
-    console.error('Failed to verify training:', error);
-    throw error;
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error);
   }
 };
 
-// Request recheck for rejected training
-export const recheckTraining = async (
+// Request recheck for rejected training task
+export const recheckTrainingTask = async (
   userId: string,
   date: string
 ): Promise<void> => {
-  try {
-    const payload = {
-      action: ACTIONS.RECHECK_TRAINING,
-      userId,
-      date,
-    };
+  const payload = {
+    action: ACTIONS.RECHECK_TRAINING,
+    userId,
+    date,
+  };
 
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-  } catch (error) {
-    console.error('Failed to recheck training:', error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
   }
+
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error);
+  }
+};
+
+// Check if user can start training (comprehensive validation)
+export interface TrainingValidation {
+  canTrain: boolean;
+  reason?: string;
+  hasNonApprovedTask: boolean;
+  hasFinishedToday: boolean;
+  hasLiveProgress: boolean;
+}
+
+export const canUserTrain = async (
+  userId: string,
+  requestedMode: PracticeMode
+): Promise<TrainingValidation> => {
+  const todayProgress = await getTodayProgress(userId);
+  const todayTasks = await fetchUserTrainingTasks(userId);
+  const todayTask = todayTasks.reverse().find(t => t.date === getTodayDate());
+  
+  // Check for non-approved tasks in sheet
+  const hasNonApprovedTask = !!todayTask && todayTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
+  
+  // Check if already finished any mode today
+  const hasFinishedToday = todayProgress?.state === PRACTICE_STATES.FINISHED;
+  
+  // Check if live progress exists
+  const hasLiveProgress = todayProgress?.state === PRACTICE_STATES.LIVE || todayProgress?.state === PRACTICE_STATES.WAITING;
+  
+  // Rule 1: If have non-approved task in sheet -> block all training
+  if (hasNonApprovedTask) {
+    return {
+      canTrain: false,
+      reason: 'You have a pending training task. Please complete it or wait for approval.',
+      hasNonApprovedTask: true,
+      hasFinishedToday,
+      hasLiveProgress,
+    };
+  }
+  
+  // Rule 2: If already finished any mode today -> block all other training
+  if (hasFinishedToday) {
+    return {
+      canTrain: false,
+      reason: 'You already completed training today. Come back tomorrow!',
+      hasNonApprovedTask,
+      hasFinishedToday: true,
+      hasLiveProgress,
+    };
+  }
+  
+  // Rule 3: If live progress exists in different mode -> block
+  if (hasLiveProgress && todayProgress.mode !== requestedMode) {
+    const modeName = todayProgress.mode === PRACTICE_MODE.NORMAL ? 'Normal Training' : 'PVP';
+    return {
+      canTrain: false,
+      reason: `You have ${modeName} in progress. Please finish it first.`,
+      hasNonApprovedTask,
+      hasFinishedToday,
+      hasLiveProgress: true,
+    };
+  }
+  
+  // Rule 4: Allow continuing same mode if in progress
+  if (hasLiveProgress && todayProgress.mode === requestedMode) {
+    return {
+      canTrain: true,
+      hasNonApprovedTask,
+      hasFinishedToday,
+      hasLiveProgress: true,
+    };
+  }
+  
+  // Rule 5: Allow starting new training if no quota used
+  return {
+    canTrain: true,
+    hasNonApprovedTask,
+    hasFinishedToday,
+    hasLiveProgress,
+  };
 };

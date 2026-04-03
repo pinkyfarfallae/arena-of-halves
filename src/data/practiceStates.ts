@@ -1,10 +1,4 @@
 import { PRACTICE_STATS } from "../constants/practice";
-import Ares from "../data/icons/deities/Ares";
-import Hermes from "../data/icons/deities/Hermes";
-import Athena from "../data/icons/deities/Athena";
-import Apollo from "../data/icons/deities/Apollo";
-import Demeter from "../data/icons/deities/Demeter";
-import Tyche from "../data/icons/deities/Tyche";
 import { Character } from "./characters";
 
 export const CHARACTER_PRACTICE_STATES = (character: Character) => {

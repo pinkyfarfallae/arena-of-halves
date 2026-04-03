@@ -45,7 +45,6 @@
   }
 
   &__modal-button {
-    background: var(--primary-color, #4caf50);
     color: white;
     border: none;
     border-radius: 0 0 8px 8px;
@@ -57,7 +56,7 @@
     transition: all 0.2s ease;
 
     &--fail {
-      background: #f44336;
+      background: #f44336 !important;
     }
 
     &:hover {

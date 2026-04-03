@@ -367,7 +367,7 @@
 }
 
 // Quick Reject
-.harvest-approval__quick-reject {
+.training-approval__quick-reject {
   background: linear-gradient(135deg,
       #fff 0%,
       #ffdde6 100%);
@@ -376,7 +376,7 @@
   padding: 0.75rem;
 }
 
-.harvest-approval__quick-reject-content {
+.training-approval__quick-reject-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -388,13 +388,13 @@
   }
 }
 
-.harvest-approval__quick-reject-label {
+.training-approval__quick-reject-label {
   font-size: 0.75rem;
   color: $berry-text-soft;
   text-align: center;
 }
 
-.harvest-approval__quick-reject-btn {
+.training-approval__quick-reject-btn {
   padding: 0.5rem 1rem;
   background: linear-gradient(135deg,
       white 0%,
@@ -429,7 +429,7 @@
 }
 
 // Layout
-.harvest-approval__container {
+.training-approval__container {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 0px;
@@ -452,7 +452,7 @@
 }
 
 // Top bar
-.harvest-approval__bar {
+.training-approval__bar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -466,7 +466,7 @@
   justify-content: space-between;
 }
 
-.harvest-approval__bar-title {
+.training-approval__bar-title {
   display: flex;
   align-items: center;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
@@ -484,7 +484,7 @@
   }
 }
 
-.harvest-approval__main {
+.training-approval__main {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -493,7 +493,7 @@
   flex: 1;
 }
 
-.harvest-approval__review-area {
+.training-approval__review-area {
   flex: 1;
   padding: 1.25rem;
   overflow: auto;
@@ -535,7 +535,7 @@
   scrollbar-color: rgba($strawberry-pink, 0.3) transparent;
 }
 
-.harvest-approval__review-sheet {
+.training-approval__review-sheet {
   width: 100%;
   margin: auto;
   display: flex;
@@ -554,7 +554,7 @@
   }
 }
 
-.harvest-approval__review-section {
+.training-approval__review-section {
   background: white;
   border-radius: 10px;
   padding: 1rem;
@@ -698,7 +698,7 @@
   }
 }
 
-.harvest-approval__open-link-btn {
+.training-approval__open-link-btn {
   border: none;
   color: white;
   cursor: pointer;
@@ -721,7 +721,7 @@
   }
 }
 
-.harvest-approval__console-options {
+.training-approval__console-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
@@ -732,7 +732,7 @@
   }
 }
 
-.harvest-approval__option-box {
+.training-approval__option-box {
   padding: 0.5rem 0.75rem;
   border: 2px dashed rgba($strawberry-pink, 0.1);
   border-radius: 8px;
@@ -749,7 +749,7 @@
     background: rgba($strawberry-pink, 0.05);
     border-color: rgba($strawberry-pink, 0.15);
 
-    .harvest-approval__option-box-title {
+    .training-approval__option-box-title {
       color: $strawberry-pink;
     }
   }
@@ -758,7 +758,7 @@
     background: rgba(#75ce7b, 0.1);
     border-color: rgba(#75ce7b, 0.25);
 
-    .harvest-approval__option-box-title {
+    .training-approval__option-box-title {
       color: #75ce7b;
     }
   }
@@ -767,7 +767,7 @@
     background: rgba(#b19cd9, 0.1);
     border-color: rgba(#b19cd9, 0.25);
 
-    .harvest-approval__option-box-title {
+    .training-approval__option-box-title {
       color: #b19cd9;
     }
   }
@@ -796,7 +796,7 @@
   }
 }
 
-.harvest-approval__copy-btn {
+.training-approval__copy-btn {
   border: none;
   color: white;
   cursor: pointer;
@@ -856,7 +856,7 @@
 }
 
 // Error message
-.harvest-approval__error-message {
+.training-approval__error-message {
   padding: 1rem;
   background: linear-gradient(135deg,
       rgba($strawberry-red, 0.1) 0%,
@@ -870,7 +870,7 @@
 }
 
 // Result section
-.harvest-approval__review-section--result {
+.training-approval__review-section--result {
   background: linear-gradient(135deg,
       #fff 0%,
       $strawberry-cream 100%);
@@ -878,7 +878,7 @@
 }
 
 // Statistics
-.harvest-approval__stats {
+.training-approval__stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
@@ -890,7 +890,7 @@
   }
 }
 
-.harvest-approval__stat-item {
+.training-approval__stat-item {
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
@@ -915,14 +915,14 @@
   }
 }
 
-.harvest-approval__stat-label {
+.training-approval__stat-label {
   font-size: 0.55rem;
   color: $berry-text-soft;
   font-weight: 600;
   text-transform: uppercase;
 }
 
-.harvest-approval__stat-value {
+.training-approval__stat-value {
   font-size: 1rem;
   font-weight: 700;
   color: $strawberry-red;
@@ -932,7 +932,7 @@
   }
 }
 
-.harvest-approval__reward-calc__wrapper {
+.training-approval__reward-calc__wrapper {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
@@ -944,7 +944,7 @@
 }
 
 // Reward calculation
-.harvest-approval__reward-calc {
+.training-approval__reward-calc {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -969,7 +969,7 @@
   }
 }
 
-.harvest-approval__reward-row {
+.training-approval__reward-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -985,7 +985,7 @@
     background: $strawberry-cream;
     border: 1px dashed rgba($strawberry-pink, 0.35);
 
-    .harvest-approval__reward-label {
+    .training-approval__reward-label {
       color: $strawberry-pink;
       font-weight: 600;
       display: flex;
@@ -999,7 +999,7 @@
       }
     }
 
-    .harvest-approval__reward-value {
+    .training-approval__reward-value {
       color: $strawberry-pink;
       font-weight: 700;
     }
@@ -1012,7 +1012,7 @@
     border: 2px solid rgba($strawberry-red, 0.3);
     margin-top: 0.2rem;
 
-    .harvest-approval__reward-label {
+    .training-approval__reward-label {
       font-weight: 700;
       color: $berry-text;
       font-size: 0.65rem;
@@ -1020,7 +1020,7 @@
       letter-spacing: 0.3px;
     }
 
-    .harvest-approval__reward-value {
+    .training-approval__reward-value {
       font-size: 1rem;
       color: $strawberry-red;
       font-weight: 800;
@@ -1034,13 +1034,13 @@
   }
 }
 
-.harvest-approval__reward-label {
+.training-approval__reward-label {
   color: $berry-text-soft;
   font-weight: 500;
   font-size: 0.7rem;
 }
 
-.harvest-approval__reward-value {
+.training-approval__reward-value {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -1055,7 +1055,7 @@
 }
 
 // Roleplayers
-.harvest-approval__roleplayers {
+.training-approval__roleplayers {
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -1083,7 +1083,7 @@
   }
 }
 
-.harvest-approval__roleplayers-title {
+.training-approval__roleplayers-title {
   font-size: 0.7rem;
   font-weight: 700;
   color: $berry-text;
@@ -1096,7 +1096,7 @@
   z-index: 1;
 }
 
-.harvest-approval__no-match {
+.training-approval__no-match {
   padding: 0.75rem;
   background: rgba(white, 0.6);
   border: 2px dashed rgba($strawberry-pink, 0.3);
@@ -1109,7 +1109,7 @@
   z-index: 1;
 }
 
-.harvest-approval__roleplayer-list {
+.training-approval__roleplayer-list {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -1117,7 +1117,7 @@
   z-index: 1;
 }
 
-.harvest-approval__roleplayer-item {
+.training-approval__roleplayer-item {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -1145,7 +1145,7 @@
   }
 }
 
-.harvest-approval__roleplayer-avatar {
+.training-approval__roleplayer-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -1169,14 +1169,14 @@
     object-fit: cover;
   }
 
-  .harvest-approval__roleplayer-item:hover & {
+  .training-approval__roleplayer-item:hover & {
     border-color: rgba($strawberry-pink, 0.5);
     transform: scale(1.05);
     box-shadow: 0 2px 8px rgba($strawberry-red, 0.2);
   }
 }
 
-.harvest-approval__roleplayer-info {
+.training-approval__roleplayer-info {
   flex: 1;
   display: flex;
   align-items: center;
@@ -1185,7 +1185,7 @@
   min-width: 0;
 }
 
-.harvest-approval__roleplayer-name {
+.training-approval__roleplayer-name {
   font-weight: 600;
   color: $berry-text;
   font-size: 0.75rem;
@@ -1194,7 +1194,7 @@
   text-overflow: ellipsis;
 }
 
-.harvest-approval__roleplayer-handle {
+.training-approval__roleplayer-handle {
   font-size: 0.6rem;
   color: $berry-text-soft;
   font-family: 'Monaco', 'Menlo', monospace;
@@ -1204,7 +1204,7 @@
 }
 
 // Actions
-.harvest-approval__actions {
+.training-approval__actions {
   display: flex;
   gap: 0.75rem;
   padding-top: 0.75rem;
@@ -1216,7 +1216,7 @@
   }
 }
 
-.harvest-approval__action-btn {
+.training-approval__action-btn {
   flex: 1;
   padding: 0.75rem 1.25rem;
   border: none;
@@ -1271,8 +1271,8 @@
   }
 }
 
-.harvest-approval__review-loading,
-.harvest-approval__review-error {
+.training-approval__review-loading,
+.training-approval__review-error {
   flex: 1;
   min-height: 100%;
   display: flex;
@@ -1287,7 +1287,7 @@
   font-size: 0.85rem;
 }
 
-.harvest-approval__empty-state {
+.training-approval__empty-state {
   flex: 1;
   min-height: 100%;
   display: flex;
@@ -1302,7 +1302,7 @@
   text-align: center;
 }
 
-.harvest-approval__empty-state-icon {
+.training-approval__empty-state-icon {
   width: 80px;
   height: 80px;
   background: linear-gradient(135deg, $strawberry-green 0%, darken($strawberry-green, 10%) 100%);
@@ -1317,14 +1317,14 @@
   animation: scaleIn 0.5s ease;
 }
 
-.harvest-approval__empty-state-title {
+.training-approval__empty-state-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: $strawberry-red;
   margin-bottom: 0.5rem;
 }
 
-.harvest-approval__empty-state-message {
+.training-approval__empty-state-message {
   font-size: 0.85rem;
   color: $strawberry-red;
   opacity: 0.8;
@@ -1343,7 +1343,7 @@
 /* ══════════════════════════════════════
    SIDEBAR (RIGHT)
    ══════════════════════════════════════ */
-.harvest-approval__sidebar {
+.training-approval__sidebar {
   border-left: 2px solid rgba($strawberry-red, 0.5);
   display: flex;
   flex-direction: column;
@@ -1371,7 +1371,7 @@
   }
 }
 
-.harvest-approval__sidebar__head {
+.training-approval__sidebar__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1385,13 +1385,13 @@
   border-bottom: 1px solid rgba(white, 0.1);
 }
 
-.harvest-approval__sidebar__head-tabs {
+.training-approval__sidebar__head-tabs {
   display: flex;
   gap: 0.5rem;
   flex: 1;
 }
 
-.harvest-approval__sidebar__tab {
+.training-approval__sidebar__tab {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1481,13 +1481,13 @@
   }
 }
 
-.harvest-approval__bar-actions {
+.training-approval__bar-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.harvest-approval__bar-chevron {
+.training-approval__bar-chevron {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1520,7 +1520,7 @@
   }
 }
 
-.harvest-approval__sidebar__close {
+.training-approval__sidebar__close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1544,7 +1544,7 @@
   }
 }
 
-.harvest-approval__sidebar__note {
+.training-approval__sidebar__note {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1565,7 +1565,7 @@
   }
 }
 
-.harvest-approval__sidebar__content {
+.training-approval__sidebar__content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1626,11 +1626,11 @@
     min-width: 100vw;
   }
 
-  .harvest-approval__bar {
+  .training-approval__bar {
     padding: 0.4rem 0.6rem;
   }
 
-  .harvest-approval__review-area {
+  .training-approval__review-area {
     padding: 0.6rem;
   }
 }

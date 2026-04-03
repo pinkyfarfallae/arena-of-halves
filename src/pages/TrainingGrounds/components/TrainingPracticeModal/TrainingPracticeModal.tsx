@@ -78,7 +78,7 @@ export default function TrainingPracticeModal({
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<CopyType | null>(null);
   const isBusy = loading || submitting;
-  const busyLabel = loading ? 'Loading players...' : submitting ? 'Creating room...' : '';
+  const busyLabel = loading ? 'Loading players...' : submitting ? joinCode ? `Joining room...` : 'Creating room...' : '';
 
   useEffect(() => {
     if (!open) return;

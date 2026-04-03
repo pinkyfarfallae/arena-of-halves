@@ -27,7 +27,6 @@ export async function submitHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error submitting harvest:', error);
     return { success: false, error: 'Failed to submit harvest' };
   }
 }
@@ -60,7 +59,6 @@ export async function approveHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error approving harvest:', error);
     return { success: false, error: 'Failed to approve harvest' };
   }
 }
@@ -87,7 +85,6 @@ export async function rejectHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error rejecting harvest:', error);
     return { success: false, error: 'Failed to reject harvest' };
   }
 }
@@ -154,7 +151,6 @@ export async function fetchHarvestRecords(): Promise<{ records?: HarvestRecords;
 
     return { records: data.records };
   } catch (error) {
-    console.error('Error fetching harvest records:', error);
     return { error: 'Failed to fetch harvest records' };
   }
 }
@@ -180,7 +176,6 @@ export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvester
 
     return { topHarvesters: data.topHarvesters || [] };
   } catch (error) {
-    console.error('Error fetching top harvesters:', error);
     return { topHarvesters: [], error: 'Failed to fetch top harvesters' };
   }
 }

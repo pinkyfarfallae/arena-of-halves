@@ -66,7 +66,6 @@ export default function DailyTrainingConfig() {
         }
       }
     } catch (err: any) {
-      console.error('Failed to load current target:', err);
       if (err.code === 'unavailable' || err.message?.includes('offline')) {
         setMessage({
           type: 'error',
@@ -99,7 +98,6 @@ export default function DailyTrainingConfig() {
       const targets = newPapers.map(p => p.value);
       await saveDraftTargets(targets);
     } catch (err: any) {
-      console.error('Failed to auto-save:', err);
       setMessage({ type: 'error', text: 'Failed to save roll. Try again.' });
     }
 
@@ -133,9 +131,7 @@ export default function DailyTrainingConfig() {
     // Clear from Firestore too
     try {
       await saveDraftTargets([]);
-    } catch (err: any) {
-      console.error('Failed to clear:', err);
-    }
+    } catch (err: any) {}
   };
 
   const handleConfirm = async () => {

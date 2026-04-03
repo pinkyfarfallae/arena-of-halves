@@ -30,7 +30,6 @@ export const loginCharacter = async (characterId: string, password: string): Pro
 export const changePassword = async (newPassword: string): Promise<boolean> => {
   const user = auth.currentUser;
   if (!user) {
-    console.error("No user is currently signed in");
     return false;
   }
   
@@ -38,7 +37,6 @@ export const changePassword = async (newPassword: string): Promise<boolean> => {
     await updatePassword(user, newPassword);
     return true;
   } catch (error: any) {
-    console.error("Password change failed:", error.message);
     return false;
   }
 };

@@ -13,7 +13,7 @@ var SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
-var DAILY_TRAINING_DICE = 'Daily Training Dice';
+var TRAINING_SHEET_NAME = 'Daily Training Dice';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -62,7 +62,7 @@ function doGet(e) {
   }
 
   if (action === 'fetchTrainings') {
-    return handleFetchTrainings(e.parameter.userId, e.parameter.verified);
+    return handleFetchTrainings(e.parameter.userId, e.parameter.verified, e.parameter.mode);
   }
 
   if (action === 'fetchAllTrainings') {
@@ -153,8 +153,8 @@ function doPost(e) {
       return refundAllStats(data.characterId);
     }
 
-    if (data.action === 'appendDailyTraining') {
-      return handleAppendDailyTraining(data);
+    if (data.action === 'submitTraining') {
+      return handleSubmitTraining(data);
     }
 
     if (data.action === 'submitTrainingRoleplay') {
@@ -1346,215 +1346,116 @@ function handleFetchTopHarvesters(limit) {
 }
 
 /* ══════════════════════════════════════
-   DAILY TRAINING DICE
-   - Append daily training roll results
+   TRAINING SYSTEM (Google Sheets as Primary Source)
+   Sheet: Training Tasks
+   Columns: Id | Date | User | Attempt | Rolls | Mode | Success | Roleplay | 
+            Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason | 
+            ArenaId | OpponentId | OpponentName | BattleRounds
    ══════════════════════════════════════ */
 
-/**
- * Append a daily training roll to the sheet
- * Expects:
- *   - date: YYYY-MM-DD
- *   - userId: characterId
- *   - rolls: array [1-12, 1-12, 1-12, 1-12, 1-12]
- *   - target: 1-12
- *   - success: boolean
- *   - attempt: number of rolls attempted (1-5)
- *   - roleplay: optional string
- *   - tickets: number (default 0)
- */
-function handleAppendDailyTraining(params) {
-  var date = (params.date || '').toString().trim();
+// Get the existing training sheet
+function getTrainingSheet() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(TRAINING_SHEET_NAME);
+  
+  if (!sheet) {
+    return null;
+  }
+  
+  return sheet;
+}
+
+// Helper: Find task row by ID
+function findTaskRow(sheet, id) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+/* ══════════════════════════════════════
+   SUBMIT TRAINING
+   - Create new training task record
+   - Called when training is completed
+   ══════════════════════════════════════ */
+function handleSubmitTraining(params) {
   var userId = (params.userId || '').toString().trim();
+  var date = (params.date || '').toString().trim();
   var attempt = parseInt(params.attempt || '5', 10);
   var rolls = params.rolls || [];
-  var target = parseInt(params.target || '0', 10);
+  var mode = (params.mode || 'admin').toString().trim();
   var success = params.success === true || params.success === 'true';
-  var roleplay = (params.roleplay || '').toString().trim();
-  var tickets = parseInt(params.tickets || '0', 10);
+  var arenaId = (params.arenaId || '').toString().trim();
+  var opponentId = (params.opponentId || '').toString().trim();
+  var opponentName = (params.opponentName || '').toString().trim();
+  var battleRounds = parseInt(params.battleRounds || '0', 10);
 
-  if (!date || !userId || !Array.isArray(rolls) || rolls.length !== 5 || target < 1 || target > 12) {
-    return jsonResponse({ error: 'Missing or invalid fields for daily training' });
+  if (!userId || !date || !Array.isArray(rolls)) {
+    return jsonResponse({ error: 'Missing required fields: userId, date, rolls' });
   }
 
-  // Validate rolls are all 0-12 (0 = unrolled)
-  for (var i = 0; i < rolls.length; i++) {
-    var roll = parseInt(rolls[i], 10);
-    if (isNaN(roll) || roll < 0 || roll > 12) {
-      return jsonResponse({ error: 'Invalid dice roll: ' + rolls[i] });
-    }
-  }
-
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
+  var sheet = getTrainingSheet();
+  
   if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-
-  // Build row according to schema:
-  // Date, User, Attempt, Rolls, Target, Success, Roleplay, Verified, Tickets
-  var row = [];
-  var rollsString = rolls.join(',');
-
-  for (var j = 0; j < headers.length; j++) {
-    var h = headers[j];
-    if (h === 'date') row.push(date);
-    else if (h === 'user') row.push(userId);
-    else if (h === 'attempt') row.push(attempt);
-    else if (h === 'rolls') row.push(rollsString);
-    else if (h === 'target') row.push(target);
-    else if (h === 'success') row.push(success);
-    else if (h === 'roleplay') row.push(roleplay);
-    else if (h === 'verified') row.push('pending'); // Default to pending, admin can update
-    else if (h === 'tickets') row.push(tickets); // Training tickets earned
-    else row.push('');
+  
+  var id = userId + '_' + date;
+  
+  if (findTaskRow(sheet, id) > 0) {
+    return jsonResponse({ error: 'Training task already exists for this date' });
   }
-
-  sheet.appendRow(row);
-  return jsonResponse({ success: true, date: date, userId: userId });
-}
-
-/* ══════════════════════════════════════
-   FETCH TRAININGS
-   - Fetch training records filtered by userId and/or verified status
-   - Similar to fetchHarvests
-   ══════════════════════════════════════ */
-function handleFetchTrainings(userId, verified) {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
-  if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
-  }
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) {
-    return jsonResponse({ trainings: [] });
-  }
-
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-  var trainings = [];
-
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var training = {};
-
-    for (var j = 0; j < headers.length; j++) {
-      training[headers[j]] = row[j] ? row[j].toString() : '';
-    }
-
-    // Add row index for updates
-    training.rowIndex = i;
-
-    // Filter by userId if provided
-    if (userId && training.user !== userId) {
-      continue;
-    }
-
-    // Filter by verified status if provided
-    if (verified && training.verified !== verified) {
-      continue;
-    }
-
-    trainings.push(training);
-  }
-
-  return jsonResponse({ trainings: trainings });
-}
-
-/* ══════════════════════════════════════
-   FETCH ALL TRAININGS
-   - Fetch all training records (for admin view)
-   ══════════════════════════════════════ */
-function handleFetchAllTrainings() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
-  if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
-  }
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) {
-    return jsonResponse({ trainings: [] });
-  }
-
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-  var trainings = [];
-
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var training = {};
-
-    for (var j = 0; j < headers.length; j++) {
-      training[headers[j]] = row[j] ? row[j].toString() : '';
-    }
-
-    // Add row index for updates
-    training.rowIndex = i;
-
-    trainings.push(training);
-  }
-
-  return jsonResponse({ trainings: trainings });
+  
+  var newRow = [
+    id, date, userId, attempt, JSON.stringify(rolls), mode,
+    success ? 'TRUE' : 'FALSE', '', 0, 'pending', '', '', '',
+    arenaId, opponentId, opponentName, battleRounds
+  ];
+  
+  sheet.appendRow(newRow);
+  return jsonResponse({ success: true, id: id });
 }
 
 /* ══════════════════════════════════════
    SUBMIT TRAINING ROLEPLAY
-   - Update roleplay link for a training record
-   - User submits after completing training
+   - Update roleplay link and tickets for a training task
+   - Called when user submits roleplay after training
    ══════════════════════════════════════ */
 function handleSubmitTrainingRoleplay(params) {
   var userId = (params.userId || '').toString().trim();
   var date = (params.date || '').toString().trim();
   var roleplayUrl = (params.roleplayUrl || '').toString().trim();
+  var tickets = parseInt(params.tickets || '0', 10);
 
   if (!userId || !date || !roleplayUrl) {
     return jsonResponse({ error: 'Missing required fields: userId, date, roleplayUrl' });
   }
 
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
+  var sheet = getTrainingSheet();
+  
   if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-
-  var userCol = headers.indexOf('user');
-  var dateCol = headers.indexOf('date');
-  var roleplayCol = headers.indexOf('roleplay');
-  var verifiedCol = headers.indexOf('verified');
-
-  // Find the training record
-  var rowIndex = -1;
-  for (var i = 1; i < data.length; i++) {
-    var recordUser = data[i][userCol] ? data[i][userCol].toString().trim() : '';
-    var recordDate = data[i][dateCol] ? data[i][dateCol].toString().trim() : '';
-    
-    if (recordUser === userId && recordDate === date) {
-      rowIndex = i;
-      break;
-    }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
   }
-
-  if (rowIndex === -1) {
-    return jsonResponse({ error: 'Training record not found for user: ' + userId + ' on date: ' + date });
+  
+  sheet.getRange(row, 8).setValue(roleplayUrl);
+  sheet.getRange(row, 9).setValue(tickets);
+  
+  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  if (currentVerified === 'rejected') {
+    sheet.getRange(row, 10).setValue('pending');
+    sheet.getRange(row, 13).setValue('');
   }
-
-  // Update roleplay URL
-  if (roleplayCol !== -1) {
-    sheet.getRange(rowIndex + 1, roleplayCol + 1).setValue(roleplayUrl);
-  }
-
-  // Reset verified to pending if it was rejected
-  var currentVerified = data[rowIndex][verifiedCol] ? data[rowIndex][verifiedCol].toString().toLowerCase() : '';
-  if (currentVerified === 'rejected' && verifiedCol !== -1) {
-    sheet.getRange(rowIndex + 1, verifiedCol + 1).setValue('pending');
-  }
-
-  return jsonResponse({ success: true, userId: userId, date: date });
+  
+  return jsonResponse({ success: true });
 }
 
 /* ══════════════════════════════════════
@@ -1574,74 +1475,31 @@ function handleVerifyTraining(params) {
   }
 
   if (verified !== 'approved' && verified !== 'rejected') {
-    return jsonResponse({ error: 'Invalid verified status. Must be \"approved\" or \"rejected\"' });
+    return jsonResponse({ error: 'verified must be "approved" or "rejected"' });
   }
 
   if (verified === 'rejected' && !rejectReason) {
-    return jsonResponse({ error: 'Reject reason is required when rejecting' });
+    return jsonResponse({ error: 'rejectReason is required when rejecting' });
   }
 
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
+  var sheet = getTrainingSheet();
+  
   if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
   }
 
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-
-  var userCol = headers.indexOf('user');
-  var dateCol = headers.indexOf('date');
-  var verifiedCol = headers.indexOf('verified');
-  var verifiedByCol = headers.indexOf('verifiedby');
-  var verifiedAtCol = headers.indexOf('verifiedat');
-  var rejectReasonCol = headers.indexOf('rejectreason');
-
-  // Find the training record
-  var rowIndex = -1;
-  for (var i = 1; i < data.length; i++) {
-    var recordUser = data[i][userCol] ? data[i][userCol].toString().trim() : '';
-    var recordDate = data[i][dateCol] ? data[i][dateCol].toString().trim() : '';
-    
-    if (recordUser === userId && recordDate === date) {
-      rowIndex = i;
-      break;
-    }
-  }
-
-  if (rowIndex === -1) {
-    return jsonResponse({ error: 'Training record not found for user: ' + userId + ' on date: ' + date });
-  }
-
-  // Update verified status
-  if (verifiedCol !== -1) {
-    sheet.getRange(rowIndex + 1, verifiedCol + 1).setValue(verified);
-  }
-
-  // Update verifiedBy
-  if (verifiedByCol !== -1) {
-    sheet.getRange(rowIndex + 1, verifiedByCol + 1).setValue(verifiedBy);
-  }
-
-  // Update verifiedAt
-  if (verifiedAtCol !== -1) {
-    sheet.getRange(rowIndex + 1, verifiedAtCol + 1).setValue(new Date().toISOString());
-  }
-
-  // Update reject reason if rejected
-  if (verified === 'rejected' && rejectReasonCol !== -1) {
-    sheet.getRange(rowIndex + 1, rejectReasonCol + 1).setValue(rejectReason);
-  } else if (verified === 'approved' && rejectReasonCol !== -1) {
-    // Clear reject reason if approving
-    sheet.getRange(rowIndex + 1, rejectReasonCol + 1).setValue('');
-  }
-
-  return jsonResponse({ 
-    success: true, 
-    userId: userId, 
-    date: date, 
-    verified: verified 
-  });
+  sheet.getRange(row, 10).setValue(verified);
+  sheet.getRange(row, 11).setValue(verifiedBy);
+  sheet.getRange(row, 12).setValue(new Date().toISOString());
+  sheet.getRange(row, 13).setValue(rejectReason);
+  
+  return jsonResponse({ success: true, verified: verified });
 }
 
 /* ══════════════════════════════════════
@@ -1657,50 +1515,92 @@ function handleRecheckTraining(params) {
     return jsonResponse({ error: 'Missing required fields: userId, date' });
   }
 
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(DAILY_TRAINING_DICE);
+  var sheet = getTrainingSheet();
+  
   if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + DAILY_TRAINING_DICE });
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
   }
 
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
-
-  var userCol = headers.indexOf('user');
-  var dateCol = headers.indexOf('date');
-  var verifiedCol = headers.indexOf('verified');
-
-  // Find the training record
-  var rowIndex = -1;
-  for (var i = 1; i < data.length; i++) {
-    var recordUser = data[i][userCol] ? data[i][userCol].toString().trim() : '';
-    var recordDate = data[i][dateCol] ? data[i][dateCol].toString().trim() : '';
-    
-    if (recordUser === userId && recordDate === date) {
-      rowIndex = i;
-      break;
-    }
-  }
-
-  if (rowIndex === -1) {
-    return jsonResponse({ error: 'Training record not found for user: ' + userId + ' on date: ' + date });
-  }
-
-  // Check if currently rejected
-  var currentVerified = data[rowIndex][verifiedCol] ? data[rowIndex][verifiedCol].toString().toLowerCase() : '';
+  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
   if (currentVerified !== 'rejected') {
     return jsonResponse({ error: 'Can only recheck rejected trainings. Current status: ' + currentVerified });
   }
 
-  // Change verified to pending
-  if (verifiedCol !== -1) {
-    sheet.getRange(rowIndex + 1, verifiedCol + 1).setValue('pending');
-  }
+  sheet.getRange(row, 10).setValue('pending');
+  sheet.getRange(row, 13).setValue('');
+  
+  return jsonResponse({ success: true, verified: 'pending' });
+}
 
-  return jsonResponse({ 
-    success: true, 
-    userId: userId, 
-    date: date,
-    verified: 'pending'
-  });
+/* ══════════════════════════════════════
+   FETCH TRAININGS
+   - Fetch training records with filters
+   - Supports userId, verified, and mode filters
+   ══════════════════════════════════════ */
+function handleFetchTrainings(userId, verified, mode) {
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  if (data.length <= 1) {
+    return jsonResponse({ trainings: [] });
+  }
+  
+  var trainings = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    
+    if (userId && row[2] !== userId) continue;
+    if (verified && row[9].toString().toLowerCase() !== verified.toLowerCase()) continue;
+    if (mode && row[5] !== mode) continue;
+    
+    var rolls = [];
+    try {
+      rolls = JSON.parse(row[4]);
+    } catch (e) {
+      rolls = [];
+    }
+    
+    trainings.push({
+      id: row[0] || '',
+      date: row[1] || '',
+      userId: row[2] || '',
+      attempt: row[3] || 0,
+      rolls: rolls,
+      mode: row[5] || 'admin',
+      success: row[6] === 'TRUE' || row[6] === true,
+      roleplay: row[7] || '',
+      tickets: row[8] || 0,
+      verified: row[9] || 'pending',
+      verifiedBy: row[10] || '',
+      verifiedAt: row[11] || '',
+      rejectReason: row[12] || '',
+      arenaId: row[13] || '',
+      opponentId: row[14] || '',
+      opponentName: row[15] || '',
+      battleRounds: row[16] || 0
+    });
+  }
+  
+  return jsonResponse({ trainings: trainings });
+}
+
+/* ══════════════════════════════════════
+   FETCH ALL TRAININGS
+   - Fetch all training records (for admin view)
+   - No filters applied
+   ══════════════════════════════════════ */
+function handleFetchAllTrainings() {
+  return handleFetchTrainings(null, null, null);
 }

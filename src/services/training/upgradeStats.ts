@@ -36,7 +36,6 @@ export async function upgradeStat(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error upgrading stat:', error);
     return { error: 'Failed to upgrade stat' };
   }
 }
@@ -91,7 +90,6 @@ export async function refundStat(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error refunding stat:', error);
     return { error: 'Failed to refund stat' };
   }
 }
@@ -123,7 +121,6 @@ export async function refundAllStats(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error refunding all stats:', error);
     return { error: 'Failed to refund all stats' };
   }
 }

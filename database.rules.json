@@ -15,12 +15,11 @@
     
     "trainingQuotas": {
       ".read": "auth != null",
+      ".write": "auth != null",
       
       "$characterId": {
-        ".write": "auth != null && auth.uid != null",
-        
         "$date": {
-          ".validate": "newData.hasChildren(['used', 'timestamp'])"
+          ".validate": "newData.hasChildren(['used', 'timestamp']) || newData.hasChildren(['used', 'timestamp', 'mode'])"
         }
       }
     }

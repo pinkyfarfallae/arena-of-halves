@@ -12,7 +12,7 @@ import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
-import { fetchTrainings, getTodayDate, getTodayProgress, submitTrainingRoleplay, UserDailyProgress } from '../../../../services/training/dailyTrainingDice';
+import { fetchUserTrainingTasks, getTodayDate, getTodayProgress, submitTrainingRoleplay, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
 import './TrainingRoleplaySubmission.scss';
@@ -24,7 +24,7 @@ function TrainingRoleplaySubmission() {
   const { t, lang } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [sheetTask, setSheetTask] = useState<UserDailyProgress | null>(null);
+  const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
@@ -39,7 +39,7 @@ function TrainingRoleplaySubmission() {
     setIsLoading(true);
 
     Promise.all([
-      fetchTrainings(user.characterId).catch(() => [] as UserDailyProgress[]),
+      fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
       getTodayProgress(user.characterId).catch(() => null),
     ]).then(([data, todayProgress]) => {
       if (mounted) {
@@ -47,7 +47,7 @@ function TrainingRoleplaySubmission() {
         const todaySheetTask = [...data].reverse().find((training) => training.date === getTodayDate()) || null;
         setSheetTask(todaySheetTask);
       }
-    }).catch(console.error)
+    }).catch(() => {})
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
@@ -74,15 +74,15 @@ function TrainingRoleplaySubmission() {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
 
-  const isPvpPracticeLive = livePractice?.practiceMode === PRACTICE_MODE.PVP && livePractice.practiceState === PRACTICE_STATES.LIVE;
-  const isAdminPracticeLive = livePractice?.practiceMode === PRACTICE_MODE.NORMAL && livePractice.practiceState === PRACTICE_STATES.LIVE;
+  const isPvpPracticeLive = livePractice?.mode === PRACTICE_MODE.PVP && livePractice.state === PRACTICE_STATES.LIVE;
+  const isAdminPracticeLive = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;
   const sheetTaskVerified = sheetTask?.verified ?? null;
   const sheetTaskDate = sheetTask?.date ?? '';
   const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
   const sheetTaskTickets = sheetTask?.tickets ?? 0;
   const sheetTaskRejectReason = sheetTask?.rejectReason ?? '';
-  const isPvpSheetTask = sheetTask?.practiceMode === PRACTICE_MODE.PVP;
-  const pvpBattleRolls = (sheetTask?.practiceBattleRolls || livePractice?.practiceBattleRolls || []).filter((n): n is number => typeof n === 'number' && n > 0);
+  const isPvpSheetTask = sheetTask?.mode === PRACTICE_MODE.PVP;
+  const pvpBattleRolls = (sheetTask?.rolls || []).filter((n: number) => typeof n === 'number' && n > 0);
 
   const handleSubmit = async () => {
     if (!user?.characterId) {
@@ -121,10 +121,10 @@ function TrainingRoleplaySubmission() {
 
       setSheetTask((prev) => prev ? {
         ...prev,
-        roleplay: firstTweetUrl.trim() || null,
+        roleplay: firstTweetUrl.trim() || '',
         tickets: ticketsToApply,
         verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-        rejectReason: undefined,
+        rejectReason: '',
       } : prev);
       setFirstTweetUrl('');
       setTicketsToApply(0);
@@ -211,10 +211,10 @@ function TrainingRoleplaySubmission() {
                 Finish the battle first. <br />
                 The task will appear after the match ends.
               </div>
-              {livePractice?.practiceArenaId && (
+              {livePractice?.arenaId && (
                 <div className="training-roleplay-submission__form-waiting-link">
                   <strong>Room:</strong>{' '}
-                  <Link to={`/training-grounds/pvp/${livePractice.practiceArenaId}`}>{livePractice.practiceArenaId}</Link>
+                  <Link to={`/training-grounds/pvp/${livePractice.arenaId}`}>{livePractice.arenaId}</Link>
                 </div>
               )}
             </div>
@@ -234,10 +234,10 @@ function TrainingRoleplaySubmission() {
                 PvP practice task ready
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
-                Battle rounds: <strong>{sheetTask.practiceBattleRounds || 0}</strong>
+                Battle rounds: <strong>{sheetTask.battleRounds || 0}</strong>
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
-                Result: <strong>{sheetTask.practiceBattleWinner ? 'Winner' : 'Loser'}</strong>
+                Result: <strong>{sheetTask.success ? 'Winner' : 'Loser'}</strong>
               </div>
               <div className="training-roleplay-submission__form-waiting-text">
                 Attack / defend rolls: <strong>{pvpBattleRolls.join(' / ') || 'pvp'}</strong>
