@@ -35,6 +35,13 @@
   gap: 0;
   height: 100%;
   align-items: stretch;
+  overflow: auto;
+
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
+  }
 }
 
 .admin__tab {

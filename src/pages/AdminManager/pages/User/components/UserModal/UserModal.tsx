@@ -9,22 +9,23 @@ import { Input, Dropdown } from '../../../../../../components/Form';
 import Close from '../../../../../../icons/Close';
 import Male from '../../../../../../icons/Male';
 import Female from '../../../../../../icons/Female';
-import './UserModal.scss';
 import { ROLE } from '../../../../../../constants/role';
 import { SEX } from '../../../../../../constants/sex';
+import { USER_MANAGEMENT_MODE } from '../../../../../../constants/userManagement';
+import './UserModal.scss';
 
 const DEITY_OPTIONS = Object.values(DEITY)
   .filter(d => d !== DEITY.PERSEPHONE && d !== DEITY.HERA)
   .map(d => ({ value: d, label: d }));
 
 interface CreateProps {
-  mode: 'create';
+  mode: typeof USER_MANAGEMENT_MODE.CREATE;
   onClose: () => void;
   onDone: (apiCall: Promise<boolean>) => void;
 }
 
 interface EditProps {
-  mode: 'edit';
+  mode: typeof USER_MANAGEMENT_MODE.EDIT;
   user: UserRecord;
   isDev: boolean;
   onClose: () => void;
@@ -44,7 +45,7 @@ const CREATE_FIELDS: { key: string; label: string; placeholder?: string; require
 
 export default function UserModal(props: Props) {
   const { mode, onClose, onDone } = props;
-  const isEdit = mode === 'edit';
+  const isEdit = mode === USER_MANAGEMENT_MODE.EDIT;
   const { user: authUser } = useAuth();
 
   const [form, setForm] = useState<Record<string, string>>(() => {

@@ -13,6 +13,7 @@ var SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
+var TRAINING_SHEET_NAME = 'Daily Training Dice';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -60,12 +61,24 @@ function doGet(e) {
     return handleFetchHarvestRecords();
   }
 
+  if (action === 'fetchTrainings') {
+    return handleFetchTrainings(e.parameter.userId, e.parameter.verified, e.parameter.mode);
+  }
+
+  if (action === 'fetchAllTrainings') {
+    return handleFetchAllTrainings();
+  }
+
   if (action === 'fetchTopHarvesters') {
     return handleFetchTopHarvesters(e.parameter.limit);
   }
 
   if (action === 'updateCharacterDrachma' || action === 'addDrachma') {
     return updateCharacterDrachma(e.parameter.characterId, e.parameter.amount);
+  }
+
+  if (action === 'updateTrainingPoints') {
+    return updateTrainingPoints(e.parameter.characterId, e.parameter.amount);
   }
 
   return jsonResponse({ status: 'ok', message: 'Updater is running' });
@@ -124,10 +137,48 @@ function doPost(e) {
       return updateCharacterDrachma(data.characterId, data.amount);
     }
 
+    if (data.action === 'updateTrainingPoints') {
+      return updateTrainingPoints(data.characterId, data.amount);
+    }
+
+    if (data.action === 'upgradeStat') {
+      return upgradeStat(data.characterId, data.statId, data.pointsToSpend);
+    }
+
+    if (data.action === 'refundStat') {
+      return refundStat(data.characterId, data.statId);
+    }
+
+    if (data.action === 'refundAllStats') {
+      return refundAllStats(data.characterId);
+    }
+
+    if (data.action === 'submitTraining') {
+      return handleSubmitTraining(data);
+    }
+
+    if (data.action === 'submitTrainingRoleplay') {
+      return handleSubmitTrainingRoleplay(data);
+    }
+
+    if (data.action === 'verifyTraining') {
+      return handleVerifyTraining(data);
+    }
+
+    if (data.action === 'recheckTraining') {
+      return handleRecheckTraining(data);
+    }
+
     return jsonResponse({ error: 'Unknown action: ' + data.action });
   } catch (err) {
     return jsonResponse({ error: err.toString() });
   }
+}
+
+/* ── OPTIONS handler (CORS preflight) ── */
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 /* ══════════════════════════════════════
@@ -218,6 +269,7 @@ function handleCreateUser(params) {
     else if (ch === 'technique') charRow.push(0);
     else if (ch === 'experience') charRow.push(0);
     else if (ch === 'fortune') charRow.push(0);
+    else if (ch === 'trainingpoints') charRow.push(0);
     else charRow.push('');
   }
   charSheet.appendRow(charRow);
@@ -751,6 +803,352 @@ function addDrachma(characterId, amount) {
 }
 
 /* ══════════════════════════════════════
+   UPDATE TRAINING POINTS
+   - Adds or subtracts training points (supports positive/negative amounts)
+   - Used for earning points through training or spending on stat upgrades
+   ══════════════════════════════════════ */
+function updateTrainingPoints(characterId, amount) {
+  characterId = (characterId || '').toString().trim();
+  amount = parseInt(amount || '0', 10);
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  if (isNaN(amount) || amount === 0) {
+    return jsonResponse({ error: 'Invalid amount (must be non-zero number)' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var trainingPointsCol = headers.indexOf('trainingpoints');
+
+  if (idCol === -1) {
+    return jsonResponse({ error: 'characterid column not found' });
+  }
+
+  if (trainingPointsCol === -1) {
+    return jsonResponse({ 
+      error: 'trainingPoints column not found in spreadsheet. Please add a "trainingPoints" column to the Character Info sheet.' 
+    });
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentPoints = parseInt(data[i][trainingPointsCol] || '0', 10);
+      var newPoints = currentPoints + amount;
+
+      // Prevent negative training points
+      if (newPoints < 0) {
+        return jsonResponse({ 
+          error: 'Insufficient training points',
+          current: currentPoints,
+          attempted: amount,
+          required: Math.abs(amount)
+        });
+      }
+
+      sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
+      return jsonResponse({ 
+        success: true, 
+        characterId: characterId,
+        previous: currentPoints,
+        change: amount,
+        current: newPoints
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
+   UPGRADE STAT
+   - Upgrades a character's practice stat using training points
+   - Stats range from 0-5, cost is always 1 point per level
+   ══════════════════════════════════════ */
+function upgradeStat(characterId, statId, pointsToSpend) {
+  characterId = (characterId || '').toString().trim();
+  statId = (statId || '').toString().toLowerCase();
+  pointsToSpend = parseInt(pointsToSpend || '0', 10);
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  if (!statId) {
+    return jsonResponse({ error: 'Missing statId' });
+  }
+
+  if (isNaN(pointsToSpend) || pointsToSpend <= 0) {
+    return jsonResponse({ error: 'Invalid pointsToSpend (must be positive number)' });
+  }
+
+  var validStats = ['strength', 'mobility', 'intelligence', 'technique', 'experience', 'fortune'];
+  if (validStats.indexOf(statId) === -1) {
+    return jsonResponse({ error: 'Invalid statId. Must be one of: ' + validStats.join(', ') });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var trainingPointsCol = headers.indexOf('trainingpoints');
+  var statCol = headers.indexOf(statId);
+
+  if (idCol === -1) {
+    return jsonResponse({ error: 'characterid column not found' });
+  }
+
+  if (trainingPointsCol === -1) {
+    return jsonResponse({ error: 'trainingpoints column not found' });
+  }
+
+  if (statCol === -1) {
+    return jsonResponse({ error: statId + ' column not found' });
+  }
+
+  var MAX_STAT_LEVEL = 5;
+  var COST_PER_LEVEL = 1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentPoints = parseInt(data[i][trainingPointsCol] || '0', 10);
+      var currentStatValue = parseInt(data[i][statCol] || '0', 10);
+
+      // Check if stat is already at max
+      if (currentStatValue >= MAX_STAT_LEVEL) {
+        return jsonResponse({ 
+          error: 'Stat is already at maximum level',
+          currentValue: currentStatValue,
+          maxLevel: MAX_STAT_LEVEL
+        });
+      }
+
+      // Check if character has enough training points
+      if (currentPoints < pointsToSpend) {
+        return jsonResponse({ 
+          error: 'Insufficient training points',
+          available: currentPoints,
+          required: pointsToSpend
+        });
+      }
+
+      // Calculate how many levels can be upgraded (flat cost of 1 per level)
+      var levelsToGain = Math.min(pointsToSpend, MAX_STAT_LEVEL - currentStatValue);
+      var pointsUsed = levelsToGain * COST_PER_LEVEL;
+      var newStatValue = currentStatValue + levelsToGain;
+      var newPoints = currentPoints - pointsUsed;
+
+      if (levelsToGain === 0) {
+        return jsonResponse({ 
+          error: 'Cannot upgrade. Stat is at max level.',
+          currentValue: currentStatValue
+        });
+      }
+
+      // Update both training points and stat value
+      sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
+      sheet.getRange(i + 1, statCol + 1).setValue(newStatValue);
+
+      return jsonResponse({ 
+        success: true,
+        characterId: characterId,
+        stat: statId,
+        previousValue: currentStatValue,
+        newValue: newStatValue,
+        levelsGained: levelsToGain,
+        pointsSpent: pointsUsed,
+        remainingPoints: newPoints
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
+   REFUND STAT
+   - Refunds one level from a stat and returns 1 training point
+   - Stats range from 0-5
+   ══════════════════════════════════════ */
+function refundStat(characterId, statId) {
+  characterId = (characterId || '').toString().trim();
+  statId = (statId || '').toString().toLowerCase();
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  if (!statId) {
+    return jsonResponse({ error: 'Missing statId' });
+  }
+
+  var validStats = ['strength', 'mobility', 'intelligence', 'technique', 'experience', 'fortune'];
+  if (validStats.indexOf(statId) === -1) {
+    return jsonResponse({ error: 'Invalid statId. Must be one of: ' + validStats.join(', ') });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var trainingPointsCol = headers.indexOf('trainingpoints');
+  var statCol = headers.indexOf(statId);
+
+  if (idCol === -1) {
+    return jsonResponse({ error: 'characterid column not found' });
+  }
+
+  if (trainingPointsCol === -1) {
+    return jsonResponse({ error: 'trainingpoints column not found' });
+  }
+
+  if (statCol === -1) {
+    return jsonResponse({ error: statId + ' column not found' });
+  }
+
+  var REFUND_AMOUNT = 1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentPoints = parseInt(data[i][trainingPointsCol] || '0', 10);
+      var currentStatValue = parseInt(data[i][statCol] || '0', 10);
+
+      // Check if stat is already at minimum
+      if (currentStatValue <= 0) {
+        return jsonResponse({ 
+          error: 'Stat is already at minimum level (0)',
+          currentValue: currentStatValue
+        });
+      }
+
+      // Reduce stat by 1 and refund 1 point
+      var newStatValue = currentStatValue - 1;
+      var newPoints = currentPoints + REFUND_AMOUNT;
+
+      // Update both training points and stat value
+      sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
+      sheet.getRange(i + 1, statCol + 1).setValue(newStatValue);
+
+      return jsonResponse({ 
+        success: true,
+        characterId: characterId,
+        stat: statId,
+        previousValue: currentStatValue,
+        newValue: newStatValue,
+        pointsRefunded: REFUND_AMOUNT,
+        remainingPoints: newPoints
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
+   REFUND ALL STATS
+   - Resets all practice stats to 0
+   - Returns all spent training points to the character
+   ══════════════════════════════════════ */
+function refundAllStats(characterId) {
+  characterId = (characterId || '').toString().trim();
+
+  if (!characterId) {
+    return jsonResponse({ error: 'Missing characterId' });
+  }
+
+  var validStats = ['strength', 'mobility', 'intelligence', 'technique', 'experience', 'fortune'];
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + CHARACTER_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('characterid');
+  var trainingPointsCol = headers.indexOf('trainingpoints');
+
+  if (idCol === -1) {
+    return jsonResponse({ error: 'characterid column not found' });
+  }
+
+  if (trainingPointsCol === -1) {
+    return jsonResponse({ error: 'trainingpoints column not found' });
+  }
+
+  var statCols = {};
+  for (var s = 0; s < validStats.length; s++) {
+    var statId = validStats[s];
+    var col = headers.indexOf(statId);
+    if (col === -1) {
+      return jsonResponse({ error: statId + ' column not found' });
+    }
+    statCols[statId] = col;
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId.toLowerCase()) {
+      var currentPoints = parseInt(data[i][trainingPointsCol] || '0', 10);
+      var previousValues = {};
+      var pointsRefunded = 0;
+
+      for (var j = 0; j < validStats.length; j++) {
+        var statKey = validStats[j];
+        var currentStatValue = parseInt(data[i][statCols[statKey]] || '0', 10);
+        previousValues[statKey] = currentStatValue;
+        pointsRefunded += currentStatValue;
+        sheet.getRange(i + 1, statCols[statKey] + 1).setValue(0);
+      }
+
+      var newPoints = currentPoints + pointsRefunded;
+      sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
+
+      return jsonResponse({
+        success: true,
+        characterId: characterId,
+        previousValues: previousValues,
+        newValues: {
+          strength: 0,
+          mobility: 0,
+          intelligence: 0,
+          technique: 0,
+          experience: 0,
+          fortune: 0
+        },
+        pointsRefunded: pointsRefunded,
+        remainingPoints: newPoints
+      });
+    }
+  }
+
+  return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
    HARVEST RECORD BOOK
    - Returns interesting harvest statistics/records
    ══════════════════════════════════════ */
@@ -945,4 +1343,297 @@ function handleFetchTopHarvesters(limit) {
   }
 
   return jsonResponse({ topHarvesters: leaderboard });
+}
+
+/* ══════════════════════════════════════
+   TRAINING SYSTEM (Google Sheets as Primary Source)
+   Sheet: Training Tasks
+   Columns: Id | Date | User | Attempt | Rolls | Mode | Success | Roleplay | 
+            Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason | 
+            ArenaId | OpponentId | OpponentName | BattleRounds
+   ══════════════════════════════════════ */
+
+// Get the existing training sheet
+function getTrainingSheet() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(TRAINING_SHEET_NAME);
+  
+  if (!sheet) {
+    return null;
+  }
+  
+  return sheet;
+}
+
+// Helper: Find task row by ID
+function findTaskRow(sheet, id) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+/* ══════════════════════════════════════
+   SUBMIT TRAINING
+   - Create new training task record
+   - Called when training is completed
+   ══════════════════════════════════════ */
+function handleSubmitTraining(params) {
+  var userId = (params.userId || '').toString().trim();
+  var date = (params.date || '').toString().trim();
+  var attempt = parseInt(params.attempt || '5', 10);
+  var rolls = params.rolls || [];
+  var mode = (params.mode || 'admin').toString().trim();
+  var success = params.success === true || params.success === 'true';
+  var arenaId = (params.arenaId || '').toString().trim();
+  var opponentId = (params.opponentId || '').toString().trim();
+  var opponentName = (params.opponentName || '').toString().trim();
+  var battleRounds = parseInt(params.battleRounds || '0', 10);
+
+  if (!userId || !date || !Array.isArray(rolls)) {
+    return jsonResponse({ error: 'Missing required fields: userId, date, rolls' });
+  }
+
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var id = userId + '_' + date;
+  
+  if (findTaskRow(sheet, id) > 0) {
+    return jsonResponse({ error: 'Training task already exists for this date' });
+  }
+  
+  var newRow = [
+    id, date, userId, attempt, JSON.stringify(rolls), mode,
+    success ? 'TRUE' : 'FALSE', '', 0, 'pending', '', '', '',
+    arenaId, opponentId, opponentName, battleRounds
+  ];
+  
+  sheet.appendRow(newRow);
+  return jsonResponse({ success: true, id: id });
+}
+
+/* ══════════════════════════════════════
+   SUBMIT TRAINING ROLEPLAY
+   - Update roleplay link and tickets for a training task
+   - Called when user submits roleplay after training
+   ══════════════════════════════════════ */
+function handleSubmitTrainingRoleplay(params) {
+  var userId = (params.userId || '').toString().trim();
+  var date = (params.date || '').toString().trim();
+  var roleplayUrl = (params.roleplayUrl || '').toString().trim();
+  var tickets = parseInt(params.tickets || '0', 10);
+
+  if (!userId || !date || !roleplayUrl) {
+    return jsonResponse({ error: 'Missing required fields: userId, date, roleplayUrl' });
+  }
+
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
+  }
+  
+  sheet.getRange(row, 8).setValue(roleplayUrl);
+  sheet.getRange(row, 9).setValue(tickets);
+  
+  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  if (currentVerified === 'rejected') {
+    sheet.getRange(row, 10).setValue('pending');
+    sheet.getRange(row, 13).setValue('');
+  }
+  
+  return jsonResponse({ success: true });
+}
+
+/* ══════════════════════════════════════
+   VERIFY TRAINING
+   - Admin approves or rejects a training submission
+   - verified: 'approved' or 'rejected'
+   ══════════════════════════════════════ */
+function handleVerifyTraining(params) {
+  var userId = (params.userId || '').toString().trim();
+  var date = (params.date || '').toString().trim();
+  var verified = (params.verified || '').toString().trim().toLowerCase();
+  var verifiedBy = (params.verifiedBy || '').toString().trim();
+  var rejectReason = (params.rejectReason || '').toString().trim();
+
+  if (!userId || !date || !verified || !verifiedBy) {
+    return jsonResponse({ error: 'Missing required fields: userId, date, verified, verifiedBy' });
+  }
+
+  if (verified !== 'approved' && verified !== 'rejected') {
+    return jsonResponse({ error: 'verified must be "approved" or "rejected"' });
+  }
+
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
+  }
+
+  // Get mode and success status from the task
+  var mode = sheet.getRange(row, 6).getValue().toString().toLowerCase();
+  var success = sheet.getRange(row, 7).getValue().toString().toUpperCase() === 'TRUE';
+
+  sheet.getRange(row, 10).setValue(verified);
+
+  // Award training point if approved
+  if (verified === 'approved') {
+    var shouldAwardPoint = false;
+    
+    // PvP mode: award TP for both success and fail
+    if (mode === 'pvp') {
+      shouldAwardPoint = true;
+    }
+    // Normal/Admin mode: award TP only if success is true
+    else if (success) {
+      shouldAwardPoint = true;
+    }
+    
+    if (shouldAwardPoint) {
+      var trainingPointResult = updateTrainingPoints(userId, 1);
+      var trainingPointData = JSON.parse(trainingPointResult.getContent());
+      
+      if (!trainingPointData.success) {
+        return jsonResponse({ 
+          success: false, 
+          verified: verified,
+          error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
+        });
+      }
+      
+      return jsonResponse({ 
+        success: true, 
+        verified: verified,
+        trainingPoints: {
+          previous: trainingPointData.previous,
+          current: trainingPointData.current
+        }
+      });
+    }
+  }
+  
+  return jsonResponse({ success: true, verified: verified });
+}
+
+/* ══════════════════════════════════════
+   RECHECK TRAINING
+   - User requests recheck after rejection
+   - Changes verified from 'rejected' to 'pending'
+   ══════════════════════════════════════ */
+function handleRecheckTraining(params) {
+  var userId = (params.userId || '').toString().trim();
+  var date = (params.date || '').toString().trim();
+
+  if (!userId || !date) {
+    return jsonResponse({ error: 'Missing required fields: userId, date' });
+  }
+
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var row = findTaskRow(sheet, userId + '_' + date);
+  
+  if (row === -1) {
+    return jsonResponse({ error: 'Training task not found' });
+  }
+
+  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  if (currentVerified !== 'rejected') {
+    return jsonResponse({ error: 'Can only recheck rejected trainings. Current status: ' + currentVerified });
+  }
+
+  sheet.getRange(row, 10).setValue('pending');
+  sheet.getRange(row, 13).setValue('');
+  
+  return jsonResponse({ success: true, verified: 'pending' });
+}
+
+/* ══════════════════════════════════════
+   FETCH TRAININGS
+   - Fetch training records with filters
+   - Supports userId, verified, and mode filters
+   ══════════════════════════════════════ */
+function handleFetchTrainings(userId, verified, mode) {
+  var sheet = getTrainingSheet();
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  if (data.length <= 1) {
+    return jsonResponse({ trainings: [] });
+  }
+  
+  var trainings = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    
+    if (userId && row[2] !== userId) continue;
+    if (verified && row[9].toString().toLowerCase() !== verified.toLowerCase()) continue;
+    if (mode && row[5] !== mode) continue;
+    
+    var rolls = [];
+    try {
+      rolls = JSON.parse(row[4]);
+    } catch (e) {
+      rolls = [];
+    }
+    
+    trainings.push({
+      id: row[0] || '',
+      date: row[1] || '',
+      userId: row[2] || '',
+      attempt: row[3] || 0,
+      rolls: rolls,
+      mode: row[5] || 'admin',
+      success: row[6] === 'TRUE' || row[6] === true,
+      roleplay: row[7] || '',
+      tickets: row[8] || 0,
+      verified: row[9] || 'pending',
+      verifiedBy: row[10] || '',
+      verifiedAt: row[11] || '',
+      rejectReason: row[12] || '',
+      arenaId: row[13] || '',
+      opponentId: row[14] || '',
+      opponentName: row[15] || '',
+      battleRounds: row[16] || 0
+    });
+  }
+  
+  return jsonResponse({ trainings: trainings });
+}
+
+/* ══════════════════════════════════════
+   FETCH ALL TRAININGS
+   - Fetch all training records (for admin view)
+   - No filters applied
+   ══════════════════════════════════════ */
+function handleFetchAllTrainings() {
+  return handleFetchTrainings(null, null, null);
 }

@@ -25,7 +25,7 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
 
   const date = new Date(submission.submittedAt).toLocaleDateString(
     lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH',
-    { year: 'numeric', month: 'long', day: 'numeric' }
+    { year: 'numeric', month: 'short', day: 'numeric' }
   );
 
   const submitter = characterMap[submission.characterId.toLowerCase()] || null;

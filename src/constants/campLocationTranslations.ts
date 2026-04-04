@@ -80,6 +80,10 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
     en: 'Camp Store',
     th: 'ร้านค้าสรรพภัณฑ์',
   },
+  [CAMP_LOCATION.TRAINING_GROUNDS]: {
+    en: 'Training Grounds',
+    th: 'สนามฝึกซ้อม',
+  },
 };
 
 export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
@@ -122,6 +126,10 @@ export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
   [CAMP_LOCATION.CLIMBING_WALL]: {
     en: "A shifting wall of stone and fire—routes twist and lava surges. Only the swift and daring reach the summit.",
     th: "กำแพงแห่งหินและเพลิงที่แปรเปลี่ยน เส้นทางบิดเบี้ยว ลาวาปะทุ ผู้ที่รวดเร็วและกล้าหาญเท่านั้นจะพิชิตยอดได้",
+  },
+  [CAMP_LOCATION.TRAINING_GROUNDS]: {
+    en: "A place where demigods hone their skills, pushing their limits and preparing for the challenges ahead.",
+    th: "สถานที่ที่เหล่ามนุษย์สายเลือดเทพเจ้าฝึกฝนทักษะของตน ผลักดันขีดจำกัดและเตรียมพร้อมสำหรับความท้าทายที่รออยู่",
   },
   [CAMP_LOCATION.ARCHERY_RANGE]: {
     en: "The domain of Apollo's children—where arrows fly true through moving targets, wind, and distance alike.",

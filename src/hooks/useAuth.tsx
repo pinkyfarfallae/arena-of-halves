@@ -6,6 +6,7 @@ import { ROLE } from '../constants/role';
 import { loginCharacter, registerCharacter } from '../services/auth/firebaseAnonymous';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { LOCAL_STORAGE_KEYS } from '../constants/localStorage';
 
 interface AuthContextType {
   user: Character | null;
@@ -58,20 +59,16 @@ async function fetchUsers(): Promise<UserRow[]> {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const AUTH_KEY = 'aoh_character';
-const THEME_KEY = 'aoh_theme';
-const ROLE_KEY = 'aoh_role';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Character | null>(null);
   const [role, setRole] = useState<RoleName>(() => {
-    return (localStorage.getItem(ROLE_KEY) as RoleName) || ROLE.PLAYER;
+    return (localStorage.getItem(LOCAL_STORAGE_KEYS.ROLE_KEY) as RoleName) || ROLE.PLAYER;
   });
-  const [restoring, setRestoring] = useState(() => !!localStorage.getItem(AUTH_KEY));
+  const [restoring, setRestoring] = useState(() => !!localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_KEY));
 
   // Restore session on mount — also re-fetch role
   useEffect(() => {
-    const saved = localStorage.getItem(AUTH_KEY);
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     if (saved) {
       Promise.all([fetchCharacter(saved), fetchUsers()])
         .then(async ([c, users]) => {
@@ -83,14 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             setUser(c);
-            localStorage.setItem(THEME_KEY, JSON.stringify(c.theme));
+            localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, JSON.stringify(c.theme));
             const r = userRow?.role ?? ROLE.PLAYER;
             setRole(r);
-            localStorage.setItem(ROLE_KEY, r);
+            localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, r);
           } else {
-            localStorage.removeItem(AUTH_KEY);
-            localStorage.removeItem(THEME_KEY);
-            localStorage.removeItem(ROLE_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
           }
         })
         .finally(() => setRestoring(false));
@@ -109,16 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If login fails, try to register (first time user)
         const registeredUser = await registerCharacter(found.characterId, password);
         if (!registeredUser) {
-          console.error('Firebase authentication failed');
           return false;
         }
       }
       
       const character = await fetchCharacter(found.characterId);
       if (character) {
-        localStorage.setItem(AUTH_KEY, found.characterId);
-        localStorage.setItem(THEME_KEY, JSON.stringify(character.theme));
-        localStorage.setItem(ROLE_KEY, found.role);
+        localStorage.setItem(LOCAL_STORAGE_KEYS.AUTH_KEY, found.characterId);
+        localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, JSON.stringify(character.theme));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, found.role);
         setUser(character);
         setRole(found.role);
         return true;
@@ -128,11 +124,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    signOut(auth).catch(err => console.error('Firebase sign out error:', err));
+    signOut(auth);
     
-    localStorage.removeItem(AUTH_KEY);
-    localStorage.removeItem(THEME_KEY);
-    localStorage.removeItem(ROLE_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
     setUser(null);
     setRole(ROLE.PLAYER);
   }, []);
@@ -142,12 +138,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const saved = localStorage.getItem(AUTH_KEY);
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     if (saved) {
       const c = await fetchCharacter(saved);
       if (c) {
         setUser(c);
-        localStorage.setItem(THEME_KEY, JSON.stringify(c.theme));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, JSON.stringify(c.theme));
       }
     }
   }, []);

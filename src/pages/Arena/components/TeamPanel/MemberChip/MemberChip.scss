@@ -425,6 +425,18 @@
   }
 }
 
+.mchip--practice {
+  .mchip__quota {
+    display: none !important;
+  }
+
+  .mchip__frame-wrap    {
+    @media (max-width: $bp-compact) {
+      margin-bottom: auto;
+    }
+  }
+}
+
 /* ── Quota pips (below frame, inside chip) ── */
 .mchip__quota {
   width: $frame-size-medium;

@@ -25,7 +25,7 @@ import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal'
 import { DEFAULT_THEME } from '../../../../constants/theme';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
-import { getDisabledPowersAndReasons } from '../../../../data/power-disable-reason';
+import { getDisabledPowersAndReasons } from '../../../../data/powerDisableReason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import {
   ARENA_PATH,
@@ -142,6 +142,8 @@ interface Props {
   isAttackerNpc?: boolean;
   /** When true (PvE), defender is NPC; this client simulates dodge D4. When false (PvP), wait for opponent's roll. */
   isDefenderNpc?: boolean;
+  /** Practice room: skip action/target selection and attack directly. */
+  practiceMode?: boolean;
   /** Dev: host plays every fighter — Pomegranate dodge D4 must be interactive even when HUD myId follows the attacker during replay. */
   devPlayAllFightersSelf?: boolean;
   /** Dev: HUD myId follows attacker in RESOLVING — defender replay needs separate “embody defender” (see DiceModal). */
@@ -252,6 +254,7 @@ export default function BattleHUD({
   isViewer = false,
   isAttackerNpc = false,
   isDefenderNpc = false,
+  practiceMode = false,
   devPlayAllFightersSelf = false,
   devUiActAsAttacker = false,
   transientEffectsActive,
@@ -318,6 +321,7 @@ export default function BattleHUD({
   const stuckScheduleUserId = myId ?? battleParticipantCharacterId;
 
   const attacker = turn ? find(teamA, teamB, turn.attackerId) : undefined;
+  const attackerPowers = attacker?.powers ?? [];
   // Keep canonical defender for HUD: even if a minion visually intercepted, the HUD should
   // still show the master as the defending target during resolving.
   const defender = turn?.defenderId ? find(teamA, teamB, turn.defenderId) : undefined;
@@ -361,7 +365,7 @@ export default function BattleHUD({
   const targets = (() => {
     // Death Keeper: show dead teammates instead of alive enemies
     if (turn?.usedPowerIndex != null && attacker) {
-      const power = attacker.powers[turn.usedPowerIndex];
+      const power = attackerPowers[turn.usedPowerIndex];
       if (power?.name === POWER_NAMES.DEATH_KEEPER) {
         const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp <= 0);
@@ -377,7 +381,7 @@ export default function BattleHUD({
 
     // If using a power that requires specific effect on target
     if (turn?.usedPowerIndex != null && attacker) {
-      const power = attacker.powers[turn.usedPowerIndex];
+      const power = attackerPowers[turn.usedPowerIndex];
       if (power?.requiresTargetHasEffect) {
         const requiredTag = power.requiresTargetHasEffect;
         const effects = battle.activeEffects || [];
@@ -389,7 +393,7 @@ export default function BattleHUD({
 
     // Shadow Camouflage: exclude enemies that cannot be targeted (only area attacks can target them)
     const effects = battle.activeEffects || [];
-    const isAreaAttack = !!(turn?.action === TURN_ACTION.POWER && turn?.usedPowerIndex != null && attacker?.powers?.[turn.usedPowerIndex]?.target === TARGET_TYPES.AREA);
+    const isAreaAttack = !!(turn?.action === TURN_ACTION.POWER && turn?.usedPowerIndex != null && attackerPowers[turn.usedPowerIndex]?.target === TARGET_TYPES.AREA);
     return alive.filter((f) => {
       const hasShadowCamouflage = effects.some((e) => e.targetId === f.characterId && e.modStat === MOD_STAT.SHADOW_CAMOUFLAGED);
       return !hasShadowCamouflage || isAreaAttack;
@@ -2731,6 +2735,28 @@ export default function BattleHUD({
   const [actionReady, setActionReady] = useState(true);
   const resurrectOverlayShownKey = useRef('');
 
+  const practiceAutoActionKeyRef = useRef<string | null>(null);
+  const practiceAutoTargetKeyRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (!practiceMode || !arenaId || !turn || !isMyTurn || !attacker) return;
+    if (turn.phase !== PHASE.SELECT_ACTION) return;
+    const key = `${battle.roundNumber}:${battle.currentTurnIndex}:action`;
+    if (practiceAutoActionKeyRef.current === key) return;
+    practiceAutoActionKeyRef.current = key;
+    onSelectAction(TURN_ACTION.ATTACK);
+  }, [practiceMode, arenaId, turn?.phase, isMyTurn, attacker, battle.roundNumber, battle.currentTurnIndex, onSelectAction]);
+
+  useLayoutEffect(() => {
+    if (!practiceMode || !arenaId || !turn || !isMyTurn || !attacker) return;
+    if (turn.phase !== PHASE.SELECT_TARGET) return;
+    if (targets.length === 0) return;
+    const key = `${battle.roundNumber}:${battle.currentTurnIndex}:target`;
+    if (practiceAutoTargetKeyRef.current === key) return;
+    practiceAutoTargetKeyRef.current = key;
+    onSelectTarget(targets[0].characterId);
+  }, [practiceMode, arenaId, turn?.phase, isMyTurn, attacker, targets, battle.roundNumber, battle.currentTurnIndex, onSelectTarget]);
+
   useEffect(() => {
     if (turn?.phase === PHASE.SELECT_ACTION && showResolve) {
       setActionReady(false);
@@ -3480,7 +3506,7 @@ export default function BattleHUD({
       </div>
 
       {/* Target selection (attacker only). Keraunos: show D4 crit roll first, then target modal. Disoriented: no manual target — server picks at random. */}
-      {turn.phase === PHASE.SELECT_TARGET && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
+      {turn.phase === PHASE.SELECT_TARGET && !practiceMode && (turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit || hasDisoriented || (targets.length > 0 && isMyTurn) || targets.length === 0) && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           {turn.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE && turn.keraunosAwaitingCrit ? (
             <div className="bhud__dice-modal" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -3676,10 +3702,11 @@ export default function BattleHUD({
       })()}
 
       {/* Action selection (attack or power) — delayed until DamageCard exits. Hide when power just confirmed (avoids jitter before target modal). Hide when skip card is showing (card before next attacker turn). */}
-      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !showResolve && !pomCoLogPlaybackPending && !pomegranateCoResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
+      {isMyTurn && turn.phase === PHASE.SELECT_ACTION && actionReady && !practiceMode && !showResolve && !pomCoLogPlaybackPending && !pomegranateCoResolve && attacker && !transientDamageActive && pendingSkeletonCount === 0 && !confirmedPowerName && !skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <ActionSelectModal
             attacker={attacker}
+            practiceMode={practiceMode}
             defenderName={defender?.nicknameEng ?? ''}
             isMyTurn={!!isMyTurn}
             phase={turn.phase}

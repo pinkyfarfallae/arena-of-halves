@@ -1,3 +1,4 @@
+import { ACTIONS } from "../../constants/action";
 import { HARVEST_SUBMISSION_STATUS } from "../../constants/harvest";
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 import { HarvestRecords, HarvestSubmission, HarvestSubmissionStatus, TopHarvester } from "../../types/harvest";
@@ -15,7 +16,7 @@ export async function submitHarvest(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'submitHarvest',
+        action: ACTIONS.SUBMIT_HARVEST,
         id: submissionId,
         characterId,
         firstTweetUrl,
@@ -26,7 +27,6 @@ export async function submitHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error submitting harvest:', error);
     return { success: false, error: 'Failed to submit harvest' };
   }
 }
@@ -46,7 +46,7 @@ export async function approveHarvest(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'approveHarvest',
+        action: ACTIONS.APPROVE_HARVEST,
         submissionId,
         reviewedBy,
         charCount,
@@ -59,7 +59,6 @@ export async function approveHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error approving harvest:', error);
     return { success: false, error: 'Failed to approve harvest' };
   }
 }
@@ -76,7 +75,7 @@ export async function rejectHarvest(
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action: 'rejectHarvest',
+        action: ACTIONS.REJECT_HARVEST,
         submissionId,
         reviewedBy,
         rejectReason,
@@ -86,7 +85,6 @@ export async function rejectHarvest(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error rejecting harvest:', error);
     return { success: false, error: 'Failed to reject harvest' };
   }
 }
@@ -100,7 +98,7 @@ export async function fetchHarvests(
 ): Promise<{ harvests: HarvestSubmission[]; error?: string }> {
   try {
     const params = new URLSearchParams();
-    params.append('action', 'fetchHarvests');
+    params.append('action', ACTIONS.FETCH_HARVESTS);
     if (characterId) params.append('characterId', characterId);
     if (status) params.append('status', status);
 
@@ -142,7 +140,7 @@ export async function fetchHarvests(
 export async function fetchHarvestRecords(): Promise<{ records?: HarvestRecords; error?: string }> {
   try {
     const params = new URLSearchParams();
-    params.append('action', 'fetchHarvestRecords');
+    params.append('action', ACTIONS.FETCH_HARVEST_RECORDS);
 
     const res = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
     const data = await res.json();
@@ -153,7 +151,6 @@ export async function fetchHarvestRecords(): Promise<{ records?: HarvestRecords;
 
     return { records: data.records };
   } catch (error) {
-    console.error('Error fetching harvest records:', error);
     return { error: 'Failed to fetch harvest records' };
   }
 }
@@ -165,7 +162,7 @@ export async function fetchHarvestRecords(): Promise<{ records?: HarvestRecords;
 export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvesters: TopHarvester[]; error?: string }> {
   try {
     const params = new URLSearchParams();
-    params.append('action', 'fetchTopHarvesters');
+    params.append('action', ACTIONS.FETCH_TOP_HARVESTERS);
     if (limit !== undefined) {
       params.append('limit', limit.toString());
     }
@@ -179,7 +176,6 @@ export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvester
 
     return { topHarvesters: data.topHarvesters || [] };
   } catch (error) {
-    console.error('Error fetching top harvesters:', error);
     return { topHarvesters: [], error: 'Failed to fetch top harvesters' };
   }
 }
