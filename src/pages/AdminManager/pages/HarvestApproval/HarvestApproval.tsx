@@ -30,7 +30,6 @@ function HarvestApproval() {
   const [loadError, setLoadError] = useState('');
 
   const [reviewText, setReviewText] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
 
   const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
   const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
@@ -49,8 +48,6 @@ function HarvestApproval() {
     useState<HarvestScriptCopyStatus>(
       HARVEST_SCRIPT_COPY_STATUS.IDLE
     )
-
-  const [appraisalText, setAppraisalText] = useState('');
 
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -147,7 +144,10 @@ function HarvestApproval() {
 
   const navigateToNextPending = () => {
     const pending = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== reviewingSubmission?.id
+      (s) => {
+        const isCurrent = reviewingSubmission ? s.id === reviewingSubmission.id : false;
+        return s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.firstTweetUrl && s.firstTweetUrl.trim() !== '' && !isCurrent;
+      }
     );
 
     if (pending.length > 0) {
@@ -155,13 +155,11 @@ function HarvestApproval() {
       setReviewText('');
       setSelectedRoleplayers([]);
       setMatchedCharacters([]);
-      setAppraisalText('');
     } else {
       setReviewingSubmission(null);
       setReviewText('');
       setSelectedRoleplayers([]);
       setMatchedCharacters([]);
-      setAppraisalText('');
     }
   };
 
@@ -169,12 +167,10 @@ function HarvestApproval() {
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
-      alert('Please paste script output');
       return;
     }
 
     if (selectedRoleplayers.length === 0) {
-      alert('No characters selected');
       return;
     }
 
@@ -206,7 +202,6 @@ function HarvestApproval() {
     );
 
     if (!result.success) {
-      alert('Failed to approve');
       return;
     }
 
@@ -228,7 +223,10 @@ function HarvestApproval() {
     setApproveData(null);
 
     const pendingCount = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+      (s) => {
+        const isCurrent = reviewingSubmission ? s.id === reviewingSubmission.id : false;
+        return s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.firstTweetUrl && s.firstTweetUrl.trim() !== '' && !isCurrent;
+      }
     ).length;
 
     if (pendingCount > 0) {
@@ -259,7 +257,6 @@ function HarvestApproval() {
     );
 
     if (!result.success) {
-      alert('Failed to reject');
       return;
     }
 
@@ -277,7 +274,6 @@ function HarvestApproval() {
 
     setShowRejectModal(false);
     setTempRejectReason('');
-    setRejectReason('');
 
     const pendingCount = submissions.filter(
       (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
@@ -442,7 +438,7 @@ function HarvestApproval() {
                   <div className="harvest-approval__review-section">
                     <div className="harvest-approval__review-section-header">
                       <span className='harvest-approval__review-section-number'>3</span>
-                      <span className='harvest-approval__review-section-title'>Copy Thread Extractor Script</span>
+                      <span className='harvest-approval__review-section-title'>Thread Extractor</span>
                       <button
                         className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
                         onClick={handleCopyExtractorScript}
@@ -463,7 +459,7 @@ function HarvestApproval() {
                   <div className="harvest-approval__review-section">
                     <div className="harvest-approval__review-section-header">
                       <span className='harvest-approval__review-section-number'>4</span>
-                      <span className='harvest-approval__review-section-title'>Copy Result Copy Script</span>
+                      <span className='harvest-approval__review-section-title'>Result Copy</span>
                       <button
                         className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptResultCopyStatus.toLowerCase()}`}
                         onClick={handleCopyResultScript}
@@ -551,7 +547,7 @@ function HarvestApproval() {
                             {/* Reward Calculation */}
                             <div className="harvest-approval__reward-calc">
                               <div className="harvest-approval__reward-row">
-                                <span className="harvest-approval__reward-label">Base Reward:</span>
+                                <span className="harvest-approval__reward-label">Base Reward</span>
                                 <span className="harvest-approval__reward-value">
                                   <Drachma /> {baseReward}
                                 </span>
@@ -569,7 +565,7 @@ function HarvestApproval() {
                                 </span>
                               </div>
                               <div className="harvest-approval__reward-row harvest-approval__reward-row--total">
-                                <span className="harvest-approval__reward-label">Final Reward:</span>
+                                <span className="harvest-approval__reward-label">Final Reward</span>
                                 <span className="harvest-approval__reward-value">
                                   <Drachma /> {finalReward}
                                 </span>
@@ -619,21 +615,6 @@ function HarvestApproval() {
                                 </div>
                               )}
                             </div>
-                          </div>
-
-                          {/* Appraisal */}
-                          <div className="harvest-approval__review-section">
-                            <div className="harvest-approval__review-section-header">
-                              <span className='harvest-approval__review-section-number'>7</span>
-                              <span className='harvest-approval__review-section-title'>Appraisal - ประเมินราคา</span>
-                            </div>
-                            <textarea
-                              className="harvest-approval__review-section-content harvest-approval__review-section-content--textarea"
-                              placeholder="Enter appraisal notes (optional)"
-                              value={appraisalText}
-                              onChange={(e) => setAppraisalText(e.target.value)}
-                              rows={3}
-                            />
                           </div>
 
                           {/* Actions */}
@@ -692,7 +673,7 @@ function HarvestApproval() {
             </button>
           </div>
 
-          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && (
+          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && submissions.filter((s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING).length > 0 && (
             <div className="harvest-approval__sidebar__note">
               <InfoCircle />
               Click on a submission to review.
@@ -704,6 +685,8 @@ function HarvestApproval() {
               <div className="harvest-approval__sidebar__content--loading">Loading...</div>
             ) : loadError ? (
               <div className="harvest-approval__sidebar__content--error">Something went wrong</div>
+            ) : submissions.filter((s) => s.status === sidebarView).length === 0 ? (
+              <div className="harvest-approval__sidebar__content--empty">No submissions found</div>
             ) : (
               submissions
                 .filter((s) => s.status === sidebarView)
@@ -711,12 +694,12 @@ function HarvestApproval() {
                   <SubmissionCard
                     key={submission.id}
                     submission={submission}
+                    focused={reviewingSubmission?.id === submission.id}
                     onClick={sidebarView === HARVEST_SUBMISSION_STATUS.PENDING ? () => {
                       setReviewingSubmission(submission);
                       setReviewText('');
                       setSelectedRoleplayers([]);
                       setMatchedCharacters([]);
-                      setAppraisalText('');
 
                       if (width < 900) setSidebarOpen(false);
                     } : undefined}

@@ -73,8 +73,10 @@ export const parseScriptOutput = (input: string): { text: string; authors: strin
       }
     }
 
-    if (tweetText) {
-      tweetTexts.push(tweetText);
+    // Trim the final tweet text before adding
+    const trimmedTweetText = tweetText.trim();
+    if (trimmedTweetText) {
+      tweetTexts.push(trimmedTweetText);
     }
   }
 
@@ -82,8 +84,16 @@ export const parseScriptOutput = (input: string): { text: string; authors: strin
     return null;
   }
 
+  // Join tweet texts, then trim each line in the final result
+  const finalText = tweetTexts
+    .join('\n\n')
+    .split('\n')
+    .map(line => line.trim())
+    .join('\n')
+    .trim();
+
   return {
-    text: tweetTexts.join('\n\n'),
+    text: finalText,
     authors: uniqueHandles(allAuthors),
     tweetCount: tweetBlocks.length,
   };

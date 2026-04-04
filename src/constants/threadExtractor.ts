@@ -9,8 +9,8 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
 
   const clean = (text) =>
     (text || "")
-      .replace(/\\u00a0/g, " ")
-      .replace(/\\s+/g, " ")
+      .replace(/\\u00a0/g, "")
+      .replace(/\\s+/g, "")
       .trim();
 
   const getTweetId = (article) => {

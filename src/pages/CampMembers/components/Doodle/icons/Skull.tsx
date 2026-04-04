@@ -2,6 +2,18 @@ import type { SVGProps } from 'react';
 
 export default function Skull(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg {...props}><circle cx="16" cy="14" r="9" stroke="currentColor" strokeWidth="1.3" /><circle cx="12" cy="13" r="2.5" stroke="currentColor" strokeWidth="1" /><circle cx="20" cy="13" r="2.5" stroke="currentColor" strokeWidth="1" /><path d="M14 20v4M16 20v5M18 20v4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" /></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 32 32"
+      fill="none"
+      width={18}
+      height={18}
+      {...props}
+    >
+      <circle cx="16" cy="14" r="9" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="12" cy="13" r="2.5" stroke="currentColor" strokeWidth="1" />
+      <circle cx="20" cy="13" r="2.5" stroke="currentColor" strokeWidth="1" />
+      <path d="M14 20v4M16 20v5M18 20v4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+    </svg>
   );
 }

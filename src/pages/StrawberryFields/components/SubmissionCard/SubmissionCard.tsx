@@ -17,7 +17,7 @@ import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import './SubmissionCard.scss';
 
-export default function SubmissionCard({ submission, onClick, forcedCompact }: { submission: HarvestSubmission, onClick?: () => void, forcedCompact?: boolean }) {
+export default function SubmissionCard({ submission, focused, onClick, forcedCompact }: { submission: HarvestSubmission, focused?: boolean, onClick?: () => void, forcedCompact?: boolean }) {
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
@@ -26,7 +26,7 @@ export default function SubmissionCard({ submission, onClick, forcedCompact }: {
       lang === LANGUAGE.ENGLISH ?
         'en-US' : 'th-TH', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     });
 
@@ -40,7 +40,7 @@ export default function SubmissionCard({ submission, onClick, forcedCompact }: {
   return (
     <div
       key={submission.id}
-      className={`strawberry-fields__submission-card strawberry-fields__submission-card--${submission.status.toLowerCase()} ${forcedCompact ? 'strawberry-fields__submission-card--compact' : ''}`}
+      className={`strawberry-fields__submission-card strawberry-fields__submission-card--${submission.status.toLowerCase()} ${forcedCompact ? 'strawberry-fields__submission-card--compact' : ''} ${focused ? 'strawberry-fields__submission-card--focused' : ''}`}
       onClick={onClick}
       style={!!onClick ? { cursor: "pointer" } : undefined}
     >
