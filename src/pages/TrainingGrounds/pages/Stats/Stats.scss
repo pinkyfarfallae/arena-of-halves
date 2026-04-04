@@ -904,7 +904,7 @@
       transition: transform .35s cubic-bezier(.55, 1, .15, 1);
     }
 
-    &:hover:not(.disabled) {
+    &:not(.disabled):not(&--disabled):hover {
       filter: drop-shadow(0 8px 14px color-mix(in srgb, var(--primary-color, #c0a062) 35%, transparent));
       background-image: linear-gradient(to bottom,
           color-mix(in srgb, var(--primary-color, #c0a062) 60%, rgb(0, 0, 0)),
@@ -915,11 +915,12 @@
       }
     }
 
-    &:active:not(.disabled) {
+    &:active:not(.disabled):not(&--disabled) {
       transform: scale(.97);
     }
 
-    &.disabled {
+    &.disabled,
+    &--disabled {
       background-image: linear-gradient(to bottom,
           rgba(200, 200, 200, 0.6),
           rgba(150, 150, 150, 0.5));
@@ -997,35 +998,19 @@
       transition: transform .35s cubic-bezier(.55, 1, .15, 1);
     }
 
-    &:hover:not(.disabled) {
-      filter: drop-shadow(0 8px 14px color-mix(in srgb, var(--dark-color, #c0a062) 35%, transparent));
+    &:hover {
+      filter: drop-shadow(0 8px 14px color-mix(in srgb, var(--dark-color, #c0a062) 35%, transparent)) !important;
       background-image: linear-gradient(to bottom,
           color-mix(in srgb, var(--dark-color, #c0a062) 60%, rgb(0, 0, 0)),
-          color-mix(in srgb, var(--dark-color, #c0a062) 75%, white));
+          color-mix(in srgb, var(--dark-color, #c0a062) 75%, white)) !important;
 
       &::before {
         transform: scale(.96);
       }
     }
 
-    &:active:not(.disabled) {
+    &:active {
       transform: scale(.97);
-    }
-
-    &.disabled {
-      background-image: linear-gradient(to bottom,
-          rgba(200, 200, 200, 0.6),
-          rgba(150, 150, 150, 0.5));
-      color: rgba(100, 100, 100, 0.5);
-      cursor: not-allowed;
-      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.15)) grayscale(0.7);
-
-      &::before {
-        opacity: 0.4;
-        background-image: linear-gradient(to bottom,
-            rgba(180, 180, 180, 0.4),
-            rgba(140, 140, 140, 0.3));
-      }
     }
   }
 

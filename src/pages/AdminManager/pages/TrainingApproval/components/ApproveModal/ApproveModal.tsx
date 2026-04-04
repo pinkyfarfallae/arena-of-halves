@@ -31,7 +31,7 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
               <span className="modal-label">Tweet Count:</span>
               <span className="modal-value">{approveData.tweetCount}</span>
             </div>
-            <div className="modal-summary-item modal-summary-item--highlight">
+            <div className={`modal-summary-item modal-summary-item--highlight${approveData.reward > 0 ? '' : '__negative'}`}>
               <span className="modal-label">Training Point Reward:</span>
               <span className="modal-value">
                 <TrainingPoint /> +{approveData.reward} TP
@@ -39,7 +39,9 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
             </div>
           </div>
           <p className="modal-note">
-            This will give +1 Training Point to the trainee and mark the submission as approved.
+            {approveData.reward > 0
+              ? `Approving this training will grant ${approveData.reward} training point${approveData.reward > 1 ? 's' : ''} to ${approveData.roleplayers.join(', ')}.`
+              : 'Since this training did not meet the success criteria, approving it will not grant any training points.'}
           </p>
         </div>
         <div className="modal-actions">
