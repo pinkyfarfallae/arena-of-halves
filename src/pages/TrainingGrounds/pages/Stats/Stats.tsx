@@ -9,7 +9,6 @@ import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../service
 import { fetchAllCharacters } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
-import './Stats.scss';
 import TrainingPoint from './icons/TrainingPoint';
 import Refund from './icons/Refund';
 import strengthBg from './images/card/strength.png';
@@ -26,6 +25,7 @@ import experienceIcon from './images/icons/experience.png';
 import fortuneIcon from './images/icons/fortune.png';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
+import './Stats.scss';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -45,7 +45,7 @@ const statIcons: Record<string, string> = {
   fortune: fortuneIcon,
 };
 
-export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void }) {
+export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission, loading }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void; loading?: boolean }) {
   const { user, role, updateUser, refreshUser } = useAuth();
   const { width } = useScreenSize();
   const [upgrading, setUpgrading] = useState<string | null>(null);
@@ -359,11 +359,11 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
         </div>
 
         <div className="training-stats__modes">
-          <div className="training-stats__mode" onClick={onSelectTrainingWithAdminMode}>
-            Normal Mode
+          <div className={`training-stats__mode ${loading ? 'training-stats__mode--disabled' : ''}`} onClick={loading ? undefined : onSelectTrainingWithAdminMode}>
+            {loading ? 'Loading...' : 'Normal Mode'}
           </div>
-          <div className="training-stats__mode" onClick={onSelectPvPMode}>
-            PvP Mode
+          <div className={`training-stats__mode ${loading ? 'training-stats__mode--disabled' : ''}`} onClick={loading ? undefined : onSelectPvPMode}>
+            {loading ? 'Loading...' : 'PvP Mode'}
           </div>
           <div className="training-stats__mode training-stats__roleplay-submission" onClick={onSelectRolePlaySubmission}>
             Roleplay Submission

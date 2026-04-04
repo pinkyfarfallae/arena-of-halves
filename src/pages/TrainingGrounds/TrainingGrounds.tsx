@@ -43,7 +43,7 @@ export default function TrainingGrounds() {
   const [createdPracticeArenaId, setCreatedPracticeArenaId] = useState<string>(''); // Match arena pattern
   const [createdPracticeArenaStatus, setCreatedPracticeArenaStatus] = useState<string>('');
   const [keepPracticeCreateTab, setKeepPracticeCreateTab] = useState(false);
-  const [, setPvpGateReady] = useState(false);
+  const [pvpGateReady, setPvpGateReady] = useState(false);
   const [pvpGateOpenModal, setPvpGateOpenModal] = useState(false);
   const [existingPvpArenaId, setExistingPvpArenaId] = useState<string>(''); // Existing room from DB
   const [pendingModalOpen, setPendingModalOpen] = useState(false); // Flag to open modal after room creation
@@ -398,7 +398,7 @@ export default function TrainingGrounds() {
   return (
     <div className="training-grounds">
       <Routes>
-        <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} />} />
+        <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} loading={!pvpGateReady} />} />
         <Route path="/pvp" element={<PvP />} />
         <Route path="/pvp/:arenaId" element={<PvP />} />
         <Route path="/guided" element={<TrainWithAdmin />} />

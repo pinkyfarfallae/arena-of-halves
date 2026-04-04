@@ -1490,29 +1490,46 @@ function handleVerifyTraining(params) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
+  // Get mode and success status from the task
+  var mode = sheet.getRange(row, 6).getValue().toString().toLowerCase();
+  var success = sheet.getRange(row, 7).getValue().toString().toUpperCase() === 'TRUE';
+
   sheet.getRange(row, 10).setValue(verified);
 
   // Award training point if approved
   if (verified === 'approved') {
-    var trainingPointResult = updateTrainingPoints(userId, 1);
-    var trainingPointData = JSON.parse(trainingPointResult.getContent());
+    var shouldAwardPoint = false;
     
-    if (!trainingPointData.success) {
-      return jsonResponse({ 
-        success: false, 
-        verified: verified,
-        error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
-      });
+    // PvP mode: award TP for both success and fail
+    if (mode === 'pvp') {
+      shouldAwardPoint = true;
+    }
+    // Normal/Admin mode: award TP only if success is true
+    else if (success) {
+      shouldAwardPoint = true;
     }
     
-    return jsonResponse({ 
-      success: true, 
-      verified: verified,
-      trainingPoints: {
-        previous: trainingPointData.previous,
-        current: trainingPointData.current
+    if (shouldAwardPoint) {
+      var trainingPointResult = updateTrainingPoints(userId, 1);
+      var trainingPointData = JSON.parse(trainingPointResult.getContent());
+      
+      if (!trainingPointData.success) {
+        return jsonResponse({ 
+          success: false, 
+          verified: verified,
+          error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
+        });
       }
-    });
+      
+      return jsonResponse({ 
+        success: true, 
+        verified: verified,
+        trainingPoints: {
+          previous: trainingPointData.previous,
+          current: trainingPointData.current
+        }
+      });
+    }
   }
   
   return jsonResponse({ success: true, verified: verified });

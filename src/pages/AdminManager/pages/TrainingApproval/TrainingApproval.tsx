@@ -22,6 +22,7 @@ import { BG_ELEMENTS } from '../../../TrainingGrounds/components/Background/Back
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { LANGUAGE } from '../../../../constants/language';
+import { PRACTICE_MODE } from '../../../../constants/practice';
 import './TrainingApproval.scss';
 
 function TrainingApproval() {
@@ -163,10 +164,13 @@ function TrainingApproval() {
       return;
     }
 
+    const reward = reviewingTask.mode === PRACTICE_MODE.PVP
+      ? 1 : reviewingTask.success ? 1 : 0; // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
+
     setApproveData({
       charCount,
       tweetCount: scriptParsed.tweetCount,
-      reward: 1, // Always 1 TP
+      reward,
       roleplayers: [reviewingTask.userId], // Only the submitter
       isSolo: true,
     });
