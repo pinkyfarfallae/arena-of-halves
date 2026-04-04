@@ -184,7 +184,6 @@ export async function fetchAllCharacters(): Promise<Character[]> {
   return chars;
 }
 
-
 export async function fetchWishes(characterId: string): Promise<WishEntry[]> {
   const url = csvUrl(GID.WISHES);
   const res = await fetch(url);

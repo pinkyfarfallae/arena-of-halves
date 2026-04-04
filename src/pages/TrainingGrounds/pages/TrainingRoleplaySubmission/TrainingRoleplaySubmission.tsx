@@ -12,11 +12,12 @@ import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
-import { fetchUserTrainingTasks, getTodayDate, getTodayProgress, submitTrainingRoleplay, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
+import { fetchUserTrainingTasks, getTodayProgress, submitTrainingRoleplay, recheckTrainingTask, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
-import './TrainingRoleplaySubmission.scss';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
+import Alert from './icons/Alert';
+import './TrainingRoleplaySubmission.scss';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -29,8 +30,11 @@ function TrainingRoleplaySubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
   const [showDescription, setShowDescription] = useState(true);
-  const [error, setError] = useState('');
+  // eslint-disable-next-line
+  const [_error, setError] = useState('');
   const [ticketsToApply, setTicketsToApply] = useState(0);
+  const [isChangeRoleplayUrl, setIsChangeRoleplayUrl] = useState(false);
+  const [isSubmittingRecheck, setIsSubmittingRecheck] = useState(false);
 
   useEffect(() => {
     if (!user?.characterId) return;
@@ -44,10 +48,10 @@ function TrainingRoleplaySubmission() {
     ]).then(([data, todayProgress]) => {
       if (mounted) {
         setLivePractice(todayProgress);
-        const todaySheetTask = [...data].reverse().find((training) => training.date === getTodayDate()) || null;
+        const todaySheetTask = [...data].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
         setSheetTask(todaySheetTask);
       }
-    }).catch(() => {})
+    }).catch(() => { })
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
@@ -80,9 +84,39 @@ function TrainingRoleplaySubmission() {
   const sheetTaskDate = sheetTask?.date ?? '';
   const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
   const sheetTaskTickets = sheetTask?.tickets ?? 0;
-  const sheetTaskRejectReason = sheetTask?.rejectReason ?? '';
-  const isPvpSheetTask = sheetTask?.mode === PRACTICE_MODE.PVP;
-  const pvpBattleRolls = (sheetTask?.rolls || []).filter((n: number) => typeof n === 'number' && n > 0);
+
+  const handleRecheck = async () => {
+    if (!user?.characterId) {
+      setError('You must be logged in');
+      return;
+    }
+
+    if (!sheetTaskDate) {
+      setError('No training date found');
+      return;
+    }
+
+    setIsSubmittingRecheck(true);
+    setError('');
+
+    try {
+      const date = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok'
+      }).format(new Date(sheetTaskDate));
+
+      await recheckTrainingTask(user.characterId, date);
+
+      setSheetTask((prev) => prev ? {
+        ...prev,
+        verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+        rejectReason: '',
+      } : prev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to recheck training task');
+    } finally {
+      setIsSubmittingRecheck(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!user?.characterId) {
@@ -90,14 +124,21 @@ function TrainingRoleplaySubmission() {
       return;
     }
 
+    // Use existing roleplay URL if no new one is provided and we're in change mode
+    const urlToSubmit = firstTweetUrl.trim() || (isChangeRoleplayUrl ? sheetTaskRoleplay : '');
+
     // Only require tweet URL if character requirements aren't fully met with tickets
     if (!canSubmitWithoutTweet) {
-      if (!firstTweetUrl.trim()) {
+      if (!urlToSubmit) {
         setError('Please paste the thread URL');
         return;
       }
 
-      if (!isValidTwitterUrl) {
+      const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^/]+\/status\/\d+/i;
+      const xRegex = /^https?:\/\/(www\.)?x\.com\/[^/]+\/status\/\d+/i;
+      const isValid = twitterRegex.test(urlToSubmit) || xRegex.test(urlToSubmit);
+
+      if (!isValid) {
         setError('Invalid Twitter/X URL');
         return;
       }
@@ -112,22 +153,27 @@ function TrainingRoleplaySubmission() {
     setError('');
 
     try {
+      const date = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok'
+      }).format(new Date(sheetTaskDate));
+
       await submitTrainingRoleplay(
         user.characterId,
-        sheetTaskDate,
-        firstTweetUrl.trim(),
+        date,
+        urlToSubmit,
         ticketsToApply
       );
 
       setSheetTask((prev) => prev ? {
         ...prev,
-        roleplay: firstTweetUrl.trim() || '',
+        roleplay: urlToSubmit,
         tickets: ticketsToApply,
         verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
         rejectReason: '',
       } : prev);
       setFirstTweetUrl('');
       setTicketsToApply(0);
+      setIsChangeRoleplayUrl(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
     } finally {
@@ -228,21 +274,6 @@ function TrainingRoleplaySubmission() {
                 The task will be created after the session ends.
               </div>
             </div>
-          ) : isPvpSheetTask ? (
-            <div className="training-roleplay-submission__form-waiting">
-              <div className="training-roleplay-submission__form-waiting-title">
-                PvP practice task ready
-              </div>
-              <div className="training-roleplay-submission__form-waiting-text">
-                Battle rounds: <strong>{sheetTask.battleRounds || 0}</strong>
-              </div>
-              <div className="training-roleplay-submission__form-waiting-text">
-                Result: <strong>{sheetTask.success ? 'Winner' : 'Loser'}</strong>
-              </div>
-              <div className="training-roleplay-submission__form-waiting-text">
-                Attack / defend rolls: <strong>{pvpBattleRolls.join(' / ') || 'pvp'}</strong>
-              </div>
-            </div>
           ) : sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.APPROVED ? (
             <div className="training-roleplay-submission__form-approved">
               Training already approved! You can train more to upgrade your skills.
@@ -285,116 +316,164 @@ function TrainingRoleplaySubmission() {
 
               {/* Roleplay URL Input - Primary Section */}
               <div className="training-roleplay-submission__form-content">
-                {sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.REJECTED && (
-                  <div className="training-roleplay-submission__form-rejected">
-                    <div className="training-roleplay-submission__form-rejected-content">
-                      <strong>Submission Rejected</strong>
-                      {sheetTaskRejectReason && (
-                        <p>{sheetTaskRejectReason}</p>
-                      )}
-                      <p className="training-roleplay-submission__form-rejected-hint">
-                        Please review the feedback and submit again.
-                      </p>
+                {sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.REJECTED && !isChangeRoleplayUrl && (
+                  <div className="training-roleplay-submission__form-waiting">
+                    <div className="training-roleplay-submission__form-waiting-icon">
+                      <Alert width={48} height={48} />
+                    </div>
+                    <div className="training-roleplay-submission__form-waiting-title">
+                      Submission Rejected
+                    </div>
+                    <div className="training-roleplay-submission__form-waiting-text">
+                      Your task has been rejected by administrators.
+                      <br />
+                      Please rewrite and resubmit.
+                    </div>
+                    {sheetTaskRoleplay && (
+                      <div className="training-roleplay-submission__form-waiting-link">
+                        <strong>Submitted:</strong> <a href={sheetTaskRoleplay} target="_blank" rel="noopener noreferrer">{sheetTaskRoleplay}</a>
+                      </div>
+                    )}
+                    <div className="training-roleplay-submission__form-waiting-actions">
+                      <button
+                        className="training-roleplay-submission__form-waiting-button"
+                        onClick={() => {
+                          setIsChangeRoleplayUrl(true);
+                        }}
+                        disabled={isSubmittingRecheck}
+                      >
+                        Change Roleplay Url
+                      </button>
+                      <button
+                        className="training-roleplay-submission__form-waiting-button"
+                        onClick={handleRecheck}
+                        disabled={isSubmittingRecheck}
+                      >
+                        {isSubmittingRecheck ? 'Submitting...' : 'Recheck'}
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <div className="training-roleplay-submission__form-requirements">
-                  <div className="training-roleplay-submission__form-requirements-text">
-                    <strong>Required:</strong> {canSubmitWithoutTweet ? (
-                      <strong className="highlight">No tweet needed!</strong>
-                    ) : (
-                      <>
-                        At least <strong className="highlight">{requiredCharacters}</strong> characters
-                      </>
+                {(sheetTaskVerified !== TRAINING_POINT_REQUEST_STATUS.REJECTED || isChangeRoleplayUrl) && (
+                  <>
+                    <div className="training-roleplay-submission__form-requirements">
+                      <div className="training-roleplay-submission__form-requirements-text">
+                        <strong>Required:</strong> {canSubmitWithoutTweet ? (
+                          <strong className="highlight">No tweet needed!</strong>
+                        ) : (
+                          <>
+                            At least <strong className="highlight">{requiredCharacters}</strong> characters
+                          </>
+                        )}
+                      </div>
+                      <div className="training-roleplay-submission__form-requirements-note">
+                        Base: 1,000 chars • 1 ticket = 200 chars • 5 tickets = No tweet needed
+                      </div>
+                    </div>
+
+                    {isChangeRoleplayUrl && (
+                      <div className="training-roleplay-submission__form-change-note">
+                        <div className="training-roleplay-submission__form-change-note-content">
+                          <span className="training-roleplay-submission__form-change-note-text">
+                            You can change the roleplay URL to update your submission. <br />
+                            If you want to keep the same URL, just click <b>Recheck</b> without changing it.
+                          </span>
+                          <button
+                            className="training-roleplay-submission__form-change-note-button"
+                            onClick={handleRecheck}
+                            disabled={isSubmittingRecheck}
+                          >
+                            {isSubmittingRecheck ? 'Submitting...' : 'Recheck'}
+                          </button>
+                        </div>
+                        <div className="training-roleplay-submission__form-change-note-footer">
+                          <b>current URL:</b> {sheetTaskRoleplay ? (
+                            <a href={sheetTaskRoleplay} target="_blank" rel="noopener noreferrer">{sheetTaskRoleplay}</a>
+                          ) : (
+                            <span className="highlight">No URL submitted</span>
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  <div className="training-roleplay-submission__form-requirements-note">
-                    Base: 1,000 chars • 1 ticket = 200 chars • 5 tickets = No tweet needed
-                  </div>
-                </div>
 
-                <div className="training-roleplay-submission__form-input-group">
-                  <input
-                    type="text"
-                    ref={inputRef}
-                    className="training-roleplay-submission__form-input"
-                    placeholder={canSubmitWithoutTweet ? "Tweet URL (optional - covered by tickets)" : "Paste thread URL (first tweet)"}
-                    style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
-                    value={firstTweetUrl}
-                    onChange={(e) => setFirstTweetUrl(e.target.value)}
-                  />
-                  {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
-                    <div
-                      className="training-roleplay-submission__form-error-icon"
-                      data-tooltip={t(T.INVALID_TWITTER_URL)}
-                      data-tooltip-pos={width < 480 ? "left" : "top"}
-                    >
-                      <InfoCircle />
-                    </div>
-                  )}
-                </div>
-
-                {/* Mention Tickets Section */}
-                <div className="training-roleplay-submission__tickets">
-                  <div className="training-roleplay-submission__tickets-content">
-                    <div className="training-roleplay-submission__tickets-info">
-                      <Trophy width={14} height={14} />
-                      <span className="training-roleplay-submission__tickets-label">
-                        {/* waiting for edit */}
-                        Available Tickets: <strong>{sheetTaskTickets}</strong>
-                      </span>
-                    </div>
-                    <div className="training-roleplay-submission__tickets-controls">
-                      <label className="training-roleplay-submission__tickets-input-label">
-                        Use tickets:
-                      </label>
+                    <div className="training-roleplay-submission__form-input-group">
                       <input
-                        type="number"
-                        min="0"
-                        max={Math.min(sheetTaskTickets, 5)}
-                        value={ticketsToApply}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          const maxTickets = Math.min(sheetTaskTickets, 5);
-                          setTicketsToApply(Math.max(0, Math.min(value, maxTickets)));
-                        }}
-                        className="training-roleplay-submission__tickets-input"
+                        type="text"
+                        ref={inputRef}
+                        className="training-roleplay-submission__form-input"
+                        placeholder={canSubmitWithoutTweet ? "Tweet URL (optional - covered by tickets)" : "Paste thread URL (first tweet)"}
+                        style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                        value={firstTweetUrl}
+                        onChange={(e) => setFirstTweetUrl(e.target.value)}
                       />
-                      <button
-                        className="training-roleplay-submission__tickets-button"
-                        onClick={() => {
-                          const maxTickets = Math.min(sheetTaskTickets, 5);
-                          setTicketsToApply(maxTickets);
-                        }}
-                        disabled={sheetTaskTickets === 0}
-                      >
-                        Use Max ({Math.min(sheetTaskTickets, 5)})
-                      </button>
+                      {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                        <div
+                          className="training-roleplay-submission__form-error-icon"
+                          data-tooltip={t(T.INVALID_TWITTER_URL)}
+                          data-tooltip-pos={width < 480 ? "left" : "top"}
+                        >
+                          <InfoCircle />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  {ticketsToApply > 0 && (
-                    <div className="training-roleplay-submission__tickets-hint">
-                      <span>
-                        Applying {ticketsToApply} ticket{ticketsToApply > 1 ? 's' : ''} reduces requirement by {ticketsToApply * 200} chars
-                      </span>
+
+                    {/* Mention Tickets Section */}
+                    <div className="training-roleplay-submission__tickets">
+                      <div className="training-roleplay-submission__tickets-content">
+                        <div className="training-roleplay-submission__tickets-info">
+                          <Trophy width={14} height={14} />
+                          <span className="training-roleplay-submission__tickets-label">
+                            {/* waiting for edit */}
+                            Available Tickets: <strong>{sheetTaskTickets}</strong>
+                          </span>
+                        </div>
+                        <div className="training-roleplay-submission__tickets-controls">
+                          <label className="training-roleplay-submission__tickets-input-label">
+                            Use tickets:
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={Math.min(sheetTaskTickets, 5)}
+                            value={ticketsToApply}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              const maxTickets = Math.min(sheetTaskTickets, 5);
+                              setTicketsToApply(Math.max(0, Math.min(value, maxTickets)));
+                            }}
+                            className="training-roleplay-submission__tickets-input"
+                          />
+                          <button
+                            className="training-roleplay-submission__tickets-button"
+                            onClick={() => {
+                              const maxTickets = Math.min(sheetTaskTickets, 5);
+                              setTicketsToApply(maxTickets);
+                            }}
+                            disabled={sheetTaskTickets === 0}
+                          >
+                            Use Max ({Math.min(sheetTaskTickets, 5)})
+                          </button>
+                        </div>
+                      </div>
+                      {ticketsToApply > 0 && (
+                        <div className="training-roleplay-submission__tickets-hint">
+                          <span>
+                            Applying {ticketsToApply} ticket{ticketsToApply > 1 ? 's' : ''} reduces requirement by {ticketsToApply * 200} chars
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <button
-                  className={`training-roleplay-submission__form-button ${isSubmitting ? 'training-roleplay-submission__form-button--loading' : ''}`}
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !isValidTwitterUrl))}
-                >
-                  <Swords className="training-roleplay-submission__form-button-icon" />
-                  <span>{isSubmitting ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>
-                </button>
-
-                {error && (
-                  <div className="training-roleplay-submission__form-error">
-                    {error}
-                  </div>
+                    <button
+                      className={`training-roleplay-submission__form-button ${isSubmitting || isSubmittingRecheck ? 'training-roleplay-submission__form-button--loading' : ''}`}
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !isValidTwitterUrl))}
+                    >
+                      <Swords className="training-roleplay-submission__form-button-icon" />
+                      <span>{isSubmitting || isSubmittingRecheck ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>
+                    </button>
+                  </>
                 )}
               </div>
             </>

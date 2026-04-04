@@ -45,7 +45,8 @@ export default function TrainWithAdmin() {
   const [showEarlyFailModal, setShowEarlyFailModal] = useState<boolean>(false);
   const [showEarlyWinModal, setShowEarlyWinModal] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const [quotaUsed, setQuotaUsed] = useState<boolean>(false);
+  // eslint-disable-next-line
+  const [_quotaUsed, setQuotaUsed] = useState<boolean>(false);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
 
   const loadTodayData = useCallback(async () => {
@@ -74,7 +75,7 @@ export default function TrainWithAdmin() {
         getTodayProgress(user.characterId).catch(() => null),
       ]);
       setLivePractice(todayProgress);
-      const todaySheetTask = [...trainings].reverse().find((training) => training.date === getTodayDate()) || null;
+      const todaySheetTask = [...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
       setSheetTask(todaySheetTask);
 
       const quotaDoc = await get(ref(db, `trainingQuotas/${user.characterId}/${getTodayDate()}`)).catch(() => null);
@@ -231,7 +232,6 @@ export default function TrainWithAdmin() {
     }
 
     const rolls = completedPapers.map(p => p.roll || 0);
-    const targets = completedPapers.map(p => p.target);
     // Use first target for legacy storage
     const target = completedPapers[0].target;
 
@@ -260,7 +260,6 @@ export default function TrainWithAdmin() {
     }
 
     const rolls = completedPapers.map(p => p.roll || 0);
-    const targets = completedPapers.map(p => p.target);
     // Use first target for legacy storage
     const target = completedPapers[0].target;
 

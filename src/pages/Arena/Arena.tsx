@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, Link as NavigatedLink } from 'react-router-dom';
-import { ref, update, remove, get } from 'firebase/database';
+import { ref, update, remove } from 'firebase/database';
 import { db, firestore } from '../../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';

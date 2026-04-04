@@ -1,16 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
-import Drachma from '../../../../icons/Drachma';
-import { fetchHarvests, approveHarvest, rejectHarvest, } from '../../../../services/harvest/fetchHarvest';
-import { type HarvestSubmission, HarvestScriptCopyStatus, HarvestSubmissionStatus, } from '../../../../types/harvest';
+import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
 import { useAuth } from '../../../../hooks/useAuth';
-import { HARVEST_SCRIPT_COPY_STATUS, HARVEST_SUBMISSION_STATUS, } from '../../../../constants/harvest';
-import { parseScriptOutput, extractTwitterHandle } from '../../../../services/harvest/harvestApproval';
+import { HARVEST_SCRIPT_COPY_STATUS } from '../../../../constants/harvest';
+import { parseScriptOutput } from '../../../../services/harvest/harvestApproval';
 import Close from '../../../../icons/Close';
 import ChevronLeft from '../../../../icons/ChevronLeft';
-import SubmissionCard from '../../../StrawberryFields/components/SubmissionCard/SubmissionCard';
+import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import InfoCircle from '../../../Shop/icons/InfoCircle';
 import OpenLink from '../../../StrawberryFields/components/SubmissionCard/icons/OpenLink';
@@ -18,31 +16,31 @@ import CopyIcon from '../../../Arena/icons/Copy';
 import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
+import { fetchAllTrainingTasks, TrainingTask, verifyTrainingTask } from '../../../../services/training/dailyTrainingDice';
+import { hexToRgb } from '../../../../utils/color';
+import { BG_ELEMENTS } from '../../../TrainingGrounds/components/Background/Background';
+import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
+import { useTranslation } from '../../../../hooks/useTranslation';
+import { LANGUAGE } from '../../../../constants/language';
 import './TrainingApproval.scss';
-import { fetchAllTrainingTasks, TrainingTask } from '../../../../services/training/dailyTrainingDice';
-import { set } from 'firebase/database';
 
 function TrainingApproval() {
   const { user } = useAuth();
+  const { lang } = useTranslation();
   const { width } = useScreenSize();
 
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [trainingTasks, setTrainingTasks] = useState<TrainingTask[]>([]);
 
-  const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
+  const [trainingTasks, setTrainingTasks] = useState<TrainingTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   const [reviewText, setReviewText] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-
-  const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
-  const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarView, setSidebarView] = useState<HarvestSubmissionStatus>(HARVEST_SUBMISSION_STATUS.PENDING);
+  const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
 
-  const [reviewingSubmission, setReviewingSubmission] = useState<HarvestSubmission | null>(submissions[0] || null);
+  const [reviewingTask, setReviewingTask] = useState<TrainingTask | null>(trainingTasks[0] || null);
 
   const [scriptCopyStatus, setScriptCopyStatus] =
     useState<HarvestScriptCopyStatus>(
@@ -54,13 +52,10 @@ function TrainingApproval() {
       HARVEST_SCRIPT_COPY_STATUS.IDLE
     )
 
-  const [appraisalText, setAppraisalText] = useState('');
-
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [tempRejectReason, setTempRejectReason] = useState('');
   const [approveData, setApproveData] = useState<{
     charCount: number;
     tweetCount: number;
@@ -70,60 +65,62 @@ function TrainingApproval() {
   } | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetchAllCharacters().then(setCharacters);
-    fetchAllTrainingTasks().then(setTrainingTasks);
-  }, []);
+    const fetchData = async () => {
+      setLoading(true);
 
-  console.log('Training Tasks:', trainingTasks);
+      await Promise.all([
+        fetchAllCharacters()
+          .then(setCharacters)
+          .catch(() => setCharacters([])),
+
+        fetchAllTrainingTasks()
+          .then((tasks) => {
+            setTrainingTasks(tasks);
+
+            const pending = tasks.filter(
+              (t) =>
+                t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING &&
+                t.roleplay &&
+                t.roleplay.trim() !== ''
+            );
+
+            if (pending.length > 0) {
+              setReviewingTask(pending[0]);
+            }
+          })
+          .catch(() => {
+            setTrainingTasks([]);
+            setLoadError('Failed to load training tasks');
+          }),
+      ]);
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (!reviewText.trim()) {
-      setMatchedCharacters([]);
-      setSelectedRoleplayers([]);
       return;
     }
 
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
-      setMatchedCharacters([]);
-      setSelectedRoleplayers([]);
       return;
     }
-
-    const mentions = scriptParsed.authors;
-
-    const matched = characters.filter((char) => {
-      if (!char.twitter) return false;
-
-      const charHandle = extractTwitterHandle(char.twitter);
-      if (!charHandle) return false;
-
-      return mentions.some((m) => {
-        const mentionHandle = extractTwitterHandle(m);
-        return mentionHandle && mentionHandle === charHandle;
-      });
-    });
-
-    setMatchedCharacters(matched);
-    setSelectedRoleplayers(matched.map((c) => c.characterId));
   }, [reviewText, characters]);
 
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
 
-  const calculateRewards = (charCount: number, isSolo: boolean) => {
-    const base = (charCount / 200) * 10;
-    return isSolo ? Math.ceil(base * 1.5) : Math.ceil(base);
-  };
-
-  const toggleRoleplayer = (id: string) => {
-    setSelectedRoleplayers((prev) =>
-      prev.includes(id)
-        ? prev.filter((i) => i !== id)
-        : [...prev, id]
-    );
+  // Training passes if character count (including ticket bonus) >= 1000
+  const checkTrainingPass = (charCount: number, tickets: number) => {
+    const totalChars = charCount + (tickets * 200);
+    const passes = totalChars >= 1000;
+    const charsNeeded = Math.max(0, 1000 - totalChars);
+    return { passes, totalChars, charsNeeded };
   };
 
   const getCharacterName = (id: string) => {
@@ -132,22 +129,19 @@ function TrainingApproval() {
   };
 
   const navigateToNextPending = () => {
-    const pending = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== reviewingSubmission?.id
+    const pending = trainingTasks.filter(
+      (t) => {
+        const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
+        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '' && !isCurrent;
+      }
     );
 
     if (pending.length > 0) {
-      setReviewingSubmission(pending[0]);
+      setReviewingTask(pending[0]);
       setReviewText('');
-      setSelectedRoleplayers([]);
-      setMatchedCharacters([]);
-      setAppraisalText('');
     } else {
-      setReviewingSubmission(null);
+      setReviewingTask(null);
       setReviewText('');
-      setSelectedRoleplayers([]);
-      setMatchedCharacters([]);
-      setAppraisalText('');
     }
   };
 
@@ -155,26 +149,26 @@ function TrainingApproval() {
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
-      alert('Please paste script output');
       return;
     }
 
-    if (selectedRoleplayers.length === 0) {
-      alert('No characters selected');
+    if (!reviewingTask) {
       return;
     }
 
     const charCount = countCharacters(scriptParsed.text);
-    const mentionCount = scriptParsed.tweetCount;
-    const isSolo = selectedRoleplayers.length === 1;
-    const reward = calculateRewards(charCount, isSolo);
+    const trainingCheck = checkTrainingPass(charCount, reviewingTask.tickets || 0);
+
+    if (!trainingCheck.passes) {
+      return;
+    }
 
     setApproveData({
       charCount,
-      tweetCount: mentionCount,
-      reward,
-      roleplayers: selectedRoleplayers,
-      isSolo,
+      tweetCount: scriptParsed.tweetCount,
+      reward: 1, // Always 1 TP
+      roleplayers: [reviewingTask.userId], // Only the submitter
+      isSolo: true,
     });
     setShowApproveModal(true);
   };
@@ -182,39 +176,47 @@ function TrainingApproval() {
   const handleApprove = async (submissionId: string) => {
     if (!approveData) return;
 
-    const result = await approveHarvest(
-      submissionId,
-      user?.characterId || 'admin',
-      approveData.charCount,
-      approveData.tweetCount,
-      approveData.reward,
-      approveData.roleplayers
-    );
-
-    if (!result.success) {
-      alert('Failed to approve');
+    if (!reviewingTask) {
       return;
     }
 
-    setSubmissions((prev) =>
-      prev.map((s) =>
-        s.id === submissionId
+    if (!reviewingTask.userId || !reviewingTask.date) {
+      return;
+    }
+
+    try {
+      await verifyTrainingTask(
+        reviewingTask.userId,
+        reviewingTask.date,
+        TRAINING_POINT_REQUEST_STATUS.APPROVED,
+        user?.characterId || 'admin'
+      );
+    } catch (error) {
+      console.error('Failed to approve training task:', error);
+      return;
+    }
+
+    setTrainingTasks((prev) =>
+      prev.map((t) =>
+        t.id === submissionId
           ? {
-            ...s,
-            status: HARVEST_SUBMISSION_STATUS.APPROVED,
-            reviewedAt: new Date().toISOString(),
-            drachmaReward: approveData.reward,
-            roleplayers: approveData.roleplayers.join(','),
+            ...t,
+            verified: TRAINING_POINT_REQUEST_STATUS.APPROVED,
+            verifiedAt: new Date().toISOString(),
+            verifiedBy: user?.characterId || 'admin',
           }
-          : s
+          : t
       )
     );
 
     setShowApproveModal(false);
     setApproveData(null);
 
-    const pendingCount = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+    const pendingCount = trainingTasks.filter(
+      (t) => {
+        const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
+        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '' && !isCurrent;
+      }
     ).length;
 
     if (pendingCount > 0) {
@@ -231,43 +233,48 @@ function TrainingApproval() {
   };
 
   const handleRejectClick = () => {
-    setTempRejectReason('');
     setShowRejectModal(true);
   };
 
   const handleReject = async (submissionId: string) => {
-    if (!tempRejectReason.trim()) return;
-
-    const result = await rejectHarvest(
-      submissionId,
-      user?.characterId || 'admin',
-      tempRejectReason
-    );
-
-    if (!result.success) {
-      alert('Failed to reject');
+    if (!reviewingTask) {
       return;
     }
 
-    setSubmissions((prev) =>
-      prev.map((s) =>
-        s.id === submissionId
+    if (!reviewingTask.userId || !reviewingTask.date) {
+      return;
+    }
+
+    try {
+      await verifyTrainingTask(
+        reviewingTask.userId,
+        reviewingTask.date,
+        TRAINING_POINT_REQUEST_STATUS.REJECTED,
+        user?.characterId || 'admin'
+      );
+    } catch (error) {
+      console.error('Failed to reject training task:', error);
+      return;
+    }
+
+    setTrainingTasks((prev) =>
+      prev.map((t) =>
+        t.id === submissionId
           ? {
-            ...s,
-            status: HARVEST_SUBMISSION_STATUS.REJECTED,
-            rejectReason: tempRejectReason,
+            ...t,
+            verified: TRAINING_POINT_REQUEST_STATUS.REJECTED,
+            verifiedAt: new Date().toISOString(),
+            verifiedBy: user?.characterId || 'admin',
           }
-          : s
+          : t
       )
     );
 
     setShowRejectModal(false);
-    setTempRejectReason('');
-    setRejectReason('');
-
-    const pendingCount = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
-    ).length;
+    const pendingCount = trainingTasks.filter((t) => {
+      const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
+      return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '' && !isCurrent;
+    }).length;
 
     if (pendingCount > 0) {
       setSuccessMessage('Rejected successfully!\nMoving to next pending submission...');
@@ -312,9 +319,24 @@ function TrainingApproval() {
     );
   };
 
-  return (
-    <div className="harvest-approval">
+  const colorStyle = useMemo(() => {
+    return {
+      '--primary-color': user?.theme[0] || '#C0A062',
+      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
+      '--dark-color': user?.theme[1] || '#2c2c2c',
+      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--light-color': user?.theme[2] || '#f5f5f5',
+      '--surface-hover': user?.theme[11] || '#e8e8e8',
+      '--overlay-text': user?.theme[17] || '#333333',
+      '--accent-dark': user?.theme[19] || '#0f1a2e',
+      '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
+    } as React.CSSProperties;
+  }, [user]);
 
+  const trainee = characters.find((c) => c.characterId === reviewingTask?.userId);
+
+  return (
+    <div className="harvest-approval" style={colorStyle}>
       {/* Layout */}
       <div className={`training-approval__container ${sidebarOpen ? 'training-approval__container--sidebar-open' : ''}`}>
         {/* Main */}
@@ -322,11 +344,10 @@ function TrainingApproval() {
           {/* Top bar */}
           <header className="training-approval__bar">
             <div className="training-approval__bar-title">
-              {reviewingSubmission?.id
-                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${new Date(reviewingSubmission.submittedAt).toLocaleDateString()}`
-                : 'Harvest Submissions'}
+              {reviewingTask?.id
+                ? `${getCharacterName(reviewingTask.userId)}'s training on ${new Date(reviewingTask.date).toLocaleDateString()}`
+                : 'Task Submissions'}
             </div>
-
             {/* Mobile toggle */}
             <button className={`training-approval__bar-chevron ${sidebarOpen ? 'training-approval__bar-chevron--open' : ''}`} onClick={() => setSidebarOpen(true)}>
               <ChevronLeft />
@@ -335,11 +356,12 @@ function TrainingApproval() {
 
           {/* Review area */}
           <div className="training-approval__review-area">
+            {BG_ELEMENTS}
             {loading ? (
               <div className="training-approval__review-loading">Loading...</div>
             ) : loadError ? (
               <div className="training-approval__review-error">Something went wrong</div>
-            ) : reviewingSubmission ? (
+            ) : reviewingTask ? (
               (
                 <div className="training-approval__review-sheet">
                   {/* 1. Open link of tweet */}
@@ -350,8 +372,8 @@ function TrainingApproval() {
                       <button
                         className="training-approval__open-link-btn"
                         onClick={() => {
-                          if (reviewingSubmission?.firstTweetUrl) {
-                            window.open(reviewingSubmission.firstTweetUrl, '_blank', 'noopener,noreferrer');
+                          if (reviewingTask?.roleplay && reviewingTask.roleplay.trim() !== '') {
+                            window.open(reviewingTask.roleplay, '_blank', 'noopener,noreferrer');
                           }
                         }}
                         data-tooltip={"Open"}
@@ -367,7 +389,7 @@ function TrainingApproval() {
                   </div>
 
                   {/* Quick Reject Option */}
-                  {reviewingSubmission && (
+                  {reviewingTask && (
                     <div className="training-approval__quick-reject">
                       <div className="training-approval__quick-reject-content">
                         <span className="training-approval__quick-reject-label">
@@ -428,7 +450,7 @@ function TrainingApproval() {
                   <div className="training-approval__review-section">
                     <div className="training-approval__review-section-header">
                       <span className='training-approval__review-section-number'>3</span>
-                      <span className='training-approval__review-section-title'>Copy Thread Extractor Script</span>
+                      <span className='training-approval__review-section-title'>Thread Extractor</span>
                       <button
                         className={`training-approval__copy-btn training-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
                         onClick={handleCopyExtractorScript}
@@ -449,7 +471,7 @@ function TrainingApproval() {
                   <div className="training-approval__review-section">
                     <div className="training-approval__review-section-header">
                       <span className='training-approval__review-section-number'>4</span>
-                      <span className='training-approval__review-section-title'>Copy Result Copy Script</span>
+                      <span className='training-approval__review-section-title'>Result Copy</span>
                       <button
                         className={`training-approval__copy-btn training-approval__copy-btn--${scriptResultCopyStatus.toLowerCase()}`}
                         onClick={handleCopyResultScript}
@@ -474,7 +496,7 @@ function TrainingApproval() {
                     </div>
                     <div className="training-approval__review-section-content">
                       Paste the extracted thread content into the textarea below.
-                      This data will be used to calculate character count, detect participants, and determine reward distribution.
+                      This data will be used to calculate character count and complete the training approval process.
                     </div>
                     <textarea
                       className="training-approval__review-section-content training-approval__review-section-content--textarea"
@@ -506,9 +528,7 @@ function TrainingApproval() {
                     }
 
                     const charCount = countCharacters(scriptParsed.text);
-                    const isSolo = selectedRoleplayers.length === 1;
-                    const baseReward = Math.ceil((charCount / 200) * 10);
-                    const finalReward = isSolo ? Math.ceil(baseReward * 1.5) : baseReward;
+                    const finalCount = charCount + (reviewingTask.tickets || 0) * 200;
 
                     return (
                       <div className="training-approval__review-section training-approval__review-section--result">
@@ -517,6 +537,25 @@ function TrainingApproval() {
                           <span className='training-approval__review-section-title'>Review Harvest Result</span>
                         </div>
                         <div className="training-approval__review-section-content">
+
+                          {/* Trainee */}
+                          <div className="training-approval__trainee">
+                            <div className="training-approval__trainee-avatar">
+                              {trainee ? (
+                                <img src={trainee.image} alt={getCharacterName(trainee.characterId)} referrerPolicy="no-referrer" />
+                              ) : (
+                                <span>{getCharacterName(reviewingTask.userId)[0]?.toUpperCase() || '?'}</span>
+                              )}
+                            </div>
+                            <span className="training-approval__trainee-name">
+                              <b>{lang === LANGUAGE.ENGLISH ? 'Trainee ' : 'ผู้เข้ารับการฝึก '}</b>
+                              {lang === LANGUAGE.ENGLISH
+                                ? `${trainee?.nameEng} (${trainee?.nicknameEng})`
+                                : `${trainee?.nameThai} (${trainee?.nicknameThai})`
+                                || getCharacterName(reviewingTask.userId)}
+                            </span>
+                          </div>
+
                           {/* Statistics */}
                           <div className="training-approval__stats">
                             <div className="training-approval__stat-item">
@@ -528,112 +567,83 @@ function TrainingApproval() {
                               <span className="training-approval__stat-value">{scriptParsed.tweetCount}</span>
                             </div>
                             <div className="training-approval__stat-item">
-                              <span className="training-approval__stat-label">{width > 420 ? 'Participants' : 'Players'}</span>
-                              <span className="training-approval__stat-value">{selectedRoleplayers.length}</span>
+                              <span className="training-approval__stat-label">Tickets</span>
+                              <span className="training-approval__stat-value">{reviewingTask.tickets || 0}</span>
                             </div>
                           </div>
 
                           <div className="training-approval__reward-calc__wrapper">
-                            {/* Reward Calculation */}
+                            {/* Character Count Calculation */}
                             <div className="training-approval__reward-calc">
                               <div className="training-approval__reward-row">
-                                <span className="training-approval__reward-label">Base Reward:</span>
+                                <span className="training-approval__reward-label">Character Count</span>
                                 <span className="training-approval__reward-value">
-                                  <Drachma /> {baseReward}
+                                  {charCount} chars
                                 </span>
                               </div>
                               <div className="training-approval__reward-row training-approval__reward-row--bonus">
-                                <span className="training-approval__reward-label">Solo Bonus (50%)</span>
+                                <span className="training-approval__reward-label">Ticket Bonus</span>
                                 <span className="training-approval__reward-value">
-                                  {isSolo ? (
-                                    <>
-                                      <Drachma /> {Math.ceil(baseReward * 0.5)}
-                                    </>
-                                  ) : (
-                                    0
-                                  )}
+                                  {reviewingTask.tickets > 0 ? (
+                                    `${reviewingTask.tickets} ticket${reviewingTask.tickets > 1 ? 's' : ''} (+${reviewingTask.tickets * 200} chars)`
+                                  ) : '0 tickets'}
                                 </span>
                               </div>
                               <div className="training-approval__reward-row training-approval__reward-row--total">
-                                <span className="training-approval__reward-label">Final Reward:</span>
+                                <span className="training-approval__reward-label">Total Characters</span>
                                 <span className="training-approval__reward-value">
-                                  <Drachma /> {finalReward}
+                                  {finalCount}
                                 </span>
                               </div>
                             </div>
 
-                            {/* Roleplayer Selection */}
-                            <div className="training-approval__roleplayers">
-                              <div className="training-approval__roleplayers-title">
-                                Detected Roleplayers ({matchedCharacters.length})
+                            {/* Training Pass/Fail Status */}
+                            <div className="training-approval__result">
+                              <div className="training-approval__result-title">
+                                Training Status
                               </div>
-                              {matchedCharacters.length === 0 ? (
-                                <div className="training-approval__no-match">
-                                  No characters matched. Make sure the participants have their Twitter handles registered.
-                                </div>
-                              ) : (
-                                <div className="training-approval__roleplayer-list">
-                                  {matchedCharacters.map((char) => (
-                                    <label
-                                      key={char.characterId}
-                                      className="training-approval__roleplayer-item"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedRoleplayers.includes(char.characterId)}
-                                        onChange={() => toggleRoleplayer(char.characterId)}
-                                      />
-                                      <div className="training-approval__roleplayer-avatar">
-                                        {char.image ? (
-                                          <img src={char.image} alt={char.nicknameEng} referrerPolicy="no-referrer" />
-                                        ) : (
-                                          <span>{(char.nicknameEng || char.characterId)[0]?.toUpperCase() || '?'}</span>
-                                        )}
-                                      </div>
-                                      <div className="training-approval__roleplayer-info">
-                                        <span className="training-approval__roleplayer-name">
-                                          {char.nicknameEng || char.characterId}
-                                        </span>
-                                        {char.twitter && (
-                                          <span className="training-approval__roleplayer-handle">
-                                            @{extractTwitterHandle(char.twitter)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
+                              {(() => {
+                                const trainingCheck = checkTrainingPass(charCount, reviewingTask.tickets || 0);
+                                return (
+                                  <div className={`training-approval__result-status ${trainingCheck.passes ? 'training-approval__result-status--pass' : 'training-approval__result-status--fail'}`}>
+                                    {trainingCheck.passes ? (
+                                      <>
+                                        <span className="training-approval__result-status-head">✓ PASSED</span>
+                                        <br />
+                                        <small style={{ opacity: 0.8, fontWeight: 500 }}>
+                                          Total: {trainingCheck.totalChars} characters
+                                        </small>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="training-approval__result-status-head">✗ FAILED</span>
+                                        <br />
+                                        <small style={{ opacity: 0.8, fontWeight: 500 }}>
+                                          Need {trainingCheck.charsNeeded} more characters to pass
+                                        </small>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
-                          </div>
 
-                          {/* Appraisal */}
-                          <div className="training-approval__review-section">
-                            <div className="training-approval__review-section-header">
-                              <span className='training-approval__review-section-number'>7</span>
-                              <span className='training-approval__review-section-title'>Appraisal - ประเมินราคา</span>
-                            </div>
-                            <textarea
-                              className="training-approval__review-section-content training-approval__review-section-content--textarea"
-                              placeholder="Enter appraisal notes (optional)"
-                              value={appraisalText}
-                              onChange={(e) => setAppraisalText(e.target.value)}
-                              rows={3}
-                            />
                           </div>
 
                           {/* Actions */}
-                          {selectedRoleplayers.length > 0 && reviewingSubmission && (
+                          {reviewingTask && (
                             <div className="training-approval__actions">
                               <button
                                 className="training-approval__action-btn training-approval__action-btn--approve"
                                 onClick={handleApproveClick}
+                                disabled={!checkTrainingPass(charCount, reviewingTask.tickets || 0).passes}
                               >
-                                Approve & Reward
+                                Approve
                               </button>
                               <button
                                 className="training-approval__action-btn training-approval__action-btn--reject"
                                 onClick={handleRejectClick}
+                                disabled={checkTrainingPass(charCount, reviewingTask.tickets || 0).passes}
                               >
                                 Reject Submission
                               </button>
@@ -650,7 +660,7 @@ function TrainingApproval() {
                 <div className="training-approval__empty-state-icon">✓</div>
                 <div className="training-approval__empty-state-title">All caught up!</div>
                 <div className="training-approval__empty-state-message">
-                  {submissions.filter(s => s.status === HARVEST_SUBMISSION_STATUS.PENDING).length === 0
+                  {trainingTasks.filter(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '').length === 0
                     ? "No pending submissions to review."
                     : "Select a submission from the sidebar to review."}
                 </div>
@@ -663,7 +673,7 @@ function TrainingApproval() {
         <aside className={`training-approval__sidebar ${sidebarOpen ? 'training-approval__sidebar--open' : ''}`}>
           <div className="training-approval__sidebar__head">
             <div className="training-approval__sidebar__head-tabs">
-              {Object.values(HARVEST_SUBMISSION_STATUS).map((status) => (
+              {Object.values(TRAINING_POINT_REQUEST_STATUS).map((status) => (
                 <button
                   key={status}
                   className={`training-approval__sidebar__tab training-approval__sidebar__tab--${status.toLowerCase()}${sidebarView === status ? '--active' : ''}`}
@@ -678,7 +688,7 @@ function TrainingApproval() {
             </button>
           </div>
 
-          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && (
+          {sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING && trainingTasks.filter((t) => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '').length > 0 && (
             <div className="training-approval__sidebar__note">
               <InfoCircle />
               Click on a submission to review.
@@ -690,43 +700,45 @@ function TrainingApproval() {
               <div className="training-approval__sidebar__content--loading">Loading...</div>
             ) : loadError ? (
               <div className="training-approval__sidebar__content--error">Something went wrong</div>
+            ) : trainingTasks.filter((s) => s.verified === sidebarView).length === 0 ? (
+              <div className="training-approval__sidebar__content--empty">No submissions found</div>
             ) : (
-              submissions
-                .filter((s) => s.status === sidebarView)
-                .map((submission) => (
-                  <SubmissionCard
-                    key={submission.id}
-                    submission={submission}
-                    onClick={sidebarView === HARVEST_SUBMISSION_STATUS.PENDING ? () => {
-                      setReviewingSubmission(submission);
-                      setReviewText('');
-                      setSelectedRoleplayers([]);
-                      setMatchedCharacters([]);
-                      setAppraisalText('');
+              trainingTasks
+                .filter((s) => s.verified === sidebarView)
+                .map((task) => {
+                  const readyForReview = task.roleplay && task.roleplay.trim() !== '';
+                  return (
+                    <SubmissionCard
+                      key={task.id}
+                      task={task}
+                      focused={reviewingTask?.id === task.id}
+                      onClick={sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING ? () => {
+                        setReviewingTask(task);
+                        setReviewText('');
 
-                      if (width < 900) setSidebarOpen(false);
-                    } : undefined}
-                    forcedCompact
-                  />
-                ))
+                        if (width < 900) setSidebarOpen(false);
+                      } : undefined}
+                      disabled={!readyForReview}
+                      forcedCompact
+                    />
+                  );
+                })
             )}
           </div>
         </aside>
       </div>
 
       <ApproveModal
-        show={showApproveModal && !!approveData && !!reviewingSubmission}
+        show={showApproveModal && !!approveData && !!reviewingTask}
         approveData={approveData}
         onClose={() => setShowApproveModal(false)}
-        onConfirm={() => reviewingSubmission && handleApprove(reviewingSubmission.id)}
+        onConfirm={() => reviewingTask && handleApprove(reviewingTask.id)}
       />
 
       <RejectModal
-        show={showRejectModal && !!reviewingSubmission}
-        reason={tempRejectReason}
-        onReasonChange={setTempRejectReason}
+        show={showRejectModal && !!reviewingTask}
         onClose={() => setShowRejectModal(false)}
-        onConfirm={() => reviewingSubmission && handleReject(reviewingSubmission.id)}
+        onConfirm={() => reviewingTask && handleReject(reviewingTask.id)}
       />
 
       <SuccessModal

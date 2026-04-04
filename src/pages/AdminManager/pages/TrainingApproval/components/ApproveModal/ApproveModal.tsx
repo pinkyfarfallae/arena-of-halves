@@ -1,4 +1,4 @@
-import Drachma from '../../../../../../icons/Drachma';
+import TrainingPoint from '../../../../../TrainingGrounds/pages/Stats/icons/TrainingPoint';
 import './ApproveModal.scss';
 
 interface ApproveModalProps {
@@ -20,7 +20,7 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">Confirm Approval</h3>
+        <h3 className="modal-title">Confirm Training Approval</h3>
         <div className="modal-body">
           <div className="modal-summary">
             <div className="modal-summary-item">
@@ -31,20 +31,15 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
               <span className="modal-label">Tweet Count:</span>
               <span className="modal-value">{approveData.tweetCount}</span>
             </div>
-            <div className="modal-summary-item">
-              <span className="modal-label">Participants:</span>
-              <span className="modal-value">{approveData.roleplayers.length}</span>
-            </div>
             <div className="modal-summary-item modal-summary-item--highlight">
-              <span className="modal-label">Total Reward:</span>
+              <span className="modal-label">Training Point Reward:</span>
               <span className="modal-value">
-                <Drachma /> {approveData.reward}
-                {approveData.isSolo && <span className="modal-badge">+50% Solo</span>}
+                <TrainingPoint /> +{approveData.reward} TP
               </span>
             </div>
           </div>
           <p className="modal-note">
-            This will reward {approveData.roleplayers.length} {approveData.roleplayers.length === 1 ? 'character' : 'characters'} and mark the submission as approved.
+            This will give +1 Training Point to the trainee and mark the submission as approved.
           </p>
         </div>
         <div className="modal-actions">
@@ -58,7 +53,7 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
             className="modal-btn modal-btn--confirm"
             onClick={onConfirm}
           >
-            Confirm Approval
+            Approve Training
           </button>
         </div>
       </div>

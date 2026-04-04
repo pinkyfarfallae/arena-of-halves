@@ -1478,10 +1478,6 @@ function handleVerifyTraining(params) {
     return jsonResponse({ error: 'verified must be "approved" or "rejected"' });
   }
 
-  if (verified === 'rejected' && !rejectReason) {
-    return jsonResponse({ error: 'rejectReason is required when rejecting' });
-  }
-
   var sheet = getTrainingSheet();
   
   if (!sheet) {
@@ -1495,9 +1491,29 @@ function handleVerifyTraining(params) {
   }
 
   sheet.getRange(row, 10).setValue(verified);
-  sheet.getRange(row, 11).setValue(verifiedBy);
-  sheet.getRange(row, 12).setValue(new Date().toISOString());
-  sheet.getRange(row, 13).setValue(rejectReason);
+
+  // Award training point if approved
+  if (verified === 'approved') {
+    var trainingPointResult = updateTrainingPoints(userId, 1);
+    var trainingPointData = JSON.parse(trainingPointResult.getContent());
+    
+    if (!trainingPointData.success) {
+      return jsonResponse({ 
+        success: false, 
+        verified: verified,
+        error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
+      });
+    }
+    
+    return jsonResponse({ 
+      success: true, 
+      verified: verified,
+      trainingPoints: {
+        previous: trainingPointData.previous,
+        current: trainingPointData.current
+      }
+    });
+  }
   
   return jsonResponse({ success: true, verified: verified });
 }

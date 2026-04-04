@@ -24,7 +24,7 @@ export default function PvP({ markLocalMode }: { markLocalMode?: () => void }) {
   const { user } = useAuth();
   const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
-  const [quotaUsed, setQuotaUsed] = useState(false);
+  const [, setQuotaUsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
 
@@ -55,7 +55,7 @@ export default function PvP({ markLocalMode }: { markLocalMode?: () => void }) {
 
         setLivePractice(todayProgress);
         setQuotaUsed(!!quotaSnapshot?.exists());
-        setSheetTask([...trainings].reverse().find((training) => training.date === todayDate) || null);
+        setSheetTask([...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null);
 
         // Check comprehensive validation
         const validationResult = await canUserTrain(user.characterId, PRACTICE_MODE.PVP);

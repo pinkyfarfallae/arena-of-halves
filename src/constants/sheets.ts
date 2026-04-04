@@ -1,6 +1,6 @@
 export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 
-const DEPLOYMENT_ID = 'AKfycbxMXGAlQwFG97_hpcejfFQvuU68ncUXfuGBNDyK7TXdbKrMtpXW31ZwaUEngnE7khbaqA';
+const DEPLOYMENT_ID = 'AKfycbwumCAJoNtDkVDgG8zibL5Cutnh_f4INwV0LgZH4Pq_KWnuJSJKv0cAoRZZkBMGqboSLw';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export const GID = {

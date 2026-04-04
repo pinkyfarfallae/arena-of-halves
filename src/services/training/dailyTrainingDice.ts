@@ -532,10 +532,15 @@ export const verifyTrainingTask = async (
   verifiedBy: string,
   rejectReason?: string
 ): Promise<void> => {
+
+  const formattedDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date(date));
+
   const payload = {
     action: ACTIONS.VERIFY_TRAINING,
     userId,
-    date,
+    date: formattedDate,
     verified,
     verifiedBy,
     rejectReason: rejectReason || '',
@@ -598,16 +603,16 @@ export const canUserTrain = async (
   const todayProgress = await getTodayProgress(userId);
   const todayTasks = await fetchUserTrainingTasks(userId);
   const todayTask = todayTasks.reverse().find(t => t.date === getTodayDate());
-  
+
   // Check for non-approved tasks in sheet
   const hasNonApprovedTask = !!todayTask && todayTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-  
+
   // Check if already finished any mode today
   const hasFinishedToday = todayProgress?.state === PRACTICE_STATES.FINISHED;
-  
+
   // Check if live progress exists
   const hasLiveProgress = todayProgress?.state === PRACTICE_STATES.LIVE || todayProgress?.state === PRACTICE_STATES.WAITING;
-  
+
   // Rule 1: If have non-approved task in sheet -> block all training
   if (hasNonApprovedTask) {
     return {
@@ -618,7 +623,7 @@ export const canUserTrain = async (
       hasLiveProgress,
     };
   }
-  
+
   // Rule 2: If already finished any mode today -> block all other training
   if (hasFinishedToday) {
     return {
@@ -629,7 +634,7 @@ export const canUserTrain = async (
       hasLiveProgress,
     };
   }
-  
+
   // Rule 3: If live progress exists in different mode -> block
   if (hasLiveProgress && todayProgress.mode !== requestedMode) {
     const modeName = todayProgress.mode === PRACTICE_MODE.NORMAL ? 'Normal Training' : 'PVP';
@@ -641,7 +646,7 @@ export const canUserTrain = async (
       hasLiveProgress: true,
     };
   }
-  
+
   // Rule 4: Allow continuing same mode if in progress
   if (hasLiveProgress && todayProgress.mode === requestedMode) {
     return {
@@ -651,7 +656,7 @@ export const canUserTrain = async (
       hasLiveProgress: true,
     };
   }
-  
+
   // Rule 5: Allow starting new training if no quota used
   return {
     canTrain: true,

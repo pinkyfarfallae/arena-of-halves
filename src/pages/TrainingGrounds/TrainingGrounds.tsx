@@ -9,7 +9,7 @@ import { Character } from '../../data/characters';
 import { createRoom, getRoom, deleteRoom, toFighterState } from '../../services/battleRoom/battleRoom';
 import { getPowers } from '../../data/powers';
 import { db, firestore } from '../../firebase';
-import { ref, update, get, remove, set } from 'firebase/database';
+import { ref, update, get, remove } from 'firebase/database';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { ARENA_ROLE, ROOM_STATUS } from '../../constants/battle';
 import { ROLE } from '../../constants/role';
@@ -43,7 +43,7 @@ export default function TrainingGrounds() {
   const [createdPracticeArenaId, setCreatedPracticeArenaId] = useState<string>(''); // Match arena pattern
   const [createdPracticeArenaStatus, setCreatedPracticeArenaStatus] = useState<string>('');
   const [keepPracticeCreateTab, setKeepPracticeCreateTab] = useState(false);
-  const [pvpGateReady, setPvpGateReady] = useState(false);
+  const [, setPvpGateReady] = useState(false);
   const [pvpGateOpenModal, setPvpGateOpenModal] = useState(false);
   const [existingPvpArenaId, setExistingPvpArenaId] = useState<string>(''); // Existing room from DB
   const [pendingModalOpen, setPendingModalOpen] = useState(false); // Flag to open modal after room creation
@@ -81,16 +81,18 @@ export default function TrainingGrounds() {
 
       try {
         const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-        const [quotaSnapshot, trainings, todayProgress] = await Promise.all([
+        const [, trainings, todayProgress, tasks] = await Promise.all([
           get(ref(db, quotaPath)).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
+          fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
         ]);
 
         if (!mounted) return;
 
         const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
         const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
+        const hasNonApprovedTasks = tasks.some(task => task.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED);
         const hasLiveNormalTraining = todayProgress?.mode === PRACTICE_MODE.NORMAL && todayProgress.state === PRACTICE_STATES.LIVE;
         const isFinishedNormalTraining = todayProgress?.mode === PRACTICE_MODE.NORMAL && todayProgress.state === PRACTICE_STATES.FINISHED;
         const isFinishedPvpTraining = todayProgress?.mode === PRACTICE_MODE.PVP && todayProgress.state === PRACTICE_STATES.FINISHED;
@@ -146,6 +148,7 @@ export default function TrainingGrounds() {
 
         // Determine if user can open PvP modal (no pending tasks, no quota used, or has existing room)
         const canOpenModal = !hasPendingSheetTask &&
+          !hasNonApprovedTasks &&
           !hasLiveNormalTraining &&
           !isFinishedNormalTraining &&
           !isFinishedPvpTraining &&
@@ -166,7 +169,7 @@ export default function TrainingGrounds() {
     return () => {
       mounted = false;
     };
-  }, [todayDate, user, createdPracticeArenaId]);
+  }, [todayDate, user, createdPracticeArenaId, existingPvpArenaId]);
 
   const handleTrainWithAdmin = () => {
     navigate('/training-grounds/guided');
@@ -174,7 +177,7 @@ export default function TrainingGrounds() {
 
   const handlePvPMode = async () => {
     if (existingPvpArenaId) {
-      navigate('/training-grounds/pvp/' + existingPvpArenaId);
+      navigate(`/training-grounds/pvp/${existingPvpArenaId}`);
       return;
     }
 

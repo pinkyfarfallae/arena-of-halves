@@ -836,6 +836,10 @@ export const UI_TEXT = {
     en: 'Submitting Training Task...',
     th: 'กำลังส่งผลงานการฝึกฝน...'
   },
+  TRAINING_REPORT_FOR: {
+    en: 'Training Report for',
+    th: 'รายงานการฝึกฝนประจำวันที่'
+  },
 } as const;
 
 /**))
