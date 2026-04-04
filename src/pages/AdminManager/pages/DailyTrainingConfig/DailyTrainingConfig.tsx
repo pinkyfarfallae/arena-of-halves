@@ -23,7 +23,6 @@ export default function DailyTrainingConfig() {
     { value: null, rolled: false },
     { value: null, rolled: false },
   ]);
-  const [activePaperIndex, setActivePaperIndex] = useState<number>(0);
   const [confirmed, setConfirmed] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -62,7 +61,6 @@ export default function DailyTrainingConfig() {
         // Set active to first unrolled paper
         const firstUnrolled = newPapers.findIndex(p => !p.rolled);
         if (firstUnrolled !== -1) {
-          setActivePaperIndex(firstUnrolled);
         }
       }
     } catch (err: any) {
@@ -82,35 +80,22 @@ export default function DailyTrainingConfig() {
   const handleRollResult = async (result: number) => {
     if (confirmed) return;
 
-    // result is just a number from the DiceRoller
     const diceValue = result;
 
-    // Update the active paper
-    const newPapers = [...papers];
-    newPapers[activePaperIndex] = {
+    // Apply same value to all papers
+    const newPapers: PaperTarget[] = Array(5).fill(null).map(() => ({
       value: diceValue,
       rolled: true,
-    };
+    }));
+
     setPapers(newPapers);
 
-    // Auto-save to Firestore immediately
     try {
       const targets = newPapers.map(p => p.value);
       await saveDraftTargets(targets);
     } catch (err: any) {
       setMessage({ type: 'error', text: 'Failed to save roll. Try again.' });
     }
-
-    // Move to next unrolled paper
-    const nextIndex = newPapers.findIndex((p, i) => i > activePaperIndex && !p.rolled);
-    if (nextIndex !== -1) {
-      setActivePaperIndex(nextIndex);
-    }
-  };
-
-  const handlePaperClick = (index: number) => {
-    if (confirmed) return;
-    setActivePaperIndex(index);
   };
 
   const handleClear = async () => {
@@ -125,13 +110,12 @@ export default function DailyTrainingConfig() {
     ];
 
     setPapers(resetPapers);
-    setActivePaperIndex(0);
     setMessage(null);
 
     // Clear from Firestore too
     try {
       await saveDraftTargets([]);
-    } catch (err: any) {}
+    } catch (err: any) { }
   };
 
   const handleConfirm = async () => {
@@ -177,8 +161,7 @@ export default function DailyTrainingConfig() {
         {papers.map((paper, index) => (
           <div
             key={index}
-            className={`daily-training-config__paper ${(activePaperIndex === index && !confirmed) ? 'active' : ''
-              } ${paper.rolled ? 'rolled' : ''} ${confirmed ? 'confirmed' : ''}`}
+            className={`daily-training-config__paper ${paper.rolled ? 'rolled' : ''} ${confirmed ? 'confirmed' : ''}`}
             style={{
               '--primary-color': user?.theme[0] || '#000',
               '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
@@ -186,7 +169,6 @@ export default function DailyTrainingConfig() {
               '--foreground-color': user?.theme[5] || '#fff',
               '--background-color': user?.theme[1] || '#f0f0f0',
             } as React.CSSProperties}
-            onClick={() => handlePaperClick(index)}
           >
             <div className="daily-training-config__paper-number">#{index + 1}</div>
             <div className="daily-training-config__paper-value">
@@ -201,7 +183,7 @@ export default function DailyTrainingConfig() {
         lockedDie={12}
         onRollResult={handleRollResult}
         hidePrompt
-        fixedResult={papers[4].value || undefined}
+        fixedResult={papers[0].value || undefined}
         disabled={confirmed}
       />
 
@@ -219,7 +201,7 @@ export default function DailyTrainingConfig() {
             onClick={handleClear}
             disabled={confirmed || saving || papers.every(p => !p.rolled)}
           >
-            Clear All
+            Clear
           </button>
           <button
             className="daily-training-config__confirm-btn"
