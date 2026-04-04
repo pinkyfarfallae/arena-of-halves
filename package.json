@@ -35,8 +35,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "deploy:firebase": "npm run build && firebase deploy --only hosting --project arena-of-halves",
-    "deploy:all": "npm run build && firebase deploy --only hosting --project arena-of-halves && gh-pages -d build"
-    ,
+    "deploy:all": "npm run build && firebase deploy --only hosting --project arena-of-halves && gh-pages -d build",
     "lint": "npx eslint \"src/**/*.{ts,tsx,js,jsx}\"",
     "lint:fix": "npx eslint --fix \"src/**/*.{ts,tsx,js,jsx}\""
   },
