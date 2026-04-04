@@ -17,6 +17,7 @@ import Trash from '../../icons/Trash';
 import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import BattleLogModal from './components/BattleLogModal/BattleLogModal';
+import {ArenaAction, ARENA_ACTIONS} from '../../constants/arenaAction';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -41,7 +42,7 @@ function Lobby() {
 
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [loading, setLoading] = useState<'create' | 'join' | null>(null);
+  const [loading, setLoading] = useState<ArenaAction | null>(null);
   const [error, setError] = useState('');
   const [activeRooms, setActiveRooms] = useState<BattleRoom[]>([]);
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
@@ -71,7 +72,7 @@ function Lobby() {
 
   const handleCreate = async () => {
     if (!user) return;
-    setLoading('create');
+    setLoading(ARENA_ACTIONS.CREATE);
     setError('');
     try {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
@@ -96,13 +97,17 @@ function Lobby() {
       setError('Enter a room code.');
       return;
     }
-    setLoading('join');
+    setLoading(ARENA_ACTIONS.JOIN);
     setError('');
     try {
       const code = joinCode.trim().toUpperCase();
       const room = await getRoom(code);
       if (!room) {
         setError('Room not found. Check the code.');
+        return;
+      }
+      if (room.status !== ROOM_STATUS.WAITING) {
+        setError('Room is not open for joining.');
         return;
       }
       navigate(`/arena/${code}`);
@@ -191,7 +196,7 @@ function Lobby() {
                   onClick={handleCreate}
                   disabled={!!loading}
                 >
-                  {loading === 'create' ? 'Creating...' : 'Create Room'}
+                  {loading === ARENA_ACTIONS.CREATE ? 'Creating...' : 'Create Room'}
                 </button>
               </div>
 
@@ -227,7 +232,7 @@ function Lobby() {
                   onClick={handleJoin}
                   disabled={!!loading || !joinCode.trim()}
                 >
-                  {loading === 'join' ? 'Joining...' : 'Join Room'}
+                  {loading === ARENA_ACTIONS.JOIN ? 'Joining...' : 'Join Room'}
                 </button>
               </div>
             </div>
@@ -314,19 +319,20 @@ function Lobby() {
               <div className="lobby__empty">
                 <Colosseum className="lobby__empty-icon" width={64} height={64} />
                 <p>No active battles. Create one to begin.</p>
-                {/* {role === ROLE.DEVELOPER && (
-                  <button
-                    type="button"
-                    className="lobby__delete-all"
-                    onClick={handleDeleteAllRooms}
-                    disabled={deletingAll}
-                    title="Delete all arena rooms on server"
-                  >
-                    {deletingAll ? 'Deleting...' : 'Delete all rooms'}
-                  </button>
-                )} */}
               </div>
             )}
+
+            {/* {role === ROLE.DEVELOPER && (
+              <button
+                type="button"
+                className="lobby__delete-all"
+                onClick={handleDeleteAllRooms}
+                disabled={deletingAll}
+                title="Delete all arena rooms on server"
+              >
+                {deletingAll ? 'Deleting...' : 'Delete all rooms'}
+              </button>
+            )} */}
           </div>
         </div>
       </div>

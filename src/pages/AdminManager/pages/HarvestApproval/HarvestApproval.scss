@@ -818,6 +818,7 @@
   svg {
     width: 16px;
     height: 16px;
+    display: none;
   }
 
   &:hover {
@@ -846,7 +847,11 @@
     min-width: 28px;
     max-width: 28px;
     padding: 0;
-    font-size: 0.85rem;
+    font-size: 0;
+
+    svg {
+      display: block;
+    }
   }
 }
 
@@ -1596,7 +1601,8 @@
   }
 
   &--loading,
-  &--error {
+  &--error,
+  &--empty {
     display: flex;
     align-items: center;
     justify-content: center;

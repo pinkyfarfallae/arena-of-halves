@@ -94,6 +94,10 @@
       }
     }
 
+    .strawberry-fields__submission-pending-wrapper {
+      max-width: calc(100% - 130px - 0.6rem);
+    }
+
     .strawberry-fields__submission-pending {
       span {
         font-size: 0.55rem;
@@ -102,6 +106,18 @@
       svg {
         width: 10px;
         height: 10px;
+      }
+    }
+
+    .strawberry-fields__submission-submitted-at {
+      b {
+        white-space: nowrap;
+        overflow: visible;
+      }
+
+      span {
+        white-space: nowrap;
+        overflow: visible;
       }
     }
 
@@ -131,6 +147,17 @@
 
     .strawberry-fields__stat-value {
       font-size: 0.65rem;
+    }
+  }
+
+  &--focused {
+    border-color: $strawberry-pink;
+    box-shadow:
+      0 4px 10px rgba(#000, 0.2),
+      0 6px 20px rgba($strawberry-pink, 0.4);
+
+    &:hover {
+      box-shadow: 0 8px 24px rgba($strawberry-pink, 0.3);
     }
   }
 }

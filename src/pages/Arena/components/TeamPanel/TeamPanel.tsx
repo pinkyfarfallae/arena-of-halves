@@ -16,6 +16,7 @@ import { SKILL_UNLOCK } from '../../../../constants/character';
 import { CHARACTER } from '../../../../constants/characters';
 
 interface Props {
+  isPracticeRoom?: boolean;
   members: FighterState[];
   allMembers?: FighterState[];
   side: PanelSide;
@@ -72,9 +73,10 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
+export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
+  const suppressPracticeVfx = !!isPracticeRoom;
 
   // Suppress hit visuals for a short window after leaving the select-target
   // phase to avoid accidental frame shakes when the player cancels/back out
@@ -190,7 +192,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           const p = atk?.powers?.[turn.usedPowerIndex!];
           return p?.target === TARGET_TYPES.AREA;
         })());
-        const isTargetable = !!(canSelectTarget && !isEliminated && (!isShadowCamouflaged || isAreaAttack));
+        const isTargetable = !suppressPracticeVfx && !!(canSelectTarget && !isEliminated && (!isShadowCamouflaged || isAreaAttack));
         const isSpotlight =
           (isAttacker &&
             (turn?.phase === PHASE.SELECT_TARGET || turn?.phase === PHASE.ROLLING_ATTACK)) ||
@@ -278,33 +280,33 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
 
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
-        const hasLightningReflex = !!(
+        const hasLightningReflex = !suppressPracticeVfx && !!(
           attacker?.passiveSkillPoint === SKILL_UNLOCK &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
-        const isShockHit = !isEliminated && (!!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
+        const isShockHit = !suppressPracticeVfx && !isEliminated && (!!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)
           || !!tagBasedProps.isShockHit);
 
         // Keraunos Voltage hit: massive lightning strike effect
-        const isKeraunosVoltageHit = !isEliminated && (!!(
+        const isKeraunosVoltageHit = !suppressPracticeVfx && !isEliminated && (!!(
           (isHit || playbackMainHit) && turn?.usedPowerName === POWER_NAMES.KERAUNOS_VOLTAGE
         ) || !!tagBasedProps.isKeraunosVoltageHit);
 
         // Jolt Arc hit: blue/white arc effect on targets when Jolt Arc is confirmed (not deceleration).
         // During effect phase (before log): show arc on shocked enemies so effect plays before skeleton destroy / damage.
-        const isJoltArcAttackHit = !isEliminated && (!!( 
+        const isJoltArcAttackHit = !suppressPracticeVfx && !isEliminated && (!!( 
           (isHit && lastEntry?.powerUsed === POWER_NAMES.JOLT_ARC) ||
           (playbackMainHit && playbackStep?.powerName === POWER_NAMES.JOLT_ARC) ||
           (turn?.phase === PHASE.RESOLVING && turn?.usedPowerName === POWER_NAMES.JOLT_ARC && isOpposing && tagBasedProps.isShocked)
         ) || !!tagBasedProps.isJoltArcAttackHit);
 
-        const isShocked = !isEliminated && tagBasedProps.isShocked;
-        const hasJoltArcDeceleration = !isEliminated && tagBasedProps.hasJoltArcDeceleration;
-        const isEfflorescenceMuse = !isEliminated && tagBasedProps.isEfflorescenceMuse;
-        const hasPomegranateEffect = !isEliminated && tagBasedProps.hasPomegranateEffect;
-        const isSpiritForm = !isEliminated && tagBasedProps.isSpiritForm;
-        const hasSoulDevourer = !isEliminated && tagBasedProps.hasSoulDevourer;
-        const hasBeyondNimbus = !isEliminated && tagBasedProps.hasBeyondNimbus;
+        const isShocked = !suppressPracticeVfx && !isEliminated && tagBasedProps.isShocked;
+        const hasJoltArcDeceleration = !suppressPracticeVfx && !isEliminated && tagBasedProps.hasJoltArcDeceleration;
+        const isEfflorescenceMuse = !suppressPracticeVfx && !isEliminated && tagBasedProps.isEfflorescenceMuse;
+        const hasPomegranateEffect = !suppressPracticeVfx && !isEliminated && tagBasedProps.hasPomegranateEffect;
+        const isSpiritForm = !suppressPracticeVfx && !isEliminated && tagBasedProps.isSpiritForm;
+        const hasSoulDevourer = !suppressPracticeVfx && !isEliminated && tagBasedProps.hasSoulDevourer;
+        const hasBeyondNimbus = !suppressPracticeVfx && !isEliminated && tagBasedProps.hasBeyondNimbus;
         const hasResurrectedSelf = activeEffects.some(
           (e) =>
             String(e.targetId) === String(m.characterId) &&
@@ -318,11 +320,11 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
             String(e.targetId) !== String(m.characterId) &&
             (e.turnsRemaining == null || e.turnsRemaining > 0),
         );
-        const hasDeathKeeper = !!tagBasedProps.hasDeathKeeper && !hasResurrectedSelf && !hasResurrectedAlly;
-        const hasSunbornSovereign = (m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign;
-        const isResurrected = tagBasedProps.isResurrected;
-        const isImprecatedPoemHealingNullified = !isEliminated && tagBasedProps.isImprecatedPoemHealingNullified;
-        const isImprecatedPoemCursed = !isEliminated && tagBasedProps.isImprecatedPoemCursed;
+        const hasDeathKeeper = !suppressPracticeVfx && !!tagBasedProps.hasDeathKeeper && !hasResurrectedSelf && !hasResurrectedAlly;
+        const hasSunbornSovereign = !suppressPracticeVfx && ((m.powers ?? []).some((p: { name?: string }) => p.name === POWER_NAMES.SUNBORN_SOVEREIGN) || !!tagBasedProps.hasSunbornSovereign);
+        const isResurrected = !suppressPracticeVfx && tagBasedProps.isResurrected;
+        const isImprecatedPoemHealingNullified = !suppressPracticeVfx && !isEliminated && tagBasedProps.isImprecatedPoemHealingNullified;
+        const isImprecatedPoemCursed = !suppressPracticeVfx && !isEliminated && tagBasedProps.isImprecatedPoemCursed;
         const imprecatedPoemVerseTags = isEliminated ? [] : (() => {
           const tags: string[] = [];
           const seen = new Set<string>();
@@ -346,6 +348,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // Active effect pips (deduplicate same power from same source; group by tag). Show ETERNAL_AGONY even when turnsRemaining is 0 (display-only, removed after 3s).
         // Hide effect pips on eliminated characters except for resurrection-related effects.
         const effectPips: EffectPip[] = (() => {
+          if (suppressPracticeVfx) return [];
           if (isEliminated && !hasResurrectedSelf && !tagBasedProps.isResurrecting && !tagBasedProps.hasDeathKeeper) {
             return [];
           }
@@ -411,10 +414,12 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         );
 
         // Resurrecting: mid-resurrection visual (self-resurrect overlay active), or from demo tag-based
-        const isResurrecting = !!(
-          turn?.resurrectTargetId === m.characterId &&
-          turn?.phase === PHASE.SELECT_ACTION
-        ) || !!tagBasedProps.isResurrecting;
+        const isResurrecting = !suppressPracticeVfx && (
+          !!(
+            turn?.resurrectTargetId === m.characterId &&
+            turn?.phase === PHASE.SELECT_ACTION
+          ) || !!tagBasedProps.isResurrecting
+        );
 
         // Floral Fragrance: brief trigger when just applied (real battle + demo)
         // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
@@ -465,9 +470,9 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null && springRound !== 2 && !springHealSkipAwaitsAck;
         // Spring: show only when heal is the latest entry in log or in D4 phase — don't show again when starting next turn (last turn before Spring expires)
         const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
-        const useSpringForThisMember = logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
+        const useSpringForThisMember = !suppressPracticeVfx && logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
         // Floral Fragrance: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
-        const useFloralForThisMember = floralIsRecentEntry && floralHealFromLog > 0 && (springLogIndex < 0 || floralLogIndex > springLogIndex);
+        const useFloralForThisMember = !suppressPracticeVfx && floralIsRecentEntry && floralHealFromLog > 0 && (springLogIndex < 0 || floralLogIndex > springLogIndex);
 
         // Apollo's Hymn: heal VFX on the healed target only (log defenderId); crit buff applies to caster too but no second heal VFX
         const hymnLogIndex = (() => {
@@ -485,7 +490,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         })();
         // Only show hymn VFX when this entry is the most recent log entry (hymn just happened)
         const hymnIsLatestEntry = hymnLogIndex >= 0 && hymnLogIndex === floralSearchLog.length - 1;
-        const logHasHymn = hymnIsLatestEntry;
+        const logHasHymn = !suppressPracticeVfx && hymnIsLatestEntry;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
         // Healing Nullified (Healing Loss): do not show heal VFX when receiver has the effect — actual heal is already 0 server-side.
@@ -510,7 +515,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
         // isFloralHealTarget: only true while still in D4 phase (prevents hiding VFX after phase advances)
         const isFloralHealTarget = Boolean(serverFragranceOnTarget && turn?.phase === PHASE.ROLLING_FLORAL_HEAL);
 
-        const isFragranceWaved = !isEliminated && (
+        const isFragranceWaved = !suppressPracticeVfx && !isEliminated && (
           // Floral Fragrance: log-based (latest entry)
           (!!useFloralForThisMember && !isImprecatedPoemHealingNullified)
           // Floral Fragrance: live phase (D4 roll done AND result card visible so VFX shows with card)
@@ -519,7 +524,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
         );
 
-        const isHymnWaved = !isEliminated && (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
+        const isHymnWaved = !suppressPracticeVfx && !isEliminated && (!!logHasHymn || !!tagBasedProps.isHymnWaved) && !isImprecatedPoemHealingNullified;
 
         // Stat modifiers from active buffs/debuffs
         const statMods: Record<string, number> = {
@@ -543,6 +548,7 @@ export default function TeamPanel({ members, allMembers, side, battle, myId, tea
           <MemberChip
             key={m.characterId}
             fighter={m}
+            isPracticeRoom={isPracticeRoom}
             isAttacker={isAttacker}
             isDefender={isDefender}
             isEliminated={isEliminated}

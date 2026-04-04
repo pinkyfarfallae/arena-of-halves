@@ -118,8 +118,9 @@ export function isStunned(effects: ActiveEffect[], fighterId: string): boolean {
 /** Check if a fighter has any unlocked active (non-passive) powers they can afford */
 export function getAffordablePowers(fighter: FighterState): { power: PowerDefinition; index: number }[] {
   const result: { power: PowerDefinition; index: number }[] = [];
-  for (let i = 0; i < fighter.powers.length; i++) {
-    const p = fighter.powers[i];
+  const powers = fighter.powers ?? [];
+  for (let i = 0; i < powers.length; i++) {
+    const p = powers[i];
     if (p.type === POWER_TYPES.PASSIVE) continue;
 
     // Check unlock
@@ -458,13 +459,15 @@ export function tickEffects(
  * Returns the initial activeEffects array.
  */
 export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
+  if (room.practiceMode) return [];
   const effects: ActiveEffect[] = [];
   const allMembers = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
 
   for (const fighter of allMembers) {
     if (fighter.passiveSkillPoint !== SKILL_UNLOCK) continue;
-    if (!fighter.powers || fighter.powers.length === 0) continue;
-    const passive = fighter.powers.find(p => p.type === POWER_TYPES.PASSIVE);
+    const powers = fighter.powers ?? [];
+    if (powers.length === 0) continue;
+    const passive = powers.find(p => p.type === POWER_TYPES.PASSIVE);
     if (!passive) continue;
 
     // Death Keeper: one-time resurrection passive

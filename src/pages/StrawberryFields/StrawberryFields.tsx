@@ -28,7 +28,7 @@ import './StrawberryFields.scss';
 
 function StrawberryFields() {
   const { user } = useAuth();
-  const {width} = useScreenSize();
+  const { width } = useScreenSize();
   const { t, lang } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
@@ -54,7 +54,7 @@ function StrawberryFields() {
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
-      .catch(console.error);
+      .catch(() => { });
 
     return () => {
       mounted = false;
@@ -68,7 +68,7 @@ function StrawberryFields() {
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
-      .catch(console.error);
+      .catch(() => { });
 
     return () => {
       mounted = false;
@@ -89,7 +89,6 @@ function StrawberryFields() {
         if (!mounted) return;
 
         if (result.error) {
-          console.error(result.error);
           return;
         }
 
@@ -99,7 +98,6 @@ function StrawberryFields() {
 
         setSubmissions(sorted);
       } catch (err) {
-        console.error(err);
       } finally {
         if (mounted) setIsLoadingSubmissions(false);
       }
@@ -126,7 +124,6 @@ function StrawberryFields() {
         if (!mounted) return;
 
         if (result.error) {
-          console.error(result.error);
           return;
         }
 
@@ -136,7 +133,6 @@ function StrawberryFields() {
 
         setSubmissionsRecord(sorted);
       } catch (err) {
-        console.error(err);
       } finally {
         if (mounted) setIsLoadingSubmissionsRecord(false);
       }
@@ -163,13 +159,11 @@ function StrawberryFields() {
         if (!mounted) return;
 
         if (result.error) {
-          console.error(result.error);
           return;
         }
 
         setTopHarvestors(result.topHarvesters);
       } catch (err) {
-        console.error(err);
       } finally {
         if (mounted) setIsLoadingTopHarvestors(false);
       }
@@ -358,14 +352,14 @@ function StrawberryFields() {
                   ref={inputRef}
                   className="strawberry-fields__form-input"
                   placeholder="Paste thread URL (first tweet)"
-                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? {paddingRight: "40px"} : {}}
+                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
                 {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
-                  <div 
+                  <div
                     className="strawberry-fields__form-error-icon"
-                    data-tooltip={t(T.INVALID_TWITTER_URL)} 
+                    data-tooltip={t(T.INVALID_TWITTER_URL)}
                     data-tooltip-pos={width < 480 ? "left" : "top"}
                   >
                     <InfoCircle />

@@ -1,6 +1,7 @@
 import { ROLE } from '../../../../../../constants/role';
 import type { MergedUser } from '../../User';
 import Close from '../../../../../../icons/Close';
+import { PRACTICE_STATS } from '../../../../../../constants/practice';
 import './UserOverview.scss';
 
 interface Props {
@@ -9,13 +10,13 @@ interface Props {
   onClose: () => void;
 }
 
-const PRACTICE_STATS = [
-  { key: 'strength', label: 'STR' },
-  { key: 'mobility', label: 'MOB' },
-  { key: 'intelligence', label: 'INT' },
-  { key: 'technique', label: 'TEC' },
-  { key: 'experience', label: 'EXP' },
-  { key: 'fortune', label: 'FOR' },
+const PRACTICE_STATS_LIST = [
+  { key: PRACTICE_STATS.STRENGTH, label: 'STR' },
+  { key: PRACTICE_STATS.MOBILITY, label: 'MOB' },
+  { key: PRACTICE_STATS.INTELLIGENCE, label: 'INT' },
+  { key: PRACTICE_STATS.TECHNIQUE, label: 'TEC' },
+  { key: PRACTICE_STATS.EXPERIENCE, label: 'EXP' },
+  { key: PRACTICE_STATS.FORTUNE, label: 'FOR' },
 ] as const;
 
 function InfoRow({ label, value }: { label: string; value: string | number | undefined }) {
@@ -105,8 +106,8 @@ export default function UserOverview({ user, onClose }: Props) {
           <div className="uo__section">
             <h4 className="uo__section-title">Practice</h4>
             <div className="uo__bars">
-              {PRACTICE_STATS.map(s => {
-                const val = user[s.key] as number | undefined;
+              {PRACTICE_STATS_LIST.map(s => {
+                const val = user[s.key as keyof MergedUser] as number | undefined;
                 return (
                   <div key={s.key} className="uo__bar-row">
                     <span className="uo__bar-label">{s.label}</span>

@@ -365,6 +365,7 @@ export interface BattleRoom {
 
   battle?: BattleState;
   testMode?: boolean;
+  practiceMode?: boolean;
   /** Dev arena (config modal): auto-run NPC / other-side turns; default true */
   devNpcAutoPlay?: boolean;
   /** Dev arena: host acts every fighter (disables NPC auto script; UI treats current attacker as you) */

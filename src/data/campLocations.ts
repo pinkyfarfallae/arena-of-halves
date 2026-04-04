@@ -75,6 +75,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionLabels: ['Enter Battle'],
     actionIcons: ['battle'],
     actionPaths: ['/arena'],
+    adminOnly: true,
   },
   {
     id: CAMP_LOCATION.FORGE,
@@ -188,4 +189,17 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionIcons: ['shop'],
     actionPaths: ['/shop'],
   },
+  {
+    id: CAMP_LOCATION.TRAINING_GROUNDS,
+    name: 'Training Grounds',
+    description: "A place where demigods hone their skills, pushing their limits and preparing for the challenges ahead.",
+    icon: 'training',
+    color: 'rgb(3, 67, 0)',
+    x: 55, y: 60,
+    size: 'md',
+    tags: ['training', 'preparation'],
+    actionLabels: ['Start Training'],
+    actionIcons: ['training'],
+    actionPaths: ['/training-grounds'],
+  }
 ];

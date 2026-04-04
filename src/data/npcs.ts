@@ -2,12 +2,10 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import { DEITY_THEMES, DEFAULT_THEME } from './characters';
 import { getPowers } from './powers';
 import { POWER_OVERRIDES } from '../pages/CharacterInfo/constants/overrides';
-import { csvUrl } from '../constants/sheets';
+import { csvUrl, GID } from '../constants/sheets';
 import type { Theme25 } from '../types/character';
 import type { FighterState } from '../types/battle';
 import { Deity } from '../types/deity';
-
-const NPC_GID = '1431163652';
 
 /** Convert Google Drive share links to direct thumbnail URLs */
 function toDirectImageUrl(raw?: string): string | undefined {
@@ -81,7 +79,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
 
 /** Fetch all NPCs from the spreadsheet and return as FighterState[] ready for battle. */
 export async function fetchNPCs(): Promise<FighterState[]> {
-  const res = await fetch(csvUrl(NPC_GID));
+  const res = await fetch(csvUrl(GID.NPC));
   const text = await res.text();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];

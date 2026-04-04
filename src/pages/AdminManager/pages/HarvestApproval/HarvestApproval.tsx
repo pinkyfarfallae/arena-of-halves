@@ -4,7 +4,7 @@ import { Character } from '../../../../types/character';
 import Drachma from '../../../../icons/Drachma';
 import { fetchHarvests, approveHarvest, rejectHarvest, } from '../../../../services/harvest/fetchHarvest';
 import { type HarvestSubmission, HarvestScriptCopyStatus, HarvestSubmissionStatus, } from '../../../../types/harvest';
-import { THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
+import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
 import { useAuth } from '../../../../hooks/useAuth';
 import { HARVEST_SCRIPT_COPY_STATUS, HARVEST_SUBMISSION_STATUS, } from '../../../../constants/harvest';
 import { parseScriptOutput, extractTwitterHandle } from '../../../../services/harvest/harvestApproval';
@@ -14,7 +14,7 @@ import SubmissionCard from '../../../StrawberryFields/components/SubmissionCard/
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import InfoCircle from '../../../Shop/icons/InfoCircle';
 import OpenLink from '../../../StrawberryFields/components/SubmissionCard/icons/OpenLink';
-import CopyIcon from '../../../Arena/icons/CopyIcon';
+import CopyIcon from '../../../Arena/icons/Copy';
 import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
@@ -30,7 +30,6 @@ function HarvestApproval() {
   const [loadError, setLoadError] = useState('');
 
   const [reviewText, setReviewText] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
 
   const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
   const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
@@ -44,6 +43,11 @@ function HarvestApproval() {
     useState<HarvestScriptCopyStatus>(
       HARVEST_SCRIPT_COPY_STATUS.IDLE
     );
+
+  const [scriptResultCopyStatus, setScriptResultCopyStatus] =
+    useState<HarvestScriptCopyStatus>(
+      HARVEST_SCRIPT_COPY_STATUS.IDLE
+    )
 
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -140,9 +144,12 @@ function HarvestApproval() {
 
   const navigateToNextPending = () => {
     const pending = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== reviewingSubmission?.id
+      (s) => {
+        const isCurrent = reviewingSubmission ? s.id === reviewingSubmission.id : false;
+        return s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.firstTweetUrl && s.firstTweetUrl.trim() !== '' && !isCurrent;
+      }
     );
-    
+
     if (pending.length > 0) {
       setReviewingSubmission(pending[0]);
       setReviewText('');
@@ -160,12 +167,10 @@ function HarvestApproval() {
     const scriptParsed = parseScriptOutput(reviewText);
 
     if (!scriptParsed) {
-      alert('Please paste script output');
       return;
     }
 
     if (selectedRoleplayers.length === 0) {
-      alert('No characters selected');
       return;
     }
 
@@ -197,7 +202,6 @@ function HarvestApproval() {
     );
 
     if (!result.success) {
-      alert('Failed to approve');
       return;
     }
 
@@ -217,18 +221,21 @@ function HarvestApproval() {
 
     setShowApproveModal(false);
     setApproveData(null);
-    
+
     const pendingCount = submissions.filter(
-      (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
+      (s) => {
+        const isCurrent = reviewingSubmission ? s.id === reviewingSubmission.id : false;
+        return s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.firstTweetUrl && s.firstTweetUrl.trim() !== '' && !isCurrent;
+      }
     ).length;
-    
+
     if (pendingCount > 0) {
       setSuccessMessage(`Approved successfully!\nMoving to next pending submission...`);
     } else {
       setSuccessMessage('Approved successfully!\nNo more pending submissions.');
     }
     setShowSuccessModal(true);
-    
+
     setTimeout(() => {
       setShowSuccessModal(false);
       navigateToNextPending();
@@ -250,7 +257,6 @@ function HarvestApproval() {
     );
 
     if (!result.success) {
-      alert('Failed to reject');
       return;
     }
 
@@ -268,26 +274,25 @@ function HarvestApproval() {
 
     setShowRejectModal(false);
     setTempRejectReason('');
-    setRejectReason('');
-    
+
     const pendingCount = submissions.filter(
       (s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING && s.id !== submissionId
     ).length;
-    
+
     if (pendingCount > 0) {
       setSuccessMessage('Rejected successfully!\nMoving to next pending submission...');
     } else {
       setSuccessMessage('Rejected successfully!\nNo more pending submissions.');
     }
     setShowSuccessModal(true);
-    
+
     setTimeout(() => {
       setShowSuccessModal(false);
       navigateToNextPending();
     }, 2000);
   };
 
-  const handleCopyScript = async () => {
+  const handleCopyExtractorScript = async () => {
     try {
       await navigator.clipboard.writeText(
         THREAD_EXTRACTOR_SCRIPT
@@ -299,6 +304,20 @@ function HarvestApproval() {
 
     setTimeout(
       () => setScriptCopyStatus(HARVEST_SCRIPT_COPY_STATUS.IDLE),
+      2000
+    );
+  };
+
+  const handleCopyResultScript = async () => {
+    try {
+      await navigator.clipboard.writeText(COPY_RESULT_SCRIPT);
+      setScriptResultCopyStatus(HARVEST_SCRIPT_COPY_STATUS.SUCCESS);
+    } catch {
+      setScriptResultCopyStatus(HARVEST_SCRIPT_COPY_STATUS.ERROR);
+    }
+
+    setTimeout(
+      () => setScriptResultCopyStatus(HARVEST_SCRIPT_COPY_STATUS.IDLE),
       2000
     );
   };
@@ -357,25 +376,25 @@ function HarvestApproval() {
                     </div>
                   </div>
 
-              {/* Quick Reject Option */}
-              {reviewingSubmission && (
-                <div className="harvest-approval__quick-reject">
-                  <div className="harvest-approval__quick-reject-content">
-                    <span className="harvest-approval__quick-reject-label">
-                      Need to reject this submission?
-                    </span>
-                    <button
-                      className="harvest-approval__quick-reject-btn"
-                      onClick={handleRejectClick}
-                    >
-                      Reject Submission
-                    </button>
-                  </div>
-                </div>
-              )}
+                  {/* Quick Reject Option */}
+                  {reviewingSubmission && (
+                    <div className="harvest-approval__quick-reject">
+                      <div className="harvest-approval__quick-reject-content">
+                        <span className="harvest-approval__quick-reject-label">
+                          Need to reject this submission?
+                        </span>
+                        <button
+                          className="harvest-approval__quick-reject-btn"
+                          onClick={handleRejectClick}
+                        >
+                          Reject Submission
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              {/* 2. Open console */}
-              <div className="harvest-approval__review-section">
+                  {/* 2. Open console */}
+                  <div className="harvest-approval__review-section">
                     <div className="harvest-approval__review-section-header">
                       <span className='harvest-approval__review-section-number'>2</span>
                       <span className='harvest-approval__review-section-title'>Open console</span>
@@ -415,33 +434,56 @@ function HarvestApproval() {
                     </div>
                   </div>
 
-                  {/* 3. Paste script output */}
+                  {/* 3. Copy Thread Extractor Script */}
                   <div className="harvest-approval__review-section">
                     <div className="harvest-approval__review-section-header">
                       <span className='harvest-approval__review-section-number'>3</span>
-                      <span className='harvest-approval__review-section-title'>Get Roleplay Content</span>
-                      {width > 420 ? (
-                        <button
-                          className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
-                          onClick={handleCopyScript}
-                        >
-                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE && 'Copy Script'}
-                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS && 'Copied!'}
-                          {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.ERROR && 'Error'}
-                        </button>
-                      ) : (
-                        <button
-                          className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
-                          onClick={handleCopyScript}
-                          data-tooltip={scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE ? "Copy Script" : scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS ? "Copied!" : "Error"}
-                        >
-                          <CopyIcon />
-                        </button>
-                      )}
+                      <span className='harvest-approval__review-section-title'>Thread Extractor</span>
+                      <button
+                        className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptCopyStatus.toLowerCase()}`}
+                        onClick={handleCopyExtractorScript}
+                      >
+                        <CopyIcon />
+                        {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE && 'Copy Script'}
+                        {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS && 'Copied!'}
+                        {scriptCopyStatus === HARVEST_SCRIPT_COPY_STATUS.ERROR && 'Error'}
+                      </button>
                     </div>
                     <div className="harvest-approval__review-section-content">
                       Click <strong>Copy Script</strong> and paste it into the browser console, then press <b>Enter</b>.
-                      Wait for the script to complete. Once completed, copy the generated output and paste it into the textarea below.
+                      Wait for the script to scan through the entire thread and extract all tweets.
+                    </div>
+                  </div>
+
+                  {/* 4. Copy Result Script */}
+                  <div className="harvest-approval__review-section">
+                    <div className="harvest-approval__review-section-header">
+                      <span className='harvest-approval__review-section-number'>4</span>
+                      <span className='harvest-approval__review-section-title'>Result Copy</span>
+                      <button
+                        className={`harvest-approval__copy-btn harvest-approval__copy-btn--${scriptResultCopyStatus.toLowerCase()}`}
+                        onClick={handleCopyResultScript}
+                      >
+                        <CopyIcon />
+                        {scriptResultCopyStatus === HARVEST_SCRIPT_COPY_STATUS.IDLE && 'Copy Script'}
+                        {scriptResultCopyStatus === HARVEST_SCRIPT_COPY_STATUS.SUCCESS && 'Copied!'}
+                        {scriptResultCopyStatus === HARVEST_SCRIPT_COPY_STATUS.ERROR && 'Error'}
+                      </button>
+                    </div>
+                    <div className="harvest-approval__review-section-content">
+                      After the thread extractor finishes, click <strong>Copy Script</strong> and paste it into the console, then press <b>Enter</b>.
+                      This will copy the extracted thread content to your clipboard.
+                    </div>
+                  </div>
+
+                  {/* 5. Paste script output */}
+                  <div className="harvest-approval__review-section">
+                    <div className="harvest-approval__review-section-header">
+                      <span className='harvest-approval__review-section-number'>5</span>
+                      <span className='harvest-approval__review-section-title'>Paste Script Output</span>
+                    </div>
+                    <div className="harvest-approval__review-section-content">
+                      Paste the extracted thread content into the textarea below.
                       This data will be used to calculate character count, detect participants, and determine reward distribution.
                     </div>
                     <textarea
@@ -453,7 +495,7 @@ function HarvestApproval() {
                     />
                   </div>
 
-                  {/* 4. Review Harvest Result */}
+                  {/* 6. Review Harvest Result */}
                   {reviewText.trim() && (() => {
                     const scriptParsed = parseScriptOutput(reviewText);
 
@@ -461,7 +503,7 @@ function HarvestApproval() {
                       return (
                         <div className="harvest-approval__review-section">
                           <div className="harvest-approval__review-section-header">
-                            <span className='harvest-approval__review-section-number'>4</span>
+                            <span className='harvest-approval__review-section-number'>6</span>
                             <span className='harvest-approval__review-section-title'>Review Harvest Result</span>
                           </div>
                           <div className="harvest-approval__review-section-content">
@@ -481,7 +523,7 @@ function HarvestApproval() {
                     return (
                       <div className="harvest-approval__review-section harvest-approval__review-section--result">
                         <div className="harvest-approval__review-section-header">
-                          <span className='harvest-approval__review-section-number'>4</span>
+                          <span className='harvest-approval__review-section-number'>6</span>
                           <span className='harvest-approval__review-section-title'>Review Harvest Result</span>
                         </div>
                         <div className="harvest-approval__review-section-content">
@@ -505,7 +547,7 @@ function HarvestApproval() {
                             {/* Reward Calculation */}
                             <div className="harvest-approval__reward-calc">
                               <div className="harvest-approval__reward-row">
-                                <span className="harvest-approval__reward-label">Base Reward:</span>
+                                <span className="harvest-approval__reward-label">Base Reward</span>
                                 <span className="harvest-approval__reward-value">
                                   <Drachma /> {baseReward}
                                 </span>
@@ -523,7 +565,7 @@ function HarvestApproval() {
                                 </span>
                               </div>
                               <div className="harvest-approval__reward-row harvest-approval__reward-row--total">
-                                <span className="harvest-approval__reward-label">Final Reward:</span>
+                                <span className="harvest-approval__reward-label">Final Reward</span>
                                 <span className="harvest-approval__reward-value">
                                   <Drachma /> {finalReward}
                                 </span>
@@ -631,7 +673,7 @@ function HarvestApproval() {
             </button>
           </div>
 
-          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && (
+          {sidebarView === HARVEST_SUBMISSION_STATUS.PENDING && submissions.filter((s) => s.status === HARVEST_SUBMISSION_STATUS.PENDING).length > 0 && (
             <div className="harvest-approval__sidebar__note">
               <InfoCircle />
               Click on a submission to review.
@@ -643,6 +685,8 @@ function HarvestApproval() {
               <div className="harvest-approval__sidebar__content--loading">Loading...</div>
             ) : loadError ? (
               <div className="harvest-approval__sidebar__content--error">Something went wrong</div>
+            ) : submissions.filter((s) => s.status === sidebarView).length === 0 ? (
+              <div className="harvest-approval__sidebar__content--empty">No submissions found</div>
             ) : (
               submissions
                 .filter((s) => s.status === sidebarView)
@@ -650,6 +694,7 @@ function HarvestApproval() {
                   <SubmissionCard
                     key={submission.id}
                     submission={submission}
+                    focused={reviewingSubmission?.id === submission.id}
                     onClick={sidebarView === HARVEST_SUBMISSION_STATUS.PENDING ? () => {
                       setReviewingSubmission(submission);
                       setReviewText('');

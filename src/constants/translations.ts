@@ -158,7 +158,7 @@ export const UI_TEXT = {
     en: 'After submitting your harvest report, please wait for Pan review before receiving the reward.',
     th: 'เมื่อส่งเอกสารประเมินราคาแล้ว กรุณารอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทนดังกล่าว'
   },
-  SUBMIT: { 
+  SUBMIT: {
     en: 'Submit Harvest',
     th: 'นำส่งผลการเก็บเกี่ยว'
   },
@@ -778,9 +778,71 @@ export const UI_TEXT = {
     en: 'No',
     th: 'ไม่'
   },
+  // Training Grounds
+  STRENGTH: {
+    en: 'Strength',
+    th: 'พละกำลัง'
+  },
+  AGILITY: {
+    en: 'Agility',
+    th: 'ความคล่องแคล่ว'
+  },
+  INTELLIGENCE: {
+    en: 'Intelligence',
+    th: 'สติปัญญา'
+  },
+  // TeCHNIQUE: {
+  //     en: 'Technique',
+  //     th: 'เทคนิค'
+  //   },
+  EXPERIENCE: {
+    en: 'Experience',
+    th: 'ประสบการณ์'
+  },
+  FORTUNE: {
+    en: 'Fortune',
+    th: 'โชคชะตา'
+  },
+  STRENGTH_DESC: {
+    en: 'Power, physical prowess and endurance',
+    th: 'พละกำลัง ความแข็งแรงและความถึกทน'
+  },
+  AGILITY_DESC: {
+    en: 'Mobility, nimbleness and reflexes',
+    th: 'การเคลื่อนไหวและความคล่องแคล่วว่องไว'
+  },
+  INTELLIGENCE_DESC: {
+    en: 'Intelligence, wisdom and wit',
+    th: 'สติปัญญา ความฉลาดและไหวพริบปฏิภาณ'
+  },
+  EXPERIENCE_DESC: {
+    en: 'Experience, combat proficiency and mastery of powers',
+    th: 'ประสบการณ์ ความชำนาญในการต่อสู้และความเชี่ยวชาญในพลัง'
+  },
+  FORTUNE_DESC: {
+    en: 'Fortune, luck and serendipity',
+    th: 'โชคลาภ ดวงและการเสี่ยงทาย'
+  },
+  // Training Roleplay Submission
+  ROLEPLAY_SUBMISSION_DESC: {
+    en: "Complete the training task by posting a roleplay thread on Twitter (X), then submit the thread URL here to earn a Training Point (TP).Each valid submission will be reviewed by an administrator, who will award points accordingly. If no submission is made, or if the submission is rejected, you must resubmit. Failure to do so will prevent you from proceeding to the next training session.",
+    th: 'ทำภารกิจการฝึกให้เสร็จโดยการโพสต์เธรดโรลเพลย์บน Twitter (X) จากนั้นส่งลิงก์เธรดที่นี่เพื่อรับ Training Point (TP) การส่งแต่ละครั้งจะถูกตรวจสอบโดยผู้ดูแลระบบ และจะมีการให้คะแนนตามความเหมาะสม หากคุณไม่ส่งผลงาน หรือผลงานถูกปฏิเสธ คุณจะต้องส่งใหม่ มิฉะนั้นจะไม่สามารถทำการฝึกในครั้งถัดไปได้'
+  },
+  SUBMIT_TRAINING_TASK: {
+    en: 'Submit Training Task',
+    th: 'ส่งผลงานการฝึกฝน'
+  },
+  SUBMITTING_TRAINING_TASK: { 
+    en: 'Submitting Training Task...',
+    th: 'กำลังส่งผลงานการฝึกฝน...'
+  },
+  TRAINING_REPORT_FOR: {
+    en: 'Training Report for',
+    th: 'รายงานการฝึกฝนประจำวันที่'
+  },
 } as const;
 
-/**
+/**))
  * Translation keys as constants to avoid hardcoded strings.
  * Usage: t(TRANSLATION_KEYS.SHOP_TITLE, language)
  */

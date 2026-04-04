@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isValidDate(date) {
+      return date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // Daily Training Configs
+    match /dailyConfigs/{date} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+      
+      // Anyone authenticated can create/update (admin check done in app)
+      // Allow both old format (target) and new format (targets array + confirmed)
+      allow create, update: if isAuthenticated() && 
+                                isValidDate(date) &&
+                                request.resource.data.date == date &&
+                                (
+                                  // New format: targets array
+                                  (request.resource.data.keys().hasAll(['targets', 'confirmed']) &&
+                                   request.resource.data.targets is list &&
+                                   request.resource.data.confirmed is bool) ||
+                                  // Old format: single target
+                                  (request.resource.data.target is int &&
+                                   request.resource.data.target >= 1 &&
+                                   request.resource.data.target <= 12)
+                                );
+      // Allow delete for development/testing
+      allow delete: if isAuthenticated();
+    }
+
+    // User Daily Progress (Lightweight quota tracking with partial progress)
+    match /userDailyProgress/{docId} {
+      // Document ID format: {userId}_{date}
+      // Firestore: quota tracking + partial progress (to prevent refresh exploits)
+      // Google Sheets: complete training task data
+      
+      allow read: if isAuthenticated();
+      
+      // Helper to validate practice mode
+      function isValidPracticeMode(mode) {
+        return mode is string && (mode == 'admin' || mode == 'pvp');
+      }
+
+      // Helper to validate practice state
+      function isValidPracticeState(state) {
+        return state is string && (state == 'waiting' || state == 'live' || state == 'finished');
+      }
+      
+      // Helper to validate roll value (1-12 or 0 for placeholder)
+      function isValidRoll(roll) {
+        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
+      }
+      
+      // Helper to validate rolls array (optional, for normal training mode)
+      function isValidRolls() {
+        return !request.resource.data.keys().hasAny(['rolls']) ||
+               (request.resource.data.rolls is list &&
+                request.resource.data.rolls.size() >= 1 &&
+                request.resource.data.rolls.size() <= 5 &&
+                isValidRoll(request.resource.data.rolls[0]));
+      }
+      
+      // Helper to validate target (optional, for normal training mode)
+      function isValidTarget() {
+        return !request.resource.data.keys().hasAny(['target']) ||
+               (request.resource.data.target is int &&
+                request.resource.data.target >= 1 &&
+                request.resource.data.target <= 12);
+      }
+      
+      // Allow create/update for UserDailyProgress
+      // Required: userId, date, mode, state
+      // Optional: arenaId (PVP), rolls (normal mode), target (normal mode)
+      allow create, update: if isAuthenticated() &&
+                              docId == request.resource.data.userId + '_' + request.resource.data.date &&
+                              isValidDate(request.resource.data.date) &&
+                              isValidPracticeMode(request.resource.data.mode) &&
+                              isValidPracticeState(request.resource.data.state) &&
+                              isValidRolls() &&
+                              isValidTarget();
+      
+      allow delete: if isAuthenticated();
+    }
+  }
+}

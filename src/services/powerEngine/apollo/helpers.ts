@@ -27,6 +27,7 @@ export function addSunbornSovereignRecoveryStack(
   effects: ActiveEffect[],
   fighterId: string,
 ): void {
+  if ((room as { practiceMode?: boolean }).practiceMode) return;
   const fighter = findFighter(room, fighterId);
   if (!fighter || !fighter.powers?.some(p => p.name === POWER_NAMES.SUNBORN_SOVEREIGN)) return;
   const existing = effects.find(

@@ -448,6 +448,7 @@ export async function createRoom(
   customName?: string,
   teamAMax: number = 1,
   teamBMax?: number,
+  extraFields?: Partial<BattleRoom>,
 ): Promise<string> {
   let arenaId = generateArenaId();
 
@@ -480,6 +481,7 @@ export async function createRoom(
     teamB: { members: [], maxSize: maxB, minions: [] },
     viewers: {},
     createdAt: Date.now(),
+    ...extraFields,
   };
 
   await set(roomRef(arenaId), room);
@@ -504,8 +506,12 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
   const allIds = getAllFighterIds(room);
   const idKey = (id: string) => id.toLowerCase();
   const incomingIds = fighters.map(f => f.characterId);
-  if (incomingIds.some((id, i) => incomingIds.indexOf(id) !== i)) return null;
-  if (fighters.some((f) => allIds.some((existing) => idKey(existing) === idKey(f.characterId)))) return null;
+  if (incomingIds.some((id, i) => incomingIds.indexOf(id) !== i)) {
+    return null;
+  }
+  if (fighters.some((f) => allIds.some((existing) => idKey(existing) === idKey(f.characterId)))) {
+    return null;
+  }
 
   const reservations = inviteReservationsFromFirebase(room.inviteReservations);
   const single = fighters.length === 1 ? fighters[0] : null;
@@ -517,7 +523,9 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
     const toA = matchReservation.team === ARENA_ROLE.TEAM_A;
     const members = toA ? teamAMembers : teamBMembers;
     const max = toA ? maxA : maxB;
-    if (members.length + 1 > max) return null;
+    if (members.length + 1 > max) {
+      return null;
+    }
     const newTeamA = toA ? [...teamAMembers, single] : teamAMembers;
     const newTeamB = toA ? teamBMembers : [...teamBMembers, single];
     const bothFull = newTeamA.length >= maxA && newTeamB.length >= maxB;
@@ -591,7 +599,7 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
-        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING)
+        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING && !r.practiceMode)
         .sort((a, b) => b.createdAt - a.createdAt));
     setTimeout(() => callback(rooms), 0);
   });
