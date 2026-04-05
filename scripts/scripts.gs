@@ -7,9 +7,15 @@
  * 3. Deploy → Manage deployments → edit → new version
  *    - Execute as: Me
  *    - Who has access: Anyone
+ * 
+ * Required OAuth Scopes (for Firestore access):
+ * - https://www.googleapis.com/auth/spreadsheets
+ * - https://www.googleapis.com/auth/script.external_request
+ * - https://www.googleapis.com/auth/datastore
  */
 
 var SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
+var FIRESTORE_PROJECT_ID = 'arena-of-halves';
 var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
@@ -548,6 +554,7 @@ function handleApproveHarvest(params) {
   var mentionCount = parseInt(params.mentionCount || '0', 10);
   var drachmaReward = parseInt(params.drachmaReward || '0', 10);
   var roleplayers = params.roleplayers || []; // Array of characterIds
+  var demeterBonusIds = params.demeterBonusIds || []; // Array of characterIds with Demeter blessing
 
   if (!submissionId || !reviewedBy || !charCount || !drachmaReward) {
     return jsonResponse({ error: 'Missing required fields' });
@@ -577,9 +584,11 @@ function handleApproveHarvest(params) {
   var drachmaRewardCol = harvestHeaders.indexOf('drachmareward');
   var roleplayersCol = harvestHeaders.indexOf('roleplayers');
   var idCol = harvestHeaders.indexOf('id');
+  var submittedAtCol = harvestHeaders.indexOf('submittedat');
 
   var rowIndex = -1;
   var submitterCharId = '';
+  var submittedAtDate = '';
 
   // Find submission by ID
   for (var i = 1; i < harvestData.length; i++) {
@@ -587,6 +596,9 @@ function handleApproveHarvest(params) {
     if (recordId === submissionId) {
       rowIndex = i;
       submitterCharId = harvestData[i][charIdCol].toString().trim();
+      if (submittedAtCol !== -1) {
+        submittedAtDate = harvestData[i][submittedAtCol].toString().trim();
+      }
       break;
     }
   }
@@ -617,13 +629,28 @@ function handleApproveHarvest(params) {
   
   for (var r = 0; r < roleplayers.length; r++) {
     var roleplayerId = roleplayers[r].toString().trim();
+    var rewardAmount = drachmaReward;
+    
+    // Check if this roleplayer has Demeter bonus (2x reward)
+    var hasDemeterBonus = false;
+    for (var d = 0; d < demeterBonusIds.length; d++) {
+      if (demeterBonusIds[d].toString().trim().toLowerCase() === roleplayerId.toLowerCase()) {
+        hasDemeterBonus = true;
+        break;
+      }
+    }
+    
+    if (hasDemeterBonus) {
+      rewardAmount = drachmaReward * 2;
+    }
     
     // Use the centralized updateCharacterDrachma function
-    var result = updateCharacterDrachma(roleplayerId, drachmaReward);
+    var result = updateCharacterDrachma(roleplayerId, rewardAmount);
     var resultData = JSON.parse(result.getContent());
     
     if (resultData.success) {
-      awarded.push(roleplayerId + ': ' + resultData.previous + ' → ' + resultData.current);
+      var bonusLabel = hasDemeterBonus ? ' (Demeter x2)' : '';
+      awarded.push(roleplayerId + bonusLabel + ': ' + resultData.previous + ' → ' + resultData.current);
     } else {
       failed.push(roleplayerId + ': ' + (resultData.error || 'Unknown error'));
     }

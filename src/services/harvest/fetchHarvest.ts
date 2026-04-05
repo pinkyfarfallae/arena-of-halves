@@ -9,7 +9,7 @@ import { generateUUID } from "../../utils/uuid";
  */
 export async function submitHarvest(
   characterId: string,
-  firstTweetUrl: string
+  firstTweetUrl: string,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const submissionId = generateUUID();
@@ -40,7 +40,8 @@ export async function approveHarvest(
   charCount: number,
   mentionCount: number,
   drachmaReward: number,
-  roleplayers: string[]
+  roleplayers: string[],
+  demeterBonusIds: string[] = []
 ): Promise<{ success: boolean; awarded?: string[]; error?: string }> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
@@ -53,6 +54,7 @@ export async function approveHarvest(
         mentionCount,
         drachmaReward,
         roleplayers,
+        demeterBonusIds,
       }),
     });
 

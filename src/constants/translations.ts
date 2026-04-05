@@ -158,6 +158,10 @@ export const UI_TEXT = {
     en: 'After submitting your harvest report, please wait for Pan review before receiving the reward.',
     th: 'เมื่อส่งเอกสารประเมินราคาแล้ว กรุณารอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทนดังกล่าว'
   },
+  HARVEST_SUBMISSION_NOTE_WITH_DEMETER_BONUS: {
+    en: "You got Demeter's blessing today! Your harvest will receive double the reward, but don't forget to wait for Pan's review before receiving it.",
+    th: 'คุณได้รับพรจากเทพีดีมิเทอร์วันนี้! การเก็บเกี่ยวของคุณจะได้รับรางวัลเป็นสองเท่า แต่โปรดอย่าลืมรอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทน'
+  },
   SUBMIT: {
     en: 'Submit Harvest',
     th: 'นำส่งผลการเก็บเกี่ยว'

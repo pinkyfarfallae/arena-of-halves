@@ -36,8 +36,9 @@ import { isSkillUnlocked } from '../../constants/character';
 import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
-import './CharacterInfo.scss';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
+import { fetchTodayIrisWish } from '../../data/wishes';
+import './CharacterInfo.scss';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -69,6 +70,7 @@ function CharacterInfo() {
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [powers, setPowers] = useState<Power[]>([]);
   const [wishes, setWishes] = useState<WishEntry[]>([]);
+  const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
   const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
@@ -115,6 +117,10 @@ function CharacterInfo() {
   useEffect(() => {
     if (!char?.characterId) return;
     fetchWishes(char.characterId).then(setWishes).catch(() => setWishes([]));
+    fetchTodayIrisWish(char.characterId).then((wish) => {
+      const matchedWish = wish ? { deity: wish.deity, count: 1 } : null; // Treat user's wish as count 1 for display
+      setUserTodayWish(matchedWish);
+    }).catch(() => setUserTodayWish(null));
   }, [char?.characterId]);
 
   useEffect(() => {
@@ -344,7 +350,7 @@ function CharacterInfo() {
                 {wishes.map(({ deity, count }) => {
                   const iconKey = toDeityKey(deity);
                   return (
-                    <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
+                    <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''} ${todayWish?.deity === deity ? 'cs__wish--today' : ''}`}>
                       <span className="cs__wish-icon">
                         {iconKey
                           ? DEITY_SVG[iconKey]
