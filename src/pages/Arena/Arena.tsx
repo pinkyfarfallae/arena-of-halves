@@ -62,7 +62,8 @@ import {
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
 } from '../../services/battleRoom/battleRoom';
-import { savePracticeProgress, getTodayDate, USER_DAILY_PROGRESS_COLLECTION } from '../../services/training/dailyTrainingDice';
+import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
+import { savePracticeProgress, getTodayDate } from '../../services/training/dailyTrainingDice';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
@@ -443,7 +444,7 @@ function Arena(props?: ArenaDemoProps) {
 
         // Delete practice progress from Firestore
         const progressDocId = `${user.characterId}_${todayDate}`;
-        const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, progressDocId);
+        const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
         await deleteDoc(progressRef);
       } catch (err) {
         // Continue with room deletion even if cleanup fails

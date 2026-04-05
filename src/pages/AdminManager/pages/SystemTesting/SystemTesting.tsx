@@ -68,7 +68,7 @@ export function SystemTestIris() {
   return (
     <div className="st__full">
       <div className="st__system">
-        <IrisMessage retossable embedded />
+        <IrisMessage retossable embedded isAdmin />
       </div>
       <button className="st__back" onClick={() => navigate('/admin/testing')}>
         <Close height={18} width={18} />

@@ -12,9 +12,7 @@ import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../../constants/practice';
-
-const DAILY_CONFIGS_COLLECTION = 'dailyConfigs';
-export const USER_DAILY_PROGRESS_COLLECTION = 'userDailyProgress';
+import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -88,7 +86,7 @@ export const setDailyTarget = async (target: number): Promise<void> => {
   }
 
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
 
   await setDoc(configRef, {
     date,
@@ -102,7 +100,7 @@ export const setDailyTarget = async (target: number): Promise<void> => {
 // Admin: Save draft targets (auto-save as admin rolls)
 export const saveDraftTargets = async (targets: (number | null)[]): Promise<void> => {
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
 
   // Filter out null values for storage
   const validTargets = targets.filter(t => t !== null) as number[];
@@ -128,7 +126,7 @@ export const confirmTargets = async (targets: number[]): Promise<void> => {
   });
 
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
 
   await setDoc(configRef, {
     date,
@@ -141,7 +139,7 @@ export const confirmTargets = async (targets: number[]): Promise<void> => {
 // Admin: Get draft targets (including unconfirmed)
 export const getDraftTargets = async (): Promise<{ targets: number[], confirmed: boolean } | null> => {
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
   const configSnap = await getDoc(configRef);
 
   if (!configSnap.exists()) {
@@ -158,7 +156,7 @@ export const getDraftTargets = async (): Promise<{ targets: number[], confirmed:
 // Get today's target (only returns if confirmed)
 export const getTodayTarget = async (): Promise<number | null> => {
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
   const configSnap = await getDoc(configRef);
 
   if (!configSnap.exists()) {
@@ -179,7 +177,7 @@ export const getTodayTarget = async (): Promise<number | null> => {
 // Get all 5 today's targets (only returns if confirmed)
 export const getTodayTargets = async (): Promise<number[] | null> => {
   const date = getTodayDate();
-  const configRef = doc(firestore, DAILY_CONFIGS_COLLECTION, date);
+  const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
   const configSnap = await getDoc(configRef);
 
   if (!configSnap.exists()) {
@@ -219,7 +217,7 @@ export const checkSuccessWithTargets = (rolls: number[], targets: number[]): boo
 export const hasTrainedToday = async (userId: string): Promise<boolean> => {
   const date = getTodayDate();
   const docId = `${userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
   const progressSnap = await getDoc(progressRef);
 
   return progressSnap.exists();
@@ -229,7 +227,7 @@ export const hasTrainedToday = async (userId: string): Promise<boolean> => {
 export const getTodayProgress = async (userId: string): Promise<UserDailyProgress | null> => {
   const date = getTodayDate();
   const docId = `${userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
   const progressSnap = await getDoc(progressRef);
 
   if (!progressSnap.exists()) {
@@ -290,7 +288,7 @@ export const submitTrainingResult = async (params: {
 
   // Update Firestore progress to 'finished' state
   const docId = `${params.userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
 
   await setDoc(progressRef, {
     userId: params.userId,
@@ -320,7 +318,7 @@ export const savePartialProgress = async (
 
   const date = getTodayDate();
   const docId = `${userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
 
   // Check if already completed training today
   const existing = await getTodayProgress(userId);
@@ -394,7 +392,7 @@ export const saveTrainingResult = async (
 export const savePracticeProgress = async (progress: PracticeProgressInput): Promise<void> => {
   const date = getTodayDate();
   const docId = `${progress.userId}_${date}`;
-  const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, docId);
+  const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
   const existingSnap = await getDoc(progressRef);
   const existing = existingSnap.exists() ? (existingSnap.data() as UserDailyProgress) : null;
 
