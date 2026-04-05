@@ -17,11 +17,12 @@ import { InviteReservation } from '../../types/battle';
 import TrainingPracticeModal from './components/TrainingPracticeModal/TrainingPracticeModal';
 import { hexToRgb } from '../../utils/color';
 import { getTodayDate } from '../../services/training/dailyTrainingDice';
-import { fetchUserTrainingTasks, getTodayProgress, TrainingTask, USER_DAILY_PROGRESS_COLLECTION, canUserTrain, savePracticeProgress } from '../../services/training/dailyTrainingDice';
+import { fetchUserTrainingTasks, getTodayProgress, TrainingTask, canUserTrain, savePracticeProgress } from '../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../constants/trainingPointRequestStatus';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../constants/practice';
 import { ARENA_ACTIONS, ArenaAction } from '../../constants/arenaAction';
+import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import './TrainingGrounds.scss';
 
 function getPreviousDate(dateStr: string): string {
@@ -366,7 +367,7 @@ export default function TrainingGrounds() {
 
       // Delete practice progress from Firestore
       const progressDocId = `${quotaOwnerId}_${quotaDate}`;
-      const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, progressDocId);
+      const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
       try {
         await deleteDoc(progressRef);
       } catch (err) {

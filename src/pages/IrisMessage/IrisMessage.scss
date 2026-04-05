@@ -872,7 +872,7 @@ $orbit-radius-sm: 128px;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.5s;
   box-shadow: 0 1px 4px rgba($iris-violet, 0.08);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 
@@ -883,6 +883,27 @@ $orbit-radius-sm: 128px;
 
   &:active {
     transform: translateY(0);
+  }
+
+  &--loading {
+    pointer-events: none;
+    animation-play-state: paused;
+    background-color: transparent;
+    box-shadow: none;
+    text-shadow: none;
+    color: rgba(0, 0, 0, 0.2);
+    font-family: "Playfair Display", serif;
+    font-size: 0.65rem;
+    font-style: italic;
+    background: transparent;
+
+    .iris__btn-icon {
+      max-width: 0;
+      min-width: 0;
+      margin-right: -0.5rem;
+      background: none;
+      opacity: 0;
+    }
   }
 }
 
@@ -1278,6 +1299,7 @@ $orbit-radius-sm: 128px;
   flex: 1;
   display: flex;
   align-items: center;
+  white-space: pre-line;
   animation: fadeSlideUp 0.5s ease-out 0.75s both;
 
   @media (max-width: $bp-compact) { font-size: 0.7rem; }

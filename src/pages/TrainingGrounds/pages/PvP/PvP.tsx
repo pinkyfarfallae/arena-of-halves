@@ -19,7 +19,7 @@ import Arena from '../../../Arena/Arena';
 import './PvP.scss';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 
-export default function PvP({ markLocalMode }: { markLocalMode?: () => void }) {
+export default function PvP() {
   const { arenaId } = useParams<{ arenaId: string }>();
   const { user } = useAuth();
   const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);

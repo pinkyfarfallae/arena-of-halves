@@ -26,7 +26,6 @@ export default function DailyTrainingConfig() {
   const [confirmed, setConfirmed] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadCurrentTarget();
@@ -64,14 +63,7 @@ export default function DailyTrainingConfig() {
         }
       }
     } catch (err: any) {
-      if (err.code === 'unavailable' || err.message?.includes('offline')) {
-        setMessage({
-          type: 'error',
-          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md for instructions.'
-        });
-      } else {
-        setMessage({ type: 'error', text: `Failed to load current target: ${err.message}` });
-      }
+      // console.error('Failed to load current targets:', err);
     } finally {
       setLoading(false);
     }
@@ -93,9 +85,7 @@ export default function DailyTrainingConfig() {
     try {
       const targets = newPapers.map(p => p.value);
       await saveDraftTargets(targets);
-    } catch (err: any) {
-      setMessage({ type: 'error', text: 'Failed to save roll. Try again.' });
-    }
+    } catch (err: any) {}
   };
 
   const handleClear = async () => {
@@ -110,7 +100,6 @@ export default function DailyTrainingConfig() {
     ];
 
     setPapers(resetPapers);
-    setMessage(null);
 
     // Clear from Firestore too
     try {
@@ -122,30 +111,19 @@ export default function DailyTrainingConfig() {
     // Check if all papers are rolled
     const allRolled = papers.every(p => p.rolled);
     if (!allRolled) {
-      setMessage({ type: 'error', text: 'Please roll all 5 papers before confirming' });
       return;
     }
 
     try {
       setSaving(true);
-      setMessage(null);
 
       // Confirm all 5 targets
       const targets = papers.map(p => p.value!);
       await confirmTargets(targets);
 
       setConfirmed(true);
-      setMessage({ type: 'success', text: 'Successfully confirmed! Players can now use these targets.' });
     } catch (err: any) {
-      console.error('Failed to confirm targets:', err);
-      if (err.code === 'unavailable' || err.message?.includes('offline')) {
-        setMessage({
-          type: 'error',
-          text: 'Firestore is not enabled. Please enable Firestore in Firebase Console. See FIRESTORE_SETUP.md'
-        });
-      } else {
-        setMessage({ type: 'error', text: err.message || 'Failed to confirm targets' });
-      }
+      // console.error('Failed to confirm targets:', err);
     } finally {
       setSaving(false);
     }
