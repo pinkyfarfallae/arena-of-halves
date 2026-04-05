@@ -113,7 +113,9 @@ export async function fetchWishes(): Promise<Wish[]> {
 
 /** Fetch today's Iris wish for a specific character */
 export const fetchTodayIrisWish = async (characterId: string) => {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
   const docId = `${characterId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -135,7 +137,18 @@ export const fetchAllIrisWishes = async (characterId: string) => {
 
 /** Fetch today's Iris wish of every character */
 export const fetchTodayIrisWishes = async () => {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
+  const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
+  const q = query(ref, where('date', '==', date));
+  const snap = await getDocs(q);
+
+  return snap.docs.map(doc => doc.data());
+};
+
+/** Fetch all Iris wishes for specific date */
+export const fetchIrisWishesByDate = async (date: string) => {
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
   const q = query(ref, where('date', '==', date));
   const snap = await getDocs(q);
