@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -20,13 +20,14 @@ import { LANGUAGE } from '../../constants/language';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
 import { giveItem } from '../../services/bag/bagService';
 import { updateCharacterDrachma } from '../../services/character/currencyService';
-import './Shop.scss';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import { fetchItemInfo } from '../../data/characters';
+import './Shop.scss';
 
 function Shop() {
   const { t, lang } = useTranslation();
   const [items, setItems] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
@@ -51,30 +52,35 @@ function Shop() {
   useEffect(() => {
     const loadItems = async () => {
       try {
+        setLoading(true);
         const data = await fetchItemInfo();
-        const shopItems: ShopItem[] = data.map(i => ({
+
+        const availableItem = data.filter(i => !!i.available);
+
+        const shopItems: ShopItem[] = availableItem.map(i => ({
           itemId: i.itemId,
           name: i.labelEng,
           description: i.description ?? '',
-          price: i.price ?? 0, 
+          price: i.price ?? 0,
           stock:
             i.piece === 'infinity'
               ? 'infinity'
               : typeof i.piece === 'number'
                 ? i.piece
-                : 0,              
+                : 0,
           imageUrl: i.imageUrl,
           category: i.tier || 'Uncategorized',
         }));
+
         setItems(shopItems);
-      } catch (error) {
+      } catch (error) { } finally {
+        setLoading(false);
       }
     };
 
     loadItems();
 
     const interval = setInterval(loadItems, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -166,11 +172,13 @@ function Shop() {
   };
 
   // Filter items based on search query
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = useMemo(() => {
+    return items.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [items, searchQuery]);
 
   const limitedItems = filteredItems.filter(i => i.stock !== -1);
   const unlimitedItems = filteredItems.filter(i => i.stock === -1);
@@ -394,7 +402,14 @@ function Shop() {
               </section>
             )}
 
-            {items.length === 0 && (
+            {items.length === 0 && !loading && (
+              <div className="shop__empty">
+                <WingedSandal />
+                <p>{t(T.NO_WARES_AVAILABLE)}</p>
+              </div>
+            )}
+
+            {loading && (
               <div className="shop__empty">
                 <WingedSandal />
                 <p>{t(T.LOADING_WARES)}</p>

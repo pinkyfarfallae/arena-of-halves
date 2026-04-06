@@ -623,8 +623,12 @@ export const UI_TEXT = {
     th: 'เหลือ'
   },
   LOADING_WARES: {
-    en: 'Loading wares',
-    th: 'กำลังโหลดสินค้า'
+    en: 'Loading wares...',
+    th: 'กำลังโหลดสินค้า...'
+  },
+  NO_WARES_AVAILABLE: {
+    en: 'No wares available at the moment.',
+    th: 'ไม่มีสินค้าพร้อมจำหน่ายในขณะนี้'
   },
   CLEAR_BASKET: {
     en: 'Clear basket',
