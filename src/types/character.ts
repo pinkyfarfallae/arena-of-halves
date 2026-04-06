@@ -1,3 +1,4 @@
+import { BagItemType } from "../constants/bag";
 import { Deity } from "./deity";
 
 export type Theme25 = [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
@@ -21,12 +22,24 @@ export interface ItemInfo {
   labelEng: string;
   labelThai: string;
   imageUrl: string;
-  tier: string;
+  tier?: string; // Only for weapons
+  description?: string;
+  price?: number;
+  piece?: number | 'infinity';
+  available?: boolean;
 }
 
 export interface BagEntry {
   itemId: string;
-  quantity: number;
+  amount: number;
+  type: BagItemType;
+}
+
+export interface BagData {
+  [itemId: string]: {
+    amount: number;
+    type: BagItemType;
+  };
 }
 
 export interface Character {

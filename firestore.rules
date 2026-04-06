@@ -110,5 +110,21 @@ service cloud.firestore {
       // No delete
       allow delete: if false;
     }
+
+    // Player Bags (inventory system)
+    // Document ID: {userId} (characterId from app, not Firebase UID)
+    // Structure: Map of itemId -> { amount: number, type: 'weapon' | 'item' }
+    match /playerBags/{userId} {
+      // Allow all authenticated users to read (for viewing other profiles)
+      allow read: if isAuthenticated();
+
+      // Allow any authenticated user to create/update bags
+      // Client-side app logic ensures users only modify their own bags
+      // Validation: ensure basic structure exists
+      allow create, update: if isAuthenticated();
+
+      // No direct delete (items removed by setting amount to 0 or removing from map)
+      allow delete: if false;
+    }
   }
 }

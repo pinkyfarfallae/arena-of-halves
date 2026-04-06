@@ -16,9 +16,11 @@ import Arena from './pages/Arena/Arena';
 import StrawberryFields from './pages/StrawberryFields/StrawberryFields';
 import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
 import './App.scss';
+import { hexToRgb } from './utils/color';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
   '--ci-primary': t[0],
+  '--ci-primary-rgb': hexToRgb(t[0]) || '255, 255, 255',
   '--ci-dark': t[1],
   '--ci-light': t[2],
   '--ci-accent': t[3],
