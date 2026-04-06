@@ -284,7 +284,7 @@ function Shop() {
                                 type="number"
                                 min="1"
                                 max={item.stock !== -1 ? item.stock : undefined}
-                                value={cart.find(c => c.itemId === item.itemId)?.quantity || 1}
+                                value={cart.find(c => c.itemId === item.itemId)?.quantity || 0}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value) || 0;
                                   if (val > 0) updateQuantity(item.itemId, val);
@@ -471,9 +471,29 @@ function Shop() {
                             }}
                           />
                           <button
-                            onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
-                            disabled={item.stock !== -1 && typeof item.stock === 'number' && item.quantity >= item.stock}
-                          >+</button>
+                            onClick={() => {
+                              const cartItem = cart.find(c => c.itemId === item.itemId);
+                              const current = cartItem?.quantity ?? 0;
+                              if (item.stock === 'infinity') {
+                                updateQuantity(item.itemId, current + 1);
+                                return;
+                              }
+
+                              if (typeof item.stock === 'number' && current < item.stock) {
+                                updateQuantity(item.itemId, current + 1);
+                              }
+                            }}
+                            disabled={
+                              item.stock === 0 ||
+                              (
+                                typeof item.stock === 'number' &&
+                                item.stock !== -1 &&
+                                (cart.find(c => c.itemId === item.itemId)?.quantity ?? 0) >= item.stock
+                              )
+                            }
+                          >
+                            +
+                          </button>
                         </div>
                         <span className="cart__item-price">{(item.price * item.quantity).toFixed(0)} <Drachma /></span>
                       </div>
@@ -499,38 +519,42 @@ function Shop() {
             )}
           </div>
         </aside>
-      </div>
+      </div >
 
       {/* Checkout modal */}
-      {showCheckout && (
-        <CheckoutModal
-          cart={cart}
-          totalPrice={totalPrice}
-          paySuccess={paySuccess}
-          paying={processing}
-          customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
-          onPay={handlePay}
-          onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
-        />
-      )}
+      {
+        showCheckout && (
+          <CheckoutModal
+            cart={cart}
+            totalPrice={totalPrice}
+            paySuccess={paySuccess}
+            paying={processing}
+            customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
+            onPay={handlePay}
+            onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
+          />
+        )
+      }
 
       {/* Fixed tooltip — renders outside scroll container */}
-      {tooltip && (() => {
-        const tipItem = items.find(i => i.itemId === tooltip.id);
-        if (!tipItem?.description) return null;
-        return (
-          <div
-            className="item__tip"
-            style={{
-              bottom: window.innerHeight - tooltip.rect.top + 12,
-              left: tooltip.rect.left + tooltip.rect.width / 2 - 90,
-            }}
-          >
-            <p>{tipItem.description}</p>
-          </div>
-        );
-      })()}
-    </div>
+      {
+        tooltip && (() => {
+          const tipItem = items.find(i => i.itemId === tooltip.id);
+          if (!tipItem?.description) return null;
+          return (
+            <div
+              className="item__tip"
+              style={{
+                bottom: window.innerHeight - tooltip.rect.top + 12,
+                left: tooltip.rect.left + tooltip.rect.width / 2 - 90,
+              }}
+            >
+              <p>{tipItem.description}</p>
+            </div>
+          );
+        })()
+      }
+    </div >
   );
 }
 
