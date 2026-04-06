@@ -7,9 +7,11 @@ import { updateTrainingPoints } from "../training/trainingPoints";
 export const applyWishEffect = (wish: Wish, characterId: string) => {
   const { deity } = wish;
   switch (deity) {
+    case DEITY.HERMES:
+      giveItem(characterId, '30_discount_ticket', 1, BAG_ITEM_TYPES.ITEM);
+      break;
     case DEITY.HEBE:
-      const item = { itemId: 'health_potion_s', quantity: 1, type: BAG_ITEM_TYPES.ITEM };
-      giveItem(characterId, item.itemId, item.quantity, item.type);
+      giveItem(characterId, 'health_potion_s', 1, BAG_ITEM_TYPES.ITEM);
       break;
     case DEITY.HECATE:
       updateTrainingPoints(characterId, 1);
