@@ -1,20 +1,20 @@
 import React, { use, useEffect, useMemo, useState } from 'react';
 import { ItemInfo } from '../../../../types/character';
-import { fetchItemInfo, deleteItem, editItem } from '../../../../data/characters';
+import { fetchWeaponInfo, deleteItem, editItem } from '../../../../data/characters';
 import Table, { Column } from '../../../../components/Table/Table';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 import Pencil from '../../../../icons/Pencil';
 import Plus from '../../../../icons/Plus';
 import Search from '../../../../icons/Search';
-import ItemModal from './components/ItemModal/ItemModal';
+import WeaponModal from './components/WeaponModal/WeaponModal';
 import { USER_MANAGEMENT_MODE } from '../../../../constants/userManagement';
 import { Input } from '../../../../components/Form';
 import Save from './icons/Save';
 import Close from '../../../../icons/Close';
-import './ItemManagement.scss';
+import './WeaponManagement.scss';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 
-export default function ItemManagement() {
+export default function WeaponManagement() {
   const { width } = useScreenSize();
 
   const [items, setItems] = useState<ItemInfo[]>([]);
@@ -44,7 +44,7 @@ export default function ItemManagement() {
   const loadItems = async () => {
     setLoading(true);
     try {
-      const itemData = await fetchItemInfo();
+      const itemData = await fetchWeaponInfo();
       setItems(itemData);
     } catch (error) {
       // console.error('Failed to load items:', error);
@@ -82,7 +82,6 @@ export default function ItemManagement() {
 
   const handleEdit = (item: ItemInfo) => {
     setSelectedItem(item);
-    setShowModal(true);
     setShowModal(true);
   };
 
@@ -299,7 +298,6 @@ export default function ItemManagement() {
       key: 'available' as keyof ItemInfo & string,
       label: 'Available',
       width: "140px",
-      style: { minWidth: '140px' },
       render: (row) => {
         const isLoading = savingRowId === row.itemId;
 
@@ -346,15 +344,15 @@ export default function ItemManagement() {
   ];
 
   return (
-    <div className="item-management">
-      <div className="item-management-header">
+    <div className="weapon-management">
+      <div className="weapon-management-header">
         <div>
-          <h2 className="item-management-title">Item Management</h2>
-          <p className="item-management-desc">{items.length} items available</p>
+          <h2 className="weapon-management-title">Weapon Management</h2>
+          <p className="weapon-management-desc">{items.length} weapons available</p>
         </div>
         <button className="admin__create-btn" onClick={handleCreate}>
           <Plus width={14} height={14} />
-          Create Item
+          Create Weapon
         </button>
       </div>
 
@@ -380,7 +378,7 @@ export default function ItemManagement() {
       />
 
       {showModal && selectedItem && (
-        <ItemModal
+        <WeaponModal
           mode={USER_MANAGEMENT_MODE.EDIT}
           item={selectedItem}
           isDev={false}
@@ -390,7 +388,7 @@ export default function ItemManagement() {
       )}
 
       {showModal && !selectedItem && (
-        <ItemModal
+        <WeaponModal
           mode={USER_MANAGEMENT_MODE.CREATE}
           onClose={handleModalClose}
           onDone={handleDone}

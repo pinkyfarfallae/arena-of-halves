@@ -9,12 +9,13 @@ import './AdminManager.scss';
 import DailyTrainingConfig from './pages/DailyTrainingConfig/DailyTrainingConfig';
 import TrainingApproval from './pages/TrainingApproval/TrainingApproval';
 import ItemManagement from './pages/ItemManagement/ItemManagement';
+import WeaponManagement from './pages/WeaponManagement/WeaponManagement';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Item Management', path: 'item-management' },
-  // { label: 'Weapon Management', path: 'weapon-management' },
+  { label: 'Weapon Management', path: 'weapon-management', developerOnly: true },
   { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'Daily Training Config', path: 'daily-training-config' },
   { label: 'Training Approval', path: 'training-approval' },
@@ -60,7 +61,7 @@ function AdminManager() {
           <Route path="daily-training-config" element={<DailyTrainingConfig />} />
           <Route path="training-approval" element={<TrainingApproval />} />
           <Route path="item-management" element={<ItemManagement />} />
-          <Route path="weapon-management" element={<Navigate to="/admin/users" replace />} /> {/* Placeholder for future Weapon Management page */}
+          <Route path="weapon-management" element={<WeaponManagement />} />
         </Routes>
       </div>
     </div>
