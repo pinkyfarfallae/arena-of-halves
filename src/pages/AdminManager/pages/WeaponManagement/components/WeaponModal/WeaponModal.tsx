@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ItemInfo } from '../../../../../../types/character';
 import { createItem, editItem, CreateItemPayload, UserRecord } from '../../../../../../data/characters';
 import Close from '../../../../../../icons/Close';
-import './ItemModal.scss';
+import './WeaponModal.scss';
 import { Input, TextArea } from '../../../../../../components/Form';
 import { USER_MANAGEMENT_MODE } from '../../../../../../constants/userManagement';
 
@@ -22,7 +22,7 @@ interface EditProps {
 
 type Props = CreateProps | EditProps;
 
-const ItemModal: React.FC<Props> = (props) => {
+const WeaponModal: React.FC<Props> = (props) => {
   const { mode, onClose, onDone } = props;
 
   const item = mode === USER_MANAGEMENT_MODE.EDIT ? (props as EditProps).item : null;
@@ -273,4 +273,4 @@ const ItemModal: React.FC<Props> = (props) => {
   );
 };
 
-export default ItemModal;
+export default WeaponModal;
