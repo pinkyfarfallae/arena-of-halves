@@ -10,6 +10,44 @@
   border-radius: 12px;
   background: var(--ci-surface, #f8f8f8);
   border: 1px solid var(--ci-border, #e0e0e0);
+
+  .at__table tbody tr {
+    @media (max-width: $bp-mobile) {
+      grid-template-columns: 1fr;
+
+      td {
+        width: 100% !important;
+      }
+
+      td[data-label="Description"] {
+        order: 2;
+        margin: 10px 0 5px 0;
+      }
+
+      td[data-label="Price"] {
+        order: 0;
+      }
+
+      td[data-label="Status"] {
+        order: 1;
+      }
+
+      td[data-label="Actions"] {
+        order: 3;
+      }
+
+      td[data-label="Available"] {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 10px;
+
+        .item__saving--switch {
+          display: none;
+        }
+      }
+    }
+  }
 }
 
 .item-management-title {
@@ -215,8 +253,14 @@
 }
 
 .item__description {
+  display: flex;
   font-size: 0.65rem;
   color: var(--ci-muted, #888);
+  min-width: 300px;
+
+  @media (max-width: $bp-mobile) {
+    min-width: unset;
+  }
 }
 
 .item__price-input {
@@ -226,6 +270,10 @@
   * {
     height: 100%;
   }
+
+  @media (max-width: $bp-mobile) {
+    width: calc(100% - 68px);
+  }
 }
 
 .item__price-display {
@@ -233,6 +281,10 @@
   align-items: center;
   width: 80px !important;
   height: 28px !important;
+
+  @media (max-width: $bp-mobile) {
+    width: 100% !important;
+  }
 }
 
 .item__save-btn,
@@ -242,6 +294,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
+  min-width: 28px;
   border-radius: 50%;
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
@@ -267,7 +320,18 @@
   color: var(--ci-muted, #888);
   font-weight: 600;
   opacity: 0.75;
-  margin-left: 40px;
+  width: fit-content;
+
+  &--switch {
+    display: flex;
+    align-items: center;
+    font-size: 0.65rem;
+    color: var(--ci-muted, #888);
+    font-weight: 600;
+    opacity: 0.75;
+    width: fit-content;
+    margin-left: 40px;
+  }
 }
 
 .item__switch {
