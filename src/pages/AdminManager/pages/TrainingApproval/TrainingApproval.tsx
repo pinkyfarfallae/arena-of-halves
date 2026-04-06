@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { fetchAllCharacters } from '../../../../data/characters';
+import { useState, useEffect, useMemo, CSSProperties } from 'react';
+import { DEITY_THEMES, fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
 import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
@@ -26,6 +26,9 @@ import { PRACTICE_MODE } from '../../../../constants/practice';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 import './TrainingApproval.scss';
+import Athena from '../../../../data/icons/deities/Athena';
+import { is } from '@react-three/fiber/dist/declarations/src/core/utils';
+import { updateTrainingPoints } from '../../../../services/training/trainingPoints';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -138,6 +141,10 @@ function TrainingApproval() {
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
 
+  const trainee = characters.find((c) => c.characterId === reviewingTask?.userId);
+
+  const isTraineeBlessedByAthena = reviewingTaskDateWishes.some((wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId);
+
   // Training passes if character count (including ticket bonus) >= 1000
   const checkTrainingPass = (charCount: number, tickets: number) => {
     const totalChars = charCount + (tickets * 200);
@@ -186,8 +193,8 @@ function TrainingApproval() {
       return;
     }
 
-    const reward = reviewingTask.mode === PRACTICE_MODE.PVP
-      ? 1 : reviewingTask.success ? 1 : 0; // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
+    const reward = (reviewingTask.mode === PRACTICE_MODE.PVP
+      ? 1 : reviewingTask.success ? 1 : 0) * (isTraineeBlessedByAthena && reviewingTask.success ? 2 : 1); // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
 
     setApproveData({
       charCount,
@@ -217,6 +224,9 @@ function TrainingApproval() {
         TRAINING_POINT_REQUEST_STATUS.APPROVED,
         user?.characterId || 'admin'
       );
+      if (isTraineeBlessedByAthena && approveData.reward > 0) {
+        updateTrainingPoints(reviewingTask.userId, 1);
+      }
     } catch (error) {
       // console.error('Failed to approve training task:', error);
       return;
@@ -358,8 +368,6 @@ function TrainingApproval() {
       '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
     } as React.CSSProperties;
   }, [user]);
-
-  const trainee = characters.find((c) => c.characterId === reviewingTask?.userId);
 
   return (
     <div className="harvest-approval" style={colorStyle}>
@@ -656,8 +664,31 @@ function TrainingApproval() {
                                 );
                               })()}
                             </div>
-
                           </div>
+
+                          {/* If trainee have blessed by Athena */}
+                          {isTraineeBlessedByAthena && reviewingTask.success && (
+                            <div
+                              className="training-approval__athena-blessing"
+                              style={{
+                                '--athena-primary-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0],
+                                '--athena-primary-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0]),
+                                '--athena-dark-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1],
+                                '--athena-dark-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1]),
+                              } as CSSProperties}
+                            >
+
+                              <div className="training-approval__athena-blessing-header">
+                                <div className="training-approval__athena-blessing-icon">
+                                  <Athena />
+                                </div>
+                                <span>Goddess Athena has blessed this trainee on the training day!</span>
+                              </div>
+                              <div className="training-approval__athena-blessing-content">
+                                As a blessing from Athena, this trainee's will recive a double training point reward for this submission.
+                              </div>
+                            </div>
+                          )}
 
                           {/* Actions */}
                           {reviewingTask && (
