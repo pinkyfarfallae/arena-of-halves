@@ -10,6 +10,7 @@ import CoinCircle from './icons/CoinCircle';
 import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
 import { Phase, ORB_SCATTER, IRIS_PHASE } from './constants/iris';
+import { applyWishesEffect } from '../../services/irisWish/applyWishesEffect';
 import './IrisMessage.scss';
 
 interface Props {
@@ -39,7 +40,6 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         if (!isMounted) return;
         setWishes(fetchedWishes);
 
-        // ✅ ADMIN: stop here (no daily logic)
         if (isAdmin) {
           setDiscovered(new Set());
           return;
@@ -65,7 +65,6 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
         setDiscovered(allDeities);
 
-        // ✅ Auto reveal
         if (userWish) {
           const matched = fetchedWishes.find(w => w.deity === userWish.deity);
           if (matched) {
@@ -95,7 +94,14 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
     if (!isAdmin && userTodayWish) return;
 
-    const pick = wishes[Math.floor(Math.random() * wishes.length)];
+    // const pick = wishes[Math.floor(Math.random() * wishes.length)];
+
+    // For testing, always pick the same one:
+    const pick = {
+      deity: 'Hecate',
+      name: 'Hecate',
+      description: 'Goddess of magic and witchcraft'
+    }
 
     setWish(pick);
     setPhase(IRIS_PHASE.TOSSING);
@@ -111,6 +117,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
       if (!isAdmin) {
         setDiscovered(prev => new Set(prev).add(pick.deity));
+        applyWishesEffect(pick, user?.characterId || '');
       }
     }, 2200);
   }, [phase, wishes, user?.characterId, isAdmin, userTodayWish]);
