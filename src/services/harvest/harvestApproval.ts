@@ -37,64 +37,50 @@ export const extractTwitterHandle = (input: string): string | null => {
 };
 
 // Parse script output format: "--- TWEET X ---\nAuthor: @username\nMentions: @user1, @user2\ntext"
-export const parseScriptOutput = (input: string): { text: string; authors: string[]; tweetCount: number } | null => {
+export const parseScriptOutput = (
+  input: string,
+  focusingRoleplayerUsername?: string
+): { text: string; authors: string[]; tweetCount: number } | null => {
   const trimmed = input.trim();
 
-  // Check if it matches the script output format
-  if (!trimmed.includes('--- TWEET') || !trimmed.includes('Author:')) {
-    return null;
-  }
+  if (!trimmed.includes('--- TWEET') || !trimmed.includes('Author:')) return null;
 
-  const tweetBlocks = trimmed.split(/---\s*TWEET\s+\d+\s*---/).filter(Boolean);
+  const rawBlocks = trimmed.split(/---\s*TWEET\s+\d+\s*---/);
+  const tweetBlocks = rawBlocks.filter(block => block.trim().length > 0);
+
   const allAuthors: string[] = [];
   const tweetTexts: string[] = [];
 
   for (const block of tweetBlocks) {
     const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
 
+    let author: string | null = null;
     let tweetText = '';
+
     for (const line of lines) {
-      // Extract author from "Author: @username" line
       if (line.startsWith('Author:')) {
-        const authorLine = line.replace('Author:', '').trim();
-        const author = authorLine.replace(/^@/, '');
-        if (author) {
-          allAuthors.push(author);
-        }
+        author = line.replace('Author:', '').trim().replace(/^@/, '');
+      } else if (line.startsWith('Mentions:')) {
         continue;
-      }
-      // Skip Mentions line
-      else if (line.startsWith('Mentions:')) {
-        continue;
-      }
-      // Collect actual tweet text
-      else {
+      } else {
         tweetText += (tweetText ? '\n' : '') + line;
       }
     }
 
-    // Trim the final tweet text before adding
-    const trimmedTweetText = tweetText.trim();
-    if (trimmedTweetText) {
-      tweetTexts.push(trimmedTweetText);
-    }
+    if (!author) continue;
+    allAuthors.push(author);
+
+    // Only include tweets by focusingRoleplayerUsername if specified
+    if (focusingRoleplayerUsername && author !== focusingRoleplayerUsername) continue;
+
+    if (tweetText.trim()) tweetTexts.push(tweetText.trim());
   }
 
-  if (tweetTexts.length === 0) {
-    return null;
-  }
-
-  // Join tweet texts, then trim each line in the final result
-  const finalText = tweetTexts
-    .join('\n\n')
-    .split('\n')
-    .map(line => line.trim())
-    .join('\n')
-    .trim();
+  if (tweetTexts.length === 0) return null;
 
   return {
-    text: finalText,
+    text: tweetTexts.join('\n\n'),
     authors: uniqueHandles(allAuthors),
-    tweetCount: tweetBlocks.length,
+    tweetCount: tweetTexts.length,
   };
 };

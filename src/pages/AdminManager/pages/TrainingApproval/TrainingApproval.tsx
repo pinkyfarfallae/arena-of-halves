@@ -23,6 +23,8 @@ import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../..
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { LANGUAGE } from '../../../../constants/language';
 import { PRACTICE_MODE } from '../../../../constants/practice';
+import { fetchIrisWishesByDate } from '../../../../data/wishes';
+import { DEITY } from '../../../../constants/deities';
 import './TrainingApproval.scss';
 
 function TrainingApproval() {
@@ -42,6 +44,7 @@ function TrainingApproval() {
   const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
 
   const [reviewingTask, setReviewingTask] = useState<TrainingTask | null>(trainingTasks[0] || null);
+  const [reviewingTaskDateWishes, setReviewingTaskDateWishes] = useState<any[]>([]);
 
   const [scriptCopyStatus, setScriptCopyStatus] =
     useState<HarvestScriptCopyStatus>(
@@ -102,16 +105,35 @@ function TrainingApproval() {
   }, []);
 
   useEffect(() => {
-    if (!reviewText.trim()) {
+    if (!reviewText.trim()) return;
+
+    const traineeUsername = reviewingTask
+      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+      : null;
+
+    const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
+
+    if (!scriptParsed) return;
+  }, [reviewText, characters, reviewingTask]);
+
+  useEffect(() => {
+    if (!reviewingTask) {
+      setReviewingTaskDateWishes([]);
       return;
     }
 
-    const scriptParsed = parseScriptOutput(reviewText);
+    const formattedDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok'
+    }).format(new Date(reviewingTask.date));
 
-    if (!scriptParsed) {
-      return;
-    }
-  }, [reviewText, characters]);
+    fetchIrisWishesByDate(formattedDate)
+      .then((wishes) => {
+        setReviewingTaskDateWishes(wishes);
+      })
+      .catch((error) => {
+        setReviewingTaskDateWishes([]);
+      });
+  }, [reviewingTask]);
 
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
@@ -513,7 +535,10 @@ function TrainingApproval() {
 
                   {/* 6. Review Harvest Result */}
                   {reviewText.trim() && (() => {
-                    const scriptParsed = parseScriptOutput(reviewText);
+                    const traineeUsername = reviewingTask
+                      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+                      : null;
+                    const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
 
                     if (!scriptParsed) {
                       return (
