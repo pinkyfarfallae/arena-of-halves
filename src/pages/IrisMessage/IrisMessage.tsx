@@ -94,15 +94,8 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
     if (!isAdmin && userTodayWish) return;
 
-    // const pick = wishes[Math.floor(Math.random() * wishes.length)];
-
-    // For testing, always pick the same one:
-    const pick = {
-      deity: 'Hecate',
-      name: 'Hecate',
-      description: 'Goddess of magic and witchcraft'
-    }
-
+    const pick = wishes[Math.floor(Math.random() * wishes.length)];
+    
     setWish(pick);
     setPhase(IRIS_PHASE.TOSSING);
 
