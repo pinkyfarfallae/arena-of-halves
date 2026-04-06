@@ -88,7 +88,6 @@ export default function TrainingGrounds() {
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
-          fetchTodayIrisWish(user.characterId).catch(() => null),
         ]);
 
         if (!mounted) return;
