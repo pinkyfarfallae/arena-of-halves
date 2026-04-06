@@ -109,11 +109,11 @@ const ItemModal: React.FC<Props> = (props) => {
         handleClose();
         onDone(Promise.resolve(true));
       } else {
-        console.error('API call failed');
+        // console.error('API call failed');
         setError('Failed to save item. Please try again.');
       }
     } catch (err) {
-      console.error('Error during API call:', err);
+      // console.error('Error during API call:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

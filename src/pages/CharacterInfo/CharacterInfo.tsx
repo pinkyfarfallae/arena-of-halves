@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBag } from '../../hooks/useBag';
-import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
+import { fetchWishes } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
@@ -38,9 +39,11 @@ import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchAllIrisWishes, fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import './CharacterInfo.scss';
+import { Deity, DEITY } from '../../constants/deities';
+import { Wish } from '../../types/wish';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -71,6 +74,7 @@ function CharacterInfo() {
   const [viewed, setViewed] = useState<Character | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [powers, setPowers] = useState<Power[]>([]);
+  const [wishesData, setWishesData] = useState<Wish[]>([]);
   const [wishes, setWishes] = useState<WishEntry[]>([]);
   const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
@@ -122,11 +126,31 @@ function CharacterInfo() {
 
   useEffect(() => {
     if (!char?.characterId) return;
-    fetchWishes(char.characterId).then(setWishes).catch(() => setWishes([]));
-    fetchTodayIrisWish(char.characterId).then((wish) => {
-      const matchedWish = wish ? { deity: wish.deity, count: 1 } : null; // Treat user's wish as count 1 for display
-      setUserTodayWish(matchedWish);
-    }).catch(() => setUserTodayWish(null));
+
+    const fetchData = async () => {
+      try {
+        const [fetchedWishes, userWishes, wish] = await Promise.all([
+          fetchWishes().catch(() => WISHES_FALLBACK),
+          fetchWishesFromCharacter(char.characterId).catch(() => []),
+          fetchTodayIrisWish(char.characterId).catch(() => null),
+        ]);
+
+        setWishesData(fetchedWishes);
+        setWishes(userWishes);
+
+        const matchedWish = wish
+          ? { deity: wish.deity, count: 1 }
+          : null;
+
+        setUserTodayWish(matchedWish);
+
+      } catch (error) {
+        // console.error('Failed to fetch wish data:', error);
+        setUserTodayWish(null);
+      }
+    };
+
+    fetchData();
   }, [char?.characterId]);
 
   // Join bag data with item/weapon info when bag or character changes
@@ -306,6 +330,32 @@ function CharacterInfo() {
 
         {/* Scrollable content */}
         <div className="cs__scroll">
+
+          {/* Today Wish */}
+          {todayWish && todayWish.deity && (
+            <div
+              className={`cs__today-wish ${todayWish.count > 0 ? 'cs__today-wish--active' : ''}`}
+              style={{
+                '--deity-primary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[0] || DEFAULT_THEME[0],
+                '--deity-secondary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[1] || DEFAULT_THEME[1],
+              } as React.CSSProperties}
+            >
+              <div className="cs__today-wish-header">
+                <span className="cs__today-wish-icon">
+                  {toDeityKey(todayWish.deity) ? DEITY_SVG[toDeityKey(todayWish.deity) || DEITY.ZEUS] : <Lightning width={12} height={12} />}
+                </span>
+                <span className="cs__today-wish-text">
+                  <span className="cs__today-wish-blessing-by">
+                    By Iris’ hand, a word finds its way to {isOwnProfile ? 'you' : char.sex ? 'him' : 'her'} from
+                    <b>{todayWish.deity}</b> ...
+                  </span>
+                  <span className="cs__today-wish-name">{wishesData.find(w => w.deity === todayWish.deity)?.name}</span>
+                </span>
+              </div>
+              <span className="cs__today-wish-description">{wishesData.find(w => w.deity === todayWish.deity)?.description}</span>
+            </div>
+          )}
+
           {/* Practice Progress */}
           <div className="cs__practice">
             <h3 className="cs__practice-title"><span className="cs__practice-diamond">◆</span>Practice Progress</h3>

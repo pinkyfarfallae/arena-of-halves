@@ -42,6 +42,9 @@ export interface FighterState {
 
   /* Skeleton count (Hades' Undead Army) - max 2 */
   skeletonCount?: number;
+
+  /* Today's wishes of Iris (for display in battle lobby) */
+  wishesOfIris?: Deity | null;
 }
 
 /** Battle room statuses (derived from ROOM_STATUS so type and runtime stay in sync). */

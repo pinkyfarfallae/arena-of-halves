@@ -196,7 +196,7 @@ function TrainingApproval() {
         user?.characterId || 'admin'
       );
     } catch (error) {
-      console.error('Failed to approve training task:', error);
+      // console.error('Failed to approve training task:', error);
       return;
     }
 
@@ -257,7 +257,7 @@ function TrainingApproval() {
         user?.characterId || 'admin'
       );
     } catch (error) {
-      console.error('Failed to reject training task:', error);
+      // console.error('Failed to reject training task:', error);
       return;
     }
 

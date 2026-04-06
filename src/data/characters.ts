@@ -302,7 +302,7 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
     
     return entries;
   } catch (error) {
-    console.error('Error fetching player bag from Firestore:', error);
+    // console.error('Error fetching player bag from Firestore:', error);
     return [];
   }
 }
@@ -437,16 +437,16 @@ export interface CreateItemPayload {
 }
 
 export async function createItem(payload: CreateItemPayload): Promise<boolean> {
-  console.log('Creating item with payload:', payload);
+  // console.log('Creating item with payload:', payload);
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: ACTIONS.CREATE_ITEM, ...payload }),
     });
-    console.log('Create item response:', res);
+    // console.log('Create item response:', res);
     return res.ok;
   } catch (e) {
-    console.error('Error creating item:', e);
+    // console.error('Error creating item:', e);
     return false;
   }
 }

@@ -78,7 +78,7 @@ export default function PowerVfxDemo() {
         chars.map((c) => {
           const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
           const powers = getPowers(powerDeity);
-          return toFighterState(c, powers);
+          return toFighterState(c, powers, null);
         })
       ),
       fetchNPCs(),

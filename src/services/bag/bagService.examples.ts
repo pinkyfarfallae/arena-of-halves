@@ -26,9 +26,9 @@ async function handleShopPurchase(userId: string) {
   const result = await giveItem(userId, 'item_potion_001', 5, 'item');
 
   if (result.success) {
-    console.log(`Player now has ${result.newAmount} potions`);
+    // console.log(`Player now has ${result.newAmount} potions`);
   } else {
-    console.error(`Failed: ${result.error}`);
+    // console.error(`Failed: ${result.error}`);
   }
 }
 
@@ -37,10 +37,10 @@ async function useHealingPotion(userId: string) {
   const result = await consumeItem(userId, 'item_potion_001', 1);
 
   if (result.success) {
-    console.log(`Used potion! ${result.newAmount} remaining`);
+    // console.log(`Used potion! ${result.newAmount} remaining`);
     // Apply healing effect here
   } else {
-    console.error(`Cannot use potion: ${result.error}`);
+    // console.error(`Cannot use potion: ${result.error}`);
   }
 }
 
@@ -49,16 +49,16 @@ async function canEquipSword(userId: string) {
   const hasSword = await hasItem(userId, 'weapon_sword_001');
 
   if (hasSword) {
-    console.log('Player can equip sword');
+    // console.log('Player can equip sword');
   } else {
-    console.log('Player does not have sword');
+    // console.log('Player does not have sword');
   }
 }
 
 // Example 4: Check specific amount
 async function checkPotionCount(userId: string) {
   const potionCount = await getItemAmount(userId, 'item_potion_001');
-  console.log(`Player has ${potionCount} potions`);
+  // console.log(`Player has ${potionCount} potions`);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -228,7 +228,7 @@ async function safeConsumeItem(userId: string, itemId: string) {
     const currentAmount = await getItemAmount(userId, itemId);
 
     if (currentAmount === 0) {
-      console.warn(`Player ${userId} does not have ${itemId}`);
+      // console.warn(`Player ${userId} does not have ${itemId}`);
       return { success: false, message: 'Item not found' };
     }
 
@@ -236,15 +236,15 @@ async function safeConsumeItem(userId: string, itemId: string) {
     const result = await consumeItem(userId, itemId, 1);
 
     if (result.success) {
-      console.log(`Consumed ${itemId}. Remaining: ${result.newAmount}`);
+      // console.log(`Consumed ${itemId}. Remaining: ${result.newAmount}`);
       return { success: true, remaining: result.newAmount };
     }
 
-    console.error(`Failed to consume ${itemId}: ${result.error}`);
+    // console.error(`Failed to consume ${itemId}: ${result.error}`);
     return { success: false, message: result.error };
 
   } catch (error) {
-    console.error('Unexpected error:', error);
+    // console.error('Unexpected error:', error);
     return {
       success: false,
       message: 'An unexpected error occurred'

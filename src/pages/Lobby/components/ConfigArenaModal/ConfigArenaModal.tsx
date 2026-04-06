@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import { deleteRoom, toFighterState } from '../../../../services/battleRoom/battleRoom';
+import { fetchTodayIrisWish } from '../../../../data/wishes';
 import { fetchNPCs } from '../../../../data/npcs';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { getPowers } from '../../../../data/powers';
@@ -61,14 +62,16 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
   useEffect(() => {
     let cancelled = false;
     fetchAllCharacters()
-      .then((chars) => {
+      .then(async (chars) => {
         if (cancelled) return;
-        setPlayerCharacters(
-          chars.map((c) => {
+        const fightersWithWishes = await Promise.all(
+          chars.map(async (c) => {
             const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
-            return toFighterState(c, getPowers(powerDeity));
-          }),
+            const wishesOfIris = await fetchTodayIrisWish(c.characterId).catch(() => null);
+            return toFighterState(c, getPowers(powerDeity), wishesOfIris?.deity || null);
+          })
         );
+        setPlayerCharacters(fightersWithWishes);
       })
       .catch(() => setPlayerCharacters([]));
     return () => {

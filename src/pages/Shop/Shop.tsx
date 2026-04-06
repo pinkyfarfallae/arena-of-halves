@@ -151,7 +151,7 @@ function Shop() {
         const result = await giveItem(user.characterId, item.itemId, item.quantity, type);
 
         if (!result.success) {
-          console.error(`Failed to add ${item.itemId} to bag:`, result.error);
+          // console.error(`Failed to add ${item.itemId} to bag:`, result.error);
           // Continue with other items even if one fails
         }
       }
@@ -164,7 +164,7 @@ function Shop() {
       localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
       setPaySuccess(true);
     } catch (error) {
-      console.error('Error processing payment:', error);
+      // console.error('Error processing payment:', error);
       alert('An error occurred during checkout. Please try again.');
     } finally {
       setProcessing(false);
