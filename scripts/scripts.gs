@@ -175,6 +175,18 @@ function doPost(e) {
       return handleRecheckTraining(data);
     }
 
+    if (data.action === 'createItem') {
+      return handleCreateItem(data);
+    }
+
+    if (data.action === 'editItem') {
+      return handleEditItem(data.itemId, data.fields);
+    }
+
+    if (data.action === 'deleteItem') {
+      return handleDeleteItem(data.itemId);
+    }
+
     return jsonResponse({ error: 'Unknown action: ' + data.action });
   } catch (err) {
     return jsonResponse({ error: err.toString() });
@@ -1663,4 +1675,165 @@ function handleFetchTrainings(userId, verified, mode) {
    ══════════════════════════════════════ */
 function handleFetchAllTrainings() {
   return handleFetchTrainings(null, null, null);
+}
+
+/* ══════════════════════════════════════
+   CREATE ITEM
+   - Adds a new item or weapon to the appropriate sheet
+   - Determines sheet based on itemId prefix (weapon_ → Weapon Info)
+   ══════════════════════════════════════ */
+function handleCreateItem(params) {
+  var itemId = (params.itemId || '').toString().trim();
+  var labelEng = (params.labelEng || '').toString().trim();
+  var labelThai = (params.labelThai || '').toString().trim();
+  var imageUrl = (params.imageUrl || '').toString().trim();
+  var tier = (params.tier || '').toString().trim();
+  var description = (params.description || '').toString().trim();
+  var price = parseFloat(params.price || '0');
+  var piece = params.piece === 'infinity' ? 'infinity' : parseInt(params.piece || '0', 10);
+  var available = params.available === 'true' || params.available === true;
+
+  if (!itemId || !labelEng) {
+    return jsonResponse({ error: 'Missing itemId or labelEng' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  
+  // Determine which sheet to use
+  var isWeapon = itemId.toLowerCase().startsWith('weapon_');
+  var sheetName = isWeapon ? 'Weapon Info' : 'Item Info';
+  var sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + sheetName });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  // Check for duplicate
+  if (itemIdCol !== -1) {
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+        return jsonResponse({ error: 'Item already exists: ' + itemId });
+      }
+    }
+  }
+
+  // Build row for sheet
+  var row = [];
+  for (var j = 0; j < headers.length; j++) {
+    var h = headers[j];
+    if (h === 'itemid') row.push(itemId);
+    else if (h === 'labeleng') row.push(labelEng);
+    else if (h === 'labelthai') row.push(labelThai);
+    else if (h === 'imageurl') row.push(imageUrl);
+    else if (h === 'tier') row.push(tier);
+    else if (h === 'description') row.push(description);
+    else if (h === 'price') row.push(price);
+    else if (h === 'piece') row.push(piece);
+    else if (h === 'available') row.push(available);
+    else row.push('');
+  }
+  
+  sheet.appendRow(row);
+
+  return jsonResponse({ success: true, itemId: itemId, sheet: sheetName });
+}
+
+/* ══════════════════════════════════════
+   EDIT ITEM
+   - Updates an existing item/weapon in the appropriate sheet
+   ══════════════════════════════════════ */
+function handleEditItem(itemId, fields) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+  if (!fields || typeof fields !== 'object') {
+    return jsonResponse({ error: 'Missing fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  
+  // Try both sheets
+  var sheets = ['Item Info', 'Weapon Info'];
+  var updated = false;
+
+  for (var s = 0; s < sheets.length; s++) {
+    var sheet = ss.getSheetByName(sheets[s]);
+    if (!sheet) continue;
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+    var itemIdCol = headers.indexOf('itemid');
+
+    if (itemIdCol === -1) continue;
+
+    // Find the item row
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+        // Update fields
+        for (var fieldName in fields) {
+          var colIdx = headers.indexOf(fieldName.toLowerCase());
+          if (colIdx !== -1) {
+            var value = fields[fieldName];
+            // Convert types for specific fields
+            if (fieldName.toLowerCase() === 'price') {
+              value = parseFloat(value) || 0;
+            } else if (fieldName.toLowerCase() === 'piece') {
+              value = value === 'infinity' ? 'infinity' : parseInt(value, 10) || 0;
+            } else if (fieldName.toLowerCase() === 'available') {
+              value = value === 'true' || value === true;
+            }
+            sheet.getRange(i + 1, colIdx + 1).setValue(value);
+          }
+        }
+        updated = true;
+        return jsonResponse({ success: true, itemId: itemId, sheet: sheets[s] });
+      }
+    }
+  }
+
+  if (!updated) {
+    return jsonResponse({ error: 'Item not found: ' + itemId });
+  }
+}
+
+/* ══════════════════════════════════════
+   DELETE ITEM
+   - Removes an item/weapon from the appropriate sheet
+   ══════════════════════════════════════ */
+function handleDeleteItem(itemId) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  
+  // Try both sheets
+  var sheets = ['Item Info', 'Weapon Info'];
+
+  for (var s = 0; s < sheets.length; s++) {
+    var sheet = ss.getSheetByName(sheets[s]);
+    if (!sheet) continue;
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+    var itemIdCol = headers.indexOf('itemid');
+
+    if (itemIdCol === -1) continue;
+
+    // Find and delete the item row
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+        sheet.deleteRow(i + 1);
+        return jsonResponse({ success: true, itemId: itemId, sheet: sheets[s] });
+      }
+    }
+  }
+
+  return jsonResponse({ error: 'Item not found: ' + itemId });
 }

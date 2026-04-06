@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { useBag } from '../../hooks/useBag';
+import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
@@ -38,6 +39,7 @@ import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
 import { fetchTodayIrisWish } from '../../data/wishes';
+import { BAG_ITEM_TYPES } from '../../constants/bag';
 import './CharacterInfo.scss';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
@@ -73,7 +75,8 @@ function CharacterInfo() {
   const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
+  const [bagWeapons, setBagWeapons] = useState<(any & BagEntry)[]>([]);
+
   // Modal open state (setters used by UI; values reserved for future use)
   const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [itemModal, setItemModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -90,6 +93,9 @@ function CharacterInfo() {
 
   const isOwnProfile = !id || id === user?.characterId;
   const char = isOwnProfile ? user : viewed;
+
+  // Use Firestore-based bag hook (must be after char is defined)
+  const { bagEntries, loading: loadingBag } = useBag(char?.characterId);
 
   useEffect(() => {
     if (isOwnProfile || !id) {
@@ -123,25 +129,72 @@ function CharacterInfo() {
     }).catch(() => setUserTodayWish(null));
   }, [char?.characterId]);
 
+  // Join bag data with item/weapon info when bag or character changes
   useEffect(() => {
-    if (!char?.characterId) return;
-    Promise.all([fetchItemInfo(), fetchWeaponInfo(), fetchPlayerBag(char.characterId)])
-      .then(([items, weapons, bag]) => {
+    if (!char?.characterId || loadingBag) return;
+
+    Promise.all([fetchItemInfo(), fetchWeaponInfo()])
+      .then(([items, weapons]) => {
         const allInfo = [...items, ...weapons];
-        const joinedItems = bag
-          .filter((b) => b.itemId.startsWith('item_'))
-          .map((b) => { const info = allInfo.find((it) => it.itemId === b.itemId); return info ? { ...info, ...b } : null; })
+        const joinedItems = bagEntries
+          .filter((b) => b.type === BAG_ITEM_TYPES.ITEM)
+          .map((b) => {
+            const info = allInfo.find((it) => it.itemId === b.itemId);
+            return info ? { ...info, ...b } : null;
+          })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
-        const joinedWeapons = bag
-          .filter((b) => b.itemId.startsWith('weapon_'))
-          .map((b) => { const info = allInfo.find((it) => it.itemId === b.itemId); return info ? { ...info, ...b } : null; })
+
+        const joinedWeapons = bagEntries
+          .filter((b) => b.type === BAG_ITEM_TYPES.WEAPON)
+          .map((b) => {
+            const info = allInfo.find((it) => it.itemId === b.itemId);
+            return info ? { ...info, ...b } : null;
+          })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
+
         setBagItems(joinedItems);
         setBagWeapons(joinedWeapons);
       })
-      .catch(() => { setBagItems([]); setBagWeapons([]); });
-  }, [char?.characterId]);
+      .catch(() => {
+        setBagItems([]);
+        setBagWeapons([]);
+      });
+  }, [char?.characterId, bagEntries, loadingBag]);
 
+  const img = useMemo(() => char?.image || undefined, [char?.image]);
+
+  const themeStyle = useMemo(() => !isOwnProfile && char ? applyTheme(char?.theme) : undefined, [char?.theme]);
+
+  const SLOT_MIN = 12;
+
+  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = useMemo(() => {
+    const slots = bagWeapons.map((w) => ({
+      name: w.labelEng,
+      quantity: w.amount,
+      imageUrl: w.imageUrl || undefined,
+      tier: w.tier || undefined,
+    }));
+    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined, tier: undefined });
+    return slots;
+  }, [bagWeapons]);
+
+  const itemSlots: { name: string; quantity: number; imageUrl?: string; }[] = useMemo(() => {
+    const slots = bagItems.map((b) => ({
+      name: b.labelEng,
+      quantity: b.amount,
+      imageUrl: b.imageUrl || undefined,
+    }));
+    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined });
+    return slots;
+  }, [bagItems]);
+
+  const orderedPowers = useMemo(() => {
+    return [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
+      .map(type => powers.find(p => p.type === type))
+      .filter(Boolean) as Power[];
+  }, [powers]);
+
+  if (!char) return null;
   if (!user) return null;
 
   if (loadingViewed) {
@@ -159,33 +212,6 @@ function CharacterInfo() {
       </div>
     );
   }
-
-  if (!char) return null;
-
-  const img = char.image || undefined;
-  const themeStyle = !isOwnProfile && char ? applyTheme(char.theme) : undefined;
-
-  const SLOT_MIN = 12;
-
-  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = bagWeapons.map((b) => ({
-    name: b.labelEng,
-    quantity: b.quantity,
-    imageUrl: b.imageUrl || undefined,
-    tier: b.tier || undefined,
-  }));
-  while (weaponSlots.length < SLOT_MIN) weaponSlots.push({ name: '', quantity: 0 });
-
-  const itemSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = bagItems.map((b) => ({
-    name: b.labelEng,
-    quantity: b.quantity,
-    imageUrl: b.imageUrl || undefined,
-    tier: b.tier || undefined,
-  }));
-  while (itemSlots.length < SLOT_MIN) itemSlots.push({ name: '', quantity: 0 });
-
-  const orderedPowers = [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
-    .map(type => powers.find(p => p.type === type))
-    .filter(Boolean) as Power[];
 
   return (
     <div className="cs" style={themeStyle}>
@@ -333,7 +359,7 @@ function CharacterInfo() {
               </div>
               <div className="cs__slots">
                 {itemSlots.map((it, i) => (
-                  <Slot key={`i${i}`} name={it.name || undefined} icon="◈" quantity={it.quantity} imageUrl={it.imageUrl} tier={it.tier} />
+                  <Slot key={`i${i}`} name={it.name || undefined} icon="◈" quantity={it.quantity} imageUrl={it.imageUrl} />
                 ))}
               </div>
               <button className="cs__slots-more" onClick={() => setItemModal(true)}>

@@ -18,7 +18,11 @@ import Close from '../../icons/Close';
 import Coupon from './icons/Coupon';
 import { LANGUAGE } from '../../constants/language';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
+import { giveItem } from '../../services/bag/bagService';
+import { updateCharacterDrachma } from '../../services/character/currencyService';
 import './Shop.scss';
+import { BAG_ITEM_TYPES } from '../../constants/bag';
+import { fetchItemInfo } from '../../data/characters';
 
 function Shop() {
   const { t, lang } = useTranslation();
@@ -30,10 +34,11 @@ function Shop() {
     } catch { return []; }
   });
 
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [tooltip, setTooltip] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -46,8 +51,22 @@ function Shop() {
   useEffect(() => {
     const loadItems = async () => {
       try {
-        const data = await fetchShopItems();
-        setItems(data);
+        const data = await fetchItemInfo();
+        const shopItems: ShopItem[] = data.map(i => ({
+          itemId: i.itemId,
+          name: i.labelEng,
+          description: i.description ?? '',
+          price: i.price ?? 0, 
+          stock:
+            i.piece === 'infinity'
+              ? 'infinity'
+              : typeof i.piece === 'number'
+                ? i.piece
+                : 0,              
+          imageUrl: i.imageUrl,
+          category: i.tier || 'Uncategorized',
+        }));
+        setItems(shopItems);
       } catch (error) {
       }
     };
@@ -97,10 +116,53 @@ function Shop() {
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handlePay = () => {
-    setCart([]);
-    localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
-    setPaySuccess(true);
+  const handlePay = async () => {
+    if (!user?.characterId || processing) return;
+
+    // Check if user has enough drachma
+    if ((user.currency ?? 0) < totalPrice) {
+      alert('Insufficient drachma! You need ' + totalPrice + ' but only have ' + (user.currency ?? 0));
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      // Deduct drachma
+      const drachmaResult = await updateCharacterDrachma(user.characterId, -totalPrice);
+
+      if (!drachmaResult.success) {
+        alert('Failed to process payment: ' + (drachmaResult.error || 'Unknown error'));
+        setProcessing(false);
+        return;
+      }
+
+      // Add items to bag
+      for (const item of cart) {
+        // Determine item type from itemId prefix
+        const type = item.itemId.startsWith('weapon_') ? BAG_ITEM_TYPES.WEAPON : BAG_ITEM_TYPES.ITEM;
+
+        const result = await giveItem(user.characterId, item.itemId, item.quantity, type);
+
+        if (!result.success) {
+          console.error(`Failed to add ${item.itemId} to bag:`, result.error);
+          // Continue with other items even if one fails
+        }
+      }
+
+      // Refresh user data to update currency display
+      await refreshUser();
+
+      // Clear cart and show success
+      setCart([]);
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
+      setPaySuccess(true);
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      alert('An error occurred during checkout. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // Filter items based on search query
@@ -112,7 +174,6 @@ function Shop() {
 
   const limitedItems = filteredItems.filter(i => i.stock !== -1);
   const unlimitedItems = filteredItems.filter(i => i.stock === -1);
-
 
   return (
     <div className="shop">
@@ -422,6 +483,7 @@ function Shop() {
           cart={cart}
           totalPrice={totalPrice}
           paySuccess={paySuccess}
+          paying={processing}
           customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
           onPay={handlePay}
           onClose={() => { setShowCheckout(false); setPaySuccess(false); }}

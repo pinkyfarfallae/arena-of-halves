@@ -28,4 +28,9 @@ export const ACTIONS = {
   SUBMIT_TRAINING_ROLEPLAY: 'submitTrainingRoleplay',
   VERIFY_TRAINING: 'verifyTraining',
   RECHECK_TRAINING: 'recheckTraining',
+
+  // Item actions
+  CREATE_ITEM: 'createItem',
+  EDIT_ITEM: 'editItem',
+  DELETE_ITEM: 'deleteItem',
 };

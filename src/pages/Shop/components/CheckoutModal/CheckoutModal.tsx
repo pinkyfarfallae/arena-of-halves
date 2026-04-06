@@ -14,11 +14,11 @@ interface CheckoutModalProps {
   onClose: () => void;
 }
 
-function CheckoutModal({ cart, totalPrice, paySuccess, customerName, onPay, onClose }: CheckoutModalProps) {
+function CheckoutModal({ cart, totalPrice, paySuccess, paying, customerName, onPay, onClose }: CheckoutModalProps) {
   return (
     <div className="checkout__overlay">
       <div className="checkout">
-        <button className="checkout__close" onClick={onClose}>
+        <button className="checkout__close" onClick={onClose} disabled={paying}>
           <Close />
         </button>
 
@@ -64,8 +64,8 @@ function CheckoutModal({ cart, totalPrice, paySuccess, customerName, onPay, onCl
               <span className="checkout__total-amount">{totalPrice.toFixed(0)} <Drachma /></span>
             </div>
 
-            <button className="checkout__pay" onClick={onPay}>
-              Complete Payment
+            <button className="checkout__pay" onClick={onPay} disabled={paying}>
+              {paying ? 'Processing...' : 'Complete Payment'}
             </button>
           </>
         )}
