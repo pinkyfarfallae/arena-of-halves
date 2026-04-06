@@ -10,7 +10,7 @@ import CoinCircle from './icons/CoinCircle';
 import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
 import { Phase, ORB_SCATTER, IRIS_PHASE } from './constants/iris';
-import { applyWishesEffect } from '../../services/irisWish/applyWishesEffect';
+import { applyWishEffect } from '../../services/irisWish/applyWishesEffect';
 import './IrisMessage.scss';
 
 interface Props {
@@ -117,7 +117,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
       if (!isAdmin) {
         setDiscovered(prev => new Set(prev).add(pick.deity));
-        applyWishesEffect(pick, user?.characterId || '');
+        applyWishEffect(pick, user?.characterId || '');
       }
     }, 2200);
   }, [phase, wishes, user?.characterId, isAdmin, userTodayWish]);
