@@ -95,17 +95,9 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
     if (!isAdmin && userTodayWish) return;
 
-    const pick = wishes[Math.floor(Math.random() * wishes.length)];
-
     // No toss to get Hephaetus in advance, until we got instruments system in place
-    if (!isAdmin && pick.deity === DEITY.HEPHAESTUS) {
-      const nonHephaestusWishes = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS);
-      if (nonHephaestusWishes.length > 0) {
-        const altPick = nonHephaestusWishes[Math.floor(Math.random() * nonHephaestusWishes.length)];
-        return setWish(altPick);
-      }
-    }
-    
+    const pick = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS)[Math.floor(Math.random() * wishes.length)];
+
     setWish(pick);
     setPhase(IRIS_PHASE.TOSSING);
 
