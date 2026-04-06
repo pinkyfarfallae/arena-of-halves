@@ -293,8 +293,8 @@ function Shop() {
                               <button
                                 onClick={() => {
                                   const current = cart.find(c => c.itemId === item.itemId)?.quantity || 1;
-                                  const max = item.stock === -1 ? current + 1 : Number(item.stock);
-                                  if (current < max) updateQuantity(item.itemId, current + 1);
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (max === null || current < max) updateQuantity(item.itemId, current + 1);
                                 }}
                                 disabled={
                                   item.stock === 0 ||
@@ -368,23 +368,32 @@ function Shop() {
                           {cart.find(c => c.itemId === item.itemId) ? (
                             <div className="item__qty-control">
                               <button
-                                onClick={() => updateQuantity(item.itemId, (cart.find(c => c.itemId === item.itemId)?.quantity || 1) - 1)}
-                              >−</button>
+                                onClick={() => {
+                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity ?? 0;
+                                  updateQuantity(item.itemId, current - 1);
+                                }}
+                              >
+                                −
+                              </button>
                               <input
                                 type="number"
                                 min="1"
                                 value={cart.find(c => c.itemId === item.itemId)?.quantity || 1}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value) || 0;
-                                  if (val > 0) updateQuantity(item.itemId, val);
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (val > 0 && (max === null || val <= max)) updateQuantity(item.itemId, val);
                                 }}
                               />
                               <button
                                 onClick={() => {
-                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity || 1;
-                                  updateQuantity(item.itemId, current + 1);
+                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity ?? 0;
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (max === null || current < max) updateQuantity(item.itemId, current + 1);
                                 }}
-                              >+</button>
+                              >
+                                +
+                              </button>
                             </div>
                           ) : (
                             <button
@@ -409,7 +418,7 @@ function Shop() {
               </div>
             )}
 
-            {loading && (
+            {loading && items.length === 0 && (
               <div className="shop__empty">
                 <WingedSandal />
                 <p>{t(T.LOADING_WARES)}</p>

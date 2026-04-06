@@ -12,18 +12,11 @@ import { Input } from '../../../../components/Form';
 import Save from './icons/Save';
 import Close from '../../../../icons/Close';
 import './ItemManagement.scss';
-
-type TableRow = {
-  itemId: string;
-  labelEng: string;
-  labelThai: string;
-  description: string;
-  price: string;
-  piece: string;
-  available: string;
-};
+import { useScreenSize } from '../../../../hooks/useScreenSize';
 
 export default function ItemManagement() {
+  const { width } = useScreenSize();
+
   const [items, setItems] = useState<ItemInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -145,6 +138,7 @@ export default function ItemManagement() {
     {
       key: 'description' as keyof ItemInfo & string,
       label: 'Description',
+      width: width > 600 ? "400px" : "unset",
       render: (row) => <span className="item__description">{row.description}</span>,
     },
     {
@@ -304,7 +298,7 @@ export default function ItemManagement() {
     {
       key: 'available' as keyof ItemInfo & string,
       label: 'Available',
-      width: "135px",
+      width: "140px",
       render: (row) => {
         const isLoading = savingRowId === row.itemId;
 
@@ -332,7 +326,7 @@ export default function ItemManagement() {
               }}
             />
             <span className="item__slider" />
-            <span className="item__saving">
+            <span className="item__saving--switch">
               {isLoading ? 'Saving...' : (row.available ? 'Available' : 'Unavailable')}
             </span>
           </label>
