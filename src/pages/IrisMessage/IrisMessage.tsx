@@ -95,7 +95,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
     if (!isAdmin && userTodayWish) return;
 
-    // No toss to get Hephaetus in advance, until we got instruments system in place
+    // No toss to get Hephaetus in advance, until we got equipment system in place
     const pick = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS)[Math.floor(Math.random() * wishes.length)];
 
     setWish(pick);
