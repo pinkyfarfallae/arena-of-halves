@@ -4,7 +4,7 @@ import { Wish } from "../../types/wish";
 import { giveItem } from "../bag/bagService";
 import { updateTrainingPoints } from "../training/trainingPoints";
 
-export const applyWishesEffect = (wish: Wish, characterId: string) => {
+export const applyWishEffect = (wish: Wish, characterId: string) => {
   const { deity } = wish;
   switch (deity) {
     case DEITY.HEBE:
