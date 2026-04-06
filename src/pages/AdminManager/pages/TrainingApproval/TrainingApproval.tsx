@@ -141,9 +141,16 @@ function TrainingApproval() {
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
 
-  const trainee = characters.find((c) => c.characterId === reviewingTask?.userId);
+  const trainee = useMemo(() => {
+    return characters.find((c) => c.characterId === reviewingTask?.userId);
+  }, [characters, reviewingTask?.userId]);
 
-  const isTraineeBlessedByAthena = reviewingTaskDateWishes.some((wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId);
+  const isTraineeBlessedByAthena = useMemo(() => {
+    if (!reviewingTask?.success) return false;
+    return reviewingTaskDateWishes.some(
+      (wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId
+    );
+  }, [reviewingTask, reviewingTaskDateWishes]);
 
   // Training passes if character count (including ticket bonus) >= 1000
   const checkTrainingPass = (charCount: number, tickets: number) => {
@@ -667,7 +674,7 @@ function TrainingApproval() {
                           </div>
 
                           {/* If trainee have blessed by Athena */}
-                          {isTraineeBlessedByAthena && reviewingTask.success && (
+                          {isTraineeBlessedByAthena && (
                             <div
                               className="training-approval__athena-blessing"
                               style={{
