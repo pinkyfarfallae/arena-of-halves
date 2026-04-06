@@ -45,6 +45,7 @@ import * as HadesService from './hades/hades';
 import * as ZeusService from './zeus/zeus';
 import * as ApolloService from './apollo/apollo';
 import * as PersephoneService from './persephone';
+import { Deity } from '../../constants/deities';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -319,7 +320,7 @@ export function inviteReservationsFromFirebase(
 }
 
 /** Build a FighterState snapshot from a Character + their Powers */
-export function toFighterState(character: Character, powers: PowerDefinition[]): FighterState {
+export function toFighterState(character: Character, powers: PowerDefinition[], wishesOfIris: Deity | null): FighterState {
   // Calculate critical rate based on strength
   let criticalRate = 25; // default 25%
   if (character.strength > 3 && character.strength < 5) {
@@ -356,6 +357,8 @@ export function toFighterState(character: Character, powers: PowerDefinition[]):
 
     powers,
     skeletonCount: 0,
+
+    wishesOfIris: wishesOfIris || null,
   };
 }
 

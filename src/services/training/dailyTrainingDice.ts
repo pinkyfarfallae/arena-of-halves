@@ -275,14 +275,14 @@ export const submitTrainingResult = async (params: {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[Training] Sheets HTTP error:', response.status, errorText);
+    // console.error('[Training] Sheets HTTP error:', response.status, errorText);
     throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
 
   if (result.error) {
-    console.error('[Training] Sheets API error:', result.error);
+    // console.error('[Training] Sheets API error:', result.error);
     throw new Error(result.error);
   }
 
@@ -335,7 +335,7 @@ export const savePartialProgress = async (
         mode: PRACTICE_MODE.NORMAL,
       });
     } catch (err) {
-      console.error('[Training] Failed to set quota:', err);
+      // console.error('[Training] Failed to set quota:', err);
       throw err; // Re-throw to prevent training from continuing
     }
   }
@@ -430,7 +430,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
       mode: PRACTICE_MODE.PVP,
     });
   } catch (err) {
-    console.error('Failed to set quota:', err);
+    // console.error('Failed to set quota:', err);
     // Don't throw - allow progress save to succeed even if quota fails
   }
 
@@ -451,7 +451,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
         battleRounds: progress.rounds ?? 0,
       });
     } catch (err) {
-      console.error('[Training] Failed to submit PVP result to Sheets:', err);
+      // console.error('[Training] Failed to submit PVP result to Sheets:', err);
       throw err; // Re-throw so caller can handle it
     }
   }

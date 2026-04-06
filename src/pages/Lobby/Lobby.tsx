@@ -17,7 +17,9 @@ import Trash from '../../icons/Trash';
 import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import BattleLogModal from './components/BattleLogModal/BattleLogModal';
-import {ArenaAction, ARENA_ACTIONS} from '../../constants/arenaAction';
+import { ArenaAction, ARENA_ACTIONS } from '../../constants/arenaAction';
+import { fetchTodayIrisWish } from '../../data/wishes';
+import type { Deity } from '../../constants/deities';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -48,6 +50,8 @@ function Lobby() {
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
   /** Snapshot of custom room title at create time — input state alone can drift before config modal finishes. */
   const [createdRoomLabel, setCreatedRoomLabel] = useState<string | null>(null);
+  /** Wishes of Iris for the room creator */
+  const [wishesOfIrisForCreator, setWishesOfIrisForCreator] = useState<Deity | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
 
@@ -77,13 +81,15 @@ function Lobby() {
     try {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
-      const fighter = toFighterState(user, powers);
+      const wishesOfIris = await fetchTodayIrisWish(user.characterId);
+      const fighter = toFighterState(user, powers, wishesOfIris?.deity as Deity);
       const trimmedTitle = roomName.trim();
       const arenaId = await createRoom(
         fighter,
         trimmedTitle.length > 0 ? trimmedTitle : undefined,
       );
       setCreatedRoomLabel(trimmedTitle.length > 0 ? trimmedTitle : null);
+      setWishesOfIrisForCreator((wishesOfIris?.deity as Deity) || null);
       setCreatedArenaId(arenaId);
     } catch {
       setError('Failed to create room. Try again.');
@@ -341,10 +347,24 @@ function Lobby() {
         <ConfigArenaModal
           arenaId={createdArenaId}
           preservedRoomLabel={createdRoomLabel ?? undefined}
-          player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
+          player={user && wishesOfIrisForCreator
+            ? toFighterState(
+                user,
+                getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood),
+                wishesOfIrisForCreator
+              )
+            : user
+            ? toFighterState(
+                user,
+                getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood),
+                null
+              )
+            : undefined
+          }
           onClose={() => {
             setCreatedArenaId(null);
             setCreatedRoomLabel(null);
+            setWishesOfIrisForCreator(null);
           }}
           onEnter={(id) => navigate(`/arena/${id}`)}
         />

@@ -75,7 +75,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         }
 
       } catch (err) {
-        console.error('Failed to load wishes:', err);
+        // console.error('Failed to load wishes:', err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -103,7 +103,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
     if (!isAdmin && user?.characterId) {
       saveIrisWish(user.characterId, pick.deity).catch((err) => {
-        console.error('Failed to save Iris wish:', err);
+        // console.error('Failed to save Iris wish:', err);
       });
     }
 

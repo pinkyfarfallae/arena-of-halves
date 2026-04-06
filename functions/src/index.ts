@@ -340,7 +340,7 @@ export const fetchTweetText = functions
         tweetId,
       };
     } catch (error: any) {
-      console.error("Error fetching tweet:", error);
+      // console.error("Error fetching tweet:", error);
       
       if (error instanceof functions.https.HttpsError) {
         throw error;

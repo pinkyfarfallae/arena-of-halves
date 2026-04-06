@@ -26,7 +26,7 @@ export async function updateCharacterDrachma(
     const data = await res.json();
     return data;
   } catch (error) {
-    console.error('Error updating drachma:', error);
+    // console.error('Error updating drachma:', error);
     return { success: false, error: (error as Error).message };
   }
 }

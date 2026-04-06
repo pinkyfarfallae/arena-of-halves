@@ -651,6 +651,90 @@
 }
 
 /* ══════════════════════════════════
+    TODAY'S WISH
+   ══════════════════════════════════ */
+
+.cs__today-wish {
+  display: flex;
+  flex-direction: column;
+  padding: 0.7rem 0.8rem;
+  margin: 0.6rem 0 0.8rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--deity-primary) 12%, transparent);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--deity-primary) 18%, var(--ci-bg-alt)),
+    color-mix(in srgb, var(--ci-primary) 14%, var(--ci-bg-alt)) 70%,
+    white);
+  color: black;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  animation: cs-wish-glow-today 3s ease-in-out infinite;
+}
+
+.cs__today-wish-header {
+  display: flex;
+  gap: 1rem;
+}
+
+.cs__today-wish-icon {
+  height: 40px;
+  aspect-ratio: 1 / 1;
+  min-width: 24px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg,
+    var(--deity-primary),
+    color-mix(in srgb, var(--deity-primary) 50%, var(--deity-secondary) 50%)
+  );
+
+  svg {
+    width: 70%;
+    height: 70%;
+  }
+}
+
+.cs__today-wish-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cs__today-wish-blessing-by {
+  font-size: 0.55rem;
+  font-weight: 500;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  color: color-mix(in srgb, var(--deity-primary) 70%, black);
+
+  b {
+    font-weight: 700;
+    color: var(--deity-primary);
+    font-size: 0.6rem;
+    font-style: normal;
+    margin-left: 3px;
+  }
+}
+
+.cs__today-wish-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--deity-primary);
+}
+
+.cs__today-wish-description {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--deity-primary) 80%, black);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--deity-primary) 50%, transparent);
+}
+
+/* ══════════════════════════════════
    SCROLLABLE CONTENT
    ══════════════════════════════════ */
 .cs__scroll {

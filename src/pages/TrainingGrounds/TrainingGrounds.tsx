@@ -23,6 +23,7 @@ import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../constants/practice';
 import { ARENA_ACTIONS, ArenaAction } from '../../constants/arenaAction';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
+import { fetchTodayIrisWish } from '../../data/wishes';
 import './TrainingGrounds.scss';
 
 function getPreviousDate(dateStr: string): string {
@@ -87,6 +88,7 @@ export default function TrainingGrounds() {
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
+          fetchTodayIrisWish(user.characterId).catch(() => null),
         ]);
 
         if (!mounted) return;
@@ -191,7 +193,8 @@ export default function TrainingGrounds() {
     if (!createdPracticeArenaId && user?.characterId) {
       const powerDeity = POWER_OVERRIDES[user.characterId.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
-      const fighter = toFighterState(user, powers);
+      const todayUserIrisWish = await fetchTodayIrisWish(user.characterId);
+      const fighter = toFighterState(user, powers, todayUserIrisWish?.deity || null);
       try {
         const arenaId = await createRoom(
           fighter,

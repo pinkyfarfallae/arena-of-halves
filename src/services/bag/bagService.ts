@@ -15,11 +15,11 @@ import { BagItemType } from '../../constants/bag';
 export async function getBagData(userId: string): Promise<BagData> {
   const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
   const snapshot = await getDoc(docRef);
-  
+
   if (snapshot.exists()) {
     return snapshot.data() as BagData;
   }
-  
+
   return {};
 }
 
@@ -61,7 +61,7 @@ export async function setItemAmount(
 
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
-    
+
     if (amount === 0) {
       // Remove item if amount is 0
       await updateDoc(docRef, {
@@ -73,7 +73,7 @@ export async function setItemAmount(
         [itemId]: { amount, type },
       }, { merge: true });
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error setting item amount:', error);
@@ -104,16 +104,16 @@ export async function giveItem(
   try {
     const currentAmount = await getItemAmount(userId, itemId);
     const newAmount = currentAmount + amount;
-    
+
     const result = await setItemAmount(userId, itemId, newAmount, type);
-    
+
     if (result.success) {
       return { success: true, newAmount };
     }
-    
+
     return result;
   } catch (error) {
-    console.error('Error giving item:', error);
+    // console.error('Error giving item:', error);
     return { success: false, error: (error as Error).message };
   }
 }
@@ -140,30 +140,30 @@ export async function consumeItem(
   try {
     const bagData = await getBagData(userId);
     const currentItem = bagData[itemId];
-    
+
     if (!currentItem) {
       return { success: false, error: `Item ${itemId} not found in bag` };
     }
-    
+
     const currentAmount = currentItem.amount;
-    
+
     if (currentAmount < amount) {
-      return { 
-        success: false, 
-        error: `Insufficient items. Has ${currentAmount}, tried to consume ${amount}` 
+      return {
+        success: false,
+        error: `Insufficient items. Has ${currentAmount}, tried to consume ${amount}`
       };
     }
-    
+
     const newAmount = currentAmount - amount;
     const result = await setItemAmount(userId, itemId, newAmount, currentItem.type);
-    
+
     if (result.success) {
       return { success: true, newAmount };
     }
-    
+
     return result;
   } catch (error) {
-    console.error('Error consuming item:', error);
+    // console.error('Error consuming item:', error);
     return { success: false, error: (error as Error).message };
   }
 }
@@ -180,14 +180,14 @@ export async function removeItem(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
-    
+
     await updateDoc(docRef, {
       [itemId]: deleteField(),
     });
-    
+
     return { success: true };
   } catch (error) {
-    console.error('Error removing item:', error);
+    // console.error('Error removing item:', error);
     return { success: false, error: (error as Error).message };
   }
 }
@@ -215,24 +215,24 @@ export async function transferItem(
     // Get source item
     const sourceBag = await getBagData(fromUserId);
     const sourceItem = sourceBag[itemId];
-    
+
     if (!sourceItem) {
       return { success: false, error: `Item ${itemId} not found in source bag` };
     }
-    
+
     if (sourceItem.amount < amount) {
-      return { 
-        success: false, 
-        error: `Insufficient items. Has ${sourceItem.amount}, tried to transfer ${amount}` 
+      return {
+        success: false,
+        error: `Insufficient items. Has ${sourceItem.amount}, tried to transfer ${amount}`
       };
     }
-    
+
     // Remove from source
     const removeResult = await consumeItem(fromUserId, itemId, amount);
     if (!removeResult.success) {
       return removeResult;
     }
-    
+
     // Add to destination
     const giveResult = await giveItem(toUserId, itemId, amount, sourceItem.type);
     if (!giveResult.success) {
@@ -240,10 +240,10 @@ export async function transferItem(
       await giveItem(fromUserId, itemId, amount, sourceItem.type);
       return giveResult;
     }
-    
+
     return { success: true };
   } catch (error) {
-    console.error('Error transferring item:', error);
+    // console.error('Error transferring item:', error);
     return { success: false, error: (error as Error).message };
   }
 }
@@ -279,7 +279,7 @@ export async function consumeMultipleItems(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const bagData = await getBagData(userId);
-    
+
     // First, check if user has all required items
     for (const { itemId, amount } of items) {
       const currentItem = bagData[itemId];
@@ -287,13 +287,13 @@ export async function consumeMultipleItems(
         return { success: false, error: `Missing item: ${itemId}` };
       }
       if (currentItem.amount < amount) {
-        return { 
-          success: false, 
-          error: `Insufficient ${itemId}. Has ${currentItem.amount}, needs ${amount}` 
+        return {
+          success: false,
+          error: `Insufficient ${itemId}. Has ${currentItem.amount}, needs ${amount}`
         };
       }
     }
-    
+
     // If we get here, user has all items. Now consume them
     for (const { itemId, amount } of items) {
       const result = await consumeItem(userId, itemId, amount);
@@ -302,10 +302,10 @@ export async function consumeMultipleItems(
         return result;
       }
     }
-    
+
     return { success: true };
   } catch (error) {
-    console.error('Error consuming multiple items:', error);
+    // console.error('Error consuming multiple items:', error);
     return { success: false, error: (error as Error).message };
   }
 }

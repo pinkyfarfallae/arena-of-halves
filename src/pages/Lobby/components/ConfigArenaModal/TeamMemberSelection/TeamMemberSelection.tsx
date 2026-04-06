@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchAllCharacters } from '../../../../../data/characters';
 import { getPowers } from '../../../../../data/powers';
 import { toFighterState } from '../../../../../services/battleRoom/battleRoom';
+import { fetchTodayIrisWish } from '../../../../../data/wishes';
 import { POWER_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import type { FighterState } from '../../../../../types/battle';
 
@@ -19,11 +20,14 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
     const loadCharacters = async () => {
       try {
         const chars = await fetchAllCharacters();
-        const fighterList = chars.map((c) => {
-          const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
-          const powers = getPowers(powerDeity);
-          return toFighterState(c, powers);
-        });
+        const fighterList = await Promise.all(
+          chars.map(async (c) => {
+            const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
+            const powers = getPowers(powerDeity);
+            const wishesOfIris = await fetchTodayIrisWish(c.characterId).catch(() => null);
+            return toFighterState(c, powers, wishesOfIris?.deity || null);
+          })
+        );
         setFighters(fighterList);
       } catch (e) {
       } finally {

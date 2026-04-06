@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
+import { useState, useEffect, useCallback, useRef, startTransition, use } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, Link as NavigatedLink } from 'react-router-dom';
 import { ref, update, remove } from 'firebase/database';
 import { db, firestore } from '../../firebase';
@@ -75,10 +75,11 @@ import Copy from './icons/Copy';
 import Link from './icons/Link';
 import CheckIcon from './icons/Check';
 import Eye from '../../icons/Eye';
-import './Arena.scss';
 import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
 import { PRACTICE_STATES } from '../../constants/practice';
+import { fetchTodayIrisWish } from '../../data/wishes';
+import './Arena.scss';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -264,6 +265,14 @@ function Arena(props?: ArenaDemoProps) {
     const isRosabella = characterId === CHARACTER.ROSABELLA;
     if (isLocal && isRosabella) {
       console.log({ phase, transientSkeletonCard });
+    }
+  }, [phase, transientSkeletonCard, characterId]);
+
+  useEffect(() => {
+    const isLocal = window.location.hostname === 'localhost';
+    const isRosabella = characterId === CHARACTER.ROSABELLA;
+    if (isLocal && isRosabella) {
+      console.log({teamAMembers, teamBMembers});
     }
   }, [phase, transientSkeletonCard, characterId]);
 
@@ -644,7 +653,8 @@ function Arena(props?: ArenaDemoProps) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = room.practiceMode ? [] : getPowers(powerDeity);
-        const fighter = toFighterState(user, powers);
+        const wishesOfIris = await fetchTodayIrisWish(user.characterId);
+        const fighter = toFighterState(user, powers, wishesOfIris?.deity);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
           const resultA = teamMembersFromFirebase(result.teamA?.members);
@@ -1142,7 +1152,7 @@ function Arena(props?: ArenaDemoProps) {
       rounds: 0,
       winner: false,
     }).catch((err) => {
-      console.error('[Arena] Failed to save PVP WAITING state:', err);
+      // console.error('[Arena] Failed to save PVP WAITING state:', err);
     });
   }, [
     arenaId,
@@ -1182,7 +1192,7 @@ function Arena(props?: ArenaDemoProps) {
       rounds: 0,
       winner: false,
     }).catch((err) => {
-      console.error('[Arena] Failed to save PVP LIVE state:', err);
+      // console.error('[Arena] Failed to save PVP LIVE state:', err);
     });
 
     try {
@@ -1243,7 +1253,7 @@ function Arena(props?: ArenaDemoProps) {
       rounds: room.battle?.roundNumber ?? 0,
       winner: room.battle?.winner === role,
     }).catch((err) => {
-      console.error('[Arena] Failed to save PVP practice result:', err);
+      // console.error('[Arena] Failed to save PVP practice result:', err);
       // Still save local state even if sheet submission fails
     });
 

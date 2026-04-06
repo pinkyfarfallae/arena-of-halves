@@ -47,7 +47,7 @@ export default function ItemManagement() {
       const itemData = await fetchItemInfo();
       setItems(itemData);
     } catch (error) {
-      console.error('Failed to load items:', error);
+      // console.error('Failed to load items:', error);
     } finally {
       setLoading(false);
     }

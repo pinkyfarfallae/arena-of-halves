@@ -44,7 +44,7 @@ export function useBag(userId: string | undefined) {
         setLoading(false);
       },
       (err) => {
-        console.error('Error fetching bag data:', err);
+        // console.error('Error fetching bag data:', err);
         setError(err.message);
         setLoading(false);
       }
@@ -86,7 +86,7 @@ export function useBag(userId: string | undefined) {
         [itemId]: { amount, type },
       }, { merge: true });
     } catch (err) {
-      console.error('Error adding item:', err);
+      // console.error('Error adding item:', err);
       throw err;
     }
   };
@@ -136,7 +136,7 @@ export function useBag(userId: string | undefined) {
         [itemId]: deleteField(),
       });
     } catch (err) {
-      console.error('Error removing item:', err);
+      // console.error('Error removing item:', err);
       throw err;
     }
   };
