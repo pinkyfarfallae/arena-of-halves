@@ -848,6 +848,14 @@ export const UI_TEXT = {
     en: 'Training Report for',
     th: 'รายงานการฝึกฝนประจำวันที่'
   },
+  HERA_BLOCKED_TITLE: {
+    en: 'Hera Not Pleased!',
+    th: 'เทพีเฮราทรงไม่พอพระทัย!'
+  },
+  HERA_BLOCKED_MESSAGE: {
+    en:  'Hera is displeased with your presence in the battle.\nYour loyalty to Hera prevents you from joining the fight.',
+    th: 'เทพีเฮราทรงไม่พอพระทัยต่อการปรากฏตัวของคุณในการต่อสู้\nความจงรักภักดีต่อเทพีเฮราทำให้คุณไม่สามารถเข้าร่วมการต่อสู้ได้'
+  },
 } as const;
 
 /**))

@@ -146,10 +146,13 @@ function TrainingApproval() {
   }, [characters, reviewingTask?.userId]);
 
   const isTraineeBlessedByAthena = useMemo(() => {
-    if (!reviewingTask?.success) return false;
-    return reviewingTaskDateWishes.some(
+    const hasAthena = reviewingTaskDateWishes.some(
       (wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId
     );
+    if (reviewingTask?.mode === PRACTICE_MODE.NORMAL) {
+      return reviewingTask?.success && hasAthena;
+    }
+    return hasAthena;
   }, [reviewingTask, reviewingTaskDateWishes]);
 
   // Training passes if character count (including ticket bonus) >= 1000
