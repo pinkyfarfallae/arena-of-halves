@@ -25,6 +25,8 @@ import { ARENA_ACTIONS, ArenaAction } from '../../constants/arenaAction';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import { fetchTodayIrisWish } from '../../data/wishes';
 import './TrainingGrounds.scss';
+import { DEITY } from '../../constants/deities';
+import HeraBlocked from '../../components/HeraBlocked/HeraBlocked';
 
 function getPreviousDate(dateStr: string): string {
   // dateStr format: "YYYY-MM-DD"
@@ -49,6 +51,8 @@ export default function TrainingGrounds() {
   const [pvpGateOpenModal, setPvpGateOpenModal] = useState(false);
   const [existingPvpArenaId, setExistingPvpArenaId] = useState<string>(''); // Existing room from DB
   const [pendingModalOpen, setPendingModalOpen] = useState(false); // Flag to open modal after room creation
+  const [todayUserIrisWish, setTodayUserIrisWish] = useState<any>(null);
+  const [heraBlocked, setHeraBlocked] = useState(false);
   const todayDate = getTodayDate();
 
   useEffect(() => {
@@ -83,14 +87,17 @@ export default function TrainingGrounds() {
 
       try {
         const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-        const [, trainings, todayProgress, tasks] = await Promise.all([
+        const [, trainings, todayProgress, tasks, todayUserIrisWish] = await Promise.all([
           get(ref(db, quotaPath)).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
+          fetchTodayIrisWish(user?.characterId).catch(() => null),
         ]);
 
         if (!mounted) return;
+
+        setTodayUserIrisWish(todayUserIrisWish);
 
         const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
         const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
@@ -178,6 +185,15 @@ export default function TrainingGrounds() {
   };
 
   const handlePvPMode = async () => {
+    if(!user?.characterId) {
+      return;
+    }
+
+    if (todayUserIrisWish?.deity === DEITY.HERA) {
+      setHeraBlocked(true);
+      return;
+    }
+
     if (existingPvpArenaId) {
       navigate(`/training-grounds/pvp/${existingPvpArenaId}`);
       return;
@@ -192,7 +208,6 @@ export default function TrainingGrounds() {
     if (!createdPracticeArenaId && user?.characterId) {
       const powerDeity = POWER_OVERRIDES[user.characterId.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
-      const todayUserIrisWish = await fetchTodayIrisWish(user.characterId);
       const fighter = toFighterState(user, powers, todayUserIrisWish?.deity || null);
       try {
         const arenaId = await createRoom(
@@ -422,6 +437,7 @@ export default function TrainingGrounds() {
         roomStatus={activePracticeArenaStatus}
         keepCreateTabAfterFinalize={keepPracticeCreateTab}
       />
+      {heraBlocked && <HeraBlocked onClose={() => setHeraBlocked(false)} />}
     </div>
   );
 }
