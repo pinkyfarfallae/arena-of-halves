@@ -656,7 +656,6 @@ function TrainingApproval() {
                                     {trainingCheck.passes ? (
                                       <>
                                         <span className="training-approval__result-status-head">✓ PASSED</span>
-                                        <br />
                                         <small style={{ opacity: 0.8, fontWeight: 500 }}>
                                           Total: {trainingCheck.totalChars} characters
                                         </small>
@@ -664,7 +663,6 @@ function TrainingApproval() {
                                     ) : (
                                       <>
                                         <span className="training-approval__result-status-head">✗ FAILED</span>
-                                        <br />
                                         <small style={{ opacity: 0.8, fontWeight: 500 }}>
                                           Need {trainingCheck.charsNeeded} more characters to pass
                                         </small>

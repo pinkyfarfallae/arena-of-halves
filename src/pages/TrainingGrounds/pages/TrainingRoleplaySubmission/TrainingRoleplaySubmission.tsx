@@ -48,7 +48,7 @@ function TrainingRoleplaySubmission() {
     ]).then(([data, todayProgress]) => {
       if (mounted) {
         setLivePractice(todayProgress);
-        const todaySheetTask = [...data].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
+        const todaySheetTask = [...data].reverse()[0] || null;
         setSheetTask(todaySheetTask);
       }
     }).catch(() => { })
