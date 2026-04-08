@@ -204,7 +204,7 @@ function TrainingApproval() {
     }
 
     const reward = (reviewingTask.mode === PRACTICE_MODE.PVP
-      ? 1 : reviewingTask.success ? 1 : 0) * (isTraineeBlessedByAthena && reviewingTask.success ? 2 : 1); // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
+      ? 1 : reviewingTask.success ? 1 : 0) * (isTraineeBlessedByAthena ? 2 : 1); // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
 
     setApproveData({
       charCount,
