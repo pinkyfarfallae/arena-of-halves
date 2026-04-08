@@ -110,19 +110,41 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
           ['REROLL', fighter.rerollsLeft, undefined],
         ] as [string, number, number | undefined][]).map(([label, base, mod]) => {
           const m = mod ?? 0;
+
+          // Ares
           const hasAresBuff = label === 'DMG' && fighter.wishOfIris === DEITY.ARES;
           const aresPrimary = DEITY_THEMES[DEITY.ARES.toLowerCase()][0];
+
+          // Artemis
+          const hasArtemisBuff = label === 'SPD' && fighter.wishOfIris === DEITY.ARTEMIS;
+          const artemisPrimary = DEITY_THEMES[DEITY.ARTEMIS.toLowerCase()][0];
+
+          const statClassName = [
+            'mchip__stat',
+            m > 0 ? 'mchip__stat--buffed' : '',
+            m < 0 ? 'mchip__stat--debuffed' : '',
+            hasAresBuff ? 'mchip__stat--ares' : '',
+            hasArtemisBuff ? 'mchip__stat--artemis' : '',
+          ].join(' ');
+
           return (
             <div
               key={label}
-              className={`mchip__stat ${m > 0 ? 'mchip__stat--buffed' : m < 0 ? 'mchip__stat--debuffed' : ''} ${hasAresBuff ? 'mchip__stat--ares' : ''}`}
-              style={hasAresBuff ? { '--deity-primary': aresPrimary } as React.CSSProperties : undefined}
+              className={statClassName}
+              style={
+                hasAresBuff
+                  ? { '--deity-primary': aresPrimary } as React.CSSProperties
+                  : hasArtemisBuff
+                    ? { '--deity-primary': artemisPrimary } as React.CSSProperties
+                    : undefined
+              }
             >
               <span className="mchip__stat-lbl">{label}</span>
               <span className="mchip__stat-val">
                 <span className="mchip__stat-base">{base + m}</span>
                 {m !== 0 && <span className="mchip__stat-mod">{m > 0 ? `+${m}` : m}</span>}
                 {hasAresBuff && <span className="mchip__stat-mod" style={{ color: aresPrimary }}>+1 Ares</span>}
+                {hasArtemisBuff && <span className="mchip__stat-mod" style={{ color: artemisPrimary }}>+3 Artemis</span>}
               </span>
             </div>
           );
