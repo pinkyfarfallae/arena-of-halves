@@ -11,8 +11,9 @@ import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
 import { Phase, ORB_SCATTER, IRIS_PHASE } from './constants/iris';
 import { applyWishEffect } from '../../services/irisWish/applyWishesEffect';
-import './IrisMessage.scss';
 import { DEITY } from '../../constants/deities';
+import { onRoomsList, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
+import './IrisMessage.scss';
 
 interface Props {
   retossable?: boolean;
@@ -113,6 +114,26 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
       if (!isAdmin) {
         setDiscovered(prev => new Set(prev).add(pick.deity));
         applyWishEffect(pick, user?.characterId || '');
+
+        // Subscribe to rooms list and update wishes for rooms where user is a fighter
+        const unsubscribe = onRoomsList((rooms) => {
+          rooms.forEach(room => {
+            const isFighter =
+              room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+              room.teamB?.members?.some(p => p.characterId === user?.characterId);
+
+            const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+            
+            if (isFighter || isInvited) {
+              updateTodayWishesForRoom(room.arenaId).catch(err => {
+                // console.error(`Failed to update today's wishes for room ${room.arenaId}:`, err);
+              });
+            }
+          });
+          
+          // Unsubscribe after first snapshot (we only need to update once)
+          unsubscribe();
+        });
       }
     }, 2200);
   }, [phase, wishes, user?.characterId, isAdmin, userTodayWish]);
