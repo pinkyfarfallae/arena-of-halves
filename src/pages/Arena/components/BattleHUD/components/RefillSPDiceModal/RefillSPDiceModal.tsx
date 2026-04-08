@@ -64,6 +64,8 @@ export default function RefillSPDiceModal({
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Once we've shown the result card for this roll, don't reset to dice view (avoids "dice again" when effect re-runs). */
   const resultCardShownForRollRef = useRef<number | null>(null);
+  /** Track if we've already notified parent about guaranteed win (avoid duplicate calls). */
+  const guaranteedWinNotifiedRef = useRef(false);
   const rollRef = useRef<number | null | undefined>(undefined);
   rollRef.current = roll;
 
@@ -108,6 +110,19 @@ export default function RefillSPDiceModal({
     return () => clearTimers();
   }, [roll, diceViewMs, clearTimers, onResultCardVisible]);
 
+  // Auto-win: notify parent immediately when guaranteed win (100% rate) is shown (only once)
+  useEffect(() => {
+    const isGuaranteedWin = winFaces.length === 4;
+    if (isGuaranteedWin && !guaranteedWinNotifiedRef.current) {
+      guaranteedWinNotifiedRef.current = true;
+      onResultCardVisible?.();
+    }
+    // Reset notification flag when winFaces changes (new scenario)
+    if (!isGuaranteedWin) {
+      guaranteedWinNotifiedRef.current = false;
+    }
+  }, [winFaces, onResultCardVisible]);
+
   const themeStyle: React.CSSProperties = {
     '--modal-primary': attacker?.theme?.[0] ?? '#666',
     '--modal-dark': attacker?.theme?.[18] ?? '#333',
@@ -116,6 +131,22 @@ export default function RefillSPDiceModal({
   const themeColors = attacker
     ? { primary: attacker.theme?.[0] ?? '#666', primaryDark: attacker.theme?.[18] ?? '#333' }
     : undefined;
+
+  // Auto-win: if winFaces.length === 4, all faces win (100% chance) - skip dice and show win result immediately
+  const isGuaranteedWin = winFaces.length === 4;
+  if (isGuaranteedWin) {
+    const cardStyle = { '--refill-atk': themeColors?.primary ?? '#666', '--refill-def': themeColors?.primaryDark ?? '#333' } as React.CSSProperties;
+    return (
+      <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+        <div className="refill-card refill-card--result" style={cardStyle}>
+          <div className="refill-card__header">
+            <span className="refill-card__atkname" style={{ color: themeColors?.primary }}>{attacker?.nicknameEng ?? '—'}</span>
+          </div>
+          <span className="refill-card__total">{effectiveWon}</span>
+        </div>
+      </div>
+    );
+  }
 
   // Refill result card (shown after dice animation ends + brief view, or fallback timer)
   if (roll != null && showRefillCard) {

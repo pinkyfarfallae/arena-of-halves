@@ -426,13 +426,13 @@ export default function DiceModal({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={displayAtkTheme}>
             <span className="bhud__dice-label">{attackDiceHeaderLabel}</span>
-            <span className={`bhud__dice-sub ${(attacker?.wishOfIris === DEITY.HYPNOS || attacker?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
+            <span className={`bhud__dice-sub ${(displayAttackFighter?.wishOfIris === DEITY.HYPNOS || displayAttackFighter?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
               {isMyAttackReplaySegment
                 ? displayAttackFighter?.nicknameEng
                 : `${displayAttackFighter?.nicknameEng} → ${defender?.nicknameEng}`}
-              {attacker?.wishOfIris === DEITY.HYPNOS
+              {displayAttackFighter?.wishOfIris === DEITY.HYPNOS
                 ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
-                : attacker?.wishOfIris === DEITY.TYCHE
+                : displayAttackFighter?.wishOfIris === DEITY.TYCHE
                   ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
                   : null}
             </span>
