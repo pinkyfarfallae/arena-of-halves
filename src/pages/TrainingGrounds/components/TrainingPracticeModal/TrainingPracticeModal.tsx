@@ -6,6 +6,7 @@ import { ROLE } from '../../../../constants/role';
 import { ROOM_STATUS } from '../../../../constants/battle';
 import { ArenaAction, ARENA_ACTIONS } from '../../../../constants/arenaAction';
 import { COPY_TYPE, CopyType } from '../../../../constants/lobby';
+import { updateTodayWishesForRoom } from '../../../../services/battleRoom/battleRoom';
 import './TrainingPracticeModal.scss';
 
 interface ThemeVars {
@@ -172,6 +173,7 @@ export default function TrainingPracticeModal({
     try {
       const arenaId = await onJoinPracticeRoom(code);
       onClose();
+      updateTodayWishesForRoom(arenaId);
       navigate(`/training-grounds/pvp/${arenaId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join training room');
