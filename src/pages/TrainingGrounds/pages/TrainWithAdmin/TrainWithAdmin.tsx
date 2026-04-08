@@ -11,7 +11,6 @@ import {
   getTodayTargets,
   savePartialProgress,
   completeTraining,
-  getTodayDate,
   getTodayProgress,
   UserDailyProgress,
   TrainingTask,
@@ -25,6 +24,7 @@ import EarlyFailModal from './components/EarlyFailModal/EarlyFailModal';
 import EarlyWinModal from './components/EarlyWinModal/EarlyWinModal';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
+import { getTodayDate } from '../../../../utils/date';
 
 interface PaperRoll {
   target: number;

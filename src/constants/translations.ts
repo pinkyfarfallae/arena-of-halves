@@ -848,6 +848,8 @@ export const UI_TEXT = {
     en: 'Training Report for',
     th: 'รายงานการฝึกฝนประจำวันที่'
   },
+
+  // Hera Blocked Modal
   HERA_BLOCKED_TITLE: {
     en: 'Hera Not Pleased!',
     th: 'เทพีเฮราทรงไม่พอพระทัย!'
@@ -855,6 +857,16 @@ export const UI_TEXT = {
   HERA_BLOCKED_MESSAGE: {
     en:  'Hera is displeased with your presence in the battle.\nYour loyalty to Hera prevents you from joining the fight.',
     th: 'เทพีเฮราทรงไม่พอพระทัยต่อการปรากฏตัวของคุณในการต่อสู้\nความจงรักภักดีต่อเทพีเฮราทำให้คุณไม่สามารถเข้าร่วมการต่อสู้ได้'
+  },
+
+  // Beyond today practice
+  BEYOND_TODAY_PRACTICE_TITLE: {
+    en: 'Your Training Is Cut Off',
+    th: 'การฝึกของคุณจบลงแล้ว'
+  },
+  BEYOND_TODAY_PRACTICE_MESSAGE: {
+    en: 'Training is cut off for today since you have reached midnight. Please come back tomorrow.',
+    th: 'เที่ยงคืนแล้ว การฝึกของคุณจบลงแล้วสำหรับวันนี้\nกรุณากลับมาที่นี่ในวันพรุ่งนี้'
   },
 } as const;
 

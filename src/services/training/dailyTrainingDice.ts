@@ -13,6 +13,7 @@ import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../../constants/practice';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
+import { getTodayDate } from '../../utils/date';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -69,15 +70,6 @@ export interface PracticeProgressInput {
   rounds?: number;
   winner?: boolean;
 }
-
-// Get today's date in YYYY-MM-DD format
-export const getTodayDate = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 // Admin: Set today's target (legacy - for single target)
 export const setDailyTarget = async (target: number): Promise<void> => {

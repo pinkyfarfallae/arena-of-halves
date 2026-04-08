@@ -7,6 +7,11 @@ import { POWER_META } from '../../../../../../CharacterInfo/constants/powerMeta'
 import { isSkillUnlocked } from '../../../../../../../constants/character';
 import './FighterPopupPanel.scss';
 import { POWER_TYPES } from '../../../../../../../constants/powers';
+import { WISHES_ASSOCIATED_WITH_BATTLE } from '../../../../../../../data/wishes';
+import { DEITY } from '../../../../../../../constants/deities';
+import { DEITY_SVG } from '../../../../../../../data/deities';
+import { DEITY_THEMES } from '../../../../../../../constants/theme';
+import { hexToRgb } from '../../../../../../../utils/color';
 
 const BP_COMPACT = 600;
 
@@ -77,6 +82,24 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
         <span className="mchip__popup-deity">{deityLabel}</span>
       </div>
 
+      {fighter.wishOfIris && WISHES_ASSOCIATED_WITH_BATTLE.includes(fighter.wishOfIris) && (
+        <div
+          className="mchip__iris"
+          style={{
+            '--deity-primary': DEITY_THEMES[fighter.wishOfIris.toLowerCase()][0],
+            '--deity-primary-rgb': hexToRgb(DEITY_THEMES[fighter.wishOfIris.toLowerCase()][0]),
+            '--user-primary': fighter.theme[0],
+          } as React.CSSProperties}
+        >
+          <span className="mchip__iris-icon">
+            {DEITY_SVG[fighter.wishOfIris] || DEITY_SVG[DEITY.ZEUS]}
+          </span>
+          <span className="mchip__iris-deity">
+            {fighter.wishOfIris}
+          </span>
+        </div>
+      )}
+
       <div className="mchip__stats">
         {([
           ['HP', fighter.maxHp, statMods?.maxHp],
@@ -87,12 +110,19 @@ export default function FighterPopupPanel({ fighter, deityLabel, chipRef, onEnte
           ['REROLL', fighter.rerollsLeft, undefined],
         ] as [string, number, number | undefined][]).map(([label, base, mod]) => {
           const m = mod ?? 0;
+          const hasAresBuff = label === 'DMG' && fighter.wishOfIris === DEITY.ARES;
+          const aresPrimary = DEITY_THEMES[DEITY.ARES.toLowerCase()][0];
           return (
-            <div className={`mchip__stat${m > 0 ? ' mchip__stat--buffed' : m < 0 ? ' mchip__stat--debuffed' : ''}`} key={label}>
+            <div
+              key={label}
+              className={`mchip__stat ${m > 0 ? 'mchip__stat--buffed' : m < 0 ? 'mchip__stat--debuffed' : ''} ${hasAresBuff ? 'mchip__stat--ares' : ''}`}
+              style={hasAresBuff ? { '--deity-primary': aresPrimary } as React.CSSProperties : undefined}
+            >
               <span className="mchip__stat-lbl">{label}</span>
               <span className="mchip__stat-val">
-                {base + m}
+                <span className="mchip__stat-base">{base + m}</span>
                 {m !== 0 && <span className="mchip__stat-mod">{m > 0 ? `+${m}` : m}</span>}
+                {hasAresBuff && <span className="mchip__stat-mod" style={{ color: aresPrimary }}>+1 Ares</span>}
               </span>
             </div>
           );

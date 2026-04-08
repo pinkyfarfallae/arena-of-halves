@@ -35,7 +35,7 @@ const HeraBlocked = ({ onClose }: HeraBlockedProps) => {
         <h2 className="hera-blocked-title">{t(T.HERA_BLOCKED_TITLE)}</h2>
         <div className="hera-blocked-message">{t(T.HERA_BLOCKED_MESSAGE)}</div>
         <button className="hera-blocked-button" onClick={onClose}>
-          Roger that
+          {t(T.ROGER_THAT)}
         </button>
       </div>
     </div>

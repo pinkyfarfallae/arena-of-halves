@@ -45,7 +45,8 @@ import * as HadesService from './hades/hades';
 import * as ZeusService from './zeus/zeus';
 import * as ApolloService from './apollo/apollo';
 import * as PersephoneService from './persephone';
-import { Deity } from '../../constants/deities';
+import { DEITY, Deity } from '../../constants/deities';
+import { fetchTodayIrisWish } from '../../data/wishes';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -320,7 +321,7 @@ export function inviteReservationsFromFirebase(
 }
 
 /** Build a FighterState snapshot from a Character + their Powers */
-export function toFighterState(character: Character, powers: PowerDefinition[], wishesOfIris: Deity | null): FighterState {
+export function toFighterState(character: Character, powers: PowerDefinition[], wishOfIris: Deity | null): FighterState {
   // Calculate critical rate based on strength
   let criticalRate = 25; // default 25%
   if (character.strength > 3 && character.strength < 5) {
@@ -328,6 +329,8 @@ export function toFighterState(character: Character, powers: PowerDefinition[], 
   } else if (character.strength === 5) {
     criticalRate = 75; // 75% if strength === 5
   }
+
+  const hasAresWish = wishOfIris === DEITY.ARES;
 
   return {
     characterId: character.characterId,
@@ -340,7 +343,7 @@ export function toFighterState(character: Character, powers: PowerDefinition[], 
 
     maxHp: character.hp,
     currentHp: character.hp,
-    damage: character.damage,
+    damage: character.damage + (hasAresWish ? 1 : 0),
     attackDiceUp: character.attackDiceUp,
     defendDiceUp: character.defendDiceUp,
     speed: character.speed,
@@ -358,7 +361,7 @@ export function toFighterState(character: Character, powers: PowerDefinition[], 
     powers,
     skeletonCount: 0,
 
-    wishesOfIris: wishesOfIris || null,
+    wishOfIris: wishOfIris || null,
   };
 }
 
@@ -442,6 +445,70 @@ function getValidTargetIds(
 
 export function roomRef(arenaId: string) {
   return ref(db, `arenas/${arenaId}`);
+}
+
+/* ── update today wishes to existing arena room ────────────────────────────────────────── */
+
+export async function updateTodayWishesForRoom(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+  
+  const room = snap.val() as BattleRoom;
+  const updates: Record<string, unknown> = {};
+  
+  // Update wishes for team A members
+  const teamAMembers = teamMembersFromFirebase(room.teamA?.members);
+  for (let i = 0; i < teamAMembers.length; i++) {
+    const member = teamAMembers[i];
+    const todayWish = await fetchTodayIrisWish(member.characterId);
+    const newDeity = (todayWish?.deity as Deity) || null;
+    const oldDeity = member.wishOfIris || null;
+    
+    // Only update if wish actually changed
+    if (oldDeity !== newDeity) {
+      const hadAresWish = oldDeity === DEITY.ARES;
+      const hasAresWish = newDeity === DEITY.ARES;
+      
+      if (hadAresWish && !hasAresWish) {
+        // Lost Ares bonus: -1 damage
+        updates[`teamA/members/${i}/damage`] = member.damage - 1;
+      } else if (!hadAresWish && hasAresWish) {
+        // Gained Ares bonus: +1 damage
+        updates[`teamA/members/${i}/damage`] = member.damage + 1;
+      }
+      
+      updates[`teamA/members/${i}/wishOfIris`] = newDeity;
+    }
+  }
+  
+  // Update wishes for team B members
+  const teamBMembers = teamMembersFromFirebase(room.teamB?.members);
+  for (let i = 0; i < teamBMembers.length; i++) {
+    const member = teamBMembers[i];
+    const todayWish = await fetchTodayIrisWish(member.characterId);
+    const newDeity = (todayWish?.deity as Deity) || null;
+    const oldDeity = member.wishOfIris || null;
+    
+    // Only update if wish actually changed
+    if (oldDeity !== newDeity) {
+      const hadAresWish = oldDeity === DEITY.ARES;
+      const hasAresWish = newDeity === DEITY.ARES;
+      
+      if (hadAresWish && !hasAresWish) {
+        // Lost Ares bonus: -1 damage
+        updates[`teamB/members/${i}/damage`] = member.damage - 1;
+      } else if (!hadAresWish && hasAresWish) {
+        // Gained Ares bonus: +1 damage
+        updates[`teamB/members/${i}/damage`] = member.damage + 1;
+      }
+      
+      updates[`teamB/members/${i}/wishOfIris`] = newDeity;
+    }
+  }
+  
+  if (Object.keys(updates).length > 0) {
+    await update(roomRef(arenaId), updates);
+  }
 }
 
 /* ── create ───────────────────────────────────────────── */
@@ -541,6 +608,10 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
       [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
       inviteReservations: remainingReservations.length > 0 ? remainingReservations : null,
     });
+    
+    // Update today's wishes for all fighters in the room
+    await updateTodayWishesForRoom(arenaId);
+    
     const updated = await get(roomRef(arenaId));
     return updated.val() as BattleRoom;
   }
@@ -566,6 +637,9 @@ export async function joinRoom(arenaId: string, fighter: FighterState | FighterS
     [teamPath(BATTLE_TEAM.B, TEAM_SUB_PATH.MEMBERS)]: newTeamB,
     [ARENA_PATH.STATUS]: bothFull ? ROOM_STATUS.READY : ROOM_STATUS.WAITING,
   });
+
+  // Update today's wishes for all fighters in the room
+  await updateTodayWishesForRoom(arenaId);
 
   const updated = await get(roomRef(arenaId));
   return updated.val() as BattleRoom;
