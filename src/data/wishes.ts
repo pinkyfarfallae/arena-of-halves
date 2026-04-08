@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
-import { DEITY } from '../constants/deities';
+import { Deity, DEITY } from '../constants/deities';
 import { GID, csvUrl } from '../constants/sheets';
 import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
@@ -155,3 +155,16 @@ export const fetchIrisWishesByDate = async (date: string) => {
 
   return snap.docs.map(doc => doc.data());
 };
+
+/** Wishes associated with battle */
+export const WISHES_ASSOCIATED_WITH_BATTLE: Deity[] = [
+  DEITY.ZEUS,
+  DEITY.POSEIDON,
+  DEITY.ARES,
+  DEITY.ARTEMIS,
+  DEITY.HADES,
+  DEITY.HYPNOS,
+  DEITY.NEMESIS,
+  DEITY.NIKE,
+  DEITY.TYCHE,
+];

@@ -61,9 +61,10 @@ import {
   advanceAfterResurrection,
   advanceToPomegranateCoAttackPhase,
   applyNpcResolvingCritIfPending,
+  updateTodayWishesForRoom,
 } from '../../services/battleRoom/battleRoom';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import { savePracticeProgress, getTodayDate } from '../../services/training/dailyTrainingDice';
+import { savePracticeProgress } from '../../services/training/dailyTrainingDice';
 import type { BattleRoom, FighterState } from '../../types/battle';
 import { type SeasonKey } from '../../data/seasons';
 import BattleHUD from './components/BattleHUD/BattleHUD';
@@ -79,7 +80,10 @@ import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
 import { PRACTICE_STATES } from '../../constants/practice';
 import { fetchTodayIrisWish } from '../../data/wishes';
+import { getTodayDate } from '../../utils/date';
+import { useDailyTrigger } from '../../hooks/useDailyTrigger';
 import './Arena.scss';
+import BeyondTodayPracticeModal from './components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -125,18 +129,29 @@ export interface ArenaDemoProps {
   demoRoom?: BattleRoom | null;
   /** Season to show in demo (e.g. for SeasonalEffects preview). */
   demoSeason?: SeasonKey | null;
-  // Optional callback to mark local mode (e.g. for practice quota) when entering arena from Training Grounds PvP or Train With Admin modes.
-  markLocalMode?: () => void;
+  /** When true, Arena is for Practice mode. */
+  isPractice?: boolean;
 }
 
 function Arena(props?: ArenaDemoProps) {
-  const { isDemo = false, demoRoom = null, demoSeason = null, markLocalMode } = props ?? {};
+  const { isDemo = false, demoRoom = null, demoSeason = null, isPractice = false } = props ?? {};
   const { arenaId } = useParams<{ arenaId: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const watchOnly = searchParams.get('watch') === 'true';
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
+
+  useDailyTrigger(() => {
+    if (!arenaId) return;
+    if (isPractice) {
+      setBeyondTodayPractice(true);
+    } else if (!isDemo) {
+      updateTodayWishesForRoom(arenaId);
+    }
+  });
 
   /** Suppress hit visuals briefly when user clicks Back from target modal (no opposite frame shake) */
   const [suppressHitAfterBack, setSuppressHitAfterBack] = useState(false);
@@ -272,7 +287,7 @@ function Arena(props?: ArenaDemoProps) {
     const isLocal = window.location.hostname === 'localhost';
     const isRosabella = characterId === CHARACTER.ROSABELLA;
     if (isLocal && isRosabella) {
-      console.log({teamAMembers, teamBMembers});
+      console.log({ teamAMembers, teamBMembers });
     }
   }, [phase, transientSkeletonCard, characterId]);
 
@@ -402,7 +417,6 @@ function Arena(props?: ArenaDemoProps) {
   const handleStartBattle = useCallback(async () => {
     if (!arenaId) return;
     await startBattle(arenaId);
-    markLocalMode?.();
   }, [arenaId]);
 
   const handleSelectTarget = useCallback(async (defenderId: string) => {
@@ -1504,7 +1518,7 @@ function Arena(props?: ArenaDemoProps) {
           )}
         </div>
 
-        {stuckContinueVisible && (
+        {/* {stuckContinueVisible && (
           <button
             type="button"
             className="arena__bar-stuck-continue"
@@ -1513,7 +1527,7 @@ function Arena(props?: ArenaDemoProps) {
           >
             Continue battle
           </button>
-        )}
+        )} */}
 
         {effectiveRoom.status === ROOM_STATUS.FINISHED ? (
           <div className="arena__bar-share">
@@ -1802,6 +1816,14 @@ function Arena(props?: ArenaDemoProps) {
 
       {showLog && effectiveRoom && (
         <BattleLogModal room={effectiveRoom} onClose={() => setShowLog(false)} />
+      )}
+
+      {beyondTodayPractice && (
+        <BeyondTodayPracticeModal
+          onClose={() => {
+            setBeyondTodayPractice(false);
+          }}
+        />
       )}
     </div>
   );

@@ -6,7 +6,6 @@ import { db } from '../../../../firebase';
 import { get, ref } from 'firebase/database';
 import {
   fetchUserTrainingTasks,
-  getTodayDate,
   getTodayProgress,
   UserDailyProgress,
   TrainingTask,
@@ -16,8 +15,9 @@ import {
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import Arena from '../../../Arena/Arena';
-import './PvP.scss';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
+import { getTodayDate } from '../../../../utils/date';
+import './PvP.scss';
 
 export default function PvP() {
   const { arenaId } = useParams<{ arenaId: string }>();
@@ -99,7 +99,7 @@ export default function PvP() {
         </div>
       );
     }
-    return <Arena />;
+    return <Arena isPractice />;
   }
 
   if (loading) {

@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
-import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';
@@ -162,6 +162,10 @@ function Lobby() {
       if (room.status !== ROOM_STATUS.WAITING) {
         setError('Room is not open for joining.');
         return;
+      }
+
+      if (isFighter) {
+        updateTodayWishesForRoom(code);
       }
 
       navigate(`/arena/${code}`);
@@ -334,7 +338,9 @@ function Lobby() {
                               setHeraBlocked(true);
                               return;
                             }
-
+                            if (isFighter) {
+                              updateTodayWishesForRoom(room.arenaId).catch(() => {});
+                            }
                             navigate(`/arena/${room.arenaId}?watch=true`)
                           }}
                         >
