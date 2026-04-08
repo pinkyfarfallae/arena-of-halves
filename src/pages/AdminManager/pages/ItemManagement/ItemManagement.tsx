@@ -1,4 +1,4 @@
-import React, { use, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ItemInfo } from '../../../../types/character';
 import { fetchItemInfo, deleteItem, editItem } from '../../../../data/characters';
 import Table, { Column } from '../../../../components/Table/Table';
@@ -11,8 +11,8 @@ import { USER_MANAGEMENT_MODE } from '../../../../constants/userManagement';
 import { Input } from '../../../../components/Form';
 import Save from './icons/Save';
 import Close from '../../../../icons/Close';
-import './ItemManagement.scss';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
+import './ItemManagement.scss';
 
 export default function ItemManagement() {
   const { width } = useScreenSize();

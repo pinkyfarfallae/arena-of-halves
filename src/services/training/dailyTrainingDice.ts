@@ -303,8 +303,8 @@ export const savePartialProgress = async (
   }
 
   rolls.forEach(roll => {
-    if (roll < 1 || roll > 12) {
-      throw new Error('Each roll must be between 1 and 12');
+    if (roll < 1 || roll > 20) {
+      throw new Error('Each roll must be between 1 and 20');
     }
   });
 
@@ -357,8 +357,8 @@ export const completeTraining = async (
   }
 
   rolls.forEach(roll => {
-    if ((roll < 1 && roll !== 0) || roll > 12) {
-      throw new Error('Each roll must be between 0 and 12');
+    if ((roll < 1 && roll !== 0) || roll > 20) {
+      throw new Error('Each roll must be between 0 and 20');
     }
   });
 

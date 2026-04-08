@@ -27,11 +27,14 @@ import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 import { getTodayDate } from '../../../../utils/date';
 import { useDailyTrigger } from '../../../../hooks/useDailyTrigger';
 import BeyondTodayPracticeModal from '../../../Arena/components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
-
+import { DieNoticeModal } from './components/DieNoticeModal/DieNoticeModal';
+import { fetchTodayIrisWish } from '../../../../data/wishes';
+import { DEITY } from '../../../../constants/deities';
 interface PaperRoll {
   target: number;
   roll: number | null;
   rolled: boolean;
+  
 }
 
 export default function TrainWithAdmin() {
@@ -50,7 +53,10 @@ export default function TrainWithAdmin() {
   // eslint-disable-next-line
   const [_quotaUsed, setQuotaUsed] = useState<boolean>(false);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
+
+  const [die, setDie] = useState<10 | 12 | 20>(12);
   const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
+  const [showDieNotice, setShowDieNotice] = useState(false);
 
   const navigate = useNavigate();
 
@@ -79,10 +85,24 @@ export default function TrainWithAdmin() {
       const todayTargets = await getTodayTargets();
       setTargets(todayTargets);
 
-      const [trainings, todayProgress] = await Promise.all([
+      const [trainings, todayProgress, todayUserIrisWish] = await Promise.all([
         fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
         getTodayProgress(user.characterId).catch(() => null),
+        fetchTodayIrisWish(user?.characterId).catch(() => null),
       ]);
+
+      const deity = todayUserIrisWish?.deity;
+
+      if (deity === DEITY.HYPNOS) { 
+        setDie(10);
+        setShowDieNotice(true);
+      } else if (deity === DEITY.TYCHE) {
+        setDie(20);
+        setShowDieNotice(true);
+      } else {
+        setDie(12);
+      }
+
       setLivePractice(todayProgress);
       const todaySheetTask = [...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
       setSheetTask(todaySheetTask);
@@ -451,7 +471,7 @@ export default function TrainWithAdmin() {
       <div className="train-with-admin__roller" style={finalResult ? { opacity: 0.5 } : {}}>
         <DiceRoller
           className="train-with-admin-dice-roller"
-          lockedDie={12}
+          lockedDie={die}
           onRollResult={handleRollResult}
           hidePrompt={alreadyTrained || currentRollIndex >= 5}
           disabled={alreadyTrained || currentRollIndex >= 5 || showEarlyFailModal || showEarlyWinModal}
@@ -505,6 +525,10 @@ export default function TrainWithAdmin() {
             navigate('/training-grounds');
           }}
         />)}
+      
+      {showDieNotice && (
+        <DieNoticeModal die={die} onClose={() => setShowDieNotice(false)} />
+      )}
     </div>
   );
 }

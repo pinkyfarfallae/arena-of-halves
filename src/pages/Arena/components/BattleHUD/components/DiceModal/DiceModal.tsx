@@ -12,6 +12,7 @@ import { POWERS_DEFENDER_CANNOT_DEFEND } from '../../../../../../constants/power
 import { useEffect, useRef, useState } from 'react';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
+import { DEITY } from '../../../../../../constants/deities';
 
 /** Brief delay after attack animation ends before showing defender (smooth transition to next phase) */
 const AFTER_ANIM_MS = 150;
@@ -115,7 +116,7 @@ export default function DiceModal({
   dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
   coAttackCaster, isMyPomegranateCoAttack = false,
   pomCoAtkBuffMod = 0,
-  atkBuffMod = 0,   defBuffMod = 0,
+  atkBuffMod = 0, defBuffMod = 0,
   skeletonHitActive = false,
   hideResolvingDefenseDiceForShockApply = false,
 }: Props) {
@@ -258,7 +259,7 @@ export default function DiceModal({
     }
     // Once we schedule showing NPC defend dice, don't reset the timer on re-renders
     if (npcDefendDiceScheduledRef.current) return;
-    
+
     if (!attackDoneOrPlayerRolled) {
       // Schedule dice to show anyway after a longer delay if attack animation hasn't completed yet
       // This prevents stuck turns when NPC defense happens very quickly after attack
@@ -425,15 +426,24 @@ export default function DiceModal({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={displayAtkTheme}>
             <span className="bhud__dice-label">{attackDiceHeaderLabel}</span>
-            <span className="bhud__dice-sub">
+            <span className={`bhud__dice-sub ${(attacker?.wishOfIris === DEITY.HYPNOS || attacker?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
               {isMyAttackReplaySegment
                 ? displayAttackFighter?.nicknameEng
                 : `${displayAttackFighter?.nicknameEng} → ${defender?.nicknameEng}`}
+              {attacker?.wishOfIris === DEITY.HYPNOS
+                ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
+                : attacker?.wishOfIris === DEITY.TYCHE
+                  ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
+                  : null}
             </span>
             <DiceRoller
               key="atk-my-roll"
               className="bhud__dice-roller"
-              lockedDie={12}
+              lockedDie={
+                displayAttackFighter?.wishOfIris === DEITY.HYPNOS ? 10
+                  : displayAttackFighter?.wishOfIris === DEITY.TYCHE ? 20
+                    : 12
+              }
               fixedResult={
                 isMyAttackReplaySegment
                   ? (rolledAttackValue != null && rolledAttackValue > 0 ? rolledAttackValue : undefined)
@@ -488,11 +498,22 @@ export default function DiceModal({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={replayAttackTheme}>
             <span className="bhud__dice-label">{attackDiceHeaderLabel}</span>
-            <span className="bhud__dice-sub">{replayAttackFighter?.nicknameEng}</span>
+            <span className={`bhud__dice-sub ${(replayAttackFighter?.wishOfIris === DEITY.HYPNOS || replayAttackFighter?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
+              {replayAttackFighter?.nicknameEng}
+              {replayAttackFighter?.wishOfIris === DEITY.HYPNOS
+                ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
+                : replayAttackFighter?.wishOfIris === DEITY.TYCHE
+                  ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
+                  : null}
+            </span>
             <DiceRoller
               key="atk-defend-phase"
               className="bhud__dice-roller"
-              lockedDie={12}
+              lockedDie={
+                replayAttackFighter?.wishOfIris === DEITY.HYPNOS ? 10
+                  : replayAttackFighter?.wishOfIris === DEITY.TYCHE ? 20
+                    : 12
+              }
               fixedResult={latchedAttackRoll ?? 0}
               accentColor={replayAttackFighter?.theme[9]}
               themeColors={dieColors(replayAttackFighter)}
@@ -522,15 +543,24 @@ export default function DiceModal({
           <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
             <div className="bhud__dice-modal" style={defTheme}>
               <span className="bhud__dice-label">{pomCoFlowActive ? 'Co-attack defense' : 'Defense Roll'}</span>
-              <span className="bhud__dice-sub">
+              <span className={`bhud__dice-sub ${(defender?.wishOfIris === DEITY.HYPNOS || defender?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
                 {showMyDefendReplay
                   ? defender?.nicknameEng
                   : `Defending against ${(pomCoFlowActive ? displayAttackFighter?.nicknameEng : attacker?.nicknameEng) ?? ''}`}
+                {defender?.wishOfIris === DEITY.HYPNOS
+                  ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
+                  : defender?.wishOfIris === DEITY.TYCHE
+                    ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
+                    : null}
               </span>
               <DiceRoller
                 key="def-my-roll"
                 className="bhud__dice-roller"
-                lockedDie={12}
+                lockedDie={
+                  defender?.wishOfIris === DEITY.HYPNOS ? 10
+                    : defender?.wishOfIris === DEITY.TYCHE ? 20
+                      : 12
+                }
                 fixedResult={
                   pomCoDefenderDieResult ??
                   (!pomCoFlowActive && showMyDefendReplay
@@ -569,28 +599,49 @@ export default function DiceModal({
         showDefenderWaiting &&
         !defenderCannotDefend &&
         !(turn as any).soulDevourerDrain && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal" style={defTheme}>
-            <span className="bhud__dice-label">
-              {latchedPhase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ? 'Co-attack defense' : 'Defense Roll'}
-            </span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting">
-              <div className="bhud__roll-waiting-spinner" />
+          <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+            <div className="bhud__dice-modal" style={defTheme}>
+              <span className="bhud__dice-label">
+                {latchedPhase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ? 'Co-attack defense' : 'Defense Roll'}
+              </span>
+              <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                <div className="bhud__roll-waiting-spinner" />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). Only show for the actual defender, not during shock application to other team members. ── */}
       {phase === PHASE.RESOLVING && !hideResolvingDefenseDiceForShockApply && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(pomCoFlowActive && turn.coDefendRoll != null) && !(awaitingPom && turn.coDefendRoll == null) && defender?.characterId === turn.defenderId && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
+            <span className={`bhud__dice-sub ${(defender?.wishOfIris === DEITY.HYPNOS || defender?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
+              {defender?.nicknameEng}
+              {defender?.wishOfIris === DEITY.HYPNOS
+                ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
+                : defender?.wishOfIris === DEITY.TYCHE
+                  ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
+                  : null}
+            </span>
             {(showNpcDefendDice || isViewer) ? (
               <>
-                <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt onRollEnd={onDefRollDone} />
+                <DiceRoller
+                  key="def-resolve-phase"
+                  className="bhud__dice-roller"
+                  lockedDie={
+                    defender?.wishOfIris === DEITY.HYPNOS ? 10
+                      : defender?.wishOfIris === DEITY.TYCHE ? 20
+                        : 12
+                  }
+                  fixedResult={turn.defendRoll}
+                  accentColor={defender?.theme[9]}
+                  themeColors={dieColors(defender)}
+                  autoRoll
+                  hidePrompt
+                  onRollEnd={onDefRollDone}
+                />
                 <span className="bhud__dice-bonus">
                   {!defRollDone
                     ? 'rolling...'
@@ -624,11 +675,22 @@ export default function DiceModal({
           <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
             <div className="bhud__dice-modal" style={defTheme}>
               <span className="bhud__dice-label">Co-attack defense</span>
-              <span className="bhud__dice-sub">{defender.nicknameEng}</span>
+              <span className={`bhud__dice-sub ${(defender?.wishOfIris === DEITY.HYPNOS || defender?.wishOfIris === DEITY.TYCHE) ? 'bhud__dice-sub--deity' : ''}`}>
+                {defender.nicknameEng}
+                {defender?.wishOfIris === DEITY.HYPNOS
+                  ? <span className="bhud__dice-sub--hypnos">Dice Curse of Hypnos: D10</span>
+                  : defender?.wishOfIris === DEITY.TYCHE
+                    ? <span className="bhud__dice-sub--tyche">Dice Bless of Tyche: D20</span>
+                    : null}
+              </span>
               <DiceRoller
                 key="pom-co-def-opp"
                 className="bhud__dice-roller"
-                lockedDie={12}
+                lockedDie={
+                  defender.wishOfIris === DEITY.HYPNOS ? 10
+                    : defender.wishOfIris === DEITY.TYCHE ? 20
+                      : 12
+                }
                 fixedResult={turn.coDefendRoll}
                 accentColor={defender?.theme[9]}
                 themeColors={dieColors(defender)}

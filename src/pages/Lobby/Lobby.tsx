@@ -149,7 +149,9 @@ function Lobby() {
         room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
         room.teamB?.members?.some(p => p.characterId === user?.characterId);
 
-      if (!isFighter) {
+      const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+
+      if (!isFighter && !isInvited) {
         navigate(`/arena/${code}?watch=true`);
         return;
       }
@@ -164,7 +166,7 @@ function Lobby() {
         return;
       }
 
-      if (isFighter) {
+      if (isFighter || isInvited) {
         updateTodayWishesForRoom(code);
       }
 
@@ -334,12 +336,14 @@ function Lobby() {
                               room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
                               room.teamB?.members?.some(p => p.characterId === user?.characterId);
 
-                            if (userWishesOfIris === DEITY.HERA && isFighter) {
+                            const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+
+                            if (userWishesOfIris === DEITY.HERA && (isFighter || isInvited)) {
                               setHeraBlocked(true);
                               return;
                             }
-                            if (isFighter) {
-                              updateTodayWishesForRoom(room.arenaId).catch(() => {});
+                            if (isFighter || isInvited) {
+                              updateTodayWishesForRoom(room.arenaId).catch(() => { });
                             }
                             navigate(`/arena/${room.arenaId}?watch=true`)
                           }}

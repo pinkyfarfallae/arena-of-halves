@@ -279,15 +279,15 @@ function Arena(props?: ArenaDemoProps) {
     const isLocal = window.location.hostname === 'localhost';
     const isRosabella = characterId === CHARACTER.ROSABELLA;
     if (isLocal && isRosabella) {
-      console.log({ phase, transientSkeletonCard });
+      console.log({ phase, turn });
     }
-  }, [phase, transientSkeletonCard, characterId]);
+  }, [phase, transientSkeletonCard, characterId, room?.battle?.turn]);
 
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost';
     const isRosabella = characterId === CHARACTER.ROSABELLA;
     if (isLocal && isRosabella) {
-      console.log({ teamAMembers, teamBMembers });
+      // console.log({ teamAMembers, teamBMembers });
     }
   }, [phase, transientSkeletonCard, characterId]);
 
@@ -746,6 +746,7 @@ function Arena(props?: ArenaDemoProps) {
     const isNpcId = (id: string | undefined) =>
       !!id && npcCharacterIdSet.has(String(id).toLowerCase());
     const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
+    
     if (npcPhaseRef.current === phaseKey && npcTimerRef.current !== null) return;
     if (npcTimerRef.current) {
       clearTimeout(npcTimerRef.current);
@@ -803,6 +804,7 @@ function Arena(props?: ArenaDemoProps) {
     }
     const npcMainDef =
       turn.phase === PHASE.ROLLING_DEFEND && !awaitingPomNpc && turn.defenderId && isNpcId(turn.defenderId);
+    
     if (npcMainDef) {
       const roll = Math.floor(Math.random() * 12) + 1;
       schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
@@ -904,21 +906,18 @@ function Arena(props?: ArenaDemoProps) {
     npcCharacterIdSet,
   ]);
 
-  /* PvE: auto-advance to Pomegranate co-attack phase (NPC is attacker with Oath) */
+  /* PvE: auto-advance to Pomegranate co-attack phase (NPC and Player is co-attacker) */
   useEffect(() => {
-    if (!room?.testMode || room.devPlayAllFightersSelf) return;
+    if (!room?.testMode) return;
     if (room.status !== ROOM_STATUS.BATTLING || !arenaId) return;
     if (npcCharacterIdSet.size === 0) return;
     const turn = room.battle?.turn;
     if (!turn || turn.phase !== PHASE.RESOLVING) return;
     const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
     if (!awaitingPom) return;
-    // Check if co-attack already happened or is in progress
     if (turn.coAttackRoll != null && turn.coAttackRoll > 0) return;
-    // Check if attacker is NPC
-    if (!turn.attackerId || !npcCharacterIdSet.has(String(turn.attackerId).toLowerCase())) return;
-    // Auto-advance to co-attack phase after main damage card would have been shown
-    // Note: advanceToPomegranateCoAttackPhase will check if defender is dead and skip co-attack if needed
+    const pomCoAtkId = effectivePomCoAttackerId(turn);
+    if (!pomCoAtkId) return;
     const timer = window.setTimeout(() => {
       advanceToPomegranateCoAttackPhase(arenaId).catch(() => { });
     }, 2500);
@@ -1094,25 +1093,42 @@ function Arena(props?: ArenaDemoProps) {
       String(a.characterId).localeCompare(String(b.characterId), undefined, { sensitivity: 'base' }),
     )[0].characterId;
   })();
+  
+  // Check if user is pomegranate co-attacker (drives phase during co-attack)
+  const pomCoAtkId = battle?.turn ? effectivePomCoAttackerId(battle.turn) : undefined;
+  const awaitingPom = !!(battle?.turn as any)?.awaitingPomegranateCoAttack;
+  const isPomCoAttacker = !!(
+    user?.characterId &&
+    pomCoAtkId &&
+    awaitingPom &&
+    user.characterId.toLowerCase() === pomCoAtkId.toLowerCase()
+  );
+  
   const isPlaybackDriver = !!(
     effectiveRoom && effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
       : (
-        battle?.turn?.attackerId === user?.characterId ||
-        (
-          effectiveRoom &&
-          effectiveRoom.testMode &&
-          !!user?.characterId &&
-          role !== ARENA_ROLE.VIEWER &&
-          !playAllNonHostViewer &&
-          !!battle?.turn?.attackerId &&
-          npcCharacterIdSet.size > 0 &&
-          npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase()) &&
-          npcAutomationAnchorId != null &&
-          user.characterId.toLowerCase() === npcAutomationAnchorId.toLowerCase()
-        )
+        // During pomegranate co-attack in RESOLVING, only the co-attacker drives (not the main attacker)
+        (awaitingPom && battle?.turn?.phase === PHASE.RESOLVING)
+          ? isPomCoAttacker
+          : (
+            battle?.turn?.attackerId === user?.characterId ||
+            (
+              effectiveRoom &&
+              effectiveRoom.testMode &&
+              !!user?.characterId &&
+              role !== ARENA_ROLE.VIEWER &&
+              !playAllNonHostViewer &&
+              !!battle?.turn?.attackerId &&
+              npcCharacterIdSet.size > 0 &&
+              npcCharacterIdSet.has(battle.turn.attackerId.toLowerCase()) &&
+              npcAutomationAnchorId != null &&
+              user.characterId.toLowerCase() === npcAutomationAnchorId.toLowerCase()
+            )
+          )
       )
   );
+  
   const isAttackerNpc =
     !!(
       effectiveRoom &&

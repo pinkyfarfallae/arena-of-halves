@@ -868,6 +868,26 @@ export const UI_TEXT = {
     en: 'Training is cut off for today since you have reached midnight. Please come back tomorrow.',
     th: 'เที่ยงคืนแล้ว การฝึกของคุณจบลงแล้วสำหรับวันนี้\nกรุณากลับมาที่นี่ในวันพรุ่งนี้'
   },
+
+  // Hypnos Die Cursed
+  HYPNOS_DIE_CURSED_TITLE: {
+    en: 'Hypnos Cursed Your Die!',
+    th: 'ฮิปนอสสาปลูกเต๋าของคุณ!'
+  },
+  HYPNOS_DIE_CURSED_MESSAGE: {
+    en: 'Hypnos has laid a curse upon your die, warping it into a mere 10-faced die. Fortune may favor you next time.',
+    th: 'ฮิปนอสได้สาปลูกเต๋าของคุณให้กลายเป็นเพียงลูกเต๋าที่มีแค่ 10 หน้า ขอให้โชคจงเข้าข้างคุณในครั้งหน้า'
+  },
+
+  // Tyche Die Blessed
+  TYCHE_DIE_BLESSED_TITLE: {
+    en: 'Tyche Blessed Your Die!',
+    th: 'ไทคีอวยพรลูกเต๋าของคุณ!'
+  },
+  TYCHE_DIE_BLESSED_MESSAGE: {
+    en: 'Tyche has blessed your die,\ntransforming it into a mighty 20-faced die.\nFortune smiles upon you!',
+    th: 'ไทคีได้อวยพรลูกเต๋าของคุณ\nลูกเต๋าของคุณจะมีถึง 20 หน้า โชคเข้าข้างคุณแล้ว!'
+  },
 } as const;
 
 /**))
