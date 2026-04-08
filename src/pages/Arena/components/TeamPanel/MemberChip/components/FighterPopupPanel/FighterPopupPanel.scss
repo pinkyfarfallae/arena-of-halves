@@ -155,8 +155,32 @@ $ink-faint: #9a8b76;
     }
   }
 }
+.mchip__stat--ares,
+.mchip__stat--artemis {
+  .mchip__stat-val {
+    color: color-mix(in srgb, var(--deity-primary, #c9a84c) 80%, #333333);
+  }
 
-.mchip__stat--debuffed.mchip__stat--ares {
+  .mchip__stat-mod {
+    color: color-mix(in srgb, var(--deity-primary, #c9a84c) 80%, #333333);
+  }
+}
+
+.mchip__stat--buffed.mchip__stat--ares,
+.mchip__stat--buffed.mchip__stat--artemis {
+  .mchip__stat-val {
+    .mchip__stat-base {
+      background: linear-gradient(135deg,
+          #2e7d32,
+          color-mix(in srgb, var(--deity-primary, #c9a84c) 85%, #ff3b3b));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  }
+}
+
+.mchip__stat--debuffed.mchip__stat--ares,
+.mchip__stat--debuffed.mchip__stat--artemis {
   .mchip__stat-val {
     .mchip__stat-base {
       background: linear-gradient(135deg,
