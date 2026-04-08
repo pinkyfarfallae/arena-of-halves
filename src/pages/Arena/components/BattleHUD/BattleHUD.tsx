@@ -1737,12 +1737,6 @@ export default function BattleHUD({
   /** Track which rapidFireStep we already pulsed for, so every extra shot gets hit VFX once. */
   const lastPulsedRapidFireStepRef = useRef<number | null>(null);
   const handleMasterDamageCardComplete = useCallback(() => {
-    console.log('[DamageCard Complete] Callback fired:', {
-      isPlaybackDriver,
-      phase: turn?.phase,
-      attackerId: turn?.attackerId,
-      myCharId: myId,
-    });
     
     setShowMasterDamageCard(false);
     // Keep refs stable - they track that we've shown the card for this turn
@@ -1754,14 +1748,6 @@ export default function BattleHUD({
       setPomMainMasterDamageCardDoneKey(`${battle.roundNumber}|${battle.currentTurnIndex}`);
     }
     
-    console.log('[DamageCard Complete] Pomegranate check:', {
-      awaitingPom: aw,
-      phase: turn?.phase,
-      coAttackRoll: turn?.coAttackRoll,
-      hasCallback: !!onAdvancePomegranateCoAttackPhase,
-      isPlaybackDriver,
-    });
-    
     // If awaiting pomegranate co-attack and co-attack didn't happen, advance to co-attack phase
     // NOTE: Added isPlaybackDriver check so only the playback driver advances
     if (
@@ -1771,7 +1757,6 @@ export default function BattleHUD({
       onAdvancePomegranateCoAttackPhase &&
       isPlaybackDriver
     ) {
-      console.log('[DamageCard Complete] ✅ Calling onAdvancePomegranateCoAttackPhase');
       onAdvancePomegranateCoAttackPhase();
       return;
     }
@@ -2482,14 +2467,6 @@ export default function BattleHUD({
     
     // Show card only if we haven't shown it yet for this turn
     if (turnKey && !alreadyShownThisTurn && !masterDamageCardShowingRef.current) {
-      console.log('[DamageCard Show] Showing master damage card:', {
-        isPlaybackDriver,
-        myCharId: myId,
-        attackerId: turn?.attackerId,
-        defenderId: turn?.defenderId,
-        awaitingPom: !!(turn as any)?.awaitingPomegranateCoAttack,
-        coAttackRoll: turn?.coAttackRoll,
-      });
       masterDamageCardTurnKeyRef.current = turnKey;
       masterDamageCardShowingRef.current = true;
       setShowMasterDamageCard(true);
