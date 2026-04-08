@@ -1822,7 +1822,7 @@ function Arena(props?: ArenaDemoProps) {
         <BeyondTodayPracticeModal
           onClose={() => {
             setBeyondTodayPractice(false);
-            deleteRoom(arenaId ?? '').catch(() => {});
+            deleteRoom(arenaId ?? '').catch(() => { });
             navigate('/training-grounds');
           }}
         />

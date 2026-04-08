@@ -20,7 +20,7 @@ export function useDailyTrigger(callback: () => void) {
 
     checkDaily();
 
-    const interval = setInterval(checkDaily, 60 * 1000);
+    const interval = setInterval(checkDaily, 1000);
 
     return () => clearInterval(interval);
   }, []);

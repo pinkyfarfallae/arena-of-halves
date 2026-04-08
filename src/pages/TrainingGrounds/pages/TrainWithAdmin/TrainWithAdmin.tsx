@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import './TrainWithAdmin.scss';
 import { useAuth } from '../../../../hooks/useAuth';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DoorExit from '../../../IrisMessage/icons/DoorExit';
 import { hexToRgb } from '../../../../utils/color';
 import { db } from '../../../../firebase';
@@ -25,6 +25,8 @@ import EarlyWinModal from './components/EarlyWinModal/EarlyWinModal';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 import { getTodayDate } from '../../../../utils/date';
+import { useDailyTrigger } from '../../../../hooks/useDailyTrigger';
+import BeyondTodayPracticeModal from '../../../Arena/components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
 
 interface PaperRoll {
   target: number;
@@ -48,6 +50,13 @@ export default function TrainWithAdmin() {
   // eslint-disable-next-line
   const [_quotaUsed, setQuotaUsed] = useState<boolean>(false);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
+  const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
+
+  const navigate = useNavigate();
+
+  useDailyTrigger(() => {
+    setBeyondTodayPractice(true);
+  });
 
   const loadTodayData = useCallback(async () => {
     setLoading(true);
@@ -488,6 +497,14 @@ export default function TrainWithAdmin() {
           <DoorExit />
         </Link>
       )}
+
+      {beyondTodayPractice && (
+        <BeyondTodayPracticeModal
+          onClose={() => {
+            setBeyondTodayPractice(false);
+            navigate('/training-grounds');
+          }}
+        />)}
     </div>
   );
 }
