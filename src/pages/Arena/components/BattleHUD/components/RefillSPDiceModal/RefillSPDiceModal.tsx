@@ -68,6 +68,20 @@ export default function RefillSPDiceModal({
   const guaranteedWinNotifiedRef = useRef(false);
   const rollRef = useRef<number | null | undefined>(undefined);
   rollRef.current = roll;
+  
+  // Store latest callback in ref so guaranteed win effect can call it
+  const onResultCardVisibleRef = useRef(onResultCardVisible);
+  useEffect(() => {
+    onResultCardVisibleRef.current = onResultCardVisible;
+    
+    // If we're showing guaranteed win and callback just became available, call it now
+    const isGuaranteedWin = winFaces.length === 4;
+    if (isGuaranteedWin && onResultCardVisible && !guaranteedWinNotifiedRef.current) {
+      guaranteedWinNotifiedRef.current = true;
+      onRoll(winFaces[0]); // trigger win animation immediately
+      onResultCardVisible(); // notify parent so healing VFX shows with result card
+    }
+  }, [onResultCardVisible, winFaces.length]);
 
   const clearTimers = useCallback(() => {
     if (fallbackTimerRef.current) {
@@ -110,18 +124,16 @@ export default function RefillSPDiceModal({
     return () => clearTimers();
   }, [roll, diceViewMs, clearTimers, onResultCardVisible]);
 
-  // Auto-win: notify parent immediately when guaranteed win (100% rate) is shown (only once)
+  // Reset guaranteed win notification when winFaces content changes
+  const winFacesKey = winFaces.join(',');
+  const prevWinFacesKeyRef = useRef(winFacesKey);
   useEffect(() => {
-    const isGuaranteedWin = winFaces.length === 4;
-    if (isGuaranteedWin && !guaranteedWinNotifiedRef.current) {
-      guaranteedWinNotifiedRef.current = true;
-      onResultCardVisible?.();
-    }
-    // Reset notification flag when winFaces changes (new scenario)
-    if (!isGuaranteedWin) {
+    if (prevWinFacesKeyRef.current !== winFacesKey) {
+      console.log('[RefillSP] winFaces changed, resetting notification:', { old: prevWinFacesKeyRef.current, new: winFacesKey });
+      prevWinFacesKeyRef.current = winFacesKey;
       guaranteedWinNotifiedRef.current = false;
     }
-  }, [winFaces, onResultCardVisible]);
+  }, [winFacesKey]);
 
   const themeStyle: React.CSSProperties = {
     '--modal-primary': attacker?.theme?.[0] ?? '#666',
@@ -135,6 +147,7 @@ export default function RefillSPDiceModal({
   // Auto-win: if winFaces.length === 4, all faces win (100% chance) - skip dice and show win result immediately
   const isGuaranteedWin = winFaces.length === 4;
   if (isGuaranteedWin) {
+    console.log('[RefillSP] Rendering guaranteed win card!', { attacker: attacker?.nicknameEng, effectiveWon });
     const cardStyle = { '--refill-atk': themeColors?.primary ?? '#666', '--refill-def': themeColors?.primaryDark ?? '#333' } as React.CSSProperties;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
