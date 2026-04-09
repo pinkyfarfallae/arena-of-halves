@@ -78,12 +78,14 @@ import CheckIcon from './icons/Check';
 import Eye from '../../icons/Eye';
 import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
+import { getDiceSize } from '../../utils/getDiceSize';
 import { PRACTICE_STATES } from '../../constants/practice';
 import { fetchTodayIrisWish } from '../../data/wishes';
 import { getTodayDate } from '../../utils/date';
 import { useDailyTrigger } from '../../hooks/useDailyTrigger';
-import './Arena.scss';
 import BeyondTodayPracticeModal from './components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
+import { DEITY } from '../../constants/deities';
+import './Arena.scss';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -171,18 +173,25 @@ function Arena(props?: ArenaDemoProps) {
   const [resolveShown, setResolveShown] = useState(false);
   const [stuckContinueVisible, setStuckContinueVisible] = useState(false);
   const stuckContinueClickRef = useRef<(() => void) | null>(null);
+
   const onStuckContinueVisibleChange = useCallback((visible: boolean) => {
     setStuckContinueVisible(visible);
   }, []);
+
   const [transientEffectsActive, setTransientEffectsActive] = useState(false);
+
   /** True 2s after RESOLVING with Soul Devourer drain (when soul lands on caster) so heal shows */
   const [soulDevourerHealReady, setSoulDevourerHealReady] = useState(false);
+
   /** Soul float VFX: true 0.5s–2s into RESOLVING with Soul Devourer drain (soul flies defender → caster) */
   const [soulFloatActive, setSoulFloatActive] = useState(false);
+
   /** Center of caster's mchip__frame (viewport px) so soul lands on caster chip */
   const [casterFrameCenter, setCasterFrameCenter] = useState<{ x: number; y: number } | null>(null);
+
   /** Center of defender's mchip__frame (viewport px) so soul starts from target chip */
   const [defenderFrameCenter, setDefenderFrameCenter] = useState<{ x: number; y: number } | null>(null);
+
   /** Volley Arrow extra shot: amber/gold arrow VFX from caster to defender */
   const [volleyArrowHitActive, setVolleyArrowHitActive] = useState(false);
   const [volleyArrowCasterPos, setVolleyArrowCasterPos] = useState<{ x: number; y: number } | null>(null);
@@ -191,14 +200,17 @@ function Arena(props?: ArenaDemoProps) {
   const defenderFrameRef = useRef<HTMLDivElement | null>(null);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   const minionPulseCounterRef = useRef(0);
+
   /** Skeleton card + hit target in one state so they paint together (same as player hit) */
   const [transientSkeletonCard, setTransientSkeletonCard] = useState<Record<string, unknown> | null>(null);
   const [transientSkeletonCardKey, setTransientSkeletonCardKey] = useState('');
   const [currentSkeletonHitTargetId, setCurrentSkeletonHitTargetId] = useState<string | null>(null);
   const skeletonPulseKeyRef = useRef(0);
   const [currentSkeletonPulseKey, setCurrentSkeletonPulseKey] = useState(0);
+
   /** True while pomegranate co-resolve card is showing (from BattleHUD) — allows transient hit effects even after phase changes */
   const [pomegranateCoResolveActive, setPomegranateCoResolveActive] = useState(false);
+
   // Local visual override: NPC schedules a target, or human selects ally for Floral Fragrance (show heal effect immediately)
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
@@ -207,6 +219,7 @@ function Arena(props?: ArenaDemoProps) {
   // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
   const [returnFromSeason, setReturnFromSeason] = useState(false);
+
   /** After cancel target (Back from target selection), open action modal on power list instead of Attack/Use power. */
   const [returnFromTargetCancel, setReturnFromTargetCancel] = useState(false);
 
@@ -215,13 +228,22 @@ function Arena(props?: ArenaDemoProps) {
   /** Set when Floral Heal D4 result card is shown (so TeamPanel can show healing VFX in sync). Cleared when leaving ROLLING_FLORAL_HEAL. */
   const [floralHealResultCardVisible, setFloralHealResultCardVisible] = useState(false);
 
+  /** Ref to track if volley main attack arrow has been shown, so we can show extra arrow for co-attack if needed. Resets on turn change. */
   const volleyMainArrowShownRef = useRef(false);
+
   /** Pomegranate Oath (and similar): attacker id while phase stays SELECT_ACTION — clear local confirm when turn advances. */
   const prevSelectActionAttackerIdRef = useRef<string | null>(null);
   const npcPhaseRef = useRef<string | null>(null);
   const npcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /** Spreadsheet NPC ids — auto-play applies to these fighters on either team (not "team B only"). */
   const [npcCharacterIdSet, setNpcCharacterIdSet] = useState<Set<string>>(new Set());
+
+  /** Zeus and Poseidon buff - separate for attack and defend */
+  const [originalAttackRollBeforeBuff, setOriginalAttackRollBeforeBuff] = useState<number | null>(null);
+  const [originalDefendRollBeforeBuff, setOriginalDefendRollBeforeBuff] = useState<number | null>(null);
+  /** Pomegranate co-attack original roll (before Zeus/Poseidon buff) */
+  const [originalCoAttackRollBeforeBuff, setOriginalCoAttackRollBeforeBuff] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -746,7 +768,7 @@ function Arena(props?: ArenaDemoProps) {
     const isNpcId = (id: string | undefined) =>
       !!id && npcCharacterIdSet.has(String(id).toLowerCase());
     const phaseKey = `${turn.phase}:${turn.attackerId}:${turn.defenderId ?? ''}`;
-    
+
     if (npcPhaseRef.current === phaseKey && npcTimerRef.current !== null) return;
     if (npcTimerRef.current) {
       clearTimeout(npcTimerRef.current);
@@ -798,15 +820,21 @@ function Arena(props?: ArenaDemoProps) {
     const npcMainAtk =
       turn.phase === PHASE.ROLLING_ATTACK && !awaitingPomNpc && isNpcId(turn.attackerId);
     if (npcMainAtk) {
-      const roll = Math.floor(Math.random() * 12) + 1;
+      const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
+      const atkFighter = membersAll.find((m: any) => m.characterId === turn.attackerId);
+      const diceSize = getDiceSize(atkFighter?.wishOfIris);
+      const roll = Math.floor(Math.random() * diceSize) + 1;
       schedule(() => submitAttackRoll(arenaId, roll), 1200);
       return;
     }
     const npcMainDef =
       turn.phase === PHASE.ROLLING_DEFEND && !awaitingPomNpc && turn.defenderId && isNpcId(turn.defenderId);
-    
+
     if (npcMainDef) {
-      const roll = Math.floor(Math.random() * 12) + 1;
+      const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
+      const defFighter = membersAll.find((m: any) => m.characterId === turn.defenderId);
+      const diceSize = getDiceSize(defFighter?.wishOfIris);
+      const roll = Math.floor(Math.random() * diceSize) + 1;
       schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
       return;
     }
@@ -939,6 +967,12 @@ function Arena(props?: ArenaDemoProps) {
       }
     };
   }, [role, arenaId, user]);
+
+  /* ── Clear original rolls when turn changes ────────────────── */
+  useEffect(() => {
+    setOriginalAttackRollBeforeBuff(null);
+    setOriginalDefendRollBeforeBuff(null);
+  }, [room?.battle?.turn?.attackerId, room?.battle?.turn?.defenderId, room?.battle?.roundNumber]);
 
   const handleSkipTurnNoTarget = useCallback(async () => {
     if (arenaId) await skipTurnNoValidTarget(arenaId);
@@ -1093,7 +1127,7 @@ function Arena(props?: ArenaDemoProps) {
       String(a.characterId).localeCompare(String(b.characterId), undefined, { sensitivity: 'base' }),
     )[0].characterId;
   })();
-  
+
   // Check if user is pomegranate co-attacker (drives phase during co-attack)
   const pomCoAtkId = battle?.turn ? effectivePomCoAttackerId(battle.turn) : undefined;
   const awaitingPom = !!(battle?.turn as any)?.awaitingPomegranateCoAttack;
@@ -1103,7 +1137,7 @@ function Arena(props?: ArenaDemoProps) {
     awaitingPom &&
     user.characterId.toLowerCase() === pomCoAtkId.toLowerCase()
   );
-  
+
   const isPlaybackDriver = !!(
     effectiveRoom && effectiveRoom.devPlayAllFightersSelf
       ? isPlayAllHost
@@ -1128,7 +1162,7 @@ function Arena(props?: ArenaDemoProps) {
           )
       )
   );
-  
+
   const isAttackerNpc =
     !!(
       effectiveRoom &&
@@ -1400,11 +1434,66 @@ function Arena(props?: ArenaDemoProps) {
   };
 
   const handleSubmitAttackRoll = async (roll: number) => {
-    if (arenaId) await submitAttackRoll(arenaId, roll);
+    if (!arenaId) return;
+
+    const allMembers = [...teamAMembers, ...teamBMembers];
+    const turn = battle?.turn;
+    
+    // Check if this is a Pomegranate co-attack
+    const isPomCoAttack = turn && (
+      (turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK) ||
+      ((turn as any).awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_ATTACK)
+    ) && ((turn as any).coAttackRoll == null || (turn as any).coAttackRoll <= 0);
+    
+    // Get the appropriate attacker (co-attacker for Pomegranate, main attacker otherwise)
+    const attackerId = isPomCoAttack ? effectivePomCoAttackerId(turn!) : turn?.attackerId;
+    const attacker = allMembers.find((m) => m.characterId === attackerId);
+    const attackerTodayWishOfIris = attacker?.wishOfIris;
+
+    if (attackerTodayWishOfIris === DEITY.ZEUS) {
+      // Submit modified roll (Zeus: -2, min 1)
+      const modifiedRoll = Math.max(1, roll - 2);
+      if (isPomCoAttack) {
+        setOriginalCoAttackRollBeforeBuff(roll);
+      } else {
+        setOriginalAttackRollBeforeBuff(roll);
+      }
+      await submitAttackRoll(arenaId, modifiedRoll);
+    } else if (attackerTodayWishOfIris === DEITY.POSEIDON) {
+      // Submit boosted roll (Poseidon: min 6)
+      const modifiedRoll = Math.max(6, roll);
+      if (isPomCoAttack) {
+        setOriginalCoAttackRollBeforeBuff(roll);
+      } else {
+        setOriginalAttackRollBeforeBuff(roll);
+      }
+      await submitAttackRoll(arenaId, modifiedRoll);
+    } else {
+      await submitAttackRoll(arenaId, roll);
+    }
   };
 
   const handleSubmitDefendRoll = async (roll: number) => {
-    if (arenaId) await submitDefendRoll(arenaId, roll);
+    if (!arenaId) return;
+
+    const allMembers = [...teamAMembers, ...teamBMembers];
+    const defender = allMembers.find((m) => m.characterId === battle?.turn?.defenderId);
+    const defenderTodayWishOfIris = defender?.wishOfIris;
+
+    if (defenderTodayWishOfIris === DEITY.ZEUS) {
+      // Submit modified roll (Zeus: -2, min 1)
+      const modifiedRoll = Math.max(1, roll - 2);
+      setOriginalDefendRollBeforeBuff(roll);
+
+      await submitDefendRoll(arenaId, modifiedRoll);
+    } else if (defenderTodayWishOfIris === DEITY.POSEIDON) {
+      // Submit boosted roll (Poseidon: min 6)
+      const modifiedRoll = Math.max(6, roll);
+      setOriginalDefendRollBeforeBuff(roll);
+      await submitDefendRoll(arenaId, modifiedRoll);
+    } else {
+      await submitDefendRoll(arenaId, roll);
+    }
   };
 
   const handleResolveTurn = async () => {
@@ -1812,6 +1901,9 @@ function Arena(props?: ArenaDemoProps) {
             onPomegranateCoResolveActive={setPomegranateCoResolveActive}
             onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
             onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}
+            originalAttackRollBeforeBuff={originalAttackRollBeforeBuff}
+            originalDefendRollBeforeBuff={originalDefendRollBeforeBuff}
+            originalCoAttackRollBeforeBuff={originalCoAttackRollBeforeBuff}
           />
         )}
       </div>
