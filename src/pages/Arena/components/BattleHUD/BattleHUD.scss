@@ -161,18 +161,25 @@ $crimson-bright: #c41e3a;
 
   &--hypnos,
   &--tyche {
+    font-weight: 600;
     font-size: 0.45rem;
     margin-bottom: 4px;
   }
 
   &--hypnos {
-    font-weight: 600;
     color: #855ea9;
   }
 
   &--tyche {
-    font-weight: 600;
     color: #509656;
+  }
+
+  &--zeus {
+    color: #ddb400;
+  }
+
+  &--poseidon {
+    color: #2d82b7;
   }
 }
 

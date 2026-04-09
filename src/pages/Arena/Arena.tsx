@@ -244,6 +244,8 @@ function Arena(props?: ArenaDemoProps) {
   const [originalDefendRollBeforeBuff, setOriginalDefendRollBeforeBuff] = useState<number | null>(null);
   /** Pomegranate co-attack original roll (before Zeus/Poseidon buff) */
   const [originalCoAttackRollBeforeBuff, setOriginalCoAttackRollBeforeBuff] = useState<number | null>(null);
+  /** Pomegranate co-defend original roll (before Zeus/Poseidon buff) */
+  const [originalCoDefendRollBeforeBuff, setOriginalCoDefendRollBeforeBuff] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -972,6 +974,7 @@ function Arena(props?: ArenaDemoProps) {
   useEffect(() => {
     setOriginalAttackRollBeforeBuff(null);
     setOriginalDefendRollBeforeBuff(null);
+    setOriginalCoDefendRollBeforeBuff(null);
   }, [room?.battle?.turn?.attackerId, room?.battle?.turn?.defenderId, room?.battle?.roundNumber]);
 
   const handleSkipTurnNoTarget = useCallback(async () => {
@@ -1479,17 +1482,31 @@ function Arena(props?: ArenaDemoProps) {
     const allMembers = [...teamAMembers, ...teamBMembers];
     const defender = allMembers.find((m) => m.characterId === battle?.turn?.defenderId);
     const defenderTodayWishOfIris = defender?.wishOfIris;
+    const awaitingPom = !!(battle?.turn as { awaitingPomegranateCoAttack?: boolean } | undefined)?.awaitingPomegranateCoAttack;
+    const isPomCoDefend =
+      !!battle?.turn &&
+      awaitingPom &&
+      (battle.turn.phase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ||
+        (battle.turn.phase === PHASE.ROLLING_DEFEND && battle.turn.coAttackRoll != null && battle.turn.coAttackRoll > 0));
 
     if (defenderTodayWishOfIris === DEITY.ZEUS) {
       // Submit modified roll (Zeus: -2, min 1)
       const modifiedRoll = Math.max(1, roll - 2);
-      setOriginalDefendRollBeforeBuff(roll);
+      if (isPomCoDefend) {
+        setOriginalCoDefendRollBeforeBuff(roll);
+      } else {
+        setOriginalDefendRollBeforeBuff(roll);
+      }
 
       await submitDefendRoll(arenaId, modifiedRoll);
     } else if (defenderTodayWishOfIris === DEITY.POSEIDON) {
       // Submit boosted roll (Poseidon: min 6)
       const modifiedRoll = Math.max(6, roll);
-      setOriginalDefendRollBeforeBuff(roll);
+      if (isPomCoDefend) {
+        setOriginalCoDefendRollBeforeBuff(roll);
+      } else {
+        setOriginalDefendRollBeforeBuff(roll);
+      }
       await submitDefendRoll(arenaId, modifiedRoll);
     } else {
       await submitDefendRoll(arenaId, roll);
@@ -1904,6 +1921,7 @@ function Arena(props?: ArenaDemoProps) {
             originalAttackRollBeforeBuff={originalAttackRollBeforeBuff}
             originalDefendRollBeforeBuff={originalDefendRollBeforeBuff}
             originalCoAttackRollBeforeBuff={originalCoAttackRollBeforeBuff}
+            originalCoDefendRollBeforeBuff={originalCoDefendRollBeforeBuff}
           />
         )}
       </div>
