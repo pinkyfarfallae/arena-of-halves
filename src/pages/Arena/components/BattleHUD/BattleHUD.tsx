@@ -202,6 +202,8 @@ interface Props {
   originalDefendRollBeforeBuff?: number | null;
   /** Original Pomegranate co-attack roll before Zeus/Poseidon buff modifications (for dice animation) */
   originalCoAttackRollBeforeBuff?: number | null;
+  /** Original Pomegranate co-defend roll before Zeus/Poseidon buff modifications (for dice animation) */
+  originalCoDefendRollBeforeBuff?: number | null;
 }
 
 /** Find a fighter across both teams */
@@ -311,6 +313,7 @@ export default function BattleHUD({
   originalAttackRollBeforeBuff = null,
   originalDefendRollBeforeBuff = null,
   originalCoAttackRollBeforeBuff = null,
+  originalCoDefendRollBeforeBuff = null,
 }: Props) {
   const { t } = useTranslation();
   const { turn, roundNumber, log = [], winner } = battle;
@@ -3006,13 +3009,18 @@ export default function BattleHUD({
       // If log has server baseDmg, prefer authoritative shock (incl. 0). Missing shockDamage on old
       // rows would re-use client `shockBonus` derived from effects — wrong after first-shock apply.
       const le = lastEntryForTurn;
+      const loggedCritMultiplier = le?.isCrit === true ? 2 : 1;
       const shockBonusFinal =
         useLogBreakdown && le?.baseDmg != null
           ? (le.shockDamage ?? 0)
           : useLogBreakdown && le?.shockDamage != null
             ? le.shockDamage
             : shockBonus;
-      const damageFinal = useLogBreakdown && lastEntryForTurn?.damage != null ? lastEntryForTurn.damage : (dgd ? 0 : damage);
+      const inferredLoggedShockBonus =
+        useLogBreakdown && le?.baseDmg != null && le?.damage != null && le.shockDamage == null
+          ? Math.max(0, le.damage - (le.baseDmg * loggedCritMultiplier))
+          : shockBonusFinal;
+      const damageFinal = lastEntryForTurn?.damage != null ? lastEntryForTurn.damage : (dgd ? 0 : damage);
       // Self-buff + attack (e.g. Beyond the Nimbus): show damage card as normal attack so breakdown (base + crit + shock) displays
       const isPowerForCard = turn.action === TURN_ACTION.POWER && turn.usedPowerName !== POWER_NAMES.BEYOND_THE_NIMBUS;
 
@@ -3027,7 +3035,7 @@ export default function BattleHUD({
         atkRoll: turn.attackRoll ?? 0, defRoll: turn.defendRoll ?? 0,
         atkBonus: attacker.attackDiceUp + atkBuff + atkRecovery,
         defBonus: defender.defendDiceUp + defBuff + defRecovery,
-        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: shockBonusFinal,
+        atkTotal: at, defTotal: dt, isHit: at > dt && !dgd, damage: dgd ? 0 : damageFinal, baseDmg: baseDmgFinal, shockBonus: inferredLoggedShockBonus,
         isPower: isPowerForCard, powerName: turn.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS ? '' : (turn.usedPowerName ?? ''),
         critEligible: !dgd && critEligible, isCrit: isCritFinal, critRoll: cd.critRoll, critRollLabel,
         isDodged: dgd, coAttackHit: false, coAttackDamage: 0,
@@ -4263,6 +4271,7 @@ export default function BattleHUD({
             originalAttackRollBeforeBuff={originalAttackRollBeforeBuff}
             originalDefendRollBeforeBuff={originalDefendRollBeforeBuff}
             originalCoAttackRollBeforeBuff={originalCoAttackRollBeforeBuff}
+            originalCoDefendRollBeforeBuff={originalCoDefendRollBeforeBuff}
           />
         )}
 
