@@ -53,6 +53,13 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
   const [rollCount, setRollCount] = useState(0);
   const autoRolled = useRef(false);
 
+  // Sync die size when lockedDie prop changes (e.g., wishOfIris loads from server)
+  useEffect(() => {
+    if (lockedDie != null && lockedDie !== die) {
+      setDie(lockedDie);
+    }
+  }, [lockedDie, die]);
+
   // Auto-roll on mount
   useEffect(() => {
     if (autoRoll && !autoRolled.current && !disabled) {

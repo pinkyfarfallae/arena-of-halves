@@ -129,7 +129,6 @@ export default function RefillSPDiceModal({
   const prevWinFacesKeyRef = useRef(winFacesKey);
   useEffect(() => {
     if (prevWinFacesKeyRef.current !== winFacesKey) {
-      console.log('[RefillSP] winFaces changed, resetting notification:', { old: prevWinFacesKeyRef.current, new: winFacesKey });
       prevWinFacesKeyRef.current = winFacesKey;
       guaranteedWinNotifiedRef.current = false;
     }
@@ -147,7 +146,6 @@ export default function RefillSPDiceModal({
   // Auto-win: if winFaces.length === 4, all faces win (100% chance) - skip dice and show win result immediately
   const isGuaranteedWin = winFaces.length === 4;
   if (isGuaranteedWin) {
-    console.log('[RefillSP] Rendering guaranteed win card!', { attacker: attacker?.nicknameEng, effectiveWon });
     const cardStyle = { '--refill-atk': themeColors?.primary ?? '#666', '--refill-def': themeColors?.primaryDark ?? '#333' } as React.CSSProperties;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>

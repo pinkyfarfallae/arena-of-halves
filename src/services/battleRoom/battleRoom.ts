@@ -47,6 +47,7 @@ import * as ApolloService from './apollo/apollo';
 import * as PersephoneService from './persephone';
 import { DEITY, Deity } from '../../constants/deities';
 import { fetchTodayIrisWish } from '../../data/wishes';
+import { getDiceSize } from '../../utils/getDiceSize';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -3589,7 +3590,10 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
       (turn.awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_ATTACK)) &&
     (turn.coAttackRoll == null || turn.coAttackRoll <= 0);
   if (pomCoAttackPhase) {
-    const r = Math.max(1, Math.min(12, Math.floor(roll)));
+    const coAttackerId = effectivePomCoAttackerId(turn);
+    const coAttacker = coAttackerId ? findFighter(room, coAttackerId) : undefined;
+    const diceSize = getDiceSize(coAttacker?.wishOfIris);
+    const r = Math.max(1, Math.min(diceSize, Math.floor(roll)));
     await update(roomRef(arenaId), {
       [ARENA_PATH.BATTLE_TURN]: {
         ...turn,
@@ -3640,7 +3644,10 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
     turn.coAttackRoll > 0 &&
     (turn.coDefendRoll == null || turn.coDefendRoll < 1);
   if (pomCoDefendPhase) {
-    const r = Math.max(1, Math.min(12, Math.floor(roll)));
+    const coDefenderId = effectivePomCoDefenderId(turn);
+    const coDefender = coDefenderId ? findFighter(room, coDefenderId) : undefined;
+    const diceSize = getDiceSize(coDefender?.wishOfIris);
+    const r = Math.max(1, Math.min(diceSize, Math.floor(roll)));
     await update(roomRef(arenaId), {
       [ARENA_PATH.BATTLE_TURN]: {
         ...turn,
