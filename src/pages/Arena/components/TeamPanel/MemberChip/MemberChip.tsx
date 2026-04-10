@@ -232,9 +232,13 @@ interface Props {
   isVolleyArrowHitDefender?: boolean;
   /** True when this chip is the Volley Arrow caster (attacker). */
   isVolleyArrowHitAttacker?: boolean;
+  /** True when this chip is the Nemesis Retaliation hit target (attacker who gets retaliated against). */
+  isNemesisReattackHitDefender?: boolean;
+  /** True when this chip is the Nemesis Retaliation source (defender with Nemesis wish who retaliates). */
+  isNemesisReattackHitAttacker?: boolean;
 }
 
-export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker }: Props) {
+export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker, isNemesisReattackHitDefender, isNemesisReattackHitAttacker }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -909,6 +913,8 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
     battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
     battleLive && isVolleyArrowHitDefender && 'mchip--volley-arrow-hit-defender',
     battleLive && isVolleyArrowHitAttacker && 'mchip--volley-arrow-hit-attacker',
+    battleLive && isNemesisReattackHitDefender && 'mchip--nemesis-reattack-hit-defender',
+    battleLive && isNemesisReattackHitAttacker && 'mchip--nemesis-reattack-hit-attacker',
     isPracticeRoom && 'mchip--practice',
   ].filter(Boolean).join(' ');
 
@@ -1107,6 +1113,58 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
           <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--outer" aria-hidden="true" />
           <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--inner" aria-hidden="true" />
           <div className="mchip__volley-arrow-attacker-ring mchip__volley-arrow-attacker-ring--mid" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Nemesis Retaliation hit defender (attacker who gets retaliated against) — background layers */}
+      {isNemesisReattackHitDefender && battleLive && (
+        <>
+          <div className="mchip__nemesis-reattack-glow" aria-hidden="true" />
+          <div className="mchip__nemesis-reattack-rays" aria-hidden="true">
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--1" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--2" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--3" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--4" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--5" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--6" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--7" />
+            <span className="mchip__nemesis-reattack-ray mchip__nemesis-reattack-ray--8" />
+          </div>
+          <div className="mchip__nemesis-reattack-ring mchip__nemesis-reattack-ring--outer" aria-hidden="true" />
+          <div className="mchip__nemesis-reattack-ring mchip__nemesis-reattack-ring--inner" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Nemesis Retaliation hit attacker (Nemesis defender who retaliates) — background layers */}
+      {isNemesisReattackHitAttacker && battleLive && (
+        <>
+          <div className="mchip__nemesis-reattack-attacker-glow" aria-hidden="true" />
+          <div className="mchip__nemesis-reattack-attacker-rain" aria-hidden="true">
+            {Array.from({ length: 14 }, (_, i) => (
+              <span key={i} className="mchip__nemesis-reattack-attacker-drop" />
+            ))}
+          </div>
+          <div className="mchip__nemesis-reattack-attacker-dots" aria-hidden="true">
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--1" />
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--2" />
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--3" />
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--4" />
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--5" />
+            <span className="mchip__nemesis-reattack-attacker-dot mchip__nemesis-reattack-attacker-dot--6" />
+          </div>
+          <div className="mchip__nemesis-reattack-attacker-rise" aria-hidden="true">
+            {Array.from({ length: 28 }, (_, i) => (
+              <span key={i} className="mchip__nemesis-reattack-attacker-rise-particle" />
+            ))}
+          </div>
+          <div className="mchip__nemesis-reattack-attacker-rays" aria-hidden="true">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <span key={i} className={`mchip__nemesis-reattack-attacker-ray mchip__nemesis-reattack-attacker-ray--${i}`} />
+            ))}
+          </div>
+          <div className="mchip__nemesis-reattack-attacker-ring mchip__nemesis-reattack-attacker-ring--outer" aria-hidden="true" />
+          <div className="mchip__nemesis-reattack-attacker-ring mchip__nemesis-reattack-attacker-ring--inner" aria-hidden="true" />
+          <div className="mchip__nemesis-reattack-attacker-ring mchip__nemesis-reattack-attacker-ring--mid" aria-hidden="true" />
         </>
       )}
 

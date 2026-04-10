@@ -54,6 +54,8 @@ interface Props {
   volleyArrowHitAttackerId?: string | null;
   /** True while pomegranate co-attack resolve card is showing (even if phase changed) — allows transient hit effects */
   pomegranateCoResolveActive?: boolean;
+  /** When true, Nemesis reattack VFX is active. TeamPanel passes derived props to chips. */
+  nemesisReattackActive?: boolean;
 }
 
 function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined {
@@ -73,7 +75,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive }: Props) {
+export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive, nemesisReattackActive }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
   const suppressPracticeVfx = !!isPracticeRoom;
@@ -711,6 +713,8 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
             volleyArrowHitActive={volleyArrowHitActive}
             isVolleyArrowHitDefender={!isEliminated && (volleyArrowHitDefenderId === m.characterId || !!tagBasedProps.isVolleyArrowHitDefender)}
             isVolleyArrowHitAttacker={!isEliminated && (hasRapidFireEffect || !!tagBasedProps.isVolleyArrowHitAttacker)}
+            isNemesisReattackHitDefender={!isEliminated && nemesisReattackActive && (turn as any)?.nemesisReattackTargetId === m.characterId}
+            isNemesisReattackHitAttacker={!isEliminated && nemesisReattackActive && (turn as any)?.nemesisReattackSourceId === m.characterId}
           />
         );
       })}

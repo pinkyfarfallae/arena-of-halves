@@ -48,6 +48,7 @@ import * as PersephoneService from './persephone';
 import { DEITY, Deity } from '../../constants/deities';
 import { fetchTodayIrisWish } from '../../data/wishes';
 import { getDiceSize } from '../../utils/getDiceSize';
+import { NEMESIS_RETALIATION } from '../../constants/iris';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -167,6 +168,10 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
     pomCoDefenderId: null,
     coAttackHit: null,
     coAttackDamage: null,
+    nemesisReattackSourceId: null,
+    nemesisReattackTargetId: null,
+    nemesisReattackDamage: null,
+    nemesisReattackFromCoAttack: null,
     floralHealWinFaces: null,
     floralHealRoll: null,
     floralHealSkipped: null,
@@ -3203,6 +3208,228 @@ export async function advanceAfterSoulDevourerHealSkippedAck(arenaId: string): P
   return HadesService.advanceAfterSoulDevourerHealSkippedAck(arenaId, { roomRef });
 }
 
+/**
+ * After Nemesis retaliation card plays, apply the 1-damage reattack and resume the existing resolve flow.
+ * Main-hit Nemesis resumes through resolveTurn() directly; co-attack Nemesis sets pomegranateCoTailReady so the
+ * existing co-tail branch can finish the turn after the retaliation lands.
+ */
+export async function advanceAfterNemesisReattack(arenaId: string): Promise<void> {
+  const snap = await get(roomRef(arenaId));
+  if (!snap.exists()) return;
+
+  const room = snap.val() as BattleRoom;
+  const battle = room.battle;
+  const turn = battle?.turn;
+  if (!turn || turn.phase !== PHASE.NEMESIS_WISH_BLESSING_REATTACK) return;
+
+  const sourceId = (turn as { nemesisReattackSourceId?: string | null }).nemesisReattackSourceId;
+  const targetId = (turn as { nemesisReattackTargetId?: string | null }).nemesisReattackTargetId;
+  if (!sourceId || !targetId) return;
+
+  const source = findFighter(room, sourceId);
+  const target = findFighter(room, targetId);
+  if (!source || !target) return;
+
+  const updates: Record<string, unknown> = {};
+  const rawDmg = Math.max(1, Number((turn as { nemesisReattackDamage?: number | null }).nemesisReattackDamage) || 1);
+  const targetPath = findFighterPath(room, targetId);
+  const defendableTarget = { ...target, currentHp: target.currentHp };
+  const resolveNemesis = await resolveHitAtDefender(arenaId, room, targetId, rawDmg, updates, defendableTarget);
+  if (resolveNemesis.skippedMinionsPath) delete updates[resolveNemesis.skippedMinionsPath];
+  const damageToMaster = resolveNemesis.damageToMaster;
+  const targetHpBefore = target.currentHp;
+
+  let shieldRemaining = damageToMaster;
+  const activeEffects = battle.activeEffects || [];
+  const effectsForShield = (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? [...activeEffects];
+  for (const se of effectsForShield) {
+    if (se.targetId !== targetId || se.effectType !== EFFECT_TYPES.SHIELD) continue;
+    if (shieldRemaining <= 0) break;
+    const absorbed = Math.min(se.value, shieldRemaining);
+    se.value -= absorbed;
+    shieldRemaining -= absorbed;
+  }
+
+  const dmgToApply = Math.max(0, shieldRemaining);
+  const cleanedEffects = effectsForShield.filter(
+    (e: ActiveEffect) => !(e.effectType === EFFECT_TYPES.SHIELD && e.value <= 0 && !e.tag),
+  );
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = cleanedEffects;
+  if (targetPath) {
+    updates[`${targetPath}/currentHp`] = Math.max(0, targetHpBefore - dmgToApply);
+  }
+
+  const targetHpAfter = targetPath ? (updates[`${targetPath}/currentHp`] as number | undefined) ?? targetHpBefore : targetHpBefore;
+  const battleLog = [...(battle.log || [])];
+  battleLog.push({
+    round: battle.roundNumber,
+    attackerId: sourceId,
+    defenderId: targetId,
+    attackerName: source.nicknameEng,
+    attackerTheme: source.theme?.[0],
+    defenderName: target.nicknameEng,
+    defenderTheme: target.theme?.[0],
+    attackRoll: 0,
+    defendRoll: 0,
+    damage: dmgToApply,
+    defenderHpAfter: targetHpAfter,
+    eliminated: targetHpAfter <= 0,
+    missed: false,
+    powerUsed: NEMESIS_RETALIATION,
+    isNemesisReattack: true,
+    nemesisReattackSourceId: sourceId,
+    nemesisReattackTargetId: targetId,
+    hitTargetId: resolveNemesis.hitTargetId,
+    ...(dmgToApply === 0 ? { blockedByShield: true } : {}),
+  } as any);
+  updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(battleLog);
+  if (targetHpAfter <= 0) {
+    updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+    updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = targetId;
+  }
+
+  // Check for team elimination before advancing turn
+  const getHp = (m: FighterState) => {
+    const path = findFighterPath(room, m.characterId);
+    if (path && `${path}/currentHp` in updates) return updates[`${path}/currentHp`] as number;
+    return m.currentHp;
+  };
+  const teamAMembers = (room.teamA?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+  const teamBMembers = (room.teamB?.members || []).map(m => ({ ...m, currentHp: getHp(m) }));
+
+  const sourceTeam = findFighterTeam(room, sourceId);
+  const END_ARENA_DELAY_MS = 3500;
+  if (isTeamEliminated(teamBMembers, cleanedEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId: sourceId, attackerTeam: sourceTeam, phase: PHASE.DONE };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+      }).catch(() => { });
+    }, END_ARENA_DELAY_MS);
+    return;
+  }
+  if (isTeamEliminated(teamAMembers, cleanedEffects)) {
+    updates[ARENA_PATH.BATTLE_TURN] = { attackerId: sourceId, attackerTeam: sourceTeam, phase: PHASE.DONE };
+    updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    await update(roomRef(arenaId), updates);
+    setTimeout(() => {
+      update(roomRef(arenaId), {
+        [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B,
+        [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED,
+        [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null,
+      }).catch(() => { });
+    }, END_ARENA_DELAY_MS);
+    return;
+  }
+
+  // Advance to next attacker instead of returning to resolve.
+  // Build updated room + queue, then pick the next alive attacker.
+  const latestEffects = cleanedEffects;
+  const updatedRoom = {
+    ...room,
+    teamA: { ...room.teamA, members: teamAMembers },
+    teamB: { ...room.teamB, members: teamBMembers },
+  } as BattleRoom;
+  const updatedQueue = buildTurnQueue(updatedRoom, latestEffects);
+  updates[ARENA_PATH.BATTLE_TURN_QUEUE] = updatedQueue;
+
+  // If there's an active Rapid Fire effect, return to that attacker instead of the natural next
+  const rapidEff = latestEffects.find((e: ActiveEffect) => e.tag === EFFECT_TAGS.RAPID_FIRE && e.targetId);
+  const currentAttackerIdx = updatedQueue.findIndex(e => e.characterId === turn.attackerId);
+  const fromIdx = currentAttackerIdx !== -1 ? currentAttackerIdx : (battle.currentTurnIndex as number);
+
+  if (rapidEff && rapidEff.targetId) {
+    const rapidIdx = updatedQueue.findIndex(e => e.characterId === rapidEff.targetId);
+    if (rapidIdx !== -1) {
+      updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = rapidIdx;
+      updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = battle.roundNumber;
+      // Apply Secret of Dryad / Efflorescence Muse for the rapid fire attacker
+      const battleForDryadRapid = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+      const dryadRapid = applySecretOfDryadPassive(room, rapidEff.targetId, battleForDryadRapid, 0);
+      if (dryadRapid[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadRapid);
+      const efflorescenceRapid = onEfflorescenceMuseTurnStart(room, battleForDryadRapid, rapidEff.targetId);
+      if (efflorescenceRapid) Object.assign(updates, efflorescenceRapid);
+
+      updates[ARENA_PATH.BATTLE_TURN] = {
+        attackerId: rapidEff.targetId,
+        attackerTeam: updatedQueue[rapidIdx].team,
+        phase: PHASE.SELECT_ACTION,
+        nemesisReattackSourceId: null,
+        nemesisReattackTargetId: null,
+        nemesisReattackDamage: null,
+        nemesisReattackFromCoAttack: null,
+      };
+      updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+      updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+      updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+      await update(roomRef(arenaId), updates);
+      return;
+    }
+  }
+
+  const { index: nextIdx, wrapped } = nextAliveIndex(updatedQueue, fromIdx, updatedRoom, latestEffects);
+  const nextEntry = updatedQueue[nextIdx];
+  const selfRes = applySelfResurrect(nextEntry.characterId, updatedRoom, latestEffects, updates, battle);
+  const nextFighter = findFighter(updatedRoom, nextEntry.characterId);
+
+  if (nextFighter && !selfRes && isStunned(latestEffects, nextEntry.characterId)) {
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    const afterStunRoom = { ...updatedRoom };
+    const { index: skipIdx, wrapped: skipWrapped } = nextAliveIndex(updatedQueue, nextIdx, afterStunRoom, latestEffects);
+    const skipEntry = updatedQueue[skipIdx];
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
+    if (skipWrapped) updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = (updates[ARENA_PATH.BATTLE_ROUND_NUMBER] as number || battle.roundNumber) + 1;
+    // Apply Secret of Dryad / Efflorescence Muse for the skip-entry attacker
+    const battleForDryadSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+    const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForDryadSkip, 0);
+    if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
+    const efflorescenceSkip = onEfflorescenceMuseTurnStart(room, battleForDryadSkip, skipEntry.characterId);
+    if (efflorescenceSkip) Object.assign(updates, efflorescenceSkip);
+
+    updates[ARENA_PATH.BATTLE_TURN] = {
+      attackerId: skipEntry.characterId,
+      attackerTeam: skipEntry.team,
+      phase: PHASE.SELECT_ACTION,
+      nemesisReattackSourceId: null,
+      nemesisReattackTargetId: null,
+      nemesisReattackDamage: null,
+      nemesisReattackFromCoAttack: null,
+    };
+  } else {
+    updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = nextIdx;
+    updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
+    const turnData: Record<string, unknown> = {
+      attackerId: nextEntry.characterId,
+      attackerTeam: nextEntry.team,
+      phase: PHASE.SELECT_ACTION,
+      nemesisReattackSourceId: null,
+      nemesisReattackTargetId: null,
+      nemesisReattackDamage: null,
+      nemesisReattackFromCoAttack: null,
+    };
+    if (selfRes) turnData.resurrectTargetId = nextEntry.characterId;
+    // Apply Secret of Dryad / Efflorescence Muse for the next-entry attacker
+    const battleForDryadNext = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+    const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryadNext, 0);
+    if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
+    const efflorescenceNext = onEfflorescenceMuseTurnStart(room, battleForDryadNext, nextEntry.characterId);
+    if (efflorescenceNext) Object.assign(updates, efflorescenceNext);
+
+    updates[ARENA_PATH.BATTLE_TURN] = turnData;
+  }
+
+  updates[ARENA_PATH.BATTLE_LAST_HIT_MINION_ID] = null;
+  updates[ARENA_PATH.BATTLE_LAST_HIT_TARGET_ID] = null;
+  updates[ARENA_PATH.BATTLE_LAST_SKELETON_HITS] = null;
+
+  await update(roomRef(arenaId), updates);
+}
+
 /** Shared tail after Pomegranate co resolves or co is skipped (Rapid Fire chain, skeleton playback, or runBattleResolveTailFromEffectSync). */
 async function runDeferredPomegranateTail(
   arenaId: string,
@@ -4310,6 +4537,7 @@ export async function applyDeferredPomegranateCoContinue(
       const coHit = coTotal > coDefTotal;
       const logArrBase = (updates[ARENA_PATH.BATTLE_LOG] as typeof battle.log) || [...(battle.log || [])];
       const defendRollForCo = coDefRollSafe;
+      let hpAfterCo = defender.currentHp;
       if (coHit) {
         const coDmgBuff = getStatModifier(activeEffects, casterId, MOD_STAT.DAMAGE);
         let coDmg = Math.max(0, caster.damage + coDmgBuff);
@@ -4362,6 +4590,33 @@ export async function applyDeferredPomegranateCoContinue(
             defenderHpAfter: ctx.defenderHpAfter,
           }),
         );
+      }
+
+      if (
+        coHit &&
+        hpAfterCo > 0 &&
+        defender.wishOfIris === DEITY.NEMESIS &&
+        casterId
+      ) {
+        updates[ARENA_PATH.BATTLE_TURN] = {
+          ...turn,
+          awaitingPomegranateCoAttack: false,
+          phase: PHASE.NEMESIS_WISH_BLESSING_REATTACK,
+          nemesisReattackSourceId: defenderId,
+          nemesisReattackTargetId: casterId,
+          nemesisReattackDamage: 1,
+          nemesisReattackFromCoAttack: true,
+          pomegranateDeferredCtx: null,
+          coAttackRoll: null,
+          coDefendRoll: null,
+          pomCoAttackerId: null,
+          pomCoDefenderId: null,
+          coAttackerId: null,
+          playbackStep: null,
+          resolvingHitIndex: null,
+        };
+        await update(roomRef(arenaId), updates);
+        return;
       }
     }
   }
@@ -6064,6 +6319,32 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...prevLogNorm, logEntry]);
       }
     }
+  }
+
+  const defenderHasNemesisWish = defender.wishOfIris === DEITY.NEMESIS;
+  const nemesisReattackTargetId = turn.awaitingPomegranateCoAttack && turn.pomegranateDeferredCtx
+    ? (effectivePomCoAttackerId(turn) ?? attackerId)
+    : attackerId;
+  const shouldPauseForNemesis =
+    hit &&
+    defenderHpAfter > 0 &&
+    defenderHasNemesisWish &&
+    !!nemesisReattackTargetId &&
+    !(turn as { nemesisReattackSourceId?: string | null }).nemesisReattackSourceId;
+  if (shouldPauseForNemesis) {
+    const nemesisTurn: Record<string, unknown> = {
+      ...turn,
+      phase: PHASE.NEMESIS_WISH_BLESSING_REATTACK,
+      nemesisReattackSourceId: defenderId,
+      nemesisReattackTargetId: nemesisReattackTargetId,
+      nemesisReattackDamage: 1,
+      nemesisReattackFromCoAttack: !!(turn.awaitingPomegranateCoAttack && turn.pomegranateDeferredCtx),
+      playbackStep: null,
+      resolvingHitIndex: null,
+    };
+    updates[ARENA_PATH.BATTLE_TURN] = nemesisTurn;
+    await update(roomRef(arenaId), updates);
+    return;
   }
 
   // Rapid Fire (Volley Arrow) — use latest effects (updates may have modified); require effect still active (turnsRemaining > 0) so round 3 of buff still enters flow

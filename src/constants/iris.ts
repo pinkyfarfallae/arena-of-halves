@@ -8,3 +8,5 @@ export const IRIS_PHASE = {
 } as const;
 
 export type Phase = (typeof IRIS_PHASE)[keyof typeof IRIS_PHASE];
+
+export const NEMESIS_RETALIATION = 'Nemesis Retaliation';
