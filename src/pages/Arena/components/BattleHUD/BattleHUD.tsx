@@ -3703,10 +3703,10 @@ export default function BattleHUD({
       )}
 
       {/* Death Keeper / self-resurrect queue: brief overlay (name = resurrected fighter) */}
-      {true && (() => {
+      {showResurrecting && (() => {
         // For immediate resurrections during RESOLVING, show name of first resurrected fighter
         const immediateRes = (turn as { immediateResurrections?: string[] })?.immediateResurrections;
-        const targetId = turn?.resurrectTargetId || (immediateRes && immediateRes.length > 0 ? immediateRes[0] : null) || CHARACTER.TEST;
+        const targetId = turn?.resurrectTargetId || (immediateRes && immediateRes.length > 0 ? immediateRes[0] : null);
         if (!targetId) return null;
         const resurrectedFighter = find(teamA, teamB, targetId);
 
