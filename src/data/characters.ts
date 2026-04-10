@@ -9,6 +9,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { BagData } from '../types/character';
+import { useAuth } from '../hooks/useAuth';
+import { User } from 'firebase/auth';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export type { PowerDefinition };
@@ -169,7 +171,7 @@ export async function fetchCharacter(characterId: string): Promise<Character | n
   return null;
 }
 
-export async function fetchAllCharacters(): Promise<Character[]> {
+export async function fetchAllCharacters(user?: Character): Promise<Character[]> {
   const res = await fetch(characterCsvUrl());
   const text = await res.text();
   const lines = splitCSVRows(text);
@@ -185,6 +187,12 @@ export async function fetchAllCharacters(): Promise<Character[]> {
     const id = cols[idIdx]?.trim();
     if (id) chars.push(rowToCharacter(headers, cols));
   }
+
+  // If not localhost, filter out test characters (IDs == "test")
+  if (user?.characterId !== 'test') {
+    return chars.filter(c => c.characterId.toLowerCase() !== 'test');
+  }
+
   return chars;
 }
 

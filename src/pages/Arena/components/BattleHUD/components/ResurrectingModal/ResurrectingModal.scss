@@ -16,13 +16,13 @@
   padding:
     clamp(0.65rem, 2.2vw, 1rem)
     clamp(0.75rem, 3vw, 1.2rem);
-  background: radial-gradient(ellipse at center, rgba(#1a0a2e, 0.95), rgba(#0d0015, 0.98));
-  border: 1.5px solid rgba(#7e57c2, 0.5);
+  background: radial-gradient(ellipse at center, rgba(var(--resurrect-background), 0.95), rgba(#0d0015, 0.98));
+  border: 1.5px solid rgba(var(--resurrect), 0.5);
   border-radius: clamp(10px, 2.5vw, 12px);
   box-shadow:
-    0 0 20px rgba(#4a148c, 0.4),
-    0 0 40px rgba(#1a0a2e, 0.3),
-    inset 0 0 30px rgba(#4a148c, 0.15);
+    0 0 20px rgba(var(--resurrect-shadow), 0.4),
+    0 0 40px rgba(var(--resurrect-background), 0.3),
+    inset 0 0 30px rgba(var(--resurrect-shadow), 0.15);
   animation: resurrect-appear 0.5s cubic-bezier(0.22, 0.61, 0.36, 1), resurrect-shimmer 3s ease-in-out infinite;
   position: relative;
   overflow: hidden;
@@ -31,7 +31,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at center, rgba(#ce93d8, 0.75) 0%, transparent 70%);
+    background: radial-gradient(ellipse at center, rgba(var(--resurrect-text), 0.75) 0%, transparent 70%);
     pointer-events: none;
     animation: mist-drift 4s ease-in-out infinite;
   }
@@ -41,24 +41,24 @@
   width: clamp(28px, 9vw, 40px);
   height: clamp(28px, 9vw, 40px);
   flex-shrink: 0;
-  border: 2px solid rgba(#7e57c2, 0.6);
+  border: 2px solid rgba(var(--resurrect), 0.6);
   border-radius: 50%;
   position: relative;
   animation: sigil-spin 3s linear infinite, sigil-reveal 2.5s ease-out forwards;
-  box-shadow: 0 0 12px rgba(#7e57c2, 0.3);
+  box-shadow: 0 0 12px rgba(var(--resurrect), 0.3);
 
   &::before,
   &::after {
     content: '';
     position: absolute;
     inset: 4px;
-    border: 1.5px solid rgba(#b39ddb, 0.4);
+    border: 1.5px solid rgba(var(--resurrect-title), 0.4);
     border-radius: 50%;
   }
 
   &::after {
     inset: 10px;
-    border-color: rgba(#ce93d8, 0.5);
+    border-color: rgba(var(--resurrect-text), 0.5);
     animation: sigil-spin 2s linear infinite reverse;
   }
 }
@@ -68,8 +68,8 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: clamp(0.08em, 0.4vw, 0.15em);
-  color: #b39ddb;
-  text-shadow: 0 0 8px rgba(#7e57c2, 0.6);
+  color: rgba(var(--resurrect-title), 0.7);
+  text-shadow: 0 0 8px rgba(var(--resurrect), 0.6);
   animation: resurrect-text-pulse 1.5s ease-in-out infinite;
   text-align: center;
   max-width: 100%;
@@ -77,7 +77,7 @@
 
 .bhud__resurrect-name {
   font-size: clamp(0.42rem, 1.85vw, 0.55rem);
-  color: rgba(#ce93d8, 0.7);
+  color: rgba(var(--resurrect-text), 0.7);
   letter-spacing: 0.06em;
   text-align: center;
   max-width: 100%;
@@ -108,8 +108,8 @@
       left: calc(6% + #{($i - 1) * 11.5%});
 
       background: if($i % 3==0,
-          rgba(#7e57c2, 0.7),
-          if($i % 3==1, rgba(#4a148c, 0.6), rgba(#9c27b0, 0.5)));
+          rgba(var(--resurrect), 0.7),
+          if($i % 3==1, rgba(var(--resurrect-shadow), 0.6), rgba(var(--resurrect-glow), 0.5)));
 
       animation-delay: $i * 0.2s;
       animation-duration: (1.4 + ($i % 3) * 0.3) * 0.75s;
@@ -143,17 +143,17 @@
 @keyframes sigil-reveal {
   0% {
     opacity: 0.15;
-    box-shadow: 0 0 4px rgba(#7e57c2, 0.1);
+    box-shadow: 0 0 4px rgba(var(--resurrect), 0.1);
   }
 
   40% {
     opacity: 0.5;
-    box-shadow: 0 0 8px rgba(#7e57c2, 0.2);
+    box-shadow: 0 0 8px rgba(var(--resurrect), 0.2);
   }
 
   100% {
     opacity: 1;
-    box-shadow: 0 0 16px rgba(#7e57c2, 0.5);
+    box-shadow: 0 0 16px rgba(var(--resurrect), 0.5);
   }
 }
 
@@ -162,12 +162,12 @@
   0%,
   100% {
     opacity: 0.8;
-    text-shadow: 0 0 8px rgba(#7e57c2, 0.4);
+    text-shadow: 0 0 8px rgba(var(--resurrect), 0.4);
   }
 
   50% {
     opacity: 1;
-    text-shadow: 0 0 14px rgba(#7e57c2, 0.7);
+    text-shadow: 0 0 14px rgba(var(--resurrect), 0.7);
   }
 }
 
@@ -194,15 +194,15 @@
 @keyframes resurrect-shimmer {
   0%, 100% {
     box-shadow:
-      0 0 20px rgba(#4a148c, 0.4),
-      0 0 40px rgba(#1a0a2e, 0.3),
-      inset 0 0 30px rgba(#4a148c, 0.15);
+      0 0 20px rgba(var(--resurrect-shadow), 0.4),
+      0 0 40px rgba(var(--resurrect-background), 0.3),
+      inset 0 0 30px rgba(var(--resurrect-shadow), 0.15);
   }
   50% {
     box-shadow:
-      0 0 30px rgba(#7e57c2, 0.6),
-      0 0 60px rgba(#4a148c, 0.4),
-      inset 0 0 40px rgba(#7e57c2, 0.25);
+      0 0 30px rgba(var(--resurrect), 0.6),
+      0 0 60px rgba(var(--resurrect-shadow), 0.4),
+      inset 0 0 40px rgba(var(--resurrect), 0.25);
   }
 }
 

@@ -75,8 +75,10 @@ function TrainingApproval() {
     const fetchData = async () => {
       setLoading(true);
 
+      if (!user) return;
+
       await Promise.all([
-        fetchAllCharacters()
+        fetchAllCharacters(user)
           .then(setCharacters)
           .catch(() => setCharacters([])),
 
@@ -105,7 +107,7 @@ function TrainingApproval() {
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!reviewText.trim()) return;

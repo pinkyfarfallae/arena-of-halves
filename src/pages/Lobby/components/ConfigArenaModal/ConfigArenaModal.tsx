@@ -44,7 +44,7 @@ interface Props {
 }
 
 export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, onClose, onEnter }: Props) {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const isDeveloper = role === ROLE.DEVELOPER;
   const [teamSizeA, setTeamSizeA] = useState(1);
   const [teamSizeB, setTeamSizeB] = useState(1);
@@ -60,8 +60,10 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
   }, []);
 
   useEffect(() => {
+    if (!user) return;
+
     let cancelled = false;
-    fetchAllCharacters()
+    fetchAllCharacters(user)
       .then(async (chars) => {
         if (cancelled) return;
         const fightersWithWishes = await Promise.all(
@@ -77,7 +79,7 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   const npcIdSet = useMemo(
     () => new Set(npcs.map((n) => n.characterId.toLowerCase())),

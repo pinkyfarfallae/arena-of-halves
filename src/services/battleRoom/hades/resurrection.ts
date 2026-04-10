@@ -5,6 +5,7 @@ import { EFFECT_TAGS } from '../../../constants/effectTags';
 import { POWER_NAMES } from '../../../constants/powers';
 import { EFFECT_TYPES } from '../../../constants/effectTypes';
 import { PHASE, ARENA_PATH } from '../../../constants/battle';
+import { DEITY } from '../../../constants/deities';
 
 /**
  * Apply self-resurrect if next fighter is dead with death-keeper.
@@ -24,12 +25,58 @@ export function applySelfResurrect(
   const fighter = findFighter(room, nextCharId);
   if (!fighter || fighter.currentHp > 0) return false;
 
+  const fPath = findFighterPath(room, nextCharId);
+
+  // Priority 1: Hades Wish (one-time, 100% HP, works for everyone)
+  const hasHadesWish = fighter.wishOfIris === DEITY.HADES;
+  const hadesWishAlreadyUsed = effects.some(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.HADES_WISH_USED);
+  
+  if (hasHadesWish && !hadesWishAlreadyUsed) {
+    // Resurrect at 100% HP with Hades wish
+    if (fPath) updates[`${fPath}/currentHp`] = fighter.maxHp;
+    
+    // Mark Hades wish as used (permanent flag)
+    effects.push({
+      id: `${nextCharId}::Hades Wish Used`,
+      powerName: 'Hades Wish',
+      effectType: EFFECT_TYPES.BUFF,
+      sourceId: nextCharId,
+      targetId: nextCharId,
+      value: 0,
+      turnsRemaining: 999,
+      tag: EFFECT_TAGS.HADES_WISH_USED,
+    });
+    
+    // Add resurrected tag
+    effects.push({
+      id: `${nextCharId}::Hades Wish Risen`,
+      powerName: 'Hades Wish',
+      effectType: EFFECT_TYPES.BUFF,
+      sourceId: nextCharId,
+      targetId: nextCharId,
+      value: 0,
+      turnsRemaining: 999,
+      tag: EFFECT_TAGS.RESURRECTED,
+    });
+    
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+    
+    // Clear stun on the resurrected fighter (death resets debuffs)
+    const stunIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.STUN);
+    if (stunIdx !== -1) effects.splice(stunIdx, 1);
+    
+    return true;
+  }
+
+  // Priority 2: Death Keeper (50% HP, Hades heir only, disabled in PvP)
+  // Death Keeper passive does not work in practice mode / PvP
+  if (room.practiceMode) return false;
+  
   const dkIdx = effects.findIndex(e => e.targetId === nextCharId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
   if (dkIdx === -1) return false;
 
   // Resurrect at 50% max HP
   const resHp = Math.ceil(fighter.maxHp * 0.5);
-  const fPath = findFighterPath(room, nextCharId);
   if (fPath) updates[`${fPath}/currentHp`] = resHp;
 
   // Consume death-keeper, add resurrected tag
@@ -80,13 +127,74 @@ export function applyImmediateResurrection(
     
   if (currentHp > 0) return false;
 
+  const fighter = findFighter(room, characterId);
+  if (!fighter) return false;
+
+  // Priority 1: Hades Wish (one-time, 100% HP, works for everyone)
+  const hasHadesWish = fighter.wishOfIris === DEITY.HADES;
+  const hadesWishAlreadyUsed = effects.some(e => e.targetId === characterId && e.tag === EFFECT_TAGS.HADES_WISH_USED);
+  
+  if (hasHadesWish && !hadesWishAlreadyUsed) {
+    // Resurrect at 100% HP with Hades wish
+    updates[`${fPath}/currentHp`] = fighter.maxHp;
+    
+    // Mark Hades wish as used (permanent flag)
+    effects.push({
+      id: `${characterId}::Hades Wish Used`,
+      powerName: 'Hades Wish',
+      effectType: EFFECT_TYPES.BUFF,
+      sourceId: characterId,
+      targetId: characterId,
+      value: 0,
+      turnsRemaining: 999,
+      tag: EFFECT_TAGS.HADES_WISH_USED,
+    });
+    
+    // Add resurrected tag
+    effects.push({
+      id: `${characterId}::Hades Wish Risen`,
+      powerName: 'Hades Wish',
+      effectType: EFFECT_TYPES.BUFF,
+      sourceId: characterId,
+      targetId: characterId,
+      value: 0,
+      turnsRemaining: 999,
+      tag: EFFECT_TAGS.RESURRECTED,
+    });
+    
+    updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effects;
+    
+    // Clear stun on the resurrected fighter (death resets debuffs)
+    const stunIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.STUN);
+    if (stunIdx !== -1) effects.splice(stunIdx, 1);
+    
+    // Log the resurrection
+    const logEntry = {
+      round: battle.roundNumber,
+      attackerId: characterId,
+      defenderId: characterId,
+      attackRoll: 0,
+      defendRoll: 0,
+      damage: 0,
+      defenderHpAfter: fighter.maxHp,
+      eliminated: false,
+      missed: false,
+      powerUsed: 'Hades Wish',
+    };
+    const updatedLog = [...(battle.log || []), logEntry];
+    updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog(updatedLog);
+    
+    return true;
+  }
+
+  // Priority 2: Death Keeper (50% HP, Hades heir only, disabled in PvP)
+  // Death Keeper passive does not work in practice mode / PvP
+  if (room.practiceMode) return false;
+  
   const dkIdx = effects.findIndex(e => e.targetId === characterId && e.tag === EFFECT_TAGS.DEATH_KEEPER);
   if (dkIdx === -1) return false;
 
   // Resurrect at 50% max HP immediately
-  const fighter = findFighter(room, characterId);
-  if (!fighter) return false;
-  
   const resHp = Math.ceil(fighter.maxHp * 0.5);
   updates[`${fPath}/currentHp`] = resHp;
 

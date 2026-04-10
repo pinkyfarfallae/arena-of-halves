@@ -5,6 +5,7 @@ import { toFighterState } from '../../../../../services/battleRoom/battleRoom';
 import { fetchTodayIrisWish } from '../../../../../data/wishes';
 import { POWER_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import type { FighterState } from '../../../../../types/battle';
+import { useAuth } from '../../../../../hooks/useAuth';
 
 interface Props {
   teamSize: number;
@@ -12,14 +13,17 @@ interface Props {
 }
 
 export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
+  const { user } = useAuth();
   const [fighters, setFighters] = useState<FighterState[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) return;
+
     const loadCharacters = async () => {
       try {
-        const chars = await fetchAllCharacters();
+        const chars = await fetchAllCharacters(user);
         const fighterList = await Promise.all(
           chars.map(async (c) => {
             const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
@@ -36,7 +40,7 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
     };
 
     loadCharacters();
-  }, []);
+  }, [user]);
 
   const handleToggle = (characterId: string) => {
     const newSelected = new Set(selected);
