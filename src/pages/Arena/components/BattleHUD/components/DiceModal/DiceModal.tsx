@@ -9,15 +9,26 @@ import {
   type PanelSide,
 } from '../../../../../../constants/battle';
 import { POWERS_DEFENDER_CANNOT_DEFEND } from '../../../../../../constants/powers';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import DiceRoller from '../../../../../../components/DiceRoller/DiceRoller';
 import './DiceModal.scss';
+import { Deity, DEITY } from '../../../../../../constants/deities';
+import { getDiceSize } from '../../../../../../utils/getDiceSize';
 
 /** Brief delay after attack animation ends before showing defender (smooth transition to next phase) */
 const AFTER_ANIM_MS = 150;
 
 /** When server already has defend roll (e.g. NPC), show "defender rolling" this long before animating NPC dice */
 const NPC_DEFEND_ROLL_DELAY_MS = 1000;
+
+/** Dice disruption of Zeus */
+const ZEUS_DICE_DISRUPTION = 'Zeus Disruption: -2 (min 1)';
+/** Dice empowerment of Poseidon */
+const POSEIDON_DICE_STRENGTHEN = 'Poseidon Strength: min 6';
+/** Dice Curse of Hypnos: D10 */
+const HYPNOS_DICE_CURSE = 'Dice Curse of Hypnos: D10';
+/** Dice Blessing of Tyche: D20 */
+const TYCHE_DICE_BLESSING = 'Dice Blessing of Tyche: D20';
 
 /** Get die theme colors for a fighter */
 function dieColors(f?: FighterState): { primary: string; primaryDark: string } {
@@ -96,6 +107,14 @@ interface Props {
   skeletonHitActive?: boolean;
   /** RESOLVING only: hide defense replay while team shock applies (Nimbus delay) or LR shock on normal attack. */
   hideResolvingDefenseDiceForShockApply?: boolean;
+  /** Original attack roll before Zeus/Poseidon buff modifications (used for dice animation) */
+  originalAttackRollBeforeBuff?: number | null;
+  /** Original defend roll before Zeus/Poseidon buff modifications (used for dice animation) */
+  originalDefendRollBeforeBuff?: number | null;
+  /** Original co-attack roll before Zeus/Poseidon buff modifications (used for dice animation) */
+  originalCoAttackRollBeforeBuff?: number | null;
+  /** Original co-defend roll before Zeus/Poseidon buff modifications (used for dice animation) */
+  originalCoDefendRollBeforeBuff?: number | null;
 }
 
 /** CSS custom properties for modal theming */
@@ -115,9 +134,13 @@ export default function DiceModal({
   dodgeEligible, dodgeReady, dodgeWinFaces, dodgeRollResult, onDodgeRollResult, onDodgeRollStart, onDodgeReplayEnd,
   coAttackCaster, isMyPomegranateCoAttack = false,
   pomCoAtkBuffMod = 0,
-  atkBuffMod = 0,   defBuffMod = 0,
+  atkBuffMod = 0, defBuffMod = 0,
   skeletonHitActive = false,
   hideResolvingDefenseDiceForShockApply = false,
+  originalAttackRollBeforeBuff = null,
+  originalDefendRollBeforeBuff = null,
+  originalCoAttackRollBeforeBuff = null,
+  originalCoDefendRollBeforeBuff = null,
 }: Props) {
   const { phase } = turn;
   const awaitingPom = !!(turn as { awaitingPomegranateCoAttack?: boolean }).awaitingPomegranateCoAttack;
@@ -166,6 +189,8 @@ export default function DiceModal({
   const [showDefenderWaiting, setShowDefenderWaiting] = useState(false);
   const [showNpcDefendDice, setShowNpcDefendDice] = useState(false);
   const npcDefendDiceScheduledRef = useRef(false);
+  const [showNpcPomCoDefendDice, setShowNpcPomCoDefendDice] = useState(false);
+  const npcPomCoDefendDiceScheduledRef = useRef(false);
   /** Player replay: show result text as soon as die lands; parent delays atkRollDone/defRollDone so modal stays visible */
   const [atkReplayLanded, setAtkReplayLanded] = useState(false);
   const [defReplayLanded, setDefReplayLanded] = useState(false);
@@ -218,11 +243,13 @@ export default function DiceModal({
     setShowDefenderWaiting(false);
     setShowNpcDefendDice(false);
     npcDefendDiceScheduledRef.current = false;
+    setShowNpcPomCoDefendDice(false);
+    npcPomCoDefendDiceScheduledRef.current = false;
   }, [turnKey]);
 
-  // When RESOLVING with defend roll — show defender dice after attack animation (atkRollDone) or immediately if player rolled attack. In viewer: same flow, show defender dice content without 1s delay.
-  const resolvingWithNpcDefend =
-    phase === PHASE.RESOLVING &&
+  // Show NPC defend dice after the attack reveal has finished. Main defend can appear in ROLLING_DEFEND; co-defend can appear in ROLLING_POMEGRANATE_CO_DEFEND.
+  const revealingNpcDefendDice =
+    (phase === PHASE.ROLLING_DEFEND || phase === PHASE.RESOLVING) &&
     turn.defendRoll != null &&
     !isMyDefend &&
     !embodyDefenderForDefReplay &&
@@ -231,16 +258,26 @@ export default function DiceModal({
     !(pomCoFlowActive && turn.coDefendRoll != null) &&
     // Don't show main defend dice during main attack RESOLVING when awaiting Pomegranate co-attack
     !(awaitingPom && turn.coDefendRoll == null);
+  const revealingNpcPomCoDefendDice =
+    (phase === PHASE.RESOLVING || isPomegranateCoDefendDicePhase(phase, awaitingPom)) &&
+    pomCoFlowActive &&
+    turn.coDefendRoll != null &&
+    turn.coDefendRoll >= 1 &&
+    !isMyDefend &&
+    !embodyDefenderForPomCoDefReplay &&
+    !(turn as any).soulDevourerDrain &&
+    !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) &&
+    !(awaitingPom && turn.coDefendRoll == null);
   const attackDoneOrPlayerRolled = atkRollDone || isMyTurn || iAmCoAttacker;
   const turnAction = turn.action;
   const turnAttackRoll = turn.attackRoll;
   const turnSoulDevourerDrain = (turn as { soulDevourerDrain?: boolean })?.soulDevourerDrain;
   useEffect(() => {
-    if (!resolvingWithNpcDefend) {
+    if (!revealingNpcDefendDice) {
       if (!isViewer) {
         // Don't clear during transient frames (e.g. out-of-order updates) while still in RESOLVING as attacker watching NPC defend
         const holdNpcDefendDiceUi =
-          phase === PHASE.RESOLVING &&
+          (phase === PHASE.ROLLING_DEFEND || phase === PHASE.RESOLVING) &&
           !isMyDefend &&
           !embodyDefenderForDefReplay &&
           !turnSoulDevourerDrain &&
@@ -258,7 +295,7 @@ export default function DiceModal({
     }
     // Once we schedule showing NPC defend dice, don't reset the timer on re-renders
     if (npcDefendDiceScheduledRef.current) return;
-    
+
     if (!attackDoneOrPlayerRolled) {
       // Schedule dice to show anyway after a longer delay if attack animation hasn't completed yet
       // This prevents stuck turns when NPC defense happens very quickly after attack
@@ -269,7 +306,38 @@ export default function DiceModal({
     npcDefendDiceScheduledRef.current = true;
     const t = window.setTimeout(() => setShowNpcDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS);
     return () => clearTimeout(t);
-  }, [resolvingWithNpcDefend, attackDoneOrPlayerRolled, isViewer, phase, isMyDefend, turnAction, turnAttackRoll, turnSoulDevourerDrain, embodyDefenderForDefReplay]);
+  }, [revealingNpcDefendDice, attackDoneOrPlayerRolled, isViewer, phase, isMyDefend, turnAction, turnAttackRoll, turnSoulDevourerDrain, embodyDefenderForDefReplay, embodyDefenderForPomCoDefReplay]);
+  useEffect(() => {
+    if (!revealingNpcPomCoDefendDice) {
+      if (!isViewer) {
+        const holdNpcPomCoDefendDiceUi =
+          (phase === PHASE.RESOLVING || isPomegranateCoDefendDicePhase(phase, awaitingPom)) &&
+          pomCoFlowActive &&
+          !isMyDefend &&
+          !embodyDefenderForPomCoDefReplay &&
+          !(turn as any).soulDevourerDrain &&
+          !(turn.action === TURN_ACTION.POWER && !turn.attackRoll);
+        if (!holdNpcPomCoDefendDiceUi) {
+          setShowNpcPomCoDefendDice(false);
+          npcPomCoDefendDiceScheduledRef.current = false;
+        }
+      }
+      return;
+    }
+    if (isViewer) {
+      setShowNpcPomCoDefendDice(true);
+      return;
+    }
+    if (npcPomCoDefendDiceScheduledRef.current) return;
+    if (!attackDoneOrPlayerRolled) {
+      npcPomCoDefendDiceScheduledRef.current = true;
+      const t = window.setTimeout(() => setShowNpcPomCoDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS + 1000);
+      return () => clearTimeout(t);
+    }
+    npcPomCoDefendDiceScheduledRef.current = true;
+    const t = window.setTimeout(() => setShowNpcPomCoDefendDice(true), NPC_DEFEND_ROLL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [revealingNpcPomCoDefendDice, attackDoneOrPlayerRolled, isViewer, phase, isMyDefend, pomCoFlowActive, turnAction, turnAttackRoll, turnSoulDevourerDrain, embodyDefenderForPomCoDefReplay, awaitingPom]);
 
   // Latch phase/rolls forward only
   if (phase === PHASE.ROLLING_ATTACK || phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK) {
@@ -413,9 +481,147 @@ export default function DiceModal({
   const replayAttackTheme = themeStyle(replayAttackFighter);
   const replayAtkBuffMod =
     pomCoFlowActive && hasPomCoAttackRoll && latchedAttackRoll === turn.coAttackRoll ? pomCoAtkBuffMod : displayAtkBuffMod;
+
+  // Use original roll before Zeus/Poseidon buff for dice animation if available
+  const attackerHasZeusOrPoseidon = displayAttackFighter?.wishOfIris === DEITY.ZEUS || displayAttackFighter?.wishOfIris === DEITY.POSEIDON;
+
   const rolledAttackValue = pomCoFlowActive
-    ? (turn.coAttackRoll ?? preRolledAttack)
-    : (turn.attackRoll ?? preRolledAttack);
+    ? (attackerHasZeusOrPoseidon && originalCoAttackRollBeforeBuff ? originalCoAttackRollBeforeBuff : (turn.coAttackRoll ?? preRolledAttack))
+    : (attackerHasZeusOrPoseidon && originalAttackRollBeforeBuff ? originalAttackRollBeforeBuff : (turn.attackRoll ?? preRolledAttack));
+  const attackReplayDeity =
+    isMyAttackReplaySegment &&
+      (displayAttackFighter?.wishOfIris === DEITY.ZEUS || displayAttackFighter?.wishOfIris === DEITY.POSEIDON)
+      ? displayAttackFighter.wishOfIris
+      : null;
+  const attackReplayValue = rolledAttackValue ?? preRolledAttack ?? 0;
+  const getWishAdjustedRollValue = (value: number, deity: Deity | null | undefined) => {
+    if (deity === DEITY.ZEUS) return Math.max(1, value - 2);
+    if (deity === DEITY.POSEIDON) return Math.max(6, value);
+    return value;
+  };
+  const getWishOriginalReplayRoll = (
+    roll: number | null | undefined,
+    originalRollBeforeBuff: number | null | undefined,
+    deity: Deity | null | undefined,
+  ) => ((deity === DEITY.ZEUS || deity === DEITY.POSEIDON) && originalRollBeforeBuff != null
+    ? originalRollBeforeBuff
+    : (roll ?? undefined));
+  const attackReplayAdjustedValue = getWishAdjustedRollValue(attackReplayValue, displayAttackFighter?.wishOfIris);
+  const defendReplayBaseValue = (originalDefendRollBeforeBuff ?? (pomCoFlowActive ? turn.coDefendRoll : turn.defendRoll)) ?? 0;
+  const defendReplayAdjustedValue = getWishAdjustedRollValue(defendReplayBaseValue, defender?.wishOfIris);
+  const resolvingDefendAdjustedValue = getWishAdjustedRollValue(turn.defendRoll ?? 0, defender?.wishOfIris);
+  const coDefendBaseValue = (originalCoDefendRollBeforeBuff ?? turn.coDefendRoll) ?? 0;
+  const coDefendAdjustedValue = getWishAdjustedRollValue(coDefendBaseValue, defender?.wishOfIris);
+  const renderWishDeityNode = (deity: Deity | null | undefined) => {
+    if (deity !== DEITY.ZEUS && deity !== DEITY.POSEIDON) return null;
+    return (
+      <>
+        <span
+          style={{
+            color: deity === DEITY.ZEUS ? '#ddb400' : '#0077be',
+          }}
+        >
+          <b>{deity}</b>
+        </span>
+        {' '}
+        →
+        {' '}
+      </>
+    );
+  };
+  const attackReplayDeityNode = renderWishDeityNode(attackReplayDeity);
+  const defendReplayDeityNode = renderWishDeityNode(defender?.wishOfIris);
+  const renderDiceBonusNode = ({
+    rolling,
+    diceUp,
+    buffMod,
+    adjustedValue,
+    deityNode,
+  }: {
+    rolling: boolean;
+    diceUp: number;
+    buffMod: number;
+    adjustedValue: number;
+    deityNode?: ReactNode;
+  }) => {
+    if (rolling) return 'rolling...';
+    const bonus = diceUp + buffMod;
+    if (bonus > 0) {
+      return (
+        <>
+          {deityNode}
+          +{bonus} →
+          {' '}
+          {adjustedValue + bonus}
+        </>
+      );
+    }
+    return (
+      <>
+        {deityNode}
+        {' '}
+        {adjustedValue}
+      </>
+    );
+  };
+  const attackReplayBonusNode = renderDiceBonusNode({
+    rolling: isMyAttackReplaySegment && !(atkRollDone || atkReplayLanded),
+    diceUp: displayAttackFighter?.attackDiceUp ?? 0,
+    buffMod: displayAtkBuffMod,
+    adjustedValue: attackReplayAdjustedValue,
+    deityNode: attackReplayDeityNode,
+  });
+  const replayAttackDeityNode = renderWishDeityNode(replayAttackFighter?.wishOfIris);
+  const replayAttackBonusNode = renderDiceBonusNode({
+    rolling: !atkRollDone,
+    diceUp: replayAttackFighter?.attackDiceUp ?? 0,
+    buffMod: replayAtkBuffMod,
+    adjustedValue: latchedAttackRoll ?? 0,
+    deityNode: replayAttackDeityNode,
+  });
+  const defendReplayBonusNode = renderDiceBonusNode({
+    rolling: showMyDefendReplay && !(defRollDone || defReplayLanded),
+    diceUp: defender?.defendDiceUp ?? 0,
+    buffMod: defBuffMod,
+    adjustedValue: defendReplayAdjustedValue,
+    deityNode: defendReplayDeityNode,
+  });
+  const resolvingDefendBonusNode = renderDiceBonusNode({
+    rolling: !defRollDone,
+    diceUp: defender?.defendDiceUp ?? 0,
+    buffMod: defBuffMod,
+    adjustedValue: resolvingDefendAdjustedValue,
+    deityNode: defendReplayDeityNode,
+  });
+  const coDefendBonusNode = renderDiceBonusNode({
+    rolling: !defRollDone,
+    diceUp: defender?.defendDiceUp ?? 0,
+    buffMod: defBuffMod,
+    adjustedValue: coDefendAdjustedValue,
+    deityNode: defendReplayDeityNode,
+  });
+
+  const wishedEffectedOnDiceLabels = (deity: Deity | null | undefined) => {
+    switch (deity) {
+      case DEITY.ZEUS:
+        return ZEUS_DICE_DISRUPTION;
+      case DEITY.POSEIDON:
+        return POSEIDON_DICE_STRENGTHEN;
+      case DEITY.HYPNOS:
+        return HYPNOS_DICE_CURSE;
+      case DEITY.TYCHE:
+        return TYCHE_DICE_BLESSING;
+      default:
+        return null;
+    }
+  };
+
+  const isSubWithDeity = (deity: Deity | null | undefined) => (
+    deity === DEITY.HYPNOS ||
+    deity === DEITY.TYCHE ||
+    deity === DEITY.ZEUS ||
+    deity === DEITY.POSEIDON
+  );
 
   return (
     <>
@@ -425,15 +631,20 @@ export default function DiceModal({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={displayAtkTheme}>
             <span className="bhud__dice-label">{attackDiceHeaderLabel}</span>
-            <span className="bhud__dice-sub">
+            <span className={`bhud__dice-sub ${isSubWithDeity(displayAttackFighter?.wishOfIris) ? 'bhud__dice-sub--deity' : ''}`}>
               {isMyAttackReplaySegment
                 ? displayAttackFighter?.nicknameEng
                 : `${displayAttackFighter?.nicknameEng} → ${defender?.nicknameEng}`}
+              {wishedEffectedOnDiceLabels(displayAttackFighter?.wishOfIris) && (
+                <span className={`bhud__dice-sub--${displayAttackFighter?.wishOfIris?.toLowerCase()}`}>
+                  {wishedEffectedOnDiceLabels(displayAttackFighter?.wishOfIris)}
+                </span>
+              )}
             </span>
             <DiceRoller
               key="atk-my-roll"
               className="bhud__dice-roller"
-              lockedDie={12}
+              lockedDie={getDiceSize(displayAttackFighter?.wishOfIris)}
               fixedResult={
                 isMyAttackReplaySegment
                   ? (rolledAttackValue != null && rolledAttackValue > 0 ? rolledAttackValue : undefined)
@@ -451,13 +662,7 @@ export default function DiceModal({
               hidePrompt
             />
             <span className="bhud__dice-bonus">
-              {isMyAttackReplaySegment
-                ? (!(atkRollDone || atkReplayLanded)
-                  ? 'rolling...'
-                  : ((displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod) > 0
-                    ? `+${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod} → ${(rolledAttackValue ?? preRolledAttack ?? 0) + (displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`
-                    : String(rolledAttackValue ?? preRolledAttack))
-                : `dice up: ${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`}
+              {isMyAttackReplaySegment ? attackReplayBonusNode : `dice up: ${(displayAttackFighter?.attackDiceUp ?? 0) + displayAtkBuffMod}`}
             </span>
           </div>
         </div>
@@ -488,12 +693,25 @@ export default function DiceModal({
         <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
           <div className="bhud__dice-modal" style={replayAttackTheme}>
             <span className="bhud__dice-label">{attackDiceHeaderLabel}</span>
-            <span className="bhud__dice-sub">{replayAttackFighter?.nicknameEng}</span>
+            <span className={`bhud__dice-sub ${isSubWithDeity(replayAttackFighter?.wishOfIris) ? 'bhud__dice-sub--deity' : ''}`}>
+              {replayAttackFighter?.nicknameEng}
+              {wishedEffectedOnDiceLabels(replayAttackFighter?.wishOfIris) && (
+                <span className={`bhud__dice-sub--${replayAttackFighter?.wishOfIris?.toLowerCase()}`}>
+                  {wishedEffectedOnDiceLabels(replayAttackFighter?.wishOfIris)}
+                </span>
+              )}
+            </span>
             <DiceRoller
               key="atk-defend-phase"
               className="bhud__dice-roller"
-              lockedDie={12}
-              fixedResult={latchedAttackRoll ?? 0}
+              lockedDie={getDiceSize(replayAttackFighter?.wishOfIris)}
+              fixedResult={
+                getWishOriginalReplayRoll(
+                  latchedAttackRoll,
+                  pomCoFlowActive ? originalCoAttackRollBeforeBuff : originalAttackRollBeforeBuff,
+                  replayAttackFighter?.wishOfIris,
+                )
+              }
               accentColor={replayAttackFighter?.theme[9]}
               themeColors={dieColors(replayAttackFighter)}
               autoRoll
@@ -501,11 +719,7 @@ export default function DiceModal({
               onRollEnd={onAtkRollDone}
             />
             <span className="bhud__dice-bonus">
-              {!atkRollDone
-                ? 'rolling...'
-                : ((replayAttackFighter?.attackDiceUp ?? 0) + replayAtkBuffMod) > 0
-                  ? `+${(replayAttackFighter?.attackDiceUp ?? 0) + replayAtkBuffMod} → ${(latchedAttackRoll ?? 0) + (replayAttackFighter?.attackDiceUp ?? 0) + replayAtkBuffMod}`
-                  : latchedAttackRoll}
+              {replayAttackBonusNode}
             </span>
           </div>
         </div>
@@ -518,23 +732,33 @@ export default function DiceModal({
         showMyDefendReplay
       ) &&
         !((isMyDefend || embodyDefenderForDefReplay) && defenderCannotDefend) &&
-        !(turn as any).soulDevourerDrain && (
+        !(turn as any).soulDevourerDrain &&
+        (
           <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
             <div className="bhud__dice-modal" style={defTheme}>
               <span className="bhud__dice-label">{pomCoFlowActive ? 'Co-attack defense' : 'Defense Roll'}</span>
-              <span className="bhud__dice-sub">
+              <span className={`bhud__dice-sub ${isSubWithDeity(defender?.wishOfIris) ? 'bhud__dice-sub--deity' : ''}`}>
                 {showMyDefendReplay
                   ? defender?.nicknameEng
                   : `Defending against ${(pomCoFlowActive ? displayAttackFighter?.nicknameEng : attacker?.nicknameEng) ?? ''}`}
+                {wishedEffectedOnDiceLabels(defender?.wishOfIris) && (
+                  <span className={`bhud__dice-sub--${defender?.wishOfIris?.toLowerCase()}`}>
+                    {wishedEffectedOnDiceLabels(defender?.wishOfIris)}
+                  </span>
+                )}
               </span>
               <DiceRoller
                 key="def-my-roll"
                 className="bhud__dice-roller"
-                lockedDie={12}
+                lockedDie={getDiceSize(defender?.wishOfIris)}
                 fixedResult={
                   pomCoDefenderDieResult ??
                   (!pomCoFlowActive && showMyDefendReplay
-                    ? (preRolledDefend ?? turn.defendRoll ?? undefined)
+                    ? getWishOriginalReplayRoll(
+                      preRolledDefend ?? turn.defendRoll,
+                      originalDefendRollBeforeBuff,
+                      defender?.wishOfIris,
+                    )
                     : !pomCoFlowActive
                       ? (preRolledDefend ?? undefined)
                       : undefined)
@@ -551,13 +775,7 @@ export default function DiceModal({
                 hidePrompt
               />
               <span className="bhud__dice-bonus">
-                {showMyDefendReplay
-                  ? (!(defRollDone || defReplayLanded)
-                    ? 'rolling...'
-                    : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
-                      ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${((pomCoFlowActive ? turn.coDefendRoll : turn.defendRoll) ?? 0) + (defender?.defendDiceUp ?? 0) + defBuffMod}`
-                      : String(pomCoFlowActive ? turn.coDefendRoll : turn.defendRoll))
-                  : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
+                {showMyDefendReplay ? defendReplayBonusNode : `dice up: ${(defender?.defendDiceUp ?? 0) + defBuffMod}`}
               </span>
             </div>
           </div>
@@ -568,35 +786,87 @@ export default function DiceModal({
         latchedAttackRoll != null &&
         showDefenderWaiting &&
         !defenderCannotDefend &&
-        !(turn as any).soulDevourerDrain && (
-        <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
-          <div className="bhud__dice-modal" style={defTheme}>
-            <span className="bhud__dice-label">
-              {latchedPhase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ? 'Co-attack defense' : 'Defense Roll'}
-            </span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
-            <div className="bhud__dice-roller bhud__dice-roller--waiting">
-              <div className="bhud__roll-waiting-spinner" />
+        !(turn as any).soulDevourerDrain &&
+        (
+          <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
+            <div className="bhud__dice-modal" style={defTheme}>
+              <span className="bhud__dice-label">
+                {latchedPhase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND ? 'Co-attack defense' : 'Defense Roll'}
+              </span>
+              <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
+              <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                {latchedPhase === PHASE.ROLLING_POMEGRANATE_CO_DEFEND &&
+                turn.coDefendRoll != null &&
+                turn.coDefendRoll >= 1 &&
+                (showNpcPomCoDefendDice || isViewer) ? (
+                  <DiceRoller
+                    key="pom-co-def-roll"
+                    className="bhud__dice-roller"
+                    lockedDie={getDiceSize(defender?.wishOfIris)}
+                    fixedResult={
+                      getWishOriginalReplayRoll(turn.coDefendRoll, originalCoDefendRollBeforeBuff, defender?.wishOfIris)
+                    }
+                    accentColor={defender?.theme[9]}
+                    themeColors={dieColors(defender)}
+                    autoRoll
+                    hidePrompt
+                    onRollEnd={onDefRollDone}
+                  />
+                ) : latchedPhase === PHASE.ROLLING_DEFEND &&
+                  turn.defendRoll != null &&
+                  turn.defendRoll >= 1 &&
+                  (showNpcDefendDice || isViewer) ? (
+                  <DiceRoller
+                    key="def-roll"
+                    className="bhud__dice-roller"
+                    lockedDie={getDiceSize(defender?.wishOfIris)}
+                    fixedResult={
+                      getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff, defender?.wishOfIris)
+                    }
+                    accentColor={defender?.theme[9]}
+                    themeColors={dieColors(defender)}
+                    autoRoll
+                    hidePrompt
+                    onRollEnd={onDefRollDone}
+                  />
+                ) : (
+                  <div className="bhud__roll-waiting-spinner" />
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ── RESOLVING — defender dice (attacker / viewer path). Play-all host already rolled defense in def-my-roll / embody — hide this auto-roll echo (same idea as playbackHostHideEchoAttackReplay). Only show for the actual defender, not during shock application to other team members. ── */}
       {phase === PHASE.RESOLVING && !hideResolvingDefenseDiceForShockApply && (atkRollDone || isMyTurn || (isViewer && turn.defendRoll != null)) && !(turn as any).soulDevourerDrain && !(turn.action === TURN_ACTION.POWER && !turn.attackRoll) && !defenderCannotDefend && !skeletonHitActive && turn.defendRoll != null && !(defRollDone && resolveReady) && !isMyDefend && !embodyDefenderForDefReplay && !playbackHostHideEchoAttackReplay && !(pomCoFlowActive && turn.coDefendRoll != null) && !(awaitingPom && turn.coDefendRoll == null) && defender?.characterId === turn.defenderId && (
         <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
           <div className="bhud__dice-modal" style={defTheme}>
             <span className="bhud__dice-label">Defense Roll</span>
-            <span className="bhud__dice-sub">{defender?.nicknameEng}</span>
+            <span className={`bhud__dice-sub ${isSubWithDeity(defender?.wishOfIris) ? 'bhud__dice-sub--deity' : ''}`}>
+              {defender?.nicknameEng}
+              {wishedEffectedOnDiceLabels(defender?.wishOfIris) && (
+                <span className={`bhud__dice-sub--${defender?.wishOfIris?.toLowerCase()}`}>
+                  {wishedEffectedOnDiceLabels(defender?.wishOfIris)}
+                </span>
+              )}
+            </span>
             {(showNpcDefendDice || isViewer) ? (
               <>
-                <DiceRoller key="def-resolve-phase" className="bhud__dice-roller" lockedDie={12} fixedResult={turn.defendRoll} accentColor={defender?.theme[9]} themeColors={dieColors(defender)} autoRoll hidePrompt onRollEnd={onDefRollDone} />
+                <DiceRoller
+                  key="def-resolve-phase"
+                  className="bhud__dice-roller"
+                  lockedDie={getDiceSize(defender?.wishOfIris)}
+                  fixedResult={
+                    getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff, defender?.wishOfIris)
+                  }
+                  accentColor={defender?.theme[9]}
+                  themeColors={dieColors(defender)}
+                  autoRoll
+                  hidePrompt
+                  onRollEnd={onDefRollDone}
+                />
                 <span className="bhud__dice-bonus">
-                  {!defRollDone
-                    ? 'rolling...'
-                    : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
-                      ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${turn.defendRoll + (defender?.defendDiceUp ?? 0) + defBuffMod}`
-                      : turn.defendRoll}
+                  {resolvingDefendBonusNode}
                 </span>
               </>
             ) : (
@@ -624,25 +894,38 @@ export default function DiceModal({
           <div className={`bhud__dice-zone bhud__dice-zone--${defSide}`}>
             <div className="bhud__dice-modal" style={defTheme}>
               <span className="bhud__dice-label">Co-attack defense</span>
-              <span className="bhud__dice-sub">{defender.nicknameEng}</span>
-              <DiceRoller
-                key="pom-co-def-opp"
-                className="bhud__dice-roller"
-                lockedDie={12}
-                fixedResult={turn.coDefendRoll}
-                accentColor={defender?.theme[9]}
-                themeColors={dieColors(defender)}
-                autoRoll
-                hidePrompt
-                onRollEnd={onDefRollDone}
-              />
-              <span className="bhud__dice-bonus">
-                {!defRollDone
-                  ? 'rolling...'
-                  : ((defender?.defendDiceUp ?? 0) + defBuffMod) > 0
-                    ? `+${(defender?.defendDiceUp ?? 0) + defBuffMod} → ${turn.coDefendRoll + (defender?.defendDiceUp ?? 0) + defBuffMod}`
-                    : turn.coDefendRoll}
+              <span className={`bhud__dice-sub ${isSubWithDeity(defender?.wishOfIris) ? 'bhud__dice-sub--deity' : ''}`}>
+                {defender.nicknameEng}
+                {wishedEffectedOnDiceLabels(defender?.wishOfIris) && (
+                  <span className={`bhud__dice-sub--${defender?.wishOfIris?.toLowerCase()}`}>
+                    {wishedEffectedOnDiceLabels(defender?.wishOfIris)}
+                  </span>
+                )}
               </span>
+              {(showNpcPomCoDefendDice || isViewer) ? (
+                <>
+                  <DiceRoller
+                    key="pom-co-def-opp"
+                    className="bhud__dice-roller"
+                    lockedDie={getDiceSize(defender.wishOfIris)}
+                    fixedResult={
+                      getWishOriginalReplayRoll(turn.coDefendRoll, originalCoDefendRollBeforeBuff, defender?.wishOfIris)
+                    }
+                    accentColor={defender?.theme[9]}
+                    themeColors={dieColors(defender)}
+                    autoRoll
+                    hidePrompt
+                    onRollEnd={onDefRollDone}
+                  />
+                  <span className="bhud__dice-bonus">
+                    {coDefendBonusNode}
+                  </span>
+                </>
+              ) : (
+                <div className="bhud__dice-roller bhud__dice-roller--waiting">
+                  <div className="bhud__roll-waiting-spinner" />
+                </div>
+              )}
             </div>
           </div>
         )}

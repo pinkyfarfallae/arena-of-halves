@@ -5,6 +5,7 @@ import { PHASE, ARENA_PATH, TURN_ACTION, BATTLE_TEAM, ROOM_STATUS } from '../../
 import { POWER_NAMES } from '../../../constants/powers';
 import { DEFAULT_NAMES } from '../../../constants/character';
 import { isStunned, applySecretOfDryadPassive, onEfflorescenceMuseTurnStart } from '../../powerEngine/powerEngine';
+import { nikeAwardedAfterWinTheFight } from '../../irisWish/applyWishesEffect';
 
 /**
  * Call when phase is ROLLING_DISORIENTED_NO_EFFECT and client has written disorientedRoll.
@@ -81,6 +82,7 @@ export async function advanceAfterDisorientedD4(
     if (isTeamEliminated(teamBMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamAMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { });
@@ -90,6 +92,7 @@ export async function advanceAfterDisorientedD4(
     if (isTeamEliminated(teamAMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamBMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { });

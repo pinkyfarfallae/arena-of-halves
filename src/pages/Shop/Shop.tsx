@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -18,11 +18,16 @@ import Close from '../../icons/Close';
 import Coupon from './icons/Coupon';
 import { LANGUAGE } from '../../constants/language';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
+import { giveItem } from '../../services/bag/bagService';
+import { updateCharacterDrachma } from '../../services/character/currencyService';
+import { BAG_ITEM_TYPES } from '../../constants/bag';
+import { fetchItemInfo } from '../../data/characters';
 import './Shop.scss';
 
 function Shop() {
   const { t, lang } = useTranslation();
   const [items, setItems] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
@@ -30,10 +35,11 @@ function Shop() {
     } catch { return []; }
   });
 
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [tooltip, setTooltip] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -46,16 +52,35 @@ function Shop() {
   useEffect(() => {
     const loadItems = async () => {
       try {
-        const data = await fetchShopItems();
-        setItems(data);
-      } catch (error) {
+        setLoading(true);
+        const data = await fetchItemInfo();
+
+        const availableItem = data.filter(i => !!i.available);
+
+        const shopItems: ShopItem[] = availableItem.map(i => ({
+          itemId: i.itemId,
+          name: i.labelEng,
+          description: i.description ?? '',
+          price: i.price ?? 0,
+          stock:
+            i.piece === 'infinity'
+              ? 'infinity'
+              : typeof i.piece === 'number'
+                ? i.piece
+                : 0,
+          imageUrl: i.imageUrl,
+          category: i.tier || 'Uncategorized',
+        }));
+
+        setItems(shopItems);
+      } catch (error) { } finally {
+        setLoading(false);
       }
     };
 
     loadItems();
 
     const interval = setInterval(loadItems, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -97,22 +122,66 @@ function Shop() {
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handlePay = () => {
-    setCart([]);
-    localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
-    setPaySuccess(true);
+  const handlePay = async () => {
+    if (!user?.characterId || processing) return;
+
+    // Check if user has enough drachma
+    if ((user.currency ?? 0) < totalPrice) {
+      alert('Insufficient drachma! You need ' + totalPrice + ' but only have ' + (user.currency ?? 0));
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      // Deduct drachma
+      const drachmaResult = await updateCharacterDrachma(user.characterId, -totalPrice);
+
+      if (!drachmaResult.success) {
+        alert('Failed to process payment: ' + (drachmaResult.error || 'Unknown error'));
+        setProcessing(false);
+        return;
+      }
+
+      // Add items to bag
+      for (const item of cart) {
+        // Determine item type from itemId prefix
+        const type = item.itemId.startsWith('weapon_') ? BAG_ITEM_TYPES.WEAPON : BAG_ITEM_TYPES.ITEM;
+
+        const result = await giveItem(user.characterId, item.itemId, item.quantity, type);
+
+        if (!result.success) {
+          // console.error(`Failed to add ${item.itemId} to bag:`, result.error);
+          // Continue with other items even if one fails
+        }
+      }
+
+      // Refresh user data to update currency display
+      await refreshUser();
+
+      // Clear cart and show success
+      setCart([]);
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.CAMP_STORE_CART);
+      setPaySuccess(true);
+    } catch (error) {
+      // console.error('Error processing payment:', error);
+      alert('An error occurred during checkout. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // Filter items based on search query
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = useMemo(() => {
+    return items.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [items, searchQuery]);
 
   const limitedItems = filteredItems.filter(i => i.stock !== -1);
   const unlimitedItems = filteredItems.filter(i => i.stock === -1);
-
 
   return (
     <div className="shop">
@@ -215,7 +284,7 @@ function Shop() {
                                 type="number"
                                 min="1"
                                 max={item.stock !== -1 ? item.stock : undefined}
-                                value={cart.find(c => c.itemId === item.itemId)?.quantity || 1}
+                                value={cart.find(c => c.itemId === item.itemId)?.quantity || 0}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value) || 0;
                                   if (val > 0) updateQuantity(item.itemId, val);
@@ -224,8 +293,8 @@ function Shop() {
                               <button
                                 onClick={() => {
                                   const current = cart.find(c => c.itemId === item.itemId)?.quantity || 1;
-                                  const max = item.stock === -1 ? current + 1 : Number(item.stock);
-                                  if (current < max) updateQuantity(item.itemId, current + 1);
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (max === null || current < max) updateQuantity(item.itemId, current + 1);
                                 }}
                                 disabled={
                                   item.stock === 0 ||
@@ -299,23 +368,32 @@ function Shop() {
                           {cart.find(c => c.itemId === item.itemId) ? (
                             <div className="item__qty-control">
                               <button
-                                onClick={() => updateQuantity(item.itemId, (cart.find(c => c.itemId === item.itemId)?.quantity || 1) - 1)}
-                              >−</button>
+                                onClick={() => {
+                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity ?? 0;
+                                  updateQuantity(item.itemId, current - 1);
+                                }}
+                              >
+                                −
+                              </button>
                               <input
                                 type="number"
                                 min="1"
                                 value={cart.find(c => c.itemId === item.itemId)?.quantity || 1}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value) || 0;
-                                  if (val > 0) updateQuantity(item.itemId, val);
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (val > 0 && (max === null || val <= max)) updateQuantity(item.itemId, val);
                                 }}
                               />
                               <button
                                 onClick={() => {
-                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity || 1;
-                                  updateQuantity(item.itemId, current + 1);
+                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity ?? 0;
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (max === null || current < max) updateQuantity(item.itemId, current + 1);
                                 }}
-                              >+</button>
+                              >
+                                +
+                              </button>
                             </div>
                           ) : (
                             <button
@@ -333,7 +411,14 @@ function Shop() {
               </section>
             )}
 
-            {items.length === 0 && (
+            {items.length === 0 && !loading && (
+              <div className="shop__empty">
+                <WingedSandal />
+                <p>{t(T.NO_WARES_AVAILABLE)}</p>
+              </div>
+            )}
+
+            {loading && items.length === 0 && (
               <div className="shop__empty">
                 <WingedSandal />
                 <p>{t(T.LOADING_WARES)}</p>
@@ -386,9 +471,29 @@ function Shop() {
                             }}
                           />
                           <button
-                            onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
-                            disabled={item.stock !== -1 && typeof item.stock === 'number' && item.quantity >= item.stock}
-                          >+</button>
+                            onClick={() => {
+                              const cartItem = cart.find(c => c.itemId === item.itemId);
+                              const current = cartItem?.quantity ?? 0;
+                              if (item.stock === 'infinity') {
+                                updateQuantity(item.itemId, current + 1);
+                                return;
+                              }
+
+                              if (typeof item.stock === 'number' && current < item.stock) {
+                                updateQuantity(item.itemId, current + 1);
+                              }
+                            }}
+                            disabled={
+                              item.stock === 0 ||
+                              (
+                                typeof item.stock === 'number' &&
+                                item.stock !== -1 &&
+                                (cart.find(c => c.itemId === item.itemId)?.quantity ?? 0) >= item.stock
+                              )
+                            }
+                          >
+                            +
+                          </button>
                         </div>
                         <span className="cart__item-price">{(item.price * item.quantity).toFixed(0)} <Drachma /></span>
                       </div>
@@ -414,37 +519,42 @@ function Shop() {
             )}
           </div>
         </aside>
-      </div>
+      </div >
 
       {/* Checkout modal */}
-      {showCheckout && (
-        <CheckoutModal
-          cart={cart}
-          totalPrice={totalPrice}
-          paySuccess={paySuccess}
-          customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
-          onPay={handlePay}
-          onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
-        />
-      )}
+      {
+        showCheckout && (
+          <CheckoutModal
+            cart={cart}
+            totalPrice={totalPrice}
+            paySuccess={paySuccess}
+            paying={processing}
+            customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
+            onPay={handlePay}
+            onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
+          />
+        )
+      }
 
       {/* Fixed tooltip — renders outside scroll container */}
-      {tooltip && (() => {
-        const tipItem = items.find(i => i.itemId === tooltip.id);
-        if (!tipItem?.description) return null;
-        return (
-          <div
-            className="item__tip"
-            style={{
-              bottom: window.innerHeight - tooltip.rect.top + 12,
-              left: tooltip.rect.left + tooltip.rect.width / 2 - 90,
-            }}
-          >
-            <p>{tipItem.description}</p>
-          </div>
-        );
-      })()}
-    </div>
+      {
+        tooltip && (() => {
+          const tipItem = items.find(i => i.itemId === tooltip.id);
+          if (!tipItem?.description) return null;
+          return (
+            <div
+              className="item__tip"
+              style={{
+                bottom: window.innerHeight - tooltip.rect.top + 12,
+                left: tooltip.rect.left + tooltip.rect.width / 2 - 90,
+              }}
+            >
+              <p>{tipItem.description}</p>
+            </div>
+          );
+        })()
+      }
+    </div >
   );
 }
 

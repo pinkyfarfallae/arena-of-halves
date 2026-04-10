@@ -73,6 +73,10 @@ export const BLESSING_NAMES = {
     en: 'Resurrected',
     th: 'ผู้ฟื้นคืนชีพ',
   },
+  [EFFECT_TAGS.HADES_WISH_USED]: {
+    en: "Hades' Revival",
+    th: 'การฟื้นคืนชีพของฮาเดส',
+  },
   // Persephone
   [EFFECT_TAGS.EFFLORESCENCE_MUSE]: {
     en: 'Efflorescence Muse',
@@ -157,6 +161,10 @@ export const UI_TEXT = {
   HARVEST_SUBMISSION_NOTE: {
     en: 'After submitting your harvest report, please wait for Pan review before receiving the reward.',
     th: 'เมื่อส่งเอกสารประเมินราคาแล้ว กรุณารอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทนดังกล่าว'
+  },
+  HARVEST_SUBMISSION_NOTE_WITH_DEMETER_BONUS: {
+    en: "You got Demeter's blessing today! Your harvest will receive double the reward, but don't forget to wait for Pan's review before receiving it.",
+    th: 'คุณได้รับพรจากเทพีดีมิเทอร์วันนี้! การเก็บเกี่ยวของคุณจะได้รับรางวัลเป็นสองเท่า แต่โปรดอย่าลืมรอการตรวจสอบจากแพนก่อนที่จะได้รับผลตอบแทน'
   },
   SUBMIT: {
     en: 'Submit Harvest',
@@ -619,8 +627,12 @@ export const UI_TEXT = {
     th: 'เหลือ'
   },
   LOADING_WARES: {
-    en: 'Loading wares',
-    th: 'กำลังโหลดสินค้า'
+    en: 'Loading wares...',
+    th: 'กำลังโหลดสินค้า...'
+  },
+  NO_WARES_AVAILABLE: {
+    en: 'No wares available at the moment.',
+    th: 'ไม่มีสินค้าพร้อมจำหน่ายในขณะนี้'
   },
   CLEAR_BASKET: {
     en: 'Clear basket',
@@ -840,6 +852,47 @@ export const UI_TEXT = {
     en: 'Training Report for',
     th: 'รายงานการฝึกฝนประจำวันที่'
   },
+
+  // Hera Blocked Modal
+  HERA_BLOCKED_TITLE: {
+    en: 'Hera Not Pleased!',
+    th: 'เทพีเฮราทรงไม่พอพระทัย!'
+  },
+  HERA_BLOCKED_MESSAGE: {
+    en:  'Hera is displeased with your presence in the battle.\nYour loyalty to Hera prevents you from joining the fight.',
+    th: 'เทพีเฮราทรงไม่พอพระทัยต่อการปรากฏตัวของคุณในการต่อสู้\nความจงรักภักดีต่อเทพีเฮราทำให้คุณไม่สามารถเข้าร่วมการต่อสู้ได้'
+  },
+
+  // Beyond today practice
+  BEYOND_TODAY_PRACTICE_TITLE: {
+    en: 'Your Training Is Cut Off',
+    th: 'การฝึกของคุณจบลงแล้ว'
+  },
+  BEYOND_TODAY_PRACTICE_MESSAGE: {
+    en: 'Training is cut off for today since you have reached midnight. Please come back tomorrow.',
+    th: 'เที่ยงคืนแล้ว การฝึกของคุณจบลงแล้วสำหรับวันนี้\nกรุณากลับมาที่นี่ในวันพรุ่งนี้'
+  },
+
+  // Hypnos Die Cursed
+  HYPNOS_DIE_CURSED_TITLE: {
+    en: 'Hypnos Cursed Your Die!',
+    th: 'ฮิปนอสสาปลูกเต๋าของคุณ!'
+  },
+  HYPNOS_DIE_CURSED_MESSAGE: {
+    en: 'Hypnos has laid a curse upon your die, warping it into a mere 10-faced die. Fortune may favor you next time.',
+    th: 'ฮิปนอสได้สาปลูกเต๋าของคุณให้กลายเป็นเพียงลูกเต๋าที่มีแค่ 10 หน้า ขอให้โชคจงเข้าข้างคุณในครั้งหน้า'
+  },
+
+  // Tyche Die Blessed
+  TYCHE_DIE_BLESSED_TITLE: {
+    en: 'Tyche Blessed Your Die!',
+    th: 'ไทคีอวยพรลูกเต๋าของคุณ!'
+  },
+  TYCHE_DIE_BLESSED_MESSAGE: {
+    en: 'Tyche has blessed your die,\ntransforming it into a mighty 20-faced die.\nFortune smiles upon you!',
+    th: 'ไทคีได้อวยพรลูกเต๋าของคุณ\nลูกเต๋าของคุณจะมีถึง 20 หน้า โชคเข้าข้างคุณแล้ว!'
+  },
+
 } as const;
 
 /**))

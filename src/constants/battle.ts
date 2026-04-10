@@ -28,6 +28,8 @@ export const PHASE = {
   ROLLING_POMEGRANATE_CO_ATTACK: 'rolling-pomegranate-co-attack',
   /** Pomegranate's Oath co-attack: defender rolls vs co (same die rules as main defend). */
   ROLLING_POMEGRANATE_CO_DEFEND: 'rolling-pomegranate-co-defend',
+  /** Nemesis blessing counterattack after defender is hit. */
+  NEMESIS_WISH_BLESSING_REATTACK: 'nemesis-wish-blessing-reattack',
   RESOLVING: 'resolving',
   /** Show immediate resurrection modal (Death Keeper auto-resurrect) before advancing to next turn */
   RESURRECTING: 'resurrecting',
@@ -214,6 +216,8 @@ export function getPhaseLabel(
       if (context?.action === TURN_ACTION.POWER && context?.usedPowerName)
         return `${context.usedPowerName} → ${context.defenderName ?? '...'}`;
       return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
+    case PHASE.NEMESIS_WISH_BLESSING_REATTACK:
+      return 'Nemesis retaliation...';
     case PHASE.ROLLING_FLORAL_HEAL:
       return 'Heal Crit';
     case PHASE.ROLLING_SPRING_HEAL:

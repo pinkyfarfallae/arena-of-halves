@@ -12,7 +12,7 @@ function RejectModal({ show, reason, onReasonChange, onClose, onConfirm }: Rejec
   if (!show) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">Reject Submission</h3>
         <div className="modal-body">

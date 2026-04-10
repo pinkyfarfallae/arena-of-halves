@@ -18,7 +18,7 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
   if (!show || !approveData) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">Confirm Training Approval</h3>
         <div className="modal-body">

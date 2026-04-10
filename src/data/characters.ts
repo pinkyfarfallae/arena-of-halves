@@ -5,6 +5,12 @@ import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../firebase';
+import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
+import type { BagData } from '../types/character';
+import { useAuth } from '../hooks/useAuth';
+import { User } from 'firebase/auth';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
 export type { PowerDefinition };
@@ -165,7 +171,7 @@ export async function fetchCharacter(characterId: string): Promise<Character | n
   return null;
 }
 
-export async function fetchAllCharacters(): Promise<Character[]> {
+export async function fetchAllCharacters(user?: Character): Promise<Character[]> {
   const res = await fetch(characterCsvUrl());
   const text = await res.text();
   const lines = splitCSVRows(text);
@@ -181,6 +187,12 @@ export async function fetchAllCharacters(): Promise<Character[]> {
     const id = cols[idIdx]?.trim();
     if (id) chars.push(rowToCharacter(headers, cols));
   }
+
+  // If not localhost, filter out test characters (IDs == "test")
+  if (user?.characterId !== 'test') {
+    return chars.filter(c => c.characterId.toLowerCase() !== 'test');
+  }
+
   return chars;
 }
 
@@ -226,12 +238,17 @@ export async function fetchItemInfo(): Promise<ItemInfo[]> {
     };
     const itemId = get('itemid');
     if (itemId) {
+      const piece = get('piece');
       items.push({
         itemId,
-        labelEng: get('label (eng)'),
-        labelThai: get('label (thai)'),
-        imageUrl: toDirectImageUrl(get('image url')) || '',
-        tier: get('teir') || get('tier'),
+        labelEng: get('labeleng'),
+        labelThai: get('labelthai'),
+        imageUrl: toDirectImageUrl(get('imageurl')) || '',
+        // Items don't have tier
+        description: get('description'),
+        price: parseFloat(get('price')) || undefined,
+        piece: piece === 'infinity' ? 'infinity' : (parseInt(piece) || undefined),
+        available: get('available').toLowerCase() === 'true',
       });
     }
   }
@@ -256,12 +273,17 @@ export async function fetchWeaponInfo(): Promise<ItemInfo[]> {
     };
     const itemId = get('itemid');
     if (itemId) {
+      const piece = get('piece');
       items.push({
         itemId,
         labelEng: get('label (eng)'),
         labelThai: get('label (thai)'),
         imageUrl: toDirectImageUrl(get('image url')) || '',
-        tier: get('teir') || get('tier'),
+        tier: get('tier'), // Weapons have tier
+        description: get('description'),
+        price: parseFloat(get('price')) || undefined,
+        piece: piece === 'infinity' ? 'infinity' : (parseInt(piece) || undefined),
+        available: get('available').toLowerCase() === 'true',
       });
     }
   }
@@ -269,27 +291,28 @@ export async function fetchWeaponInfo(): Promise<ItemInfo[]> {
 }
 
 export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
-  const url = csvUrl(GID.PLAYER_BAG);
-  const res = await fetch(url);
-  const text = await res.text();
-  const lines = splitCSVRows(text);
-  if (lines.length < 2) return [];
-
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-  const colIdx = headers.indexOf(characterId.toLowerCase());
-  if (colIdx === -1) return [];
-
-  const idIdx = headers.indexOf('itemid');
-  if (idIdx === -1) return [];
-
-  const entries: BagEntry[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCSVLine(lines[i]);
-    const itemId = cols[idIdx]?.trim();
-    const quantity = parseInt(cols[colIdx] ?? '0', 10) || 0;
-    if (itemId && quantity > 0) entries.push({ itemId, quantity });
+  try {
+    const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, characterId);
+    const snapshot = await getDoc(docRef);
+    
+    if (!snapshot.exists()) {
+      return [];
+    }
+    
+    const bagData = snapshot.data() as BagData;
+    
+    // Convert BagData object to BagEntry array
+    const entries: BagEntry[] = Object.entries(bagData).map(([itemId, data]) => ({
+      itemId,
+      amount: data.amount,
+      type: data.type,
+    }));
+    
+    return entries;
+  } catch (error) {
+    // console.error('Error fetching player bag from Firestore:', error);
+    return [];
   }
-  return entries;
 }
 
 /* ══════════════════════════════════════
@@ -399,6 +422,63 @@ export async function deleteUser(characterId: string): Promise<boolean> {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: ACTIONS.DELETE_USER, characterId }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ══════════════════════════════════════
+   ITEM MANAGEMENT
+   ══════════════════════════════════════ */
+export interface CreateItemPayload {
+  itemId: string;
+  labelEng: string;
+  labelThai: string;
+  imageUrl: string;
+  tier?: string; // Only for weapons
+  description: string;
+  price: number;
+  piece: number | 'infinity';
+  available: boolean;
+}
+
+export async function createItem(payload: CreateItemPayload): Promise<boolean> {
+  // console.log('Creating item with payload:', payload);
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.CREATE_ITEM, ...payload }),
+    });
+    // console.log('Create item response:', res);
+    return res.ok;
+  } catch (e) {
+    // console.error('Error creating item:', e);
+    return false;
+  }
+}
+
+export async function editItem(
+  itemId: string,
+  fields: Record<string, any>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.EDIT_ITEM, itemId, fields }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteItem(itemId: string): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.DELETE_ITEM, itemId }),
     });
     return res.ok;
   } catch (e) {

@@ -1,0 +1,102 @@
+@import '../../../../styles/variables';
+
+.beyond-today-practice-modal {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: #fff;
+	padding: 1.5rem 0 0;
+	max-width: 400px;
+	min-width: 400px;
+	border-radius: 8px;
+	gap: 1rem;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+	@media (max-width: $bp-medium) {
+		padding: 1.25rem 0 0;
+		max-width: 375px;
+		min-width: 375px;
+		gap: 0.5rem;
+	}
+
+	@media (max-width: $bp-compact) {
+		max-width: 310px;
+		min-width: 310px;
+		gap: 0.3rem;
+	}
+
+	@media (max-width: $bp-mobile) {
+		max-width: 290px;
+		min-width: 290px;
+	}
+
+	&-title {
+		display: flex;
+		font-size: 1.25rem;
+		font-weight: 600;
+		width: 100%;
+		color: var(--primary-color, #c0a062);
+		justify-content: center;
+		font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+
+		@media (max-width: $bp-medium) {
+			font-size: 1.1rem;
+		}
+
+		@media (max-width: $bp-compact) {
+			font-size: 1rem;
+		}
+	}
+
+	&-message {
+		padding: 0.5rem 1.5rem;
+		font-size: 0.85rem;
+		line-height: 2;
+		color: #868279;
+		text-align: center;
+		white-space: pre-line;
+		font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+
+		@media (max-width: $bp-medium) {
+			font-size: 0.75rem;
+		}
+
+		@media (max-width: $bp-compact) {
+			padding: 0.5rem 1rem;
+			font-size: 0.7rem;
+			line-height: 1.5;
+		}
+	}
+
+	&-btn {
+		width: 100%;
+		background: var(--primary-color, #c0a062);
+		color: #fff;
+		border: none;
+		padding: 0.75rem 1.5rem;
+		border-radius: 0 0 6px 6px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		cursor: pointer;
+		align-self: center;
+		font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+
+		&:hover {
+			background: color-mix(in srgb, var(--primary-color, #c0a062) 90%, transparent);
+		}
+
+		@media (max-width: $bp-medium) {
+			font-size: 0.75rem;
+			margin-top: 0.3rem;
+		}
+
+		@media (max-width: $bp-compact) {
+			padding: 0.65rem 1.25rem;
+			font-size: 0.7rem;
+			margin-top: 0.5rem;
+		}
+	}
+}

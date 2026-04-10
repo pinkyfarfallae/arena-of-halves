@@ -49,3 +49,41 @@ export const hexToRgb = (hex: string) => {
 
   return `${r}, ${g}, ${b}`;
 };
+
+/** rgb to hex string. */
+export const rgbToHex = (rgb: string) => {
+  const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (!match) return rgb;
+  const r = parseInt(match[1]).toString(16).padStart(2, '0');
+  const g = parseInt(match[2]).toString(16).padStart(2, '0');
+  const b = parseInt(match[3]).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+};
+
+/** RGB string. */
+export const rgbValues = (rgb: string) => {
+  const match = rgb.match(/\d+/g);
+  if (!match) return '';
+
+  const [r, g, b] = match;
+  return `${r}, ${g}, ${b}`;
+};
+
+export function colorMix(c1: string, c2: string, weight = 0.5) {
+  const hex = (c: string) => c.replace('#', '');
+  const num = (c: string) => parseInt(hex(c), 16);
+
+  const r1 = (num(c1) >> 16) & 255;
+  const g1 = (num(c1) >> 8) & 255;
+  const b1 = num(c1) & 255;
+
+  const r2 = (num(c2) >> 16) & 255;
+  const g2 = (num(c2) >> 8) & 255;
+  const b2 = num(c2) & 255;
+
+  const r = Math.round(r1 * (1 - weight) + r2 * weight);
+  const g = Math.round(g1 * (1 - weight) + g2 * weight);
+  const b = Math.round(b1 * (1 - weight) + b2 * weight);
+
+  return `rgb(${r}, ${g}, ${b})`;
+}

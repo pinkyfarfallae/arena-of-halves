@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLE } from '../../constants/role';
 import { getPowers } from '../../data/powers';
-import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState } from '../../services/battleRoom/battleRoom';
+import { createRoom, getRoom, onRoomsList, deleteRoom, deleteAllArenaRooms, toFighterState, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { ROOM_STATUS } from '../../constants/battle';
 import type { BattleRoom } from '../../types/battle';
@@ -17,7 +17,10 @@ import Trash from '../../icons/Trash';
 import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import BattleLogModal from './components/BattleLogModal/BattleLogModal';
-import {ArenaAction, ARENA_ACTIONS} from '../../constants/arenaAction';
+import { ArenaAction, ARENA_ACTIONS } from '../../constants/arenaAction';
+import { fetchTodayIrisWish } from '../../data/wishes';
+import { DEITY, type Deity } from '../../constants/deities';
+import HeraBlocked from '../../components/HeraBlocked/HeraBlocked';
 import './Lobby.scss';
 
 /* ── Decorative elements ── */
@@ -48,8 +51,13 @@ function Lobby() {
   const [createdArenaId, setCreatedArenaId] = useState<string | null>(null);
   /** Snapshot of custom room title at create time — input state alone can drift before config modal finishes. */
   const [createdRoomLabel, setCreatedRoomLabel] = useState<string | null>(null);
+  /** Wishes of Iris for the room creator */
+  const [userWishesOfIris, setUserWishesOfIris] = useState<Deity | null>(null);
   const [logRoom, setLogRoom] = useState<BattleRoom | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+
+  /** Blocked by Hera */
+  const [heraBlocked, setHeraBlocked] = useState(false);
 
   const handleDeleteAllRooms = async () => {
     if (!window.confirm('Delete ALL arena rooms on the server? This cannot be undone.')) return;
@@ -70,21 +78,48 @@ function Lobby() {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    let mounted = true;
+    void (async () => {
+      try {
+        const wishes = await fetchTodayIrisWish(user.characterId);
+        if (mounted) setUserWishesOfIris(wishes?.deity || null);
+      } catch {
+        // Ignore errors here - we'll just treat it as no wish today
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [user]);
+
   const handleCreate = async () => {
     if (!user) return;
+
+    if (userWishesOfIris === DEITY.HERA) {
+      setHeraBlocked(true);
+      return;
+    }
+
     setLoading(ARENA_ACTIONS.CREATE);
     setError('');
+
     try {
       const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
-      const fighter = toFighterState(user, powers);
+      const fighter = toFighterState(user, powers, userWishesOfIris as Deity);
+
       const trimmedTitle = roomName.trim();
+
       const arenaId = await createRoom(
         fighter,
         trimmedTitle.length > 0 ? trimmedTitle : undefined,
       );
+
       setCreatedRoomLabel(trimmedTitle.length > 0 ? trimmedTitle : null);
       setCreatedArenaId(arenaId);
+
     } catch {
       setError('Failed to create room. Try again.');
     } finally {
@@ -97,20 +132,46 @@ function Lobby() {
       setError('Enter a room code.');
       return;
     }
+
     setLoading(ARENA_ACTIONS.JOIN);
     setError('');
+
     try {
       const code = joinCode.trim().toUpperCase();
       const room = await getRoom(code);
+
       if (!room) {
         setError('Room not found. Check the code.');
         return;
       }
+
+      const isFighter =
+        room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+        room.teamB?.members?.some(p => p.characterId === user?.characterId);
+
+      const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+
+      if (!isFighter && !isInvited) {
+        navigate(`/arena/${code}?watch=true`);
+        return;
+      }
+
+      if (userWishesOfIris === DEITY.HERA) {
+        setHeraBlocked(true);
+        return;
+      }
+
       if (room.status !== ROOM_STATUS.WAITING) {
         setError('Room is not open for joining.');
         return;
       }
+
+      if (isFighter || isInvited) {
+        updateTodayWishesForRoom(code);
+      }
+
       navigate(`/arena/${code}`);
+
     } catch {
       setError('Failed to join room. Try again.');
     } finally {
@@ -270,7 +331,22 @@ function Lobby() {
                         <button
                           key={room.arenaId ?? `room-${index}`}
                           className="lobby__room"
-                          onClick={() => navigate(`/arena/${room.arenaId}?watch=true`)}
+                          onClick={() => {
+                            const isFighter =
+                              room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+                              room.teamB?.members?.some(p => p.characterId === user?.characterId);
+
+                            const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+
+                            if (userWishesOfIris === DEITY.HERA && (isFighter || isInvited)) {
+                              setHeraBlocked(true);
+                              return;
+                            }
+                            if (isFighter || isInvited) {
+                              updateTodayWishesForRoom(room.arenaId).catch(() => { });
+                            }
+                            navigate(`/arena/${room.arenaId}?watch=true`)
+                          }}
                         >
                           <span className="lobby__room-name">{room.roomName?.trim() || 'Arena'}</span>
                           {(() => {
@@ -341,7 +417,20 @@ function Lobby() {
         <ConfigArenaModal
           arenaId={createdArenaId}
           preservedRoomLabel={createdRoomLabel ?? undefined}
-          player={user ? toFighterState(user, getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood)) : undefined}
+          player={user && userWishesOfIris
+            ? toFighterState(
+              user,
+              getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood),
+              userWishesOfIris
+            )
+            : user
+              ? toFighterState(
+                user,
+                getPowers(POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood),
+                null
+              )
+              : undefined
+          }
           onClose={() => {
             setCreatedArenaId(null);
             setCreatedRoomLabel(null);
@@ -356,6 +445,8 @@ function Lobby() {
           onClose={() => setLogRoom(null)}
         />
       )}
+
+      {heraBlocked && <HeraBlocked onClose={() => setHeraBlocked(false)} />}
     </div>
   );
 }

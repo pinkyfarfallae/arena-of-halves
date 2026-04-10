@@ -112,6 +112,23 @@
     display: none !important;
   }
 
+  /* ── Nemesis — Nemesis Reattack defender (ray fan + double ring) ── */
+  .mchip--nemesis-reattack-hit-defender .mchip__nemesis-reattack-rays,
+  .mchip--nemesis-reattack-hit-defender .mchip__nemesis-reattack-ring--outer,
+  .mchip--nemesis-reattack-hit-defender .mchip__nemesis-reattack-ring--inner {
+    display: none !important;
+  }
+
+  /* ── Nemesis — Nemesis Reattack attacker (rain, rise, rays, triple ring) ── */
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-rain,
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-rise,
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-rays,
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-ring--outer,
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-ring--inner,
+  .mchip--nemesis-reattack-hit-attacker .mchip__nemesis-reattack-attacker-ring--mid {
+    display: none !important;
+  }
+
   /* ── Apollo — Imprecated Poem curse (rising gold/white columns; frame styling stays) ── */
   .mchip--imprecated-poem-cursed .mchip__imprecated-poem-rise-particles,
   .mchip--imprecated-poem-cursed .mchip__imprecated-poem-rise-particles--white {

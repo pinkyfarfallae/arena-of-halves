@@ -6,6 +6,8 @@ $ink: #2c2218;
 $ink-mid: #6b5d4a;
 $ink-faint: #9a8b76;
 $crimson-bright: #c41e3a;
+$nemesis-primary: #8f173b;
+$nemesis-secondary: #2b0a17;
 
 .dmg-card {
   pointer-events: none;
@@ -37,6 +39,21 @@ $crimson-bright: #c41e3a;
 
   &--power {
     border-color: color-mix(in srgb, var(--card-atk, #{$gold}) 30%, transparent);
+  }
+
+  &--nemesis {
+    background:
+      linear-gradient(135deg, rgba($nemesis-primary, 0.16), rgba($nemesis-secondary, 0.08)),
+      rgba(255, 255, 255, 0.97);
+    border-color: color-mix(in srgb, var(--card-accent, #{$nemesis-primary}) 38%, transparent);
+    box-shadow:
+      0 12px 40px rgba($nemesis-secondary, 0.25),
+      0 0 0 1px color-mix(in srgb, var(--card-accent, #{$nemesis-primary}) 18%, transparent);
+  }
+
+  &--nemesis .dmg-card__power,
+  &--nemesis .dmg-card__total {
+    color: var(--card-accent, #{$nemesis-primary});
   }
 }
 
@@ -70,6 +87,14 @@ $crimson-bright: #c41e3a;
     color-mix(in srgb, var(--card-atk, #{$ink-faint}) 25%, transparent) 30%,
     color-mix(in srgb, var(--card-def, #{$ink-faint}) 25%, transparent) 70%,
     transparent);
+
+  .dmg-card--nemesis & {
+    background: linear-gradient(90deg,
+      transparent,
+      color-mix(in srgb, var(--card-accent, #{$nemesis-primary}) 30%, transparent) 30%,
+      color-mix(in srgb, var(--card-def, #{$ink-faint}) 18%, transparent) 70%,
+      transparent);
+  }
 }
 
 .dmg-card__body {

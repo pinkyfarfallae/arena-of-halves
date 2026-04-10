@@ -1,4 +1,3 @@
-import exp from "constants";
 import React from "react";
 import { hexToRgb } from "../../../../../../utils/color";
 import { Character } from "../../../../../../types/character";
@@ -14,11 +13,13 @@ export default function HarvestorChip({ character }: { character: Character | un
         '--avatar-border-color': hexToRgb(character?.theme[0] || '#000000'),
       } as React.CSSProperties}
     >
-      { (character && character.image) ? (
+      {(character && character.image) ? (
         <img
-        src={character?.image || ''}
-        className="strawberry-fields__harvest-record-submitter-avatar"
-      />
+          src={character?.image || ''}
+          className="strawberry-fields__harvest-record-submitter-avatar"
+          data-tooltip={character.nicknameEng}
+          data-tooltip-pos="bottom"
+        />
       ) : (
         <div className="strawberry-fields__harvest-record-submitter-avatar-placeholder">
           ?

@@ -64,8 +64,24 @@ export default function RefillSPDiceModal({
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Once we've shown the result card for this roll, don't reset to dice view (avoids "dice again" when effect re-runs). */
   const resultCardShownForRollRef = useRef<number | null>(null);
+  /** Track if we've already notified parent about guaranteed win (avoid duplicate calls). */
+  const guaranteedWinNotifiedRef = useRef(false);
   const rollRef = useRef<number | null | undefined>(undefined);
   rollRef.current = roll;
+  
+  // Store latest callback in ref so guaranteed win effect can call it
+  const onResultCardVisibleRef = useRef(onResultCardVisible);
+  useEffect(() => {
+    onResultCardVisibleRef.current = onResultCardVisible;
+    
+    // If we're showing guaranteed win and callback just became available, call it now
+    const isGuaranteedWin = winFaces.length === 4;
+    if (isGuaranteedWin && onResultCardVisible && !guaranteedWinNotifiedRef.current) {
+      guaranteedWinNotifiedRef.current = true;
+      onRoll(winFaces[0]); // trigger win animation immediately
+      onResultCardVisible(); // notify parent so healing VFX shows with result card
+    }
+  }, [onResultCardVisible, winFaces.length]);
 
   const clearTimers = useCallback(() => {
     if (fallbackTimerRef.current) {
@@ -108,6 +124,16 @@ export default function RefillSPDiceModal({
     return () => clearTimers();
   }, [roll, diceViewMs, clearTimers, onResultCardVisible]);
 
+  // Reset guaranteed win notification when winFaces content changes
+  const winFacesKey = winFaces.join(',');
+  const prevWinFacesKeyRef = useRef(winFacesKey);
+  useEffect(() => {
+    if (prevWinFacesKeyRef.current !== winFacesKey) {
+      prevWinFacesKeyRef.current = winFacesKey;
+      guaranteedWinNotifiedRef.current = false;
+    }
+  }, [winFacesKey]);
+
   const themeStyle: React.CSSProperties = {
     '--modal-primary': attacker?.theme?.[0] ?? '#666',
     '--modal-dark': attacker?.theme?.[18] ?? '#333',
@@ -116,6 +142,22 @@ export default function RefillSPDiceModal({
   const themeColors = attacker
     ? { primary: attacker.theme?.[0] ?? '#666', primaryDark: attacker.theme?.[18] ?? '#333' }
     : undefined;
+
+  // Auto-win: if winFaces.length === 4, all faces win (100% chance) - skip dice and show win result immediately
+  const isGuaranteedWin = winFaces.length === 4;
+  if (isGuaranteedWin) {
+    const cardStyle = { '--refill-atk': themeColors?.primary ?? '#666', '--refill-def': themeColors?.primaryDark ?? '#333' } as React.CSSProperties;
+    return (
+      <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
+        <div className="refill-card refill-card--result" style={cardStyle}>
+          <div className="refill-card__header">
+            <span className="refill-card__atkname" style={{ color: themeColors?.primary }}>{attacker?.nicknameEng ?? '—'}</span>
+          </div>
+          <span className="refill-card__total">{effectiveWon}</span>
+        </div>
+      </div>
+    );
+  }
 
   // Refill result card (shown after dice animation ends + brief view, or fallback timer)
   if (roll != null && showRefillCard) {

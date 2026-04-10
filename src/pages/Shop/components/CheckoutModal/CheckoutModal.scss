@@ -29,8 +29,13 @@ $ink-faint: #a08a74;
 }
 
 @keyframes overlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .checkout {
@@ -50,8 +55,15 @@ $ink-faint: #a08a74;
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .checkout__close {
@@ -66,8 +78,14 @@ $ink-faint: #a08a74;
   display: flex;
   transition: color 0.15s;
 
-  svg { width: 18px; height: 18px; }
-  &:hover { color: $ink; }
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    color: $ink;
+  }
 }
 
 .checkout__title {
@@ -107,10 +125,16 @@ $ink-faint: #a08a74;
   margin-bottom: 0.75rem;
   max-height: 260px;
   overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
 
-  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   &::-webkit-scrollbar-thumb {
-    background: rgba($wood-plank, 0.2);
+    background: transparent;
+    border-radius: 4px;
   }
 }
 
@@ -127,8 +151,13 @@ $ink-faint: #a08a74;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 
-  span:nth-child(2) { text-align: center; }
-  span:nth-child(3) { text-align: right; }
+  span:nth-child(2) {
+    text-align: center;
+  }
+
+  span:nth-child(3) {
+    text-align: right;
+  }
 }
 
 .checkout__item {
@@ -139,7 +168,9 @@ $ink-faint: #a08a74;
   padding: 0.55rem 0;
   border-bottom: 1px solid rgba($wood-frame, 0.04);
 
-  &:last-child { border-bottom: none; }
+  &:last-child {
+    border-bottom: none;
+  }
 
   &-name {
     font-family: 'Inter', 'Noto Sans Thai', sans-serif;
@@ -209,8 +240,18 @@ $ink-faint: #a08a74;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 
-  &:hover { background: lighten($ink, 8%); }
-  &:active { transform: scale(0.98); }
+  &:not(:disabled):hover {
+    background: lighten($ink, 8%);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    background: rgba($ink, 0.6);
+    cursor: not-allowed;
+  }
 }
 
 /* ── Success screen ── */
@@ -240,18 +281,92 @@ $ink-faint: #a08a74;
     opacity: 0.5;
     animation: coinFall 2.5s ease-in forwards;
 
-    &:nth-child(1)  { left: 0%;   animation-delay: 0.12s; animation-duration: 1.8s; }
-    &:nth-child(2)  { left: 8%;   animation-delay: 0.24s; animation-duration: 2.1s; opacity: 0.45; }
-    &:nth-child(3)  { left: 17%;  animation-delay: 0.36s; animation-duration: 2.4s; width: 22px; height: 22px; }
-    &:nth-child(4)  { left: 25%;  animation-delay: 0.48s; animation-duration: 1.8s; opacity: 0.35; }
-    &:nth-child(5)  { left: 33%;  animation-delay: 0.60s; animation-duration: 2.1s; width: 18px; height: 18px; }
-    &:nth-child(6)  { left: 42%;  animation-delay: 0.72s; animation-duration: 2.4s; }
-    &:nth-child(7)  { left: 50%;  animation-delay: 0.84s; animation-duration: 1.8s; opacity: 0.45; width: 22px; height: 22px; }
-    &:nth-child(8)  { left: 58%;  animation-delay: 0.96s; animation-duration: 2.1s; }
-    &:nth-child(9)  { left: 67%;  animation-delay: 1.08s; animation-duration: 2.4s; opacity: 0.35; }
-    &:nth-child(10) { left: 75%;  animation-delay: 1.20s; animation-duration: 1.8s; width: 18px; height: 18px; }
-    &:nth-child(11) { left: 83%;  animation-delay: 1.32s; animation-duration: 2.1s; opacity: 0.45; }
-    &:nth-child(12) { left: 92%;  animation-delay: 1.44s; animation-duration: 2.4s; width: 22px; height: 22px; }
+    &:nth-child(1) {
+      left: 0%;
+      animation-delay: 0.12s;
+      animation-duration: 1.8s;
+    }
+
+    &:nth-child(2) {
+      left: 8%;
+      animation-delay: 0.24s;
+      animation-duration: 2.1s;
+      opacity: 0.45;
+    }
+
+    &:nth-child(3) {
+      left: 17%;
+      animation-delay: 0.36s;
+      animation-duration: 2.4s;
+      width: 22px;
+      height: 22px;
+    }
+
+    &:nth-child(4) {
+      left: 25%;
+      animation-delay: 0.48s;
+      animation-duration: 1.8s;
+      opacity: 0.35;
+    }
+
+    &:nth-child(5) {
+      left: 33%;
+      animation-delay: 0.60s;
+      animation-duration: 2.1s;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:nth-child(6) {
+      left: 42%;
+      animation-delay: 0.72s;
+      animation-duration: 2.4s;
+    }
+
+    &:nth-child(7) {
+      left: 50%;
+      animation-delay: 0.84s;
+      animation-duration: 1.8s;
+      opacity: 0.45;
+      width: 22px;
+      height: 22px;
+    }
+
+    &:nth-child(8) {
+      left: 58%;
+      animation-delay: 0.96s;
+      animation-duration: 2.1s;
+    }
+
+    &:nth-child(9) {
+      left: 67%;
+      animation-delay: 1.08s;
+      animation-duration: 2.4s;
+      opacity: 0.35;
+    }
+
+    &:nth-child(10) {
+      left: 75%;
+      animation-delay: 1.20s;
+      animation-duration: 1.8s;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:nth-child(11) {
+      left: 83%;
+      animation-delay: 1.32s;
+      animation-duration: 2.1s;
+      opacity: 0.45;
+    }
+
+    &:nth-child(12) {
+      left: 92%;
+      animation-delay: 1.44s;
+      animation-duration: 2.4s;
+      width: 22px;
+      height: 22px;
+    }
   }
 }
 
@@ -260,7 +375,11 @@ $ink-faint: #a08a74;
     transform: translateY(0) rotate(0deg);
     opacity: 0;
   }
-  10% { opacity: 0.6; }
+
+  10% {
+    opacity: 0.6;
+  }
+
   100% {
     transform: translateY(350px) rotate(720deg);
     opacity: 0;
@@ -277,9 +396,19 @@ $ink-faint: #a08a74;
 }
 
 @keyframes successPop {
-  0% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .checkout__success-title {
@@ -318,10 +447,19 @@ $ink-faint: #a08a74;
   transition: background 0.15s;
   animation: fadeUp 0.5s ease-out 0.45s both;
 
-  &:hover { background: lighten($ink, 8%); }
+  &:hover {
+    background: lighten($ink, 8%);
+  }
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

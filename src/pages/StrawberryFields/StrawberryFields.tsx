@@ -24,6 +24,8 @@ import Crown from '../../icons/Crown';
 import { hexToRgb } from '../../utils/color';
 import InfoCircle from '../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../hooks/useScreenSize';
+import { fetchTodayIrisWish } from '../../data/wishes';
+import { DEITY } from '../../constants/deities';
 import './StrawberryFields.scss';
 
 function StrawberryFields() {
@@ -46,11 +48,14 @@ function StrawberryFields() {
   const [filterStatus, setFilterStatus] = useState<HarvestSubmissionStatus | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [hasDemeterBonus, setHasDemeterBonus] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    fetchAllCharacters()
+    if (!user) return;
+
+    fetchAllCharacters(user)
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
@@ -59,12 +64,14 @@ function StrawberryFields() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let mounted = true;
 
-    fetchAllCharacters()
+    if (!user) return;
+
+    fetchAllCharacters(user)
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
@@ -73,7 +80,7 @@ function StrawberryFields() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.characterId) return;
@@ -102,6 +109,14 @@ function StrawberryFields() {
         if (mounted) setIsLoadingSubmissions(false);
       }
     };
+
+    fetchTodayIrisWish(user?.characterId || '').then(wish => {
+      if (!mounted) return;
+      setHasDemeterBonus(wish?.deity === DEITY.DEMETER);
+    }).catch(() => {
+      if (!mounted) return;
+      setHasDemeterBonus(false);
+    });
 
     loadSubmissions();
 
@@ -215,7 +230,7 @@ function StrawberryFields() {
 
       const result = await submitHarvest(
         user.characterId,
-        firstTweetUrl.trim()
+        firstTweetUrl.trim(),
       );
 
       if (!result.success) {
@@ -223,6 +238,17 @@ function StrawberryFields() {
       }
 
       setSubmissions((prev) => [
+        {
+          id: result.id || Date.now().toString(),
+          characterId: user.characterId,
+          firstTweetUrl,
+          status: HARVEST_SUBMISSION_STATUS.PENDING,
+          submittedAt,
+        },
+        ...prev,
+      ]);
+
+      setSubmissionsRecord((prev) => [
         {
           id: result.id || Date.now().toString(),
           characterId: user.characterId,
@@ -376,8 +402,8 @@ function StrawberryFields() {
                   <span>{isSubmitting ? t(T.SUBMITTING) : t(T.SUBMIT)}</span>
                 </button>
               </div>
-              <div className="strawberry-fields__form-note">
-                {t(T.HARVEST_SUBMISSION_NOTE)}
+              <div className={`strawberry-fields__form-note ${hasDemeterBonus ? 'strawberry-fields__form-note--bonus' : ''}`}>
+                {hasDemeterBonus ? t(T.HARVEST_SUBMISSION_NOTE_WITH_DEMETER_BONUS) : t(T.HARVEST_SUBMISSION_NOTE)}
               </div>
             </div>
           </div>

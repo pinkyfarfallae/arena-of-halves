@@ -1,51 +1,149 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchWishes, WISHES_FALLBACK, Wish } from '../../data/wishes';
+import { fetchWishes, WISHES_FALLBACK, saveIrisWish, fetchTodayIrisWishes, fetchTodayIrisWish } from '../../data/wishes';
 import { DEITY_SVG, toDeityKey } from '../../data/deities';
+import { useAuth } from '../../hooks/useAuth';
+import type { Wish } from '../../types/wish';
 import Drachma from '../../icons/Drachma';
 import FountainIllustration from './components/FountainIllustration/FountainIllustration';
 import CoinCircle from './icons/CoinCircle';
 import Refresh from './icons/Refresh';
 import DoorExit from './icons/DoorExit';
 import { Phase, ORB_SCATTER, IRIS_PHASE } from './constants/iris';
+import { applyWishEffect } from '../../services/irisWish/applyWishesEffect';
+import { DEITY } from '../../constants/deities';
+import { onRoomsList, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
 import './IrisMessage.scss';
 
 interface Props {
   retossable?: boolean;
   embedded?: boolean;
+  isAdmin?: boolean;
 }
 
-function IrisMessage({ retossable = false, embedded = false }: Props) {
+function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: Props) {
+  const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>(IRIS_PHASE.IDLE);
   const [wish, setWish] = useState<Wish | null>(null);
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   const [wishes, setWishes] = useState<Wish[]>(WISHES_FALLBACK);
+  const [loading, setLoading] = useState(true);
+
+  const [userTodayWish, setUserTodayWish] = useState<Wish | null>(null);
 
   useEffect(() => {
-    fetchWishes()
-      .then(data => { if (data.length) setWishes(data); })
-      .catch(() => { });
-  }, []);
+
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const fetchedWishes = await fetchWishes().catch(() => WISHES_FALLBACK);
+
+        if (!isMounted) return;
+        setWishes(fetchedWishes);
+
+        if (isAdmin) {
+          setDiscovered(new Set());
+          return;
+        }
+
+        const [todayWishes, userWish] = await Promise.all([
+          fetchTodayIrisWishes().catch(() => [] as Wish[]),
+          fetchTodayIrisWish(user?.characterId || ''),
+        ]);
+
+        if (!isMounted) return;
+
+        const matchedWish = userWish
+          ? fetchedWishes.find(w => w.deity === userWish.deity) || null
+          : null;
+
+        setUserTodayWish(matchedWish);
+
+        const allDeities = new Set([
+          ...todayWishes.map(w => w.deity),
+          ...(userWish ? [userWish.deity] : []),
+        ]);
+
+        setDiscovered(allDeities);
+
+        if (userWish) {
+          const matched = fetchedWishes.find(w => w.deity === userWish.deity);
+          if (matched) {
+            setWish(matched);
+            setPhase(IRIS_PHASE.REVEAL);
+          }
+        }
+
+      } catch (err) {
+        // console.error('Failed to load wishes:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.characterId, isAdmin]);
 
   const deityOrder = wishes.map(w => w.deity).slice(0, ORB_SCATTER.length);
 
   const toss = useCallback(() => {
     if (phase === IRIS_PHASE.TOSSING) return;
-    const pick = wishes[Math.floor(Math.random() * wishes.length)];
+
+    if (!isAdmin && userTodayWish) return;
+
+    // No toss to get Hephaetus in advance, until we got equipment system in place
+    const pick = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS)[Math.floor(Math.random() * wishes.length)];
+
     setWish(pick);
     setPhase(IRIS_PHASE.TOSSING);
+
+    if (!isAdmin && user?.characterId) {
+      saveIrisWish(user.characterId, pick.deity).catch((err) => {
+        // console.error('Failed to save Iris wish:', err);
+      });
+    }
+
     setTimeout(() => {
       setPhase(IRIS_PHASE.REVEAL);
-      setDiscovered(prev => new Set(prev).add(pick.deity));
+
+      if (!isAdmin) {
+        setDiscovered(prev => new Set(prev).add(pick.deity));
+        applyWishEffect(pick, user?.characterId || '');
+
+        // Subscribe to rooms list and update wishes for rooms where user is a fighter
+        const unsubscribe = onRoomsList((rooms) => {
+          rooms.forEach(room => {
+            const isFighter =
+              room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+              room.teamB?.members?.some(p => p.characterId === user?.characterId);
+
+            const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+            
+            if (isFighter || isInvited) {
+              updateTodayWishesForRoom(room.arenaId).catch(err => {
+                // console.error(`Failed to update today's wishes for room ${room.arenaId}:`, err);
+              });
+            }
+          });
+          
+          // Unsubscribe after first snapshot (we only need to update once)
+          unsubscribe();
+        });
+      }
     }, 2200);
-  }, [phase, wishes]);
+  }, [phase, wishes, user?.characterId, isAdmin, userTodayWish]);
 
   const reset = useCallback(() => {
     setPhase(IRIS_PHASE.IDLE);
     setWish(null);
   }, []);
 
-  const deityLabel = wish?.deity ?? '';
+  const deityLabel = useMemo(() => wish?.deity ?? '', [wish]);
 
   return (
     <>
@@ -155,11 +253,15 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
                 <p className="iris__sub">
                   Toss a golden drachma into the rainbow mist and receive a blessing from the gods.
                 </p>
-                <button className="iris__btn" onClick={toss} disabled={phase === IRIS_PHASE.TOSSING}>
+                <button
+                  className={`iris__btn ${loading ? 'iris__btn--loading' : ''}`}
+                  onClick={toss}
+                  disabled={phase === IRIS_PHASE.TOSSING}
+                >
                   <span className="iris__btn-icon">
                     <CoinCircle />
                   </span>
-                  Toss a Drachma
+                  {loading ? 'Recognizing You...' : 'Toss a Drachma'}
                 </button>
               </div>
             )}
@@ -180,7 +282,7 @@ function IrisMessage({ retossable = false, embedded = false }: Props) {
                     </div>
                     <h2 className="iris__card-name">{wish.name}</h2>
                     <div className="iris__card-divider" />
-                    <p className="iris__card-desc">{wish.description}</p>
+                    <p className="iris__card-desc">{wish.description.replace(/\\n/g, '\n')}</p>
                     {retossable && (
                       <button className="iris__btn-again" onClick={reset}>
                         <Refresh />

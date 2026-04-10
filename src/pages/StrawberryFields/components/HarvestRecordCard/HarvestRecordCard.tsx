@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { T } from '../../../../constants/translationKeys';
 import { HarvestSubmission } from '../../../../types/harvest';
@@ -33,7 +33,11 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
   const harvestorDisplayDeity =
     DEITY_DISPLAY_OVERRIDES[harvestor?.characterId.toLowerCase() ?? ''] ?? harvestor?.deityBlood;
 
-  const roleplayers = submission.roleplayers?.split(',').map(r => r.trim()) || [];
+  const roleplayers = useMemo(() => {
+    if (!submission.roleplayers) return [];
+    return submission.roleplayers?.split(',').map(r => r.trim()) || [];
+  }, [submission.roleplayers]);
+  
   const isSolo = roleplayers.length === 1;
 
   useEffect(() => {

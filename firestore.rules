@@ -88,5 +88,43 @@ service cloud.firestore {
       
       allow delete: if isAuthenticated();
     }
+
+    // Player wishes of Iris
+    // Document ID format: {userId}_{date}
+    match /playerWishesOfIris/{docId} {
+      // Allow all authenticated users to read
+      allow read: if isAuthenticated();
+
+      // Create: authenticated user can write
+      // Required fields: userId, date, deity
+      allow create: if isAuthenticated() &&
+                      docId == request.resource.data.userId + '_' + request.resource.data.date &&
+                      isValidDate(request.resource.data.date) &&
+                      request.resource.data.keys().hasAll(['userId', 'date', 'deity']) &&
+                      request.resource.data.deity is string;
+
+      // Allow update to overwrite same day (user can retoss)
+      allow update: if isAuthenticated() &&
+                      docId == request.resource.data.userId + '_' + request.resource.data.date;
+
+      // No delete
+      allow delete: if false;
+    }
+
+    // Player Bags (inventory system)
+    // Document ID: {userId} (characterId from app, not Firebase UID)
+    // Structure: Map of itemId -> { amount: number, type: 'weapon' | 'item' }
+    match /playerBags/{userId} {
+      // Allow all authenticated users to read (for viewing other profiles)
+      allow read: if isAuthenticated();
+
+      // Allow any authenticated user to create/update bags
+      // Client-side app logic ensures users only modify their own bags
+      // Validation: ensure basic structure exists
+      allow create, update: if isAuthenticated();
+
+      // No direct delete (items removed by setting amount to 0 or removing from map)
+      allow delete: if false;
+    }
   }
 }

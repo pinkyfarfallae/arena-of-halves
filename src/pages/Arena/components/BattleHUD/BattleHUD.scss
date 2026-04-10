@@ -149,7 +149,38 @@ $crimson-bright: #c41e3a;
   color: $ink-faint;
   margin-top: -2px;
   margin-bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: center;
   font-family: 'Noto Sans', 'Noto Sans Thai', sans-serif;
+
+  &--deity {
+    margin-top: -2px;
+  }
+
+  &--hypnos,
+  &--tyche {
+    font-weight: 600;
+    font-size: 0.45rem;
+    margin-bottom: 4px;
+  }
+
+  &--hypnos {
+    color: #855ea9;
+  }
+
+  &--tyche {
+    color: #509656;
+  }
+
+  &--zeus {
+    color: #ddb400;
+  }
+
+  &--poseidon {
+    color: #2d82b7;
+  }
 }
 
 /* ── Resolve phase ── */
@@ -590,6 +621,11 @@ $crimson-bright: #c41e3a;
 
   .bhud__dice-sub {
     font-size: 0.45rem;
+
+    &--hypnos,
+    &--tyche {
+      font-size: 0.4rem;
+    }
   }
 
   /* Dice zones: each half = (100vh - topbar - bhud) / 2 */

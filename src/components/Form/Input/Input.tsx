@@ -5,6 +5,7 @@ import './Input.scss';
 interface Props {
   label?: string;
   value: string;
+  onBlur?: () => void;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
@@ -13,7 +14,7 @@ interface Props {
   className?: string;
 }
 
-export default function Input({ label, value, onChange, placeholder, type = 'text', disabled = false, required = false, className }: Props) {
+export default function Input({ label, value, onChange, onBlur, placeholder, type = 'text', disabled = false, required = false, className }: Props) {
   return (
     <label className={clsx('form__field', className)}>
       {label && (
@@ -28,6 +29,7 @@ export default function Input({ label, value, onChange, placeholder, type = 'tex
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
+        onBlur={onBlur}
       />
     </label>
   );

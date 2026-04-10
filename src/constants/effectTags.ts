@@ -26,6 +26,7 @@ export const EFFECT_TAGS = {
   DEATH_KEEPER: 'death-keeper',
   SHADOW_CAMOUFLAGING: 'shadow-camouflaging',
   SOUL_DEVOURER: 'soul-devourer',
+  HADES_WISH_USED: 'hades-wish-used',
 
   // Persephone
   EFFLORESCENCE_MUSE: 'efflorescence-muse',

@@ -6,7 +6,9 @@ import { ROLE } from '../../../../constants/role';
 import { ROOM_STATUS } from '../../../../constants/battle';
 import { ArenaAction, ARENA_ACTIONS } from '../../../../constants/arenaAction';
 import { COPY_TYPE, CopyType } from '../../../../constants/lobby';
+import { updateTodayWishesForRoom } from '../../../../services/battleRoom/battleRoom';
 import './TrainingPracticeModal.scss';
+import { useAuth } from '../../../../hooks/useAuth';
 
 interface ThemeVars {
   primaryColor: string;
@@ -67,6 +69,7 @@ export default function TrainingPracticeModal({
   roomStatus = '',
   keepCreateTabAfterFinalize = false,
 }: Props) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const isDeveloper = role === ROLE.DEVELOPER;
   const [tab, setTab] = useState<ArenaAction>(initialTab);
@@ -81,12 +84,12 @@ export default function TrainingPracticeModal({
   const busyLabel = loading ? 'Loading players...' : submitting ? joinCode ? `Joining room...` : 'Creating room...' : '';
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !user) return;
     let mounted = true;
     setLoading(true);
     setError('');
 
-    fetchAllCharacters()
+    fetchAllCharacters(user)
       .then((data) => {
         if (!mounted) return;
         const currentId = currentCharacterId?.toLowerCase();
@@ -102,7 +105,7 @@ export default function TrainingPracticeModal({
     return () => {
       mounted = false;
     };
-  }, [open, currentCharacterId]);
+  }, [open, currentCharacterId, user]);
 
   useEffect(() => {
     if (open) {
@@ -172,6 +175,7 @@ export default function TrainingPracticeModal({
     try {
       const arenaId = await onJoinPracticeRoom(code);
       onClose();
+      updateTodayWishesForRoom(arenaId);
       navigate(`/training-grounds/pvp/${arenaId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join training room');

@@ -18,6 +18,8 @@ import CopyIcon from '../../../Arena/icons/Copy';
 import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
+import { fetchIrisWishesByDate } from '../../../../data/wishes';
+import { DEITY } from '../../../../constants/deities';
 import './HarvestApproval.scss';
 
 function HarvestApproval() {
@@ -62,9 +64,12 @@ function HarvestApproval() {
     isSolo: boolean;
   } | null>(null);
 
+  const [reviewingTaskDateWishes, setReviewingTaskDateWishes] = useState<any[]>([]);
+
   useEffect(() => {
-    fetchAllCharacters().then(setCharacters);
-  }, []);
+    if (!user) return;
+    fetchAllCharacters(user).then(setCharacters);
+  }, [user]);
 
   useEffect(() => {
     const loadHarvests = async () => {
@@ -87,6 +92,25 @@ function HarvestApproval() {
 
     loadHarvests();
   }, []);
+
+  useEffect(() => {
+    if (!reviewingSubmission) {
+      setReviewingTaskDateWishes([]);
+      return;
+    }
+
+    const formattedDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok'
+    }).format(new Date(reviewingSubmission.submittedAt));
+
+    fetchIrisWishesByDate(formattedDate)
+      .then((wishes) => {
+        setReviewingTaskDateWishes(wishes);
+      })
+      .catch((error) => {
+        setReviewingTaskDateWishes([]);
+      });
+  }, [reviewingSubmission]);
 
   useEffect(() => {
     if (!reviewText.trim()) {
@@ -192,13 +216,19 @@ function HarvestApproval() {
   const handleApprove = async (submissionId: string) => {
     if (!approveData) return;
 
+    // Collect character IDs that have Demeter blessing for this date
+    const demeterBonusIds = reviewingTaskDateWishes
+      .filter((w) => w.deity === DEITY.DEMETER)
+      .map((w) => w.userId);
+
     const result = await approveHarvest(
       submissionId,
       user?.characterId || 'admin',
       approveData.charCount,
       approveData.tweetCount,
       approveData.reward,
-      approveData.roleplayers
+      approveData.roleplayers,
+      demeterBonusIds
     );
 
     if (!result.success) {
@@ -213,6 +243,8 @@ function HarvestApproval() {
             status: HARVEST_SUBMISSION_STATUS.APPROVED,
             reviewedAt: new Date().toISOString(),
             drachmaReward: approveData.reward,
+            charCount: approveData.charCount,
+            tweetCount: approveData.tweetCount,
             roleplayers: approveData.roleplayers.join(','),
           }
           : s
@@ -583,35 +615,52 @@ function HarvestApproval() {
                                 </div>
                               ) : (
                                 <div className="harvest-approval__roleplayer-list">
-                                  {matchedCharacters.map((char) => (
-                                    <label
-                                      key={char.characterId}
-                                      className="harvest-approval__roleplayer-item"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedRoleplayers.includes(char.characterId)}
-                                        onChange={() => toggleRoleplayer(char.characterId)}
-                                      />
-                                      <div className="harvest-approval__roleplayer-avatar">
-                                        {char.image ? (
-                                          <img src={char.image} alt={char.nicknameEng} referrerPolicy="no-referrer" />
-                                        ) : (
-                                          <span>{(char.nicknameEng || char.characterId)[0]?.toUpperCase() || '?'}</span>
-                                        )}
-                                      </div>
-                                      <div className="harvest-approval__roleplayer-info">
-                                        <span className="harvest-approval__roleplayer-name">
-                                          {char.nicknameEng || char.characterId}
+                                  {(() => {
+                                    return null;
+                                  })()}
+                                  {matchedCharacters.map((char) => {
+                                    const hasDemeterWish = reviewingTaskDateWishes.some((w) => {
+                                      const matches = w.userId === char.characterId && w.deity === DEITY.DEMETER;
+                                      return matches;
+                                    });
+                                    
+                                    return (
+                                      <label
+                                        key={char.characterId}
+                                        className="harvest-approval__roleplayer-item"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedRoleplayers.includes(char.characterId)}
+                                          onChange={() => toggleRoleplayer(char.characterId)}
+                                        />
+                                        <span style={{ position: 'relative' }}>
+                                          <div className="harvest-approval__roleplayer-avatar">
+                                            {char.image ? (
+                                              <img src={char.image} alt={char.nicknameEng} referrerPolicy="no-referrer" />
+                                            ) : (
+                                              <span>{(char.nicknameEng || char.characterId)[0]?.toUpperCase() || '?'}</span>
+                                            )}
+                                          </div>
+                                          {hasDemeterWish && (
+                                            <div className="harvest-approval__roleplayer-wish">
+                                              x2
+                                            </div>
+                                          )}
                                         </span>
-                                        {char.twitter && (
-                                          <span className="harvest-approval__roleplayer-handle">
-                                            @{extractTwitterHandle(char.twitter)}
+                                        <div className="harvest-approval__roleplayer-info">
+                                          <span className="harvest-approval__roleplayer-name">
+                                            {char.nicknameEng || char.characterId}
                                           </span>
-                                        )}
-                                      </div>
-                                    </label>
-                                  ))}
+                                          {char.twitter && (
+                                            <span className="harvest-approval__roleplayer-handle">
+                                              @{extractTwitterHandle(char.twitter)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

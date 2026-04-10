@@ -21,7 +21,7 @@ import { USER_MANAGEMENT_MODE } from '../../../../constants/userManagement';
 export type MergedUser = UserRecord & Partial<Character>;
 
 export default function User() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const isDev = role === ROLE.DEVELOPER;
   const [users, setUsers] = useState<MergedUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +34,11 @@ export default function User() {
   const [roleFilter, setRoleFilter] = useState('all');
 
   const loadUsers = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     const [userList, charList] = await Promise.all([
       fetchAllUsers(),
-      fetchAllCharacters(),
+      fetchAllCharacters(user),
     ]);
     const charMap = new Map(charList.map(c => [c.characterId.toLowerCase(), c]));
     const merged: MergedUser[] = userList.map(u => {
@@ -46,7 +47,7 @@ export default function User() {
     });
     setUsers(merged);
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 

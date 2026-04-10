@@ -22,11 +22,12 @@ function CampMembers() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchAllCharacters()
+    if (!user) return;
+    fetchAllCharacters(user)
       .then(setMembers)
       .catch(() => setMembers([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   /* stable per-card rotation + decoration + deity-based doodles (8–10) */
   const cardMeta = useMemo(() =>

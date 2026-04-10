@@ -823,6 +823,12 @@
     }
 
     &-status {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
       padding: 0.75rem;
       background: rgba(white, 0.6);
       border: 2px dashed rgba(var(--primary-color-rgb, 251, 192, 203), 0.3);
@@ -847,7 +853,95 @@
 
       &-head {
         font-weight: 700;
-        margin-bottom: 0.5rem;
+      }
+    }
+  }
+
+  // Athena Blessing
+  &__athena-blessing {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg,
+        rgba(var(--athena-primary-color-rgb, 177, 156, 217), 0.06) 0%,
+        rgba(white, 0.95) 100%);
+    border: 2px solid rgba(var(--athena-dark-color-rgb, 177, 156, 217), 0.25);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+
+    &-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: linear-gradient(135deg,
+          rgba(var(--athena-primary-color-rgb, 177, 156, 217), 0.2) 0%,
+          rgba(var(--athena-primary-color-rgb, 177, 156, 217), 0.7) 100%);
+
+      @media (max-width: $bp-mobile) {
+        gap: 0.5rem;
+        padding: 0.6rem;
+      }
+
+      span {
+        font-size: 0.75rem;
+        font-weight: 700;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        text-transform: uppercase;
+        color: var(--athena-dark-color, #6f42c1);
+
+        @media (max-width: $bp-mobile) {
+          font-size: 0.6rem;
+        }
+      }
+    }
+
+    &-icon {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      background: linear-gradient(135deg, var(--athena-primary-color, #b19cd9) 0%, var(--athena-dark-color, #6f42c1) 100%);
+      color: white;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+
+      svg {
+        width: 80%;
+        height: 80%;
+      }
+
+      @media (max-width: $bp-mobile) {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        font-size: 1rem;
+
+        svg {
+          width: 70%;
+          height: 70%;
+        }
+      }
+    }
+
+    &-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    &-content {
+      font-size: 0.75rem;
+      padding: 0.75rem;
+      color: var(--athena-dark-color, #6f42c1);
+      line-height: 1.3;
+
+      @media (max-width: $bp-mobile) {
+        font-size: 0.7rem;
+        padding: 0.6rem;
       }
     }
   }

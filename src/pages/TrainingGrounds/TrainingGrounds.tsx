@@ -6,7 +6,7 @@ import TrainWithAdmin from './pages/TrainWithAdmin/TrainWithAdmin';
 import TrainingRoleplaySubmission from './pages/TrainingRoleplaySubmission/TrainingRoleplaySubmission';
 import { useAuth } from '../../hooks/useAuth';
 import { Character } from '../../data/characters';
-import { createRoom, getRoom, deleteRoom, toFighterState } from '../../services/battleRoom/battleRoom';
+import { createRoom, getRoom, deleteRoom, toFighterState, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
 import { getPowers } from '../../data/powers';
 import { db, firestore } from '../../firebase';
 import { ref, update, get, remove } from 'firebase/database';
@@ -16,23 +16,17 @@ import { ROLE } from '../../constants/role';
 import { InviteReservation } from '../../types/battle';
 import TrainingPracticeModal from './components/TrainingPracticeModal/TrainingPracticeModal';
 import { hexToRgb } from '../../utils/color';
-import { getTodayDate } from '../../services/training/dailyTrainingDice';
-import { fetchUserTrainingTasks, getTodayProgress, TrainingTask, USER_DAILY_PROGRESS_COLLECTION, canUserTrain, savePracticeProgress } from '../../services/training/dailyTrainingDice';
+import { getPreviousDate, getTodayDate } from '../../utils/date';
+import { fetchUserTrainingTasks, getTodayProgress, TrainingTask, canUserTrain, savePracticeProgress } from '../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../constants/trainingPointRequestStatus';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../constants/practice';
 import { ARENA_ACTIONS, ArenaAction } from '../../constants/arenaAction';
+import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
+import { fetchTodayIrisWish } from '../../data/wishes';
 import './TrainingGrounds.scss';
-
-function getPreviousDate(dateStr: string): string {
-  // dateStr format: "YYYY-MM-DD"
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() - 1);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { DEITY } from '../../constants/deities';
+import HeraBlocked from '../../components/HeraBlocked/HeraBlocked';
 
 export default function TrainingGrounds() {
   const { user, role } = useAuth();
@@ -47,6 +41,8 @@ export default function TrainingGrounds() {
   const [pvpGateOpenModal, setPvpGateOpenModal] = useState(false);
   const [existingPvpArenaId, setExistingPvpArenaId] = useState<string>(''); // Existing room from DB
   const [pendingModalOpen, setPendingModalOpen] = useState(false); // Flag to open modal after room creation
+  const [todayUserIrisWish, setTodayUserIrisWish] = useState<any>(null);
+  const [heraBlocked, setHeraBlocked] = useState(false);
   const todayDate = getTodayDate();
 
   useEffect(() => {
@@ -81,14 +77,17 @@ export default function TrainingGrounds() {
 
       try {
         const quotaPath = `trainingQuotas/${user.characterId}/${todayDate}`;
-        const [, trainings, todayProgress, tasks] = await Promise.all([
+        const [, trainings, todayProgress, tasks, todayUserIrisWish] = await Promise.all([
           get(ref(db, quotaPath)).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
+          fetchTodayIrisWish(user?.characterId).catch(() => null),
         ]);
 
         if (!mounted) return;
+
+        setTodayUserIrisWish(todayUserIrisWish);
 
         const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
         const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
@@ -176,7 +175,32 @@ export default function TrainingGrounds() {
   };
 
   const handlePvPMode = async () => {
+    if (!user?.characterId) {
+      return;
+    }
+
+    // Get yesterday existing PvP room, if any, auto-delete if found since PvP rooms should not persist beyond the day
+    try {
+      const yesterdayDate = getPreviousDate(todayDate);
+      const yesterdayQuotaSnap = await get(ref(db, `trainingQuotas/${user.characterId}/${yesterdayDate}`)).catch(() => null);
+      const yesterdayProgressSnap = await get(ref(db, `trainingProgress/${user.characterId}/${yesterdayDate}`)).catch(() => null);
+      const yesterdayArenaId = yesterdayProgressSnap?.exists() ? yesterdayProgressSnap.val().arenaId : null;
+      const hadYesterdayPvpRoom = yesterdayQuotaSnap?.exists() && yesterdayQuotaSnap.val().mode === PRACTICE_MODE.PVP && yesterdayArenaId;
+
+      if (hadYesterdayPvpRoom && yesterdayArenaId) {
+        deleteRoom(yesterdayArenaId);
+      }
+    } catch (err) {
+      // Ignore errors here - if cleanup fails, we'll just treat it as no existing room and let user create a new one
+    }
+
+    if (todayUserIrisWish?.deity === DEITY.HERA) {
+      setHeraBlocked(true);
+      return;
+    }
+
     if (existingPvpArenaId) {
+      updateTodayWishesForRoom(existingPvpArenaId);
       navigate(`/training-grounds/pvp/${existingPvpArenaId}`);
       return;
     }
@@ -190,7 +214,7 @@ export default function TrainingGrounds() {
     if (!createdPracticeArenaId && user?.characterId) {
       const powerDeity = POWER_OVERRIDES[user.characterId.toLowerCase()] ?? user.deityBlood;
       const powers = getPowers(powerDeity);
-      const fighter = toFighterState(user, powers);
+      const fighter = toFighterState(user, powers, todayUserIrisWish?.deity || null);
       try {
         const arenaId = await createRoom(
           fighter,
@@ -366,7 +390,7 @@ export default function TrainingGrounds() {
 
       // Delete practice progress from Firestore
       const progressDocId = `${quotaOwnerId}_${quotaDate}`;
-      const progressRef = doc(firestore, USER_DAILY_PROGRESS_COLLECTION, progressDocId);
+      const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
       try {
         await deleteDoc(progressRef);
       } catch (err) {
@@ -419,6 +443,7 @@ export default function TrainingGrounds() {
         roomStatus={activePracticeArenaStatus}
         keepCreateTabAfterFinalize={keepPracticeCreateTab}
       />
+      {heraBlocked && <HeraBlocked onClose={() => setHeraBlocked(false)} />}
     </div>
   );
 }

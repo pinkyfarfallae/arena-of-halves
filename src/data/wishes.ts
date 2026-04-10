@@ -1,7 +1,9 @@
-import { DEITY } from '../constants/deities';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { Deity, DEITY } from '../constants/deities';
 import { GID, csvUrl } from '../constants/sheets';
+import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
-export type { Wish };
+import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 
 const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
@@ -55,21 +57,6 @@ function parseCSV(csv: string): string[][] {
   return rows;
 }
 
-export async function fetchWishes(): Promise<Wish[]> {
-  const res = await fetch(wishesCsvUrl());
-  const csv = await res.text();
-  const rows = parseCSV(csv);
-  // Skip header row, map columns: deity, wish (name), description
-  // Sheet deity column matches DEITY (PascalCase); keep as-is.
-  return rows.slice(1)
-    .filter(r => r[0] && r[1])
-    .map(r => ({
-      deity: r[0].trim(),
-      name: r[1],
-      description: r[2] || '',
-    }));
-}
-
 /** Fallback data if fetch fails */
 export const WISHES_FALLBACK: Wish[] = [
   { deity: DEITY.ZEUS, name: 'ราชันย์เหนือนภา', description: 'การต่อสู้/ฝึกฝนในวันนี้แต้มเต๋าทุกประเภท -2' },
@@ -92,4 +79,92 @@ export const WISHES_FALLBACK: Wish[] = [
   { deity: DEITY.HEBE, name: 'ธาราอมฤต', description: 'ได้รับโพชั่นไซส์ S 1 ขวด' },
   { deity: DEITY.TYCHE, name: 'วงล้อโชคลาภ', description: 'แต้มเต๋าหน้าสูงสุดเพิ่มขึ้น จาก (d12) เป็น (d15)' },
   { deity: DEITY.HECATE, name: 'ม่านหมอกมนตรา', description: 'ได้รับแต้มอัพ ทักษะ 1 แต้ม' },
+];
+
+export const saveIrisWish = async (userId: string, deity: string) => {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
+  const docId = `${userId}_${date}`;
+
+  const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
+
+  await setDoc(ref, {
+    userId,
+    date,
+    deity,
+  });
+};
+
+export async function fetchWishes(): Promise<Wish[]> {
+  const res = await fetch(wishesCsvUrl());
+  const csv = await res.text();
+  const rows = parseCSV(csv);
+  // Skip header row, map columns: deity, wish (name), description
+  // Sheet deity column matches DEITY (PascalCase); keep as-is.
+  return rows.slice(1)
+    .filter(r => r[0] && r[1])
+    .map(r => ({
+      deity: r[0].trim(),
+      name: r[1],
+      description: r[2] || '',
+    }));
+}
+
+/** Fetch today's Iris wish for a specific character */
+export const fetchTodayIrisWish = async (characterId: string) => {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
+  const docId = `${characterId}_${date}`;
+
+  const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) return null;
+
+  return snap.data(); // { userId, date, deity }
+};
+
+/** Fetch all Iris wishes for a specific character */
+export const fetchAllIrisWishes = async (characterId: string) => {
+  const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
+  const q = query(ref, where('userId', '==', characterId));
+  const snap = await getDocs(q);
+
+  return snap.docs.map(doc => doc.data());
+};
+
+/** Fetch today's Iris wish of every character */
+export const fetchTodayIrisWishes = async () => {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
+  const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
+  const q = query(ref, where('date', '==', date));
+  const snap = await getDocs(q);
+
+  return snap.docs.map(doc => doc.data());
+};
+
+/** Fetch all Iris wishes for specific date */
+export const fetchIrisWishesByDate = async (date: string) => {
+  const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
+  const q = query(ref, where('date', '==', date));
+  const snap = await getDocs(q);
+
+  return snap.docs.map(doc => doc.data());
+};
+
+/** Wishes associated with battle */
+export const WISHES_ASSOCIATED_WITH_BATTLE: Deity[] = [
+  DEITY.ZEUS,
+  DEITY.POSEIDON,
+  DEITY.ARES,
+  DEITY.ARTEMIS,
+  DEITY.HADES,
+  DEITY.HYPNOS,
+  DEITY.NEMESIS,
+  DEITY.NIKE,
+  DEITY.TYCHE,
 ];

@@ -42,6 +42,9 @@ export interface FighterState {
 
   /* Skeleton count (Hades' Undead Army) - max 2 */
   skeletonCount?: number;
+
+  /* Today's wishes of Iris (for display in battle lobby) */
+  wishOfIris?: Deity | null;
 }
 
 /** Battle room statuses (derived from ROOM_STATUS so type and runtime stay in sync). */
@@ -186,6 +189,14 @@ export interface TurnState {
   coAttackerId?: string;
   coAttackHit?: boolean;
   coAttackDamage?: number;
+  /** Nemesis wish retaliation after a hit lands. */
+  nemesisReattackSourceId?: string;
+  /** Nemesis retaliation target (attacker or co-attacker). */
+  nemesisReattackTargetId?: string;
+  /** Nemesis retaliation damage (fixed at 1). */
+  nemesisReattackDamage?: number;
+  /** True when the current Nemesis retaliation came from the Pomegranate co-attack branch. */
+  nemesisReattackFromCoAttack?: boolean;
 
   /* Ally-targeting power (e.g. Floral Fragrance) */
   allyTargetId?: string;
@@ -318,6 +329,10 @@ export interface BattleLogEntry {
   /** Co-attack vs same defense total used for the main hit (for resolve bar ATK vs DEF). */
   coAtkTotal?: number;
   coDefTotal?: number;
+  /** Nemesis wish retaliation card shown after a hit lands. */
+  isNemesisReattack?: boolean;
+  nemesisReattackSourceId?: string;
+  nemesisReattackTargetId?: string;
   /** Volley Arrow Rapid Fire: extra shot from chain (75% → 50% → 25% → ...). */
   rapidFire?: boolean;
   /** Extra shot — log has attackRoll/defendRoll 0 */

@@ -263,8 +263,8 @@
   }
 
   .mchip__petal-corners {
-    width: calc(v.$frame-size-medium + 16px);
-    height: calc(v.$frame-size-medium + 20px);
+    width: calc(v.$frame-size-medium + 16px) !important;
+    height: calc(v.$frame-size-medium + 20px) !important;
   }
 }
 
@@ -675,8 +675,8 @@
   }
 
   .mchip__petal-corners {
-    width: calc(v.$frame-size-small + 16px);
-    height: calc(v.$frame-size-small + 20px);
+    width: calc(v.$frame-size-small + 16px) !important;
+    height: calc(v.$frame-size-small + 20px) !important;
   }
 
   .mchip__petal-badge {

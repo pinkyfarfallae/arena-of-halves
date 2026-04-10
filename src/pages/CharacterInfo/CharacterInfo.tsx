@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchCharacter, fetchWishes, fetchItemInfo, fetchWeaponInfo, fetchPlayerBag, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry } from '../../data/characters';
+import { useBag } from '../../hooks/useBag';
+import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
+import { fetchWishes } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
@@ -36,8 +38,12 @@ import { isSkillUnlocked } from '../../constants/character';
 import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
-import './CharacterInfo.scss';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
+import { fetchAllIrisWishes, fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
+import { BAG_ITEM_TYPES } from '../../constants/bag';
+import './CharacterInfo.scss';
+import { Deity, DEITY } from '../../constants/deities';
+import { Wish } from '../../types/wish';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -68,10 +74,13 @@ function CharacterInfo() {
   const [viewed, setViewed] = useState<Character | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [powers, setPowers] = useState<Power[]>([]);
+  const [wishesData, setWishesData] = useState<Wish[]>([]);
   const [wishes, setWishes] = useState<WishEntry[]>([]);
+  const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [bagWeapons, setBagWeapons] = useState<(ItemInfo & BagEntry)[]>([]);
+  const [bagWeapons, setBagWeapons] = useState<(any & BagEntry)[]>([]);
+
   // Modal open state (setters used by UI; values reserved for future use)
   const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [itemModal, setItemModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -88,6 +97,9 @@ function CharacterInfo() {
 
   const isOwnProfile = !id || id === user?.characterId;
   const char = isOwnProfile ? user : viewed;
+
+  // Use Firestore-based bag hook (must be after char is defined)
+  const { bagEntries, loading: loadingBag } = useBag(char?.characterId);
 
   useEffect(() => {
     if (isOwnProfile || !id) {
@@ -114,28 +126,99 @@ function CharacterInfo() {
 
   useEffect(() => {
     if (!char?.characterId) return;
-    fetchWishes(char.characterId).then(setWishes).catch(() => setWishes([]));
+
+    const fetchData = async () => {
+      try {
+        const [fetchedWishes, userWishes, wish] = await Promise.all([
+          fetchWishes().catch(() => WISHES_FALLBACK),
+          fetchWishesFromCharacter(char.characterId).catch(() => []),
+          fetchTodayIrisWish(char.characterId).catch(() => null),
+        ]);
+
+        setWishesData(fetchedWishes);
+        setWishes(userWishes);
+
+        const matchedWish = wish
+          ? { deity: wish.deity, count: 1 }
+          : null;
+
+        setUserTodayWish(matchedWish);
+
+      } catch (error) {
+        // console.error('Failed to fetch wish data:', error);
+        setUserTodayWish(null);
+      }
+    };
+
+    fetchData();
   }, [char?.characterId]);
 
+  // Join bag data with item/weapon info when bag or character changes
   useEffect(() => {
-    if (!char?.characterId) return;
-    Promise.all([fetchItemInfo(), fetchWeaponInfo(), fetchPlayerBag(char.characterId)])
-      .then(([items, weapons, bag]) => {
+    if (!char?.characterId || loadingBag) return;
+
+    Promise.all([fetchItemInfo(), fetchWeaponInfo()])
+      .then(([items, weapons]) => {
         const allInfo = [...items, ...weapons];
-        const joinedItems = bag
-          .filter((b) => b.itemId.startsWith('item_'))
-          .map((b) => { const info = allInfo.find((it) => it.itemId === b.itemId); return info ? { ...info, ...b } : null; })
+        const joinedItems = bagEntries
+          .filter((b) => b.type === BAG_ITEM_TYPES.ITEM)
+          .map((b) => {
+            const info = allInfo.find((it) => it.itemId === b.itemId);
+            return info ? { ...info, ...b } : null;
+          })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
-        const joinedWeapons = bag
-          .filter((b) => b.itemId.startsWith('weapon_'))
-          .map((b) => { const info = allInfo.find((it) => it.itemId === b.itemId); return info ? { ...info, ...b } : null; })
+
+        const joinedWeapons = bagEntries
+          .filter((b) => b.type === BAG_ITEM_TYPES.WEAPON)
+          .map((b) => {
+            const info = allInfo.find((it) => it.itemId === b.itemId);
+            return info ? { ...info, ...b } : null;
+          })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
+
         setBagItems(joinedItems);
         setBagWeapons(joinedWeapons);
       })
-      .catch(() => { setBagItems([]); setBagWeapons([]); });
-  }, [char?.characterId]);
+      .catch(() => {
+        setBagItems([]);
+        setBagWeapons([]);
+      });
+  }, [char?.characterId, bagEntries, loadingBag]);
 
+  const img = useMemo(() => char?.image || undefined, [char?.image]);
+
+  const themeStyle = useMemo(() => !isOwnProfile && char ? applyTheme(char?.theme) : undefined, [char?.theme]);
+
+  const SLOT_MIN = 12;
+
+  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = useMemo(() => {
+    const slots = bagWeapons.map((w) => ({
+      name: w.labelEng,
+      quantity: w.amount,
+      imageUrl: w.imageUrl || undefined,
+      tier: w.tier || undefined,
+    }));
+    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined, tier: undefined });
+    return slots;
+  }, [bagWeapons]);
+
+  const itemSlots: { name: string; quantity: number; imageUrl?: string; }[] = useMemo(() => {
+    const slots = bagItems.map((b) => ({
+      name: b.labelEng,
+      quantity: b.amount,
+      imageUrl: b.imageUrl || undefined,
+    }));
+    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined });
+    return slots;
+  }, [bagItems]);
+
+  const orderedPowers = useMemo(() => {
+    return [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
+      .map(type => powers.find(p => p.type === type))
+      .filter(Boolean) as Power[];
+  }, [powers]);
+
+  if (!char) return null;
   if (!user) return null;
 
   if (loadingViewed) {
@@ -153,33 +236,6 @@ function CharacterInfo() {
       </div>
     );
   }
-
-  if (!char) return null;
-
-  const img = char.image || undefined;
-  const themeStyle = !isOwnProfile && char ? applyTheme(char.theme) : undefined;
-
-  const SLOT_MIN = 12;
-
-  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = bagWeapons.map((b) => ({
-    name: b.labelEng,
-    quantity: b.quantity,
-    imageUrl: b.imageUrl || undefined,
-    tier: b.tier || undefined,
-  }));
-  while (weaponSlots.length < SLOT_MIN) weaponSlots.push({ name: '', quantity: 0 });
-
-  const itemSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = bagItems.map((b) => ({
-    name: b.labelEng,
-    quantity: b.quantity,
-    imageUrl: b.imageUrl || undefined,
-    tier: b.tier || undefined,
-  }));
-  while (itemSlots.length < SLOT_MIN) itemSlots.push({ name: '', quantity: 0 });
-
-  const orderedPowers = [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
-    .map(type => powers.find(p => p.type === type))
-    .filter(Boolean) as Power[];
 
   return (
     <div className="cs" style={themeStyle}>
@@ -274,6 +330,32 @@ function CharacterInfo() {
 
         {/* Scrollable content */}
         <div className="cs__scroll">
+
+          {/* Today Wish */}
+          {todayWish && todayWish.deity && (
+            <div
+              className={`cs__today-wish ${todayWish.count > 0 ? 'cs__today-wish--active' : ''}`}
+              style={{
+                '--deity-primary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[0] || DEFAULT_THEME[0],
+                '--deity-secondary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[1] || DEFAULT_THEME[1],
+              } as React.CSSProperties}
+            >
+              <div className="cs__today-wish-header">
+                <span className="cs__today-wish-icon">
+                  {toDeityKey(todayWish.deity) ? DEITY_SVG[toDeityKey(todayWish.deity) || DEITY.ZEUS] : <Lightning width={12} height={12} />}
+                </span>
+                <span className="cs__today-wish-text">
+                  <span className="cs__today-wish-blessing-by">
+                    By Iris’ hand, a word finds its way to {isOwnProfile ? 'you' : char.sex ? 'him' : 'her'} from
+                    <b>{todayWish.deity}</b> ...
+                  </span>
+                  <span className="cs__today-wish-name">{wishesData.find(w => w.deity === todayWish.deity)?.name}</span>
+                </span>
+              </div>
+              <span className="cs__today-wish-description">{wishesData.find(w => w.deity === todayWish.deity)?.description}</span>
+            </div>
+          )}
+
           {/* Practice Progress */}
           <div className="cs__practice">
             <h3 className="cs__practice-title"><span className="cs__practice-diamond">◆</span>Practice Progress</h3>
@@ -327,7 +409,7 @@ function CharacterInfo() {
               </div>
               <div className="cs__slots">
                 {itemSlots.map((it, i) => (
-                  <Slot key={`i${i}`} name={it.name || undefined} icon="◈" quantity={it.quantity} imageUrl={it.imageUrl} tier={it.tier} />
+                  <Slot key={`i${i}`} name={it.name || undefined} icon="◈" quantity={it.quantity} imageUrl={it.imageUrl} />
                 ))}
               </div>
               <button className="cs__slots-more" onClick={() => setItemModal(true)}>
@@ -344,7 +426,7 @@ function CharacterInfo() {
                 {wishes.map(({ deity, count }) => {
                   const iconKey = toDeityKey(deity);
                   return (
-                    <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''}`}>
+                    <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''} ${todayWish?.deity === deity ? 'cs__wish--today' : ''}`}>
                       <span className="cs__wish-icon">
                         {iconKey
                           ? DEITY_SVG[iconKey]

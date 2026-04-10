@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { fetchAllCharacters } from '../../../../data/characters';
+import { useState, useEffect, useMemo, CSSProperties } from 'react';
+import { DEITY_THEMES, fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
 import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
@@ -23,7 +23,12 @@ import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../..
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { LANGUAGE } from '../../../../constants/language';
 import { PRACTICE_MODE } from '../../../../constants/practice';
+import { fetchIrisWishesByDate } from '../../../../data/wishes';
+import { DEITY } from '../../../../constants/deities';
 import './TrainingApproval.scss';
+import Athena from '../../../../data/icons/deities/Athena';
+import { is } from '@react-three/fiber/dist/declarations/src/core/utils';
+import { updateTrainingPoints } from '../../../../services/training/trainingPoints';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -42,6 +47,7 @@ function TrainingApproval() {
   const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
 
   const [reviewingTask, setReviewingTask] = useState<TrainingTask | null>(trainingTasks[0] || null);
+  const [reviewingTaskDateWishes, setReviewingTaskDateWishes] = useState<any[]>([]);
 
   const [scriptCopyStatus, setScriptCopyStatus] =
     useState<HarvestScriptCopyStatus>(
@@ -69,8 +75,10 @@ function TrainingApproval() {
     const fetchData = async () => {
       setLoading(true);
 
+      if (!user) return;
+
       await Promise.all([
-        fetchAllCharacters()
+        fetchAllCharacters(user)
           .then(setCharacters)
           .catch(() => setCharacters([])),
 
@@ -99,22 +107,55 @@ function TrainingApproval() {
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    if (!reviewText.trim()) {
+    if (!reviewText.trim()) return;
+
+    const traineeUsername = reviewingTask
+      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+      : null;
+
+    const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
+
+    if (!scriptParsed) return;
+  }, [reviewText, characters, reviewingTask]);
+
+  useEffect(() => {
+    if (!reviewingTask) {
+      setReviewingTaskDateWishes([]);
       return;
     }
 
-    const scriptParsed = parseScriptOutput(reviewText);
+    const formattedDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok'
+    }).format(new Date(reviewingTask.date));
 
-    if (!scriptParsed) {
-      return;
-    }
-  }, [reviewText, characters]);
+    fetchIrisWishesByDate(formattedDate)
+      .then((wishes) => {
+        setReviewingTaskDateWishes(wishes);
+      })
+      .catch((error) => {
+        setReviewingTaskDateWishes([]);
+      });
+  }, [reviewingTask]);
 
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
+
+  const trainee = useMemo(() => {
+    return characters.find((c) => c.characterId === reviewingTask?.userId);
+  }, [characters, reviewingTask?.userId]);
+
+  const isTraineeBlessedByAthena = useMemo(() => {
+    const hasAthena = reviewingTaskDateWishes.some(
+      (wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId
+    );
+    if (reviewingTask?.mode === PRACTICE_MODE.NORMAL) {
+      return reviewingTask?.success && hasAthena;
+    }
+    return hasAthena;
+  }, [reviewingTask, reviewingTaskDateWishes]);
 
   // Training passes if character count (including ticket bonus) >= 1000
   const checkTrainingPass = (charCount: number, tickets: number) => {
@@ -164,8 +205,8 @@ function TrainingApproval() {
       return;
     }
 
-    const reward = reviewingTask.mode === PRACTICE_MODE.PVP
-      ? 1 : reviewingTask.success ? 1 : 0; // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
+    const reward = (reviewingTask.mode === PRACTICE_MODE.PVP
+      ? 1 : reviewingTask.success ? 1 : 0) * (isTraineeBlessedByAthena ? 2 : 1); // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
 
     setApproveData({
       charCount,
@@ -195,8 +236,11 @@ function TrainingApproval() {
         TRAINING_POINT_REQUEST_STATUS.APPROVED,
         user?.characterId || 'admin'
       );
+      if (isTraineeBlessedByAthena && approveData.reward > 0) {
+        updateTrainingPoints(reviewingTask.userId, 1);
+      }
     } catch (error) {
-      console.error('Failed to approve training task:', error);
+      // console.error('Failed to approve training task:', error);
       return;
     }
 
@@ -257,7 +301,7 @@ function TrainingApproval() {
         user?.characterId || 'admin'
       );
     } catch (error) {
-      console.error('Failed to reject training task:', error);
+      // console.error('Failed to reject training task:', error);
       return;
     }
 
@@ -336,8 +380,6 @@ function TrainingApproval() {
       '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
     } as React.CSSProperties;
   }, [user]);
-
-  const trainee = characters.find((c) => c.characterId === reviewingTask?.userId);
 
   return (
     <div className="harvest-approval" style={colorStyle}>
@@ -513,7 +555,10 @@ function TrainingApproval() {
 
                   {/* 6. Review Harvest Result */}
                   {reviewText.trim() && (() => {
-                    const scriptParsed = parseScriptOutput(reviewText);
+                    const traineeUsername = reviewingTask
+                      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+                      : null;
+                    const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
 
                     if (!scriptParsed) {
                       return (
@@ -613,7 +658,6 @@ function TrainingApproval() {
                                     {trainingCheck.passes ? (
                                       <>
                                         <span className="training-approval__result-status-head">✓ PASSED</span>
-                                        <br />
                                         <small style={{ opacity: 0.8, fontWeight: 500 }}>
                                           Total: {trainingCheck.totalChars} characters
                                         </small>
@@ -621,7 +665,6 @@ function TrainingApproval() {
                                     ) : (
                                       <>
                                         <span className="training-approval__result-status-head">✗ FAILED</span>
-                                        <br />
                                         <small style={{ opacity: 0.8, fontWeight: 500 }}>
                                           Need {trainingCheck.charsNeeded} more characters to pass
                                         </small>
@@ -631,8 +674,31 @@ function TrainingApproval() {
                                 );
                               })()}
                             </div>
-
                           </div>
+
+                          {/* If trainee have blessed by Athena */}
+                          {isTraineeBlessedByAthena && (
+                            <div
+                              className="training-approval__athena-blessing"
+                              style={{
+                                '--athena-primary-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0],
+                                '--athena-primary-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0]),
+                                '--athena-dark-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1],
+                                '--athena-dark-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1]),
+                              } as CSSProperties}
+                            >
+
+                              <div className="training-approval__athena-blessing-header">
+                                <div className="training-approval__athena-blessing-icon">
+                                  <Athena />
+                                </div>
+                                <span>Goddess Athena has blessed this trainee on the training day!</span>
+                              </div>
+                              <div className="training-approval__athena-blessing-content">
+                                As a blessing from Athena, this trainee's will recive a double training point reward for this submission.
+                              </div>
+                            </div>
+                          )}
 
                           {/* Actions */}
                           {reviewingTask && (
