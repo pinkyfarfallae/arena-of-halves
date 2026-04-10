@@ -53,7 +53,7 @@ function themeToCiStyle(theme: Theme25): CSSProperties {
 }
 
 export default function PowerVfxDemo() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
 
   const [members, setMembers] = useState<FighterState[]>([]);
   const [npcs, setNpcs] = useState<FighterState[]>([]);
@@ -71,10 +71,11 @@ export default function PowerVfxDemo() {
   const effectModalRightRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchAllCharacters().then((chars) =>
+      fetchAllCharacters(user).then((chars) =>
         chars.map((c) => {
           const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
           const powers = getPowers(powerDeity);
@@ -93,7 +94,7 @@ export default function PowerVfxDemo() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   const fighterOptions = useMemo((): FighterOption[] => {
     const memberOpts = members.map((m) => ({

@@ -73,6 +73,10 @@ export const BLESSING_NAMES = {
     en: 'Resurrected',
     th: 'ผู้ฟื้นคืนชีพ',
   },
+  [EFFECT_TAGS.HADES_WISH_USED]: {
+    en: "Hades' Revival",
+    th: 'การฟื้นคืนชีพของฮาเดส',
+  },
   // Persephone
   [EFFECT_TAGS.EFFLORESCENCE_MUSE]: {
     en: 'Efflorescence Muse',

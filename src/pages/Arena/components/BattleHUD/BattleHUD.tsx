@@ -22,7 +22,7 @@ import RefillSPDiceModal, { REFILL_DICE_VIEW_MS, REFILL_CARD_VIEW_MS } from './c
 import DamageCard from './components/DamageCard/DamageCard';
 import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
-import { DEFAULT_THEME } from '../../../../constants/theme';
+import { DEFAULT_THEME, DEITY_THEMES } from '../../../../constants/theme';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
 import { getPowers } from '../../../../data/powers';
 import { getDisabledPowersAndReasons } from '../../../../data/powerDisableReason';
@@ -46,6 +46,7 @@ import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCK } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
 import { DEITY } from '../../../../constants/deities';
+import { CHARACTER } from '../../../../constants/characters';
 
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
@@ -3702,10 +3703,10 @@ export default function BattleHUD({
       )}
 
       {/* Death Keeper / self-resurrect queue: brief overlay (name = resurrected fighter) */}
-      {showResurrecting && (() => {
+      {true && (() => {
         // For immediate resurrections during RESOLVING, show name of first resurrected fighter
         const immediateRes = (turn as { immediateResurrections?: string[] })?.immediateResurrections;
-        const targetId = turn?.resurrectTargetId || (immediateRes && immediateRes.length > 0 ? immediateRes[0] : null);
+        const targetId = turn?.resurrectTargetId || (immediateRes && immediateRes.length > 0 ? immediateRes[0] : null) || CHARACTER.TEST;
         if (!targetId) return null;
         const resurrectedFighter = find(teamA, teamB, targetId);
 
@@ -3724,7 +3725,11 @@ export default function BattleHUD({
 
         return (
           <div className={`bhud__dice-zone bhud__dice-zone--${resurrectingSide}`}>
-            <ResurrectingModal name={resurrectedFighter?.nicknameEng ?? attacker?.nicknameEng} />
+            <ResurrectingModal
+              name={resurrectedFighter?.nicknameEng ?? attacker?.nicknameEng}
+              byHadesWish={resurrectingSide && !turn?.usedPowerName}
+              theme={resurrectedFighter?.theme ?? DEITY_THEMES[resurrectedFighter?.deityBlood.toLowerCase() || DEITY.HADES.toLowerCase()]}
+            />
           </div>
         );
       })()}

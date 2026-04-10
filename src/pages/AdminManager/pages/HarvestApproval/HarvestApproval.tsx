@@ -67,8 +67,9 @@ function HarvestApproval() {
   const [reviewingTaskDateWishes, setReviewingTaskDateWishes] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchAllCharacters().then(setCharacters);
-  }, []);
+    if (!user) return;
+    fetchAllCharacters(user).then(setCharacters);
+  }, [user]);
 
   useEffect(() => {
     const loadHarvests = async () => {

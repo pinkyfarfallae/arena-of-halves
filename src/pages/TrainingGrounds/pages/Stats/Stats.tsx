@@ -161,7 +161,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
     if (result.success) {
       // Refresh character data
-      const characters = await fetchAllCharacters();
+      const characters = await fetchAllCharacters(user);
       const updated = characters.find(c => c.characterId === user.characterId);
       if (updated) {
         updateUser(updated);
@@ -221,7 +221,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     }
 
     await refreshUser();
-    const characters = await fetchAllCharacters();
+    const characters = await fetchAllCharacters(user);
     const updated = characters.find((c) => c.characterId === user.characterId);
     if (updated) {
       updateUser(updated);

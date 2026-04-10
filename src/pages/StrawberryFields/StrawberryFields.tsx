@@ -53,7 +53,9 @@ function StrawberryFields() {
   useEffect(() => {
     let mounted = true;
 
-    fetchAllCharacters()
+    if (!user) return;
+
+    fetchAllCharacters(user)
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
@@ -62,12 +64,14 @@ function StrawberryFields() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let mounted = true;
 
-    fetchAllCharacters()
+    if (!user) return;
+
+    fetchAllCharacters(user)
       .then((data) => {
         if (mounted) setAllCampData(data || []);
       })
@@ -76,7 +80,7 @@ function StrawberryFields() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.characterId) return;

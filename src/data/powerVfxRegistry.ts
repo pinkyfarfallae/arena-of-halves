@@ -312,6 +312,15 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isResurrected: true },
   },
+  {
+    id: EFFECT_TAGS.HADES_WISH_USED,
+    label: "Hades' Revival",
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.HADES,
+    tag: EFFECT_TAGS.HADES_WISH_USED,
+    applyTo: EFFECT_SIDE_LABEL.TARGET,
+    props: {},
+  },
 ];
 
 /** Merge props from multiple effects for the same side (for demo stacking). */
