@@ -1,7 +1,9 @@
 import { BAG_ITEM_TYPES } from "../../constants/bag";
 import { DEITY } from "../../constants/deities";
+import { FighterState } from "../../types/battle";
 import { Wish } from "../../types/wish";
 import { giveItem } from "../bag/bagService";
+import { updateCharacterDrachma } from "../character/currencyService";
 import { updateTrainingPoints } from "../training/trainingPoints";
 
 export const applyWishEffect = (wish: Wish, characterId: string) => {
@@ -20,3 +22,11 @@ export const applyWishEffect = (wish: Wish, characterId: string) => {
       break;
   }
 };
+
+export const nikeAwardedAfterWinTheFight = (teamMembers: FighterState[]) => {
+  teamMembers.forEach(member => {
+    if (member.wishOfIris === DEITY.NIKE) {
+      updateCharacterDrachma(member.characterId, 100);
+    }
+  });
+}

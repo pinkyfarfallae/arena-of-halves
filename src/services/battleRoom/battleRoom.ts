@@ -49,6 +49,7 @@ import { DEITY, Deity } from '../../constants/deities';
 import { fetchTodayIrisWish } from '../../data/wishes';
 import { getDiceSize } from '../../utils/getDiceSize';
 import { NEMESIS_RETALIATION } from '../../constants/iris';
+import { nikeAwardedAfterWinTheFight } from '../irisWish/applyWishesEffect';
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -1630,6 +1631,7 @@ export async function selectTarget(
       if (isTeamEliminated(teamBMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamAMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -1643,6 +1645,7 @@ export async function selectTarget(
       if (isTeamEliminated(teamAMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam!, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamBMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -2253,6 +2256,7 @@ export async function selectAction(
       if (isTeamEliminated(teamBMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamAMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -2266,6 +2270,7 @@ export async function selectAction(
       if (isTeamEliminated(teamAMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamBMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -2365,6 +2370,7 @@ export async function selectAction(
       if (isTeamEliminated(teamBMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamAMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -2378,6 +2384,7 @@ export async function selectAction(
       if (isTeamEliminated(teamAMembers, latestEffects)) {
         updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
         updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+        nikeAwardedAfterWinTheFight(teamBMembers);
         await update(roomRef(arenaId), updates);
         setTimeout(() => {
           update(roomRef(arenaId), {
@@ -2687,6 +2694,7 @@ export async function selectAction(
     if (isTeamEliminated(teamBMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamAMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), {
@@ -2700,6 +2708,7 @@ export async function selectAction(
     if (isTeamEliminated(teamAMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: battle.turn!.attackerTeam, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamBMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), {
@@ -3111,6 +3120,7 @@ export async function skipTurnNoValidTarget(
   if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -3124,6 +3134,7 @@ export async function skipTurnNoValidTarget(
   if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -3302,6 +3313,7 @@ export async function advanceAfterNemesisReattack(arenaId: string): Promise<void
   if (isTeamEliminated(teamBMembers, cleanedEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId: sourceId, attackerTeam: sourceTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -3315,6 +3327,7 @@ export async function advanceAfterNemesisReattack(arenaId: string): Promise<void
   if (isTeamEliminated(teamAMembers, cleanedEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId: sourceId, attackerTeam: sourceTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4066,6 +4079,7 @@ async function runPostRapidFireAdvance(
   if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll: turn.attackRoll, defendRoll: turn.defendRoll, action: turn.action, playbackStep: null, resolvingHitIndex: null };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4082,6 +4096,7 @@ async function runPostRapidFireAdvance(
   if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll: turn.attackRoll, defendRoll: turn.defendRoll, action: turn.action, playbackStep: null, resolvingHitIndex: null };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4348,6 +4363,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
       resolvingHitIndex: null,
     };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4374,6 +4390,7 @@ async function runJoltArcTurnAdvance(arenaId: string, room: BattleRoom, battle: 
       resolvingHitIndex: null,
     };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4894,6 +4911,7 @@ async function runBattleResolveTailFromEffectSync(
   if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -4911,6 +4929,7 @@ async function runBattleResolveTailFromEffectSync(
   if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, defenderId, phase: PHASE.DONE, attackRoll, defendRoll, action, playbackStep: null, resolvingHitIndex: null };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -5062,6 +5081,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (isTeamEliminated(teamBMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamAMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), {
@@ -5075,6 +5095,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
     if (isTeamEliminated(teamAMembers, latestEffects)) {
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
       updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+      nikeAwardedAfterWinTheFight(teamBMembers);
       await update(roomRef(arenaId), updates);
       setTimeout(() => {
         update(roomRef(arenaId), {
@@ -5757,6 +5778,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).resolvingHitIndex = null;
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
           updatesAdv[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+          nikeAwardedAfterWinTheFight(teamAMembersAdv);
           await update(roomRef(arenaId), updatesAdv);
           setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.A, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { }); }, END_ARENA_DELAY_MS);
           return;
@@ -5766,6 +5788,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).resolvingHitIndex = null;
           (updatesAdv[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
           updatesAdv[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+          nikeAwardedAfterWinTheFight(teamBMembersAdv);
           await update(roomRef(arenaId), updatesAdv);
           setTimeout(() => { update(roomRef(arenaId), { [ARENA_PATH.BATTLE_WINNER]: BATTLE_TEAM.B, [ARENA_PATH.STATUS]: ROOM_STATUS.FINISHED, [ARENA_PATH.BATTLE_WINNER_DELAYED_AT]: null }).catch(() => { }); }, END_ARENA_DELAY_MS);
           return;
@@ -5887,6 +5910,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             (updatesSk[ARENA_PATH.BATTLE_TURN] as any).resolvingHitIndex = null;
             (updatesSk[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
             updatesSk[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+            nikeAwardedAfterWinTheFight(teamAMembersSk);
             await update(roomRef(arenaId), updatesSk);
             setTimeout(() => {
               update(roomRef(arenaId), {
@@ -5905,6 +5929,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
             (updatesSk[ARENA_PATH.BATTLE_TURN] as any).resolvingHitIndex = null;
             (updatesSk[ARENA_PATH.BATTLE_TURN] as any).playbackStep = null;
             updatesSk[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+            nikeAwardedAfterWinTheFight(teamBMembersSk);
             await update(roomRef(arenaId), updatesSk);
             setTimeout(() => {
               update(roomRef(arenaId), {
