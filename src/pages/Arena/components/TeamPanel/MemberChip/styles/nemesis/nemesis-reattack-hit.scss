@@ -1,0 +1,404 @@
+@use '../vars' as *;
+@use '../mixins' as *;
+
+/**
+ * Nemesis Retaliation VFX — similar to Volley Arrow but with Nemesis colors
+ * Primary: #8f173b (deep crimson)
+ * Secondary: #2b0a17 (dark burgundy)
+ */
+
+$nemesis-primary: #8f173b;
+$nemesis-secondary: #2b0a17;
+$nemesis-light: #c43c3c;
+
+/* ───────────────────────────────────────────────────────────────
+   Nemesis Reattack Hit Defender (target of retaliation)
+   ─────────────────────────────────────────────────────────────── */
+
+.mchip__nemesis-reattack-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 12px;
+  background: radial-gradient(circle at center, rgba(143, 23, 59, 0.4) 0%, transparent 70%);
+  animation: nemesis-reattack-pulse 1.2s ease-in-out;
+  @include mask-gradient-clip;
+}
+
+@keyframes nemesis-reattack-pulse {
+  0%, 100% { opacity: 0; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.mchip__nemesis-reattack-rays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  @include mask-gradient-clip;
+}
+
+.mchip__nemesis-reattack-ray {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 2px;
+  height: 200px;
+  background: linear-gradient(to bottom, $nemesis-primary, transparent);
+  transform-origin: bottom center;
+  opacity: 0;
+  animation: nemesis-reattack-ray-burst 0.8s ease-out forwards;
+}
+
+@keyframes nemesis-reattack-ray-burst {
+  0% { opacity: 0; transform: translateX(-50%) translateY(0) scaleY(0); }
+  30% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-100px) scaleY(1); }
+}
+
+.mchip__nemesis-reattack-ray--1 { transform: rotate(-70deg); animation-delay: 0s; }
+.mchip__nemesis-reattack-ray--2 { transform: rotate(-50deg); animation-delay: 0.05s; }
+.mchip__nemesis-reattack-ray--3 { transform: rotate(-30deg); animation-delay: 0.1s; }
+.mchip__nemesis-reattack-ray--4 { transform: rotate(-10deg); animation-delay: 0.15s; }
+.mchip__nemesis-reattack-ray--5 { transform: rotate(10deg); animation-delay: 0.2s; }
+.mchip__nemesis-reattack-ray--6 { transform: rotate(30deg); animation-delay: 0.15s; }
+.mchip__nemesis-reattack-ray--7 { transform: rotate(50deg); animation-delay: 0.1s; }
+.mchip__nemesis-reattack-ray--8 { transform: rotate(70deg); animation-delay: 0.05s; }
+
+.mchip__nemesis-reattack-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 2px solid $nemesis-primary;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+}
+
+.mchip__nemesis-reattack-ring--outer {
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  animation: nemesis-reattack-ring-expand 1s ease-out forwards;
+}
+
+.mchip__nemesis-reattack-ring--inner {
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  animation: nemesis-reattack-ring-expand 1s ease-out 0.1s forwards;
+}
+
+@keyframes nemesis-reattack-ring-expand {
+  0% { opacity: 0; transform: scale(0.5); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+.mchip--nemesis-reattack-hit-defender .mchip__frame {
+  animation: nemesis-reattack-frame-shake 0.4s ease-in-out;
+}
+
+@keyframes nemesis-reattack-frame-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 2px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, 1px); }
+}
+
+.mchip--nemesis-reattack-hit-defender.mchip--hit .mchip__frame {
+  box-shadow: 0 0 20px rgba(143, 23, 59, 0.8), 0 0 40px rgba(143, 23, 59, 0.4);
+}
+
+.mchip--nemesis-reattack-hit-defender.mchip--hit .mchip__frame::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, $nemesis-primary, $nemesis-secondary);
+  opacity: 0.3;
+  animation: nemesis-reattack-frame-flash 0.6s ease-out;
+}
+
+@keyframes nemesis-reattack-frame-flash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.6; }
+}
+
+.mchip--nemesis-reattack-hit-defender.mchip--hit .mchip__frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 2px solid $nemesis-primary;
+  opacity: 0;
+  animation: nemesis-reattack-border-pulse 0.8s ease-out;
+}
+
+@keyframes nemesis-reattack-border-pulse {
+  0% { opacity: 0; transform: scale(1); }
+  50% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Nemesis Reattack Hit Attacker (Nemesis wish holder who retaliates)
+   ─────────────────────────────────────────────────────────────── */
+
+.mchip__nemesis-reattack-attacker-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at center, rgba(143, 23, 59, 0.35) 0%, transparent 65%);
+  animation: nemesis-reattack-attacker-glow 1.5s ease-in-out infinite;
+  @include mask-gradient-clip;
+}
+
+@keyframes nemesis-reattack-attacker-glow {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.mchip__nemesis-reattack-attacker-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  @include mask-gradient-clip;
+}
+
+.mchip__nemesis-reattack-attacker-drop {
+  position: absolute;
+  top: -10px;
+  width: 1px;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, $nemesis-primary, transparent);
+  opacity: 0;
+  @include mask-gradient-clip;
+  animation: nemesis-reattack-attacker-drop-fall 1.2s ease-in infinite;
+}
+
+@keyframes nemesis-reattack-attacker-drop-fall {
+  0% { top: -20px; opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.6; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.mchip__nemesis-reattack-attacker-drop:nth-child(1) { left: 15%; animation-delay: 0s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(2) { left: 28%; animation-delay: 0.15s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(3) { left: 42%; animation-delay: 0.3s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(4) { left: 55%; animation-delay: 0.45s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(5) { left: 70%; animation-delay: 0.6s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(6) { left: 85%; animation-delay: 0.75s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(7) { left: 10%; animation-delay: 0.9s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(8) { left: 22%; animation-delay: 1.05s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(9) { left: 38%; animation-delay: 0.2s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(10) { left: 50%; animation-delay: 0.35s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(11) { left: 63%; animation-delay: 0.5s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(12) { left: 77%; animation-delay: 0.65s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(13) { left: 90%; animation-delay: 0.8s; }
+.mchip__nemesis-reattack-attacker-drop:nth-child(14) { left: 33%; animation-delay: 0.95s; }
+
+.mchip__nemesis-reattack-attacker-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 12px;
+}
+
+.mchip__nemesis-reattack-attacker-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: $nemesis-light;
+  border-radius: 50%;
+  opacity: 0;
+  animation: nemesis-reattack-attacker-dot-twinkle 2s ease-in-out infinite;
+}
+
+@keyframes nemesis-reattack-attacker-dot-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.mchip__nemesis-reattack-attacker-dot--1 { top: 20%; left: 25%; animation-delay: 0s; }
+.mchip__nemesis-reattack-attacker-dot--2 { top: 35%; left: 75%; animation-delay: 0.3s; }
+.mchip__nemesis-reattack-attacker-dot--3 { top: 65%; left: 20%; animation-delay: 0.6s; }
+.mchip__nemesis-reattack-attacker-dot--4 { top: 75%; left: 65%; animation-delay: 0.9s; }
+.mchip__nemesis-reattack-attacker-dot--5 { top: 15%; left: 60%; animation-delay: 1.2s; }
+.mchip__nemesis-reattack-attacker-dot--6 { top: 50%; left: 40%; animation-delay: 1.5s; }
+
+.mchip__nemesis-reattack-attacker-rise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.mchip__nemesis-reattack-attacker-rise-particle {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background: $nemesis-primary;
+  border-radius: 50%;
+  opacity: 0;
+  animation: nemesis-reattack-attacker-rise-float 1.8s ease-out infinite;
+}
+
+@keyframes nemesis-reattack-attacker-rise-float {
+  0% { bottom: -10px; opacity: 0; transform: translateX(0); }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.4; }
+  100% { bottom: 110%; opacity: 0; transform: translateX(var(--drift, 0px)); }
+}
+
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(1) { left: 18%; --drift: 5px; animation-delay: 0s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(2) { left: 32%; --drift: -3px; animation-delay: 0.1s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(3) { left: 47%; --drift: 7px; animation-delay: 0.2s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(4) { left: 61%; --drift: -5px; animation-delay: 0.3s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(5) { left: 76%; --drift: 4px; animation-delay: 0.4s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(6) { left: 89%; --drift: -6px; animation-delay: 0.5s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(7) { left: 12%; --drift: 3px; animation-delay: 0.6s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(8) { left: 25%; --drift: -4px; animation-delay: 0.7s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(9) { left: 39%; --drift: 6px; animation-delay: 0.8s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(10) { left: 53%; --drift: -7px; animation-delay: 0.9s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(11) { left: 67%; --drift: 5px; animation-delay: 1s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(12) { left: 81%; --drift: -3px; animation-delay: 1.1s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(13) { left: 14%; --drift: 4px; animation-delay: 1.2s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(14) { left: 28%; --drift: -5px; animation-delay: 1.3s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(15) { left: 42%; --drift: 7px; animation-delay: 1.4s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(16) { left: 56%; --drift: -4px; animation-delay: 1.5s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(17) { left: 70%; --drift: 6px; animation-delay: 1.6s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(18) { left: 84%; --drift: -3px; animation-delay: 1.7s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(19) { left: 20%; --drift: 5px; animation-delay: 0.15s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(20) { left: 34%; --drift: -6px; animation-delay: 0.25s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(21) { left: 48%; --drift: 4px; animation-delay: 0.35s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(22) { left: 62%; --drift: -7px; animation-delay: 0.45s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(23) { left: 75%; --drift: 5px; animation-delay: 0.55s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(24) { left: 88%; --drift: -4px; animation-delay: 0.65s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(25) { left: 16%; --drift: 6px; animation-delay: 0.75s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(26) { left: 30%; --drift: -5px; animation-delay: 0.85s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(27) { left: 44%; --drift: 7px; animation-delay: 0.95s; }
+.mchip__nemesis-reattack-attacker-rise-particle:nth-child(28) { left: 58%; --drift: -3px; animation-delay: 1.05s; }
+
+.mchip__nemesis-reattack-attacker-rays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 12px;
+  overflow: hidden;
+  @include mask-gradient-clip;
+}
+
+.mchip__nemesis-reattack-attacker-ray {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 2px;
+  height: 150px;
+  background: linear-gradient(to bottom, $nemesis-primary, transparent);
+  transform-origin: bottom center;
+  opacity: 0;
+  animation: nemesis-reattack-attacker-ray-spin 2s linear infinite;
+}
+
+@keyframes nemesis-reattack-attacker-ray-spin {
+  0% { opacity: 0; transform: translateX(-50%) rotate(0deg); }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.4; }
+  100% { opacity: 0; transform: translateX(-50%) rotate(360deg); }
+}
+
+.mchip__nemesis-reattack-attacker-ray--1 { animation-delay: 0s; }
+.mchip__nemesis-reattack-attacker-ray--2 { animation-delay: 0.2s; }
+.mchip__nemesis-reattack-attacker-ray--3 { animation-delay: 0.4s; }
+.mchip__nemesis-reattack-attacker-ray--4 { animation-delay: 0.6s; }
+.mchip__nemesis-reattack-attacker-ray--5 { animation-delay: 0.8s; }
+.mchip__nemesis-reattack-attacker-ray--6 { animation-delay: 1s; }
+.mchip__nemesis-reattack-attacker-ray--7 { animation-delay: 1.2s; }
+.mchip__nemesis-reattack-attacker-ray--8 { animation-delay: 1.4s; }
+.mchip__nemesis-reattack-attacker-ray--9 { animation-delay: 1.6s; }
+.mchip__nemesis-reattack-attacker-ray--10 { animation-delay: 1.8s; }
+
+.mchip__nemesis-reattack-attacker-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 2px solid $nemesis-primary;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+}
+
+.mchip__nemesis-reattack-attacker-ring--outer {
+  width: 130px;
+  height: 130px;
+  margin: -65px 0 0 -65px;
+  animation: nemesis-reattack-attacker-ring-pulse 2s ease-in-out infinite;
+}
+
+.mchip__nemesis-reattack-attacker-ring--inner {
+  width: 100px;
+  height: 100px;
+  margin: -50px 0 0 -50px;
+  animation: nemesis-reattack-attacker-ring-pulse 2s ease-in-out 0.3s infinite;
+}
+
+.mchip__nemesis-reattack-attacker-ring--mid {
+  width: 115px;
+  height: 115px;
+  margin: -57.5px 0 0 -57.5px;
+  animation: nemesis-reattack-attacker-ring-pulse 2s ease-in-out 0.15s infinite;
+}
+
+@keyframes nemesis-reattack-attacker-ring-pulse {
+  0%, 100% { opacity: 0; transform: scale(0.9); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+.mchip--nemesis-reattack-hit-attacker {
+  position: relative;
+}
+
+.mchip--nemesis-reattack-hit-attacker .mchip__frame-wrap {
+  animation: nemesis-reattack-attacker-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes nemesis-reattack-attacker-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.mchip--nemesis-reattack-hit-attacker .mchip__frame {
+  box-shadow: 0 0 25px rgba(143, 23, 59, 0.7), 0 0 50px rgba(143, 23, 59, 0.3);
+}
+
+.mchip--nemesis-reattack-hit-attacker.mchip--hit .mchip__frame {
+  box-shadow: 0 0 30px rgba(143, 23, 59, 0.9), 0 0 60px rgba(143, 23, 59, 0.5);
+}
+
+@media (max-width: $bp-compact) {
+  .mchip__nemesis-reattack-glow,
+  .mchip__nemesis-reattack-attacker-glow,
+  .mchip__nemesis-reattack-attacker-drop,
+  .mchip__nemesis-reattack-attacker-dot,
+  .mchip__nemesis-reattack-attacker-rise-particle,
+  .mchip__nemesis-reattack-attacker-rays {
+    @include mask-right-side-fade;
+  }
+}

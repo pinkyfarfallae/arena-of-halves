@@ -3,11 +3,14 @@ import type { PanelSide } from '../../../../../../constants/battle';
 import { POWER_NAMES } from '../../../../../../constants/powers';
 import Lightning from '../../../../../../icons/Lightning';
 import './DamageCard.scss';
+import { DEITY } from '../../../../../../constants/deities';
 
 interface ResolveData {
   isHit: boolean;
   isPower: boolean;
   powerName: string;
+  variant?: typeof DEITY.NEMESIS;
+  accentTheme?: string;
   isCrit: boolean;
   /** Keraunos: explicit crit from D4 so card shows -6 and CRIT! when rolled crit (avoids -3 from overwrites). */
   isCritForKeraunos?: boolean;
@@ -38,7 +41,12 @@ export type { ResolveData };
 
 export default function DamageCard({ data, exiting, side, displayMs, onDisplayComplete }: Props) {
   const rc = data;
-  const cardStyle = { '--card-atk': rc.attackerTheme, '--card-def': rc.defenderTheme } as React.CSSProperties;
+  const isNemesisVariant = String(rc.variant ?? '') === DEITY.NEMESIS;
+  const cardStyle = {
+    '--card-atk': rc.attackerTheme,
+    '--card-def': rc.defenderTheme,
+    '--card-accent': rc.accentTheme ?? rc.attackerTheme,
+  } as React.CSSProperties;
   // Show breakdown (base + crit + shock) for any hit that has crit or shock bonus — including self-buff+attack (e.g. Beyond the Nimbus).
   // Fallback: damage > baseDmg indicates crit/bonus even if isCrit/shockBonus weren't written to cache.
   const hasBreakdown = rc.isHit && (
@@ -74,7 +82,7 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
     const showKeraunosBreakdown = rc.powerName === POWER_NAMES.KERAUNOS_VOLTAGE && (rc.shockBonus > 0 || isCritKeraunos) && dmgForThisTarget > 0;
     return (
       <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
-        <div className={`dmg-card dmg-card--power ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
+        <div className={`dmg-card dmg-card--power ${isNemesisVariant ? 'dmg-card--nemesis' : ''} ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
           <div className="dmg-card__header">
             <span className="dmg-card__atkname" style={{ color: rc.attackerTheme }}>{rc.attackerName}</span>
             <span className="dmg-card__arrow">→</span>
@@ -121,7 +129,7 @@ export default function DamageCard({ data, exiting, side, displayMs, onDisplayCo
 
   return (
     <div className={`bhud__dice-zone bhud__dice-zone--${side}`}>
-      <div className={`dmg-card ${!rc.isHit ? 'dmg-card--miss' : ''} ${rc.isDodged ? 'dmg-card--dodged' : ''} ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
+      <div className={`dmg-card ${isNemesisVariant ? 'dmg-card--nemesis' : ''} ${!rc.isHit ? 'dmg-card--miss' : ''} ${rc.isDodged ? 'dmg-card--dodged' : ''} ${exiting ? 'dmg-card--exit' : ''}`} style={cardStyle}>
         <div className="dmg-card__header">
           <span className="dmg-card__atkname" style={{ color: rc.attackerTheme }}>{rc.attackerName}</span>
           <span className="dmg-card__arrow">→</span>

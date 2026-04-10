@@ -41,6 +41,7 @@ import {
   type PanelSide,
   TurnAction,
 } from '../../../../constants/battle';
+import { NEMESIS_RETALIATION } from '../../../../constants/iris';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCK } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
@@ -135,6 +136,8 @@ interface Props {
   onSubmitRapidFireD4Roll?: (roll: number) => void;
   /** After showing damage for one Rapid Fire extra shot, call to advance to next D4 roll. */
   onRapidFireDamageCardComplete?: () => void;
+  /** After Nemesis retaliation card completes, apply the 1-damage reattack and resume resolve. */
+  onNemesisReattackComplete?: () => void;
   onResolve: () => void;
   onResolveVisible?: (visible: boolean) => void;
   /** When true (spectator/viewer), skip dice animation sequencing — show rolls simply to avoid messy inspect mode */
@@ -281,6 +284,7 @@ export default function BattleHUD({
   onSubmitDefendRoll,
   onSubmitRapidFireD4Roll,
   onRapidFireDamageCardComplete,
+  onNemesisReattackComplete,
   onResolve,
   onResolveVisible,
   onTransientEffectsActive,
@@ -4190,19 +4194,19 @@ export default function BattleHUD({
                 }
               }
               if (atkRollDoneTimeoutRef.current) clearTimeout(atkRollDoneTimeoutRef.current);
-              
+
               // Check if this is a Pomegranate co-attack
               const isPomCoAttack = (
                 turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK ||
                 (awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_ATTACK) ||
                 (turn.phase === PHASE.RESOLVING && awaitingPomegranateCoAttack && turn.coAttackRoll != null)
               );
-              
+
               // Get the appropriate attacker (co-attacker for Pomegranate, main attacker otherwise)
               const activeAttackerId = isPomCoAttack ? effectivePomCoAttackerId(turn) : turn.attackerId;
               const activeAttacker = find(teamA, teamB, activeAttackerId || '');
               const attackerWish = activeAttacker?.wishOfIris;
-              
+
               const baseDelay = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
 
               // Keep the reveal timing consistent without a separate buff overlay.
@@ -4221,7 +4225,7 @@ export default function BattleHUD({
                 }
               }
               if (defRollDoneTimeoutRef.current) clearTimeout(defRollDoneTimeoutRef.current);
-              
+
               // Check if defender has Zeus/Poseidon wish - if so, delay phase advancement until modal animation completes
               const defenderWish = defender?.wishOfIris;
               const baseDelay = isViewer ? 0 : PLAYER_ROLL_RESULT_VIEW_MS;
@@ -4590,6 +4594,45 @@ export default function BattleHUD({
             side={casterSide}
             displayMs={MINION_RESOLVE_DISPLAY_MS}
             onDisplayComplete={onRapidFireDamageCardComplete}
+          />
+        );
+      })()}
+
+      {turn?.phase === PHASE.NEMESIS_WISH_BLESSING_REATTACK && !showResurrecting && (() => {
+        const sourceId = (turn as any).nemesisReattackSourceId ?? turn.defenderId;
+        const targetId = (turn as any).nemesisReattackTargetId ?? turn.attackerId;
+        const source = sourceId ? find(teamA, teamB, sourceId) : undefined;
+        const target = targetId ? find(teamA, teamB, targetId) : undefined;
+        if (!source || !target) return null;
+        const sourceIsTeamA = !!teamA.find((m) => m.characterId === source.characterId);
+        const nemesisSide = sourceIsTeamA ? PANEL_SIDE.RIGHT : PANEL_SIDE.LEFT;
+        const nemesisDamage = Number((turn as any).nemesisReattackDamage) || 1;
+        return (
+          <DamageCard
+            key={`nemesis-reattack-${battle.roundNumber}-${battle.currentTurnIndex}-${source.characterId}-${target.characterId}`}
+            data={{
+              isHit: true,
+              isPower: true,
+              powerName: NEMESIS_RETALIATION,
+              isCrit: false,
+              baseDmg: 1,
+              damage: nemesisDamage,
+              shockBonus: 0,
+              atkRoll: 0,
+              isDodged: false,
+              coAttackHit: false,
+              coAttackDamage: 0,
+              attackerName: source.nicknameEng,
+              attackerTheme: source.theme?.[0] ?? '#8f173b',
+              defenderName: target.nicknameEng,
+              defenderTheme: target.theme?.[0] ?? '#666',
+              variant: DEITY.NEMESIS,
+              accentTheme: '#8f173b',
+            } as any}
+            exiting={false}
+            side={nemesisSide}
+            displayMs={MINION_RESOLVE_DISPLAY_MS}
+            onDisplayComplete={onNemesisReattackComplete}
           />
         );
       })()}

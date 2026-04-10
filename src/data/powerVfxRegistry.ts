@@ -47,6 +47,10 @@ export interface PowerVfxChipProps {
   isVolleyArrowHitDefender?: boolean;
   /** Volley Arrow hit VFX on attacker chip (Rapid Fire holder). */
   isVolleyArrowHitAttacker?: boolean;
+  /** Nemesis Retaliation hit VFX on defender chip (retaliation target). */
+  isNemesisReattackHitDefender?: boolean;
+  /** Nemesis Retaliation hit VFX on attacker chip (Nemesis defender who retaliated). */
+  isNemesisReattackHitAttacker?: boolean;
 }
 
 export interface PowerVfxEntry {
@@ -249,6 +253,21 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     tag: EFFECT_TAGS.ETERNAL_AGONY,
     applyTo: EFFECT_SIDE_LABEL.TARGET,
     props: { isImprecatedPoemCursed: true },
+  },
+  // —— Nemesis ——
+  {
+    id: 'nemesis-reattack-defender',
+    label: 'Nemesis Retaliation hit (defender)',
+    side: EFFECT_SIDE_LABEL.TARGET,
+    group: DEITY.NEMESIS,
+    props: { isNemesisReattackHitDefender: true },
+  },
+  {
+    id: 'nemesis-reattack-attacker',
+    label: 'Nemesis Retaliation hit (attacker)',
+    side: EFFECT_SIDE_LABEL.CASTER,
+    group: DEITY.NEMESIS,
+    props: { isNemesisReattackHitAttacker: true },
   },
   // —— Hades ——
   {

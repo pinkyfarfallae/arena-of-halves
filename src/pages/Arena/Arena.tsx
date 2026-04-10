@@ -55,6 +55,7 @@ import {
   selectTargetDisoriented,
   advanceAfterFloralHealSkippedAck,
   advanceAfterSoulDevourerHealSkippedAck,
+  advanceAfterNemesisReattack,
   advanceAfterPomegranateCoSkippedAck,
   advanceAfterRapidFireSkippedAck,
   advanceAfterSpringHealSkippedAck,
@@ -198,6 +199,8 @@ function Arena(props?: ArenaDemoProps) {
   const [volleyArrowDefenderPos, setVolleyArrowDefenderPos] = useState<{ x: number; y: number } | null>(null);
   const casterFrameRef = useRef<HTMLDivElement | null>(null);
   const defenderFrameRef = useRef<HTMLDivElement | null>(null);
+  /** Nemesis Retaliation: VFX from defender (Nemesis wish holder) back to attacker */
+  const [nemesisReattackActive, setNemesisReattackActive] = useState(false);
   const [minionPulseMap, setMinionPulseMap] = useState<Record<string, number>>({});
   const minionPulseCounterRef = useRef(0);
 
@@ -436,6 +439,19 @@ function Arena(props?: ArenaDemoProps) {
       cancelAnimationFrame(id);
     };
   }, [volleyArrowHitActive]);
+
+  // Nemesis Retaliation: show VFX when phase is NEMESIS_WISH_BLESSING_REATTACK
+  useEffect(() => {
+    if (turn?.phase === PHASE.NEMESIS_WISH_BLESSING_REATTACK) {
+      setNemesisReattackActive(true);
+      const t = setTimeout(() => {
+        setNemesisReattackActive(false);
+      }, 1850); /* similar duration to volley arrow */
+      return () => clearTimeout(t);
+    }
+    setNemesisReattackActive(false);
+    return undefined;
+  }, [turn?.phase]);
 
   /* ── Handlers (must be before any early return for rules-of-hooks) ── */
   const handleStartBattle = useCallback(async () => {
@@ -1003,6 +1019,11 @@ function Arena(props?: ArenaDemoProps) {
     await advanceAfterRapidFireSkippedAck(arenaId);
   }, [arenaId]);
 
+  const handleNemesisReattackComplete = useCallback(async () => {
+    if (!arenaId) return;
+    await advanceAfterNemesisReattack(arenaId);
+  }, [arenaId]);
+
   const handleSpringHealSkippedAck = useCallback(async () => {
     if (arenaId) await advanceAfterSpringHealSkippedAck(arenaId);
   }, [arenaId]);
@@ -1113,6 +1134,8 @@ function Arena(props?: ArenaDemoProps) {
   const battleHudMyId = playAllNonHostViewer ? undefined : battleUiMyId;
   /** Don't show volley-arrow hit VFX on chips after extra-shot chain ends (RESOLVING_AFTER_RAPID_FIRE) so previous attacker doesn't keep golden pulse. */
   const showVolleyArrowChipVfx = !!volleyArrowHitActive && battle?.turn?.phase !== PHASE.RESOLVING_AFTER_RAPID_FIRE;
+  /** Nemesis reattack VFX: show on chips when phase is NEMESIS_WISH_BLESSING_REATTACK */
+  const showNemesisReattackChipVfx = !!nemesisReattackActive;
   const isBattling = (effectiveRoom?.status === ROOM_STATUS.BATTLING || effectiveRoom?.status === ROOM_STATUS.FINISHED);
 
   /**
@@ -1549,6 +1572,7 @@ function Arena(props?: ArenaDemoProps) {
               volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
               volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
               pomegranateCoResolveActive={pomegranateCoResolveActive}
+              nemesisReattackActive={showNemesisReattackChipVfx}
             />
             <SeasonalEffects season={effectiveSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!effectiveSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
           </div>
@@ -1586,6 +1610,7 @@ function Arena(props?: ArenaDemoProps) {
                 volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
                 volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
                 pomegranateCoResolveActive={pomegranateCoResolveActive}
+                nemesisReattackActive={showNemesisReattackChipVfx}
               />
             ) : (
               <div className="arena__empty-slot">
@@ -1726,6 +1751,7 @@ function Arena(props?: ArenaDemoProps) {
             volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
             volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
             pomegranateCoResolveActive={pomegranateCoResolveActive}
+            nemesisReattackActive={showNemesisReattackChipVfx}
           />
           {/* Seasonal effects overlay (left side) */}
           <SeasonalEffects season={activeSeason ?? undefined} side={PANEL_SIDE.LEFT} isActive={!!activeSeason && effectiveRoom.status !== ROOM_STATUS.FINISHED} />
@@ -1768,6 +1794,7 @@ function Arena(props?: ArenaDemoProps) {
               volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
               volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
               pomegranateCoResolveActive={pomegranateCoResolveActive}
+              nemesisReattackActive={showNemesisReattackChipVfx}
             />
           ) : (
             <div className="arena__empty-slot">
@@ -1889,6 +1916,7 @@ function Arena(props?: ArenaDemoProps) {
               setVolleyArrowHitActive(false);
               if (arenaId) advanceToNextRapidFireStep(arenaId);
             }}
+            onNemesisReattackComplete={handleNemesisReattackComplete}
             onResolve={handleResolveTurn}
             isPlaybackDriver={isPlaybackDriver}
             isViewer={role === ARENA_ROLE.VIEWER || playAllNonHostViewer}
