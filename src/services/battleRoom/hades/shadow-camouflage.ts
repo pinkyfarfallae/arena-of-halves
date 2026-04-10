@@ -3,6 +3,7 @@ import type { ActiveEffect } from '../../../types/power';
 import type { BattleRoom, FighterState } from '../../../types/battle';
 import { MOD_STAT } from '../../../constants/effectTypes';
 import { PHASE, BATTLE_TEAM, ARENA_PATH, ROOM_STATUS } from '../../../constants/battle';
+import { nikeAwardedAfterWinTheFight } from '../../irisWish/applyWishesEffect';
 
 /**
  * True if the fighter has Shadow Camouflage (immune to single-target actions; only area attacks can target them).
@@ -65,6 +66,7 @@ export async function advanceAfterShadowCamouflageD4(
   if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -78,6 +80,7 @@ export async function advanceAfterShadowCamouflageD4(
   if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam: turn.attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {

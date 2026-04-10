@@ -6,6 +6,7 @@ import { PHASE, ARENA_PATH, BATTLE_TEAM, ROOM_STATUS } from '../../../constants/
 import { SEASON_KEYS, type SeasonKey } from '../../../data/seasons';
 import { MOD_STAT } from '../../../constants/effectTypes';
 import { getStatModifier, applySeasonEffects, isStunned } from '../../powerEngine/powerEngine';
+import { nikeAwardedAfterWinTheFight } from '../../irisWish/applyWishesEffect';
 
 /** Store selected season (triggers visual FX on client before calling confirmSeason). */
 export async function selectSeason(
@@ -207,6 +208,7 @@ export async function confirmSeason(
   if (isTeamEliminated(teamBMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamAMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
@@ -221,6 +223,7 @@ export async function confirmSeason(
   if (isTeamEliminated(teamAMembers, latestEffects)) {
     updates[ARENA_PATH.BATTLE_TURN] = { attackerId, attackerTeam, phase: PHASE.DONE };
     updates[ARENA_PATH.BATTLE_WINNER_DELAYED_AT] = Date.now();
+    nikeAwardedAfterWinTheFight(teamBMembers);
     await update(roomRef(arenaId), updates);
     setTimeout(() => {
       update(roomRef(arenaId), {
