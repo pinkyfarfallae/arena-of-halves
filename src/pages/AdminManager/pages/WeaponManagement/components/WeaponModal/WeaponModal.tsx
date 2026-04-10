@@ -45,13 +45,13 @@ const WeaponModal: React.FC<Props> = (props) => {
     if (mode === USER_MANAGEMENT_MODE.EDIT && item) {
       return item.itemId;
     }
-    return formData.labelEng
+    return "weapon_" + (formData.labelEng
       .toLowerCase()
       .replace(/\n/g, '')
       .trim()
       .replace(/['’]/g, '')     // remove apostrophes
       .replace(/[^\w\s]/g, '')  // remove other special chars
-      .replace(/\s+/g, '_');
+      .replace(/\s+/g, '_')); // replace spaces with underscores
   }, [mode, formData.labelEng]);
 
   const isWeapon = useMemo(() => {
