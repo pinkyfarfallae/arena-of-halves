@@ -1,0 +1,257 @@
+@use '../../../../styles/variables' as *;
+
+.eq-management {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+
+  @media (max-width: $bp-medium) {
+    padding: 1rem;
+  }
+}
+
+.eq-management__header {
+  margin-bottom: 2rem;
+}
+
+.eq-management__title {
+  margin-bottom: 1.5rem;
+
+  h2 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0 0 0.5rem;
+  }
+
+  p {
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+  }
+}
+
+.eq-management__actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+
+  @media (max-width: $bp-mobile) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.eq-management__search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+
+  svg {
+    color: #999;
+    flex-shrink: 0;
+  }
+
+  input {
+    border: none;
+    background: none;
+    flex: 1;
+    font-size: 0.9rem;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.eq-management__create-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #ff8811;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background: #e67810;
+  }
+}
+
+.eq-management__content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.eq-management__loading {
+  padding: 3rem;
+  text-align: center;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  color: #666;
+}
+
+.eq-management__empty {
+  padding: 3rem;
+  text-align: center;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  color: #999;
+  font-style: italic;
+}
+
+// Equipment-specific table styles
+.eq__name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.eq__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  span {
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+}
+
+.eq__name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.eq__name-eng {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.eq__name-thai {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.eq__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.eq__category {
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &--weapon {
+    background: rgba(231, 76, 60, 0.1);
+    color: #c0392b;
+  }
+
+  &--armor {
+    background: rgba(52, 152, 219, 0.1);
+    color: #2980b9;
+  }
+
+  &--shield {
+    background: rgba(155, 89, 182, 0.1);
+    color: #8e44ad;
+  }
+
+  &--boots {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+  }
+}
+
+.eq__character {
+  font-size: 0.85rem;
+  color: #666;
+  font-family: monospace;
+}
+
+.eq__description {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.eq__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.eq__action-btn {
+  padding: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--assign {
+    color: #27ae60;
+
+    &:hover {
+      background: rgba(46, 204, 113, 0.1);
+    }
+  }
+
+  &--edit {
+    color: #3498db;
+
+    &:hover {
+      background: rgba(52, 152, 219, 0.1);
+    }
+  }
+
+  &--delete {
+    color: #e74c3c;
+
+    &:hover {
+      background: rgba(231, 76, 60, 0.1);
+    }
+  }
+}

@@ -62,7 +62,6 @@ export function useBag(userId: string | undefined) {
 
   // Separate items and weapons
   const items = bagEntries.filter((entry) => entry.type === BAG_ITEM_TYPES.ITEM);
-  const weapons = bagEntries.filter((entry) => entry.type === BAG_ITEM_TYPES.WEAPON);
 
   /**
    * Add or update an item in the bag
@@ -164,7 +163,6 @@ export function useBag(userId: string | undefined) {
     bagData,      // Raw Firestore data
     bagEntries,   // Array format with all items
     items,        // Array of items only
-    weapons,      // Array of weapons only
     
     // State
     loading,

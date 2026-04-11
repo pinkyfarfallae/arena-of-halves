@@ -3,7 +3,6 @@ export interface ShopItem {
   name: string;
   price: number;
   stock: number | "infinity";
-  category: string;
   description: string;
   imageUrl: string;
 }

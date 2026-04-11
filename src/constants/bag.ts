@@ -1,5 +1,4 @@
 export const BAG_ITEM_TYPES = {
-  WEAPON: 'weapon',
   ITEM: 'item',
 } as const;
 

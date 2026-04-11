@@ -113,15 +113,8 @@ async function craftItem(userId: string) {
     return { success: false, message: consumeResult.error };
   }
 
-  // Give crafted item
-  const giveResult = await giveItem(userId, 'weapon_sword_001', 1, BAG_ITEM_TYPES.WEAPON);
-
-  if (giveResult.success) {
-    return { success: true, message: 'Sword crafted successfully!' };
-  }
-
   // If giving fails, we should refund materials (error recovery)
-  return { success: false, message: giveResult.error };
+  return { success: false, message: consumeResult.error };
 }
 
 /* ═══════════════════════════════════════════════════
@@ -195,7 +188,6 @@ async function grantReward(userId: string, rewardType: string) {
     case 'starter_pack':
       // Give multiple items
       await giveItem(userId, 'item_potion_001', 10, BAG_ITEM_TYPES.ITEM);
-      await giveItem(userId, 'weapon_sword_001', 1, BAG_ITEM_TYPES.WEAPON);
       await giveItem(userId, 'item_bread_001', 5, BAG_ITEM_TYPES.ITEM);
       return { success: true, message: 'Starter pack granted!' };
 

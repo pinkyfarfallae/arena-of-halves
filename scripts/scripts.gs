@@ -20,6 +20,7 @@ var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
 var TRAINING_SHEET_NAME = 'Daily Training Dice';
+var CUSTOM_EQUIPMENT = 'Custom Equipment';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -185,6 +186,18 @@ function doPost(e) {
 
     if (data.action === 'deleteItem') {
       return handleDeleteItem(data.itemId);
+    }
+
+    if (data.action === 'createEquipment') {
+      return handleCreateEquipment(data);
+    }
+
+    if (data.action === 'editEquipment') {
+      return handleEditEquipment(data.itemId, data.fields);
+    }
+
+    if (data.action === 'deleteEquipment') {
+      return handleDeleteEquipment(data.itemId);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -1836,4 +1849,150 @@ function handleDeleteItem(itemId) {
   }
 
   return jsonResponse({ error: 'Item not found: ' + itemId });
+}
+
+/* ══════════════════════════════════════
+   CUSTOM EQUIPMENT MANAGEMENT
+   ══════════════════════════════════════ */
+
+/* ══════════════════════════════════════
+   CREATE CUSTOM EQUIPMENT
+   - Adds a new custom equipment to the Custom Equipment sheet
+   ══════════════════════════════════════ */
+function handleCreateEquipment(params) {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found. Please create it first.' });
+  }
+
+  var itemId = (params.itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  // Check if item already exists
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol !== -1) {
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+        return jsonResponse({ error: 'Equipment with this ID already exists: ' + itemId });
+      }
+    }
+  }
+
+  // Map headers to column indices
+  var colMap = {};
+  headers.forEach(function(h, idx) {
+    colMap[h] = idx;
+  });
+
+  // Prepare row data (match header order)
+  var newRow = [];
+  for (var i = 0; i < headers.length; i++) {
+    newRow.push(''); // Initialize with empty values
+  }
+
+  // Fill in the values
+  if (colMap['itemid'] !== undefined) newRow[colMap['itemid']] = params.itemId || '';
+  if (colMap['label (eng)'] !== undefined) newRow[colMap['label (eng)']] = params.labelEng || '';
+  if (colMap['label (thai)'] !== undefined) newRow[colMap['label (thai)']] = params.labelThai || '';
+  if (colMap['image url'] !== undefined) newRow[colMap['image url']] = params.imageUrl || '';
+  if (colMap['description'] !== undefined) newRow[colMap['description']] = params.description || '';
+  if (colMap['categories'] !== undefined) newRow[colMap['categories']] = params.categories || '';
+  if (colMap['characterid'] !== undefined) newRow[colMap['characterid']] = params.characterId || '';
+  if (colMap['price'] !== undefined) newRow[colMap['price']] = params.price || 0;
+  if (colMap['available'] !== undefined) newRow[colMap['available']] = params.available !== undefined ? params.available : true;
+
+  sheet.appendRow(newRow);
+  return jsonResponse({ success: true, itemId: params.itemId });
+}
+
+/* ══════════════════════════════════════
+   EDIT CUSTOM EQUIPMENT
+   - Updates an existing custom equipment
+   ══════════════════════════════════════ */
+function handleEditEquipment(itemId, fields) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found' });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol === -1) {
+    return jsonResponse({ error: 'itemid column not found' });
+  }
+
+  // Find the equipment row
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+      // Update each field
+      for (var key in fields) {
+        if (fields.hasOwnProperty(key)) {
+          var colIdx = headers.indexOf(key.toLowerCase());
+          if (colIdx !== -1) {
+            var value = fields[key];
+            // Convert string 'true'/'false' to boolean for available field
+            if (key.toLowerCase() === 'available' && typeof value === 'string') {
+              value = value === 'true' || value === true;
+            }
+            sheet.getRange(i + 1, colIdx + 1).setValue(value);
+          }
+        }
+      }
+      return jsonResponse({ success: true, itemId: itemId });
+    }
+  }
+
+  return jsonResponse({ error: 'Equipment not found: ' + itemId });
+}
+
+/* ══════════════════════════════════════
+   DELETE CUSTOM EQUIPMENT
+   - Removes a custom equipment from the sheet
+   ══════════════════════════════════════ */
+function handleDeleteEquipment(itemId) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found' });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol === -1) {
+    return jsonResponse({ error: 'itemid column not found' });
+  }
+
+  // Find and delete the equipment row
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ success: true, itemId: itemId });
+    }
+  }
+
+  return jsonResponse({ error: 'Equipment not found: ' + itemId });
 }

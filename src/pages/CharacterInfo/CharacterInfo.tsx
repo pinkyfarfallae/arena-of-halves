@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBag } from '../../hooks/useBag';
-import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
+import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
 import { fetchWishes } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
@@ -157,9 +157,9 @@ function CharacterInfo() {
   useEffect(() => {
     if (!char?.characterId || loadingBag) return;
 
-    Promise.all([fetchItemInfo(), fetchWeaponInfo()])
-      .then(([items, weapons]) => {
-        const allInfo = [...items, ...weapons];
+    Promise.all([fetchItemInfo()])
+      .then(([items]) => {
+        const allInfo = [...items];
         const joinedItems = bagEntries
           .filter((b) => b.type === BAG_ITEM_TYPES.ITEM)
           .map((b) => {
@@ -169,7 +169,6 @@ function CharacterInfo() {
           .filter(Boolean) as (ItemInfo & BagEntry)[];
 
         const joinedWeapons = bagEntries
-          .filter((b) => b.type === BAG_ITEM_TYPES.WEAPON)
           .map((b) => {
             const info = allInfo.find((it) => it.itemId === b.itemId);
             return info ? { ...info, ...b } : null;

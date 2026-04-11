@@ -69,7 +69,6 @@ function Shop() {
                 ? i.piece
                 : 0,
           imageUrl: i.imageUrl,
-          category: i.tier || 'Uncategorized',
         }));
 
         setItems(shopItems);
@@ -146,9 +145,8 @@ function Shop() {
       // Add items to bag
       for (const item of cart) {
         // Determine item type from itemId prefix
-        const type = item.itemId.startsWith('weapon_') ? BAG_ITEM_TYPES.WEAPON : BAG_ITEM_TYPES.ITEM;
 
-        const result = await giveItem(user.characterId, item.itemId, item.quantity, type);
+        const result = await giveItem(user.characterId, item.itemId, item.quantity, BAG_ITEM_TYPES.ITEM);
 
         if (!result.success) {
           // console.error(`Failed to add ${item.itemId} to bag:`, result.error);
@@ -175,8 +173,7 @@ function Shop() {
   const filteredItems = useMemo(() => {
     return items.filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase())
+      item.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [items, searchQuery]);
 

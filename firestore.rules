@@ -126,5 +126,56 @@ service cloud.firestore {
       // No direct delete (items removed by setting amount to 0 or removing from map)
       allow delete: if false;
     }
+
+    // Player Equipment (upgrade system)
+    // Document ID: {characterId} (e.g., 'rosabella')
+    // Structure: { 
+    //   weapon?: 'level_1'|'level_2'|'level_3',
+    //   armor?: 'level_1'|'level_2'|'level_3',
+    //   shield?: 'level_1'|'level_2'|'level_3',
+    //   boots?: 'level_1'|'level_2'|'level_3',
+    //   custom?: {
+    //     [itemId]: {
+    //       tier: 'level_1'|'level_2'|'level_3',
+    //       categories: ['weapon', 'armor', ...]
+    //     }
+    //   }
+    // }
+    match /playerEquipment/{userId} {
+      // Allow all authenticated users to read (for viewing other profiles)
+      allow read: if isAuthenticated();
+
+      // Helper to validate equipment tier
+      function isValidTier(tier) {
+        return tier is string && 
+               (tier == 'level_1' || tier == 'level_2' || tier == 'level_3');
+      }
+
+      // Helper to validate equipment category
+      function isValidCategory(category) {
+        return category == 'weapon' || category == 'armor' || 
+               category == 'shield' || category == 'boots';
+      }
+
+      // Helper to validate custom equipment item
+      function isValidCustomItem(item) {
+        return item.keys().hasAll(['tier', 'categories']) &&
+               isValidTier(item.tier) &&
+               item.categories is list &&
+               item.categories.size() > 0;
+      }
+
+      // Allow authenticated users to create/update equipment
+      // Base categories: optional, must be valid tiers if present
+      // Custom equipment: optional map, each item must have tier and categories
+      allow create, update: if isAuthenticated() &&
+                              (!request.resource.data.keys().hasAny(['weapon']) || isValidTier(request.resource.data.weapon)) &&
+                              (!request.resource.data.keys().hasAny(['armor']) || isValidTier(request.resource.data.armor)) &&
+                              (!request.resource.data.keys().hasAny(['shield']) || isValidTier(request.resource.data.shield)) &&
+                              (!request.resource.data.keys().hasAny(['boots']) || isValidTier(request.resource.data.boots));
+
+      // No direct delete
+      allow delete: if false;
+    }
   }
 }

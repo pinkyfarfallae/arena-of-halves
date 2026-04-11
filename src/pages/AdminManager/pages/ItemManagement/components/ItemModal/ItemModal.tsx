@@ -32,7 +32,6 @@ const ItemModal: React.FC<Props> = (props) => {
     labelEng: item?.labelEng || '',
     labelThai: item?.labelThai || '',
     imageUrl: item?.imageUrl || '',
-    tier: item?.tier || '',
     description: item?.description || '',
     price: item?.price || 0,
     piece: item?.piece || 'infinity',
@@ -65,11 +64,6 @@ const ItemModal: React.FC<Props> = (props) => {
       formData.labelThai.trim() &&
       formData.imageUrl.trim()
     );
-
-    // Weapons require tier, items don't
-    if (isWeapon) {
-      return baseValid && formData.tier?.trim();
-    }
     return baseValid;
   }, [itemId, formData, isWeapon]);
 
@@ -84,10 +78,6 @@ const ItemModal: React.FC<Props> = (props) => {
 
       if (mode === USER_MANAGEMENT_MODE.CREATE) {
         const payload = { ...formData, itemId };
-        // Only include tier for weapons
-        if (!isWeapon) {
-          delete payload.tier;
-        }
         success = await createItem(payload);
       } else if (mode === USER_MANAGEMENT_MODE.EDIT) {
         // For edit mode, send only changed fields
@@ -95,7 +85,6 @@ const ItemModal: React.FC<Props> = (props) => {
         if (formData.labelEng !== item?.labelEng) fields.labelEng = formData.labelEng;
         if (formData.labelThai !== item?.labelThai) fields.labelThai = formData.labelThai;
         if (formData.imageUrl !== item?.imageUrl) fields.imageUrl = formData.imageUrl;
-        if (isWeapon && formData.tier !== item?.tier) fields.tier = formData.tier;
         if (formData.description !== item?.description) fields.description = formData.description;
         if (formData.price !== item?.price) fields.price = formData.price.toString();
         if (formData.piece !== item?.piece) fields.piece = formData.piece.toString();
@@ -126,7 +115,6 @@ const ItemModal: React.FC<Props> = (props) => {
       labelEng: '',
       labelThai: '',
       imageUrl: '',
-      tier: '',
       description: '',
       price: 0,
       piece: "infinity",
@@ -188,17 +176,6 @@ const ItemModal: React.FC<Props> = (props) => {
               onChange={(v) => setFormData(f => ({ ...f, imageUrl: v }))}
               required
             />
-
-            {isWeapon && (
-              <Input
-                key="Tier"
-                label="Tier"
-                placeholder="e.g., Common, Rare, Epic"
-                value={formData.tier || ''}
-                onChange={(v) => setFormData(f => ({ ...f, tier: v }))}
-                required
-              />
-            )}
 
             {mode === USER_MANAGEMENT_MODE.CREATE && (
               <>
