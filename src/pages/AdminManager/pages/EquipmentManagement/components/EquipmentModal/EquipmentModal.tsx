@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { CustomEquipmentInfo } from '../../../../../../types/character';
 import {
   createCustomEquipment,
@@ -8,7 +8,7 @@ import {
 } from '../../../../../../data/characters';
 import Close from '../../../../../../icons/Close';
 import './EquipmentModal.scss';
-import { Input, TextArea } from '../../../../../../components/Form';
+import { Dropdown, Input, TextArea } from '../../../../../../components/Form';
 import { USER_MANAGEMENT_MODE } from '../../../../../../constants/userManagement';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CATEGORY_LABELS } from '../../../../../../constants/equipment';
 import { useAuth } from '../../../../../../hooks/useAuth';
@@ -31,7 +31,7 @@ type Props = CreateProps | EditProps;
 
 const EquipmentModal: React.FC<Props> = (props) => {
   const { mode, onClose, onDone } = props;
-  const {user} = useAuth();
+  const { user } = useAuth();
 
   const equipment = mode === USER_MANAGEMENT_MODE.EDIT ? (props as EditProps).equipment : null;
 
@@ -56,7 +56,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
   const [characters, setCharacters] = useState<Array<{ id: string; name: string }>>([]);
 
   // Load characters for the dropdown
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
     fetchAllCharacters(user).then(chars => {
       setCharacters(chars.map(c => ({
@@ -64,10 +64,10 @@ const EquipmentModal: React.FC<Props> = (props) => {
         name: `${c.nicknameEng} (${c.characterId})`
       })));
     });
-  }, []);
+  }, [user]);
 
   // Update categories string when selection changes
-  React.useEffect(() => {
+  useEffect(() => {
     setFormData(f => ({
       ...f,
       categories: Array.from(selectedCategories).join(',')
@@ -93,6 +93,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
       formData.labelEng.trim() &&
       formData.labelThai.trim() &&
       formData.imageUrl.trim() &&
+      formData.characterId?.trim() &&
       selectedCategories.size > 0
     );
   }, [itemId, formData, selectedCategories]);
@@ -163,19 +164,13 @@ const EquipmentModal: React.FC<Props> = (props) => {
   };
 
   return (
-    <div className="equipment-modal__overlay" onClick={handleClose}>
+    <div className="equipment-modal__overlay">
       <div className="equipment-modal" onClick={(e) => e.stopPropagation()}>
         <div className="equipment-modal__header">
           <h3>
-            {mode === USER_MANAGEMENT_MODE.EDIT && 'Edit Custom Equipment'}
-            {mode === USER_MANAGEMENT_MODE.CREATE && 'Create Custom Equipment'}
+            {mode === USER_MANAGEMENT_MODE.EDIT ? <>Edit <b>{equipment?.labelEng}</b></> : 'Create Equipment'}
           </h3>
-          <button
-            className="equipment-modal__close"
-            onClick={handleClose}
-            aria-label="Close"
-            disabled={loading}
-          >
+          <button className="equipment-modal__close" onClick={onClose}>
             <Close width={18} height={18} />
           </button>
         </div>
@@ -188,6 +183,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
               value={formData.labelEng}
               onChange={(v) => setFormData(f => ({ ...f, labelEng: v }))}
               disabled={loading}
+              required
             />
 
             <Input
@@ -196,6 +192,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
               value={formData.labelThai}
               onChange={(v) => setFormData(f => ({ ...f, labelThai: v }))}
               disabled={loading}
+              required
             />
 
             <Input
@@ -204,6 +201,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
               value={formData.imageUrl}
               onChange={(v) => setFormData(f => ({ ...f, imageUrl: v }))}
               disabled={loading}
+              required
             />
 
             <TextArea
@@ -215,43 +213,30 @@ const EquipmentModal: React.FC<Props> = (props) => {
               rows={4}
             />
 
-            <div className="equipment-modal__field">
-              <label className="equipment-modal__label">Equipment Categories *</label>
+            <div className="form__field">
+              <label className="form__label">Equipment Categories <span className="form__required">*</span></label>
               <div className="equipment-modal__categories">
                 {Object.entries(EQUIPMENT_CATEGORIES).map(([key, value]) => (
-                  <label key={value} className="equipment-modal__category">
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.has(value)}
-                      onChange={() => toggleCategory(value)}
-                      disabled={loading}
-                    />
-                    <span>{EQUIPMENT_CATEGORY_LABELS[value]}</span>
-                  </label>
+                  <div 
+                    key={key} 
+                    className={`equipment-modal__category ${value} ${selectedCategories.has(value) ? 'selected' : ''}`}
+                    onClick={() => toggleCategory(value)}
+                    >
+                    {EQUIPMENT_CATEGORY_LABELS[value]}
+                  </div>
                 ))}
               </div>
-              {selectedCategories.size === 0 && (
-                <p className="equipment-modal__hint error">Select at least one category</p>
-              )}
             </div>
 
-            <div className="equipment-modal__field">
-              <label className="equipment-modal__label">Character (Optional)</label>
-              <select
-                className="equipment-modal__select"
-                value={formData.characterId}
-                onChange={(e) => setFormData(f => ({ ...f, characterId: e.target.value }))}
-                disabled={loading}
-              >
-                <option value="">All Characters (Generic)</option>
-                {characters.map(char => (
-                  <option key={char.id} value={char.id}>{char.name}</option>
-                ))}
-              </select>
-              <p className="equipment-modal__hint">
-                Leave empty for generic equipment, or select a character for custom equipment
-              </p>
-            </div>
+            <Dropdown
+              label="Customer"
+              options={characters.map(c => ({ value: c.id, label: c.name }))}
+              value={formData.characterId || ''}
+              onChange={(v) => setFormData(f => ({ ...f, characterId: v }))}
+              placeholder="Select a customer"
+              disabled={loading}
+              required
+            />
 
             <Input
               label="Price (Drachmas)"
@@ -261,39 +246,19 @@ const EquipmentModal: React.FC<Props> = (props) => {
               onChange={(v) => setFormData(f => ({ ...f, price: parseFloat(v) || 0 }))}
               disabled={loading}
             />
-
-            <div className="equipment-modal__field">
-              <label className="equipment-modal__checkbox">
-                <input
-                  type="checkbox"
-                  checked={formData.available}
-                  onChange={(e) => setFormData(f => ({ ...f, available: e.target.checked }))}
-                  disabled={loading}
-                />
-                <span>Available for use</span>
-              </label>
-            </div>
-
-            {mode === USER_MANAGEMENT_MODE.CREATE && (
-              <div className="equipment-modal__preview">
-                <strong>Item ID:</strong> {itemId}
-              </div>
-            )}
-
-            {error && <div className="equipment-modal__error">{error}</div>}
           </div>
         </div>
 
         <div className="equipment-modal__footer">
           <button
-            className="equipment-modal__button equipment-modal__button--secondary"
+            className="equipment-modal__cancel"
             onClick={handleClose}
             disabled={loading}
           >
             Cancel
           </button>
           <button
-            className="equipment-modal__button equipment-modal__button--primary"
+            className="equipment-modal__submit"
             onClick={handleSubmit}
             disabled={!canSubmit || loading}
           >

@@ -172,14 +172,15 @@
   flex-shrink: 0;
 
   img {
-    width: 90%;
-    height: 90%;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
   }
 
   span {
     width: 100%;
     height: 100%;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
