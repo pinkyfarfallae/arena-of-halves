@@ -1,4 +1,16 @@
 import { MOD_STAT } from "./effectTypes";
+import Armor_tier_1 from '../images/starter_equipment/armor_1.png';
+import Armor_tier_2 from '../images/starter_equipment/armor_2.png';
+import Armor_tier_3 from '../images/starter_equipment/armor_3.png';
+import Boots_tier_1 from '../images/starter_equipment/boots_1.png';
+import Boots_tier_2 from '../images/starter_equipment/boots_2.png';
+import Boots_tier_3 from '../images/starter_equipment/boots_3.png';
+import Shield_tier_1 from '../images/starter_equipment/shield_1.png';
+import Shield_tier_2 from '../images/starter_equipment/shield_2.png';
+import Shield_tier_3 from '../images/starter_equipment/shield_3.png';
+import Weapon_tier_1 from '../images/starter_equipment/weapon_1.png';
+import Weapon_tier_2 from '../images/starter_equipment/weapon_2.png';
+import Weapon_tier_3 from '../images/starter_equipment/weapon_3.png';
 
 export const EQUIPMENT_CATEGORIES = {
   WEAPON: 'weapon',
@@ -7,7 +19,10 @@ export const EQUIPMENT_CATEGORIES = {
   BOOTS: 'boots',
 } as const;
 
+export const CUSTOM_EQUIPMENT = 'custom';
+
 export type EquipmentCategory = typeof EQUIPMENT_CATEGORIES[keyof typeof EQUIPMENT_CATEGORIES];
+export type CustomEquipmentCategory = typeof CUSTOM_EQUIPMENT;
 
 export const EQUIPMENT_TIERS = {
   LEVEL_1: 'level_1',
@@ -28,8 +43,6 @@ export interface Equipment {
   name: string;
   category: EquipmentCategory;
   tier: EquipmentTier;
-  baseStats: EquipmentStats;
-  currentStats: EquipmentStats;
   custom?: boolean;
   abilities?: string[];
 }
@@ -125,5 +138,28 @@ export const EQUIPMENT_TIER_EFFECTS = {
     [EQUIPMENT_TIERS.LEVEL_1]: '+2 speed',
     [EQUIPMENT_TIERS.LEVEL_2]: '+3 speed',
     [EQUIPMENT_TIERS.LEVEL_3]: 'Gain 3 rerolls per battle',
+  },
+};
+
+export const EQUIPMENT_IMAGES: Record<EquipmentCategory, Record<EquipmentTier, string>> = {
+  weapon: {
+    level_1: Weapon_tier_1,
+    level_2: Weapon_tier_2,
+    level_3: Weapon_tier_3,
+  },
+  armor: {
+    level_1: Armor_tier_1,
+    level_2: Armor_tier_2,
+    level_3: Armor_tier_3,
+  },
+  shield: {
+    level_1: Shield_tier_1,
+    level_2: Shield_tier_2,
+    level_3: Shield_tier_3,
+  },
+  boots: {
+    level_1: Boots_tier_1,
+    level_2: Boots_tier_2,
+    level_3: Boots_tier_3,
   },
 };

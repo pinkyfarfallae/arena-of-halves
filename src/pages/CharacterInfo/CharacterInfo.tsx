@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBag } from '../../hooks/useBag';
-import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
+import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES, fetchCustomEquipment } from '../../data/characters';
 import { fetchWishes } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
@@ -42,8 +42,11 @@ import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
 import { fetchAllIrisWishes, fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import './CharacterInfo.scss';
-import { Deity, DEITY } from '../../constants/deities';
+import { DEITY } from '../../constants/deities';
 import { Wish } from '../../types/wish';
+import { getEquipmentData, initializeEquipment } from '../../services/equipment/equipmentService';
+import { CUSTOM_EQUIPMENT, Equipment, EQUIPMENT_CATEGORIES, EQUIPMENT_IMAGES, EQUIPMENT_TIERS, EquipmentCategory, EquipmentTier } from '../../constants/equipment';
+import { getNonCustomEquipmentName } from '../../data/equipment';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -79,7 +82,7 @@ function CharacterInfo() {
   const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [bagWeapons, setBagWeapons] = useState<(any & BagEntry)[]>([]);
+  const [bagWeapons, setBagWeapons] = useState<(any & Equipment[])[]>([]);
 
   // Modal open state (setters used by UI; values reserved for future use)
   const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -129,14 +132,66 @@ function CharacterInfo() {
 
     const fetchData = async () => {
       try {
-        const [fetchedWishes, userWishes, wish] = await Promise.all([
+        const [fetchedWishes, userWishes, wish, weapons, customEquipment] = await Promise.all([
           fetchWishes().catch(() => WISHES_FALLBACK),
           fetchWishesFromCharacter(char.characterId).catch(() => []),
           fetchTodayIrisWish(char.characterId).catch(() => null),
+          getEquipmentData(char.characterId).catch(() => []),
+          fetchCustomEquipment().catch(() => []),
         ]);
 
         setWishesData(fetchedWishes);
         setWishes(userWishes);
+
+        if (weapons) {
+          const weaponData = Object.entries(weapons).flatMap(([key, value]) => {
+            if (key === CUSTOM_EQUIPMENT && value && typeof value === 'object') {
+              return Object.entries(value).map(([customKey, each]: [string, any]) => {
+                const imageUrl = customEquipment.find(ce => ce.itemId === customKey)?.imageUrl || '';
+                const name = customEquipment.find(ce => ce.itemId === customKey)?.labelEng || customKey;
+                return {
+                  id: customKey,
+                  name: name,
+                  category: each.categories || [],
+                  tier: each.tier.split('_')[1] || '1',
+                  custom: true,
+                  imageUrl: imageUrl,
+                }
+              });
+            } else {
+              const catagory = key as EquipmentCategory;
+              const tier = value as EquipmentTier;
+              const imageUrl = EQUIPMENT_IMAGES[catagory][tier] || '';
+
+              return {
+                id: key,
+                name: getNonCustomEquipmentName(catagory, tier),
+                category: catagory,
+                tier: value.split('_')[1] || '1',
+                custom: false,
+                imageUrl: imageUrl,
+              };
+            }
+          });
+          setBagWeapons(weaponData);
+        } else {
+          initializeEquipment(char.characterId);
+          const initialEquipment: Record<EquipmentCategory, EquipmentTier> = {
+            [EQUIPMENT_CATEGORIES.WEAPON]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.ARMOR]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.SHIELD]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.BOOTS]: EQUIPMENT_TIERS.LEVEL_1,
+          };
+          const weaponData = Object.entries(initialEquipment).map(([key, value]) => ({
+            id: key,
+            name: getNonCustomEquipmentName(key as EquipmentCategory, value as EquipmentTier),
+            category: key as EquipmentCategory,
+            tier: '1',
+            custom: false,
+            imageUrl: '',
+          }));
+          setBagWeapons(weaponData);
+        }
 
         const matchedWish = wish
           ? { deity: wish.deity, count: 1 }
@@ -168,19 +223,10 @@ function CharacterInfo() {
           })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
 
-        const joinedWeapons = bagEntries
-          .map((b) => {
-            const info = allInfo.find((it) => it.itemId === b.itemId);
-            return info ? { ...info, ...b } : null;
-          })
-          .filter(Boolean) as (ItemInfo & BagEntry)[];
-
         setBagItems(joinedItems);
-        setBagWeapons(joinedWeapons);
       })
       .catch(() => {
         setBagItems([]);
-        setBagWeapons([]);
       });
   }, [char?.characterId, bagEntries, loadingBag]);
 
@@ -190,15 +236,56 @@ function CharacterInfo() {
 
   const SLOT_MIN = 12;
 
-  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = useMemo(() => {
-    const slots = bagWeapons.map((w) => ({
-      name: w.labelEng,
-      quantity: w.amount,
-      imageUrl: w.imageUrl || undefined,
-      tier: w.tier || undefined,
-    }));
-    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined, tier: undefined });
-    return slots;
+  const weaponSlots = useMemo(() => {
+    const filledSlots = bagWeapons
+      .slice(0, SLOT_MIN)
+      .map((w) => {
+        return {
+          name: w.name,
+          quantity: 1,
+          category: w.category,
+          imageUrl: w.imageUrl,
+          tier: w.tier,
+          custom: w.custom,
+        }
+      })
+      // Sort by weapon - armor-shield-boots, then custom, then sort each category by tier descending
+      .sort((a, b) => {
+        const getCategory = (w: any) =>
+          Array.isArray(w.category) ? w.category[0] : w.category;
+
+        const categoryOrderMap: Record<string, number> = {
+          weapon: 1,
+          armor: 2,
+          shield: 3,
+          boots: 4,
+        };
+
+        if (a.custom !== b.custom) {
+          return a.custom ? 1 : -1;
+        }
+
+        const catA = categoryOrderMap[getCategory(a)] || 99;
+        const catB = categoryOrderMap[getCategory(b)] || 99;
+        if (catA !== catB) return catA - catB;
+
+        const tierA = parseInt(a.tier || '0', 10);
+        const tierB = parseInt(b.tier || '0', 10);
+
+        return tierB - tierA;
+      });
+
+    const emptySlots = Array.from(
+      { length: Math.max(0, SLOT_MIN - filledSlots.length) },
+      () => ({
+        name: '',
+        quantity: 0,
+        imageUrl: undefined,
+        tier: undefined,
+      })
+    );
+
+    return [...filledSlots, ...emptySlots];
   }, [bagWeapons]);
 
   const itemSlots: { name: string; quantity: number; imageUrl?: string; }[] = useMemo(() => {
@@ -394,7 +481,7 @@ function CharacterInfo() {
               </div>
               <div className="cs__slots">
                 {weaponSlots.map((w, i) => (
-                  <Slot key={`w${i}`} name={w.name || undefined} icon="⚔" quantity={w.quantity} imageUrl={w.imageUrl} tier={w.tier} />
+                  <Slot key={`w${i}`} name={w.name || undefined} icon="⚔" quantity={w.quantity} imageUrl={w.imageUrl} tier={w.tier} hideAmount />
                 ))}
               </div>
               <button className="cs__slots-more" onClick={() => setWeaponModal(true)}>

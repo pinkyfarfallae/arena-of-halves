@@ -1,7 +1,7 @@
 import './Slot.scss';
 
-export default function Slot({ name, icon, quantity, imageUrl, tier }: {
-  name?: string; icon: string; quantity?: number; imageUrl?: string; tier?: string;
+export default function Slot({ name, icon, quantity, imageUrl, tier, hideAmount = false }: {
+  name?: string; icon: string; quantity?: number; imageUrl?: string; tier?: string; hideAmount?: boolean;
 }) {
   const tierCls = tier ? `wslot--${tier.toLowerCase()}` : '';
   return (
@@ -12,7 +12,7 @@ export default function Slot({ name, icon, quantity, imageUrl, tier }: {
         ) : (
           <span className="wslot__icon">{name ? icon : '+'}</span>
         )}
-        {quantity != null && quantity > 0 && <span className="wslot__qty">{quantity}</span>}
+        {quantity != null && quantity > 0 && !hideAmount && <span className="wslot__qty">{quantity}</span>}
         {name && tier && <span className="wslot__tier">{tier}</span>}
       </div>
       <span className="wslot__name">{name || 'Empty'}</span>

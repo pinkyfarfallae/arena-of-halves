@@ -187,11 +187,20 @@ export const addCustomEquipment = async (
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_EQUIPMENT, characterId);
     const docSnap = await getDoc(docRef);
 
-    if (!docSnap.exists()) {
-      return { success: false, message: 'Player equipment not found. Initialize first.' };
-    }
+    let equipment: PlayerEquipmentData;
 
-    const equipment = docSnap.data() as PlayerEquipmentData;
+    if (!docSnap.exists()) {
+      // Auto-initialize equipment if it doesn't exist
+      equipment = {
+        [EQUIPMENT_CATEGORIES.WEAPON]: EQUIPMENT_TIERS.LEVEL_1,
+        [EQUIPMENT_CATEGORIES.ARMOR]: EQUIPMENT_TIERS.LEVEL_1,
+        [EQUIPMENT_CATEGORIES.SHIELD]: EQUIPMENT_TIERS.LEVEL_1,
+        [EQUIPMENT_CATEGORIES.BOOTS]: EQUIPMENT_TIERS.LEVEL_1,
+      };
+      await setDoc(docRef, equipment);
+    } else {
+      equipment = docSnap.data() as PlayerEquipmentData;
+    }
 
     // Check if player has all required categories at Level 3
     const missingCategories = categories.filter(cat => {
@@ -318,4 +327,5 @@ export const getPlayerCustomEquipment = async (
     return {};
   }
 };
+
 

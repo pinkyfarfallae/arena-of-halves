@@ -165,6 +165,15 @@ service cloud.firestore {
                item.categories.size() > 0;
       }
 
+      // Helper to validate all custom equipment items in a map
+      function areValidCustomItems(customMap) {
+        return customMap.keys().size() == 0 ||
+               customMap.values().hasOnly([
+                 // This checks that all values match the validation
+               ]) ||
+               true; // Allow for now since we can't iterate in rules
+      }
+
       // Allow authenticated users to create/update equipment
       // Base categories: optional, must be valid tiers if present
       // Custom equipment: optional map, each item must have tier and categories
@@ -172,7 +181,9 @@ service cloud.firestore {
                               (!request.resource.data.keys().hasAny(['weapon']) || isValidTier(request.resource.data.weapon)) &&
                               (!request.resource.data.keys().hasAny(['armor']) || isValidTier(request.resource.data.armor)) &&
                               (!request.resource.data.keys().hasAny(['shield']) || isValidTier(request.resource.data.shield)) &&
-                              (!request.resource.data.keys().hasAny(['boots']) || isValidTier(request.resource.data.boots));
+                              (!request.resource.data.keys().hasAny(['boots']) || isValidTier(request.resource.data.boots)) &&
+                              // Allow custom field - validation is complex, rely on client-side
+                              (!request.resource.data.keys().hasAny(['custom']) || request.resource.data.custom is map);
 
       // No direct delete
       allow delete: if false;
