@@ -23,8 +23,13 @@
 .sidebar__avatar {
   width: 38px;
   height: 38px;
+  min-height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ci-primary, #c0a062), var(--ci-primary-dark, color-mix(in srgb, var(--ci-primary, #c0a062) 60%, var(--ci-dark, #000))));
+  background: linear-gradient(135deg,
+      var(--ci-primary, #c0a062),
+      var(--ci-primary-dark,
+        color-mix(in srgb, var(--ci-primary, #c0a062) 60%,
+          var(--ci-dark, #000))));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -143,6 +148,7 @@
 }
 
 @media (max-width: $bp-medium) {
+
   /* Hide desktop sidebar */
   .sidebar {
     display: none;
@@ -320,6 +326,7 @@
     0 0 0 1px color-mix(in srgb, var(--ci-primary) 8%, transparent);
   backdrop-filter: blur(12px);
   padding: 1rem 1.5rem;
+
   @media (max-width: $bp-medium) {
     left: 0;
     width: 100vw;
