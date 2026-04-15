@@ -204,7 +204,7 @@ function Shop() {
 
         {/* Drachma balance */}
         <div className="shop__bar-balance">
-          <Drachma className="drachma--bar" />
+          <Drachma className="drachma--shop" />
           <span className="shop__bar-amount">{user?.currency?.toLocaleString() ?? '0'}</span>
           <span className="shop__bar-unit">{t(T.DRACHMA).toLowerCase()}</span>
         </div>
@@ -212,7 +212,7 @@ function Shop() {
         {/* 30% Discount Ticket */}
         {discountTicket && (
           <div className="shop__bar-discount">
-            <Ticket className="drachma--bar" />
+            <Ticket className="drachma--shop" />
             <span className="shop__bar-amount">{discountTicket}</span>
             <span className="shop__bar-unit">Discount Ticket</span>
           </div>

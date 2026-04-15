@@ -136,8 +136,8 @@ $ink-faint: #a08a74;
   margin-left: 0;
 }
 
-.drachma--bar {
-  color: $accent;
+.drachma--shop {
+  color: $accent !important;
   margin-right: 3px;
 }
 
@@ -145,11 +145,10 @@ $ink-faint: #a08a74;
 .drachma {
   width: 1em;
   height: 1em;
-  color: $accent;
   flex-shrink: 0;
   vertical-align: -0.1em;
 
-  &--bar {
+  &--shop {
     width: 14px;
     height: 14px;
   }
