@@ -8,11 +8,9 @@ import Plus from '../../../../icons/Plus';
 import Search from '../../../../icons/Search';
 import Trash from '../../../../icons/Trash';
 import EquipmentModal from './components/EquipmentModal/EquipmentModal';
-import AssignEquipmentModal from './components/AssignEquipmentModal/AssignEquipmentModal';
 import { USER_MANAGEMENT_MODE } from '../../../../constants/userManagement';
-import { Input } from '../../../../components/Form';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
-import { EQUIPMENT_CATEGORY_LABELS, EquipmentCategoryLabel } from '../../../../constants/equipment';
+import { EQUIPMENT_CATEGORY_LABELS } from '../../../../constants/equipment';
 import { useAuth } from '../../../../hooks/useAuth';
 import './EquipmentManagement.scss';
 import Drachma from '../../../../icons/Drachma';
@@ -31,9 +29,6 @@ export default function EquipmentManagement() {
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [equipmentToDelete, setEquipmentToDelete] = useState<CustomEquipmentInfo | null>(null);
-
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [equipmentToAssign, setEquipmentToAssign] = useState<CustomEquipmentInfo | null>(null);
 
   useEffect(() => {
     loadEquipment();
@@ -101,29 +96,9 @@ export default function EquipmentManagement() {
     }
   };
 
-  const handleCreate = () => {
-    setSelectedEquipment(null);
-    setShowModal(true);
-  };
-
   const handleModalClose = () => {
     setShowModal(false);
     setSelectedEquipment(null);
-  };
-
-  const handleAssign = (item: CustomEquipmentInfo) => {
-    setEquipmentToAssign(item);
-    setShowAssignModal(true);
-  };
-
-  const handleAssignClose = () => {
-    setShowAssignModal(false);
-    setEquipmentToAssign(null);
-  };
-
-  const handleAssignDone = () => {
-    // Reload equipment if needed
-    loadEquipment();
   };
 
   const columns = useMemo<Column<CustomEquipmentInfo>[]>(() => [
@@ -257,14 +232,6 @@ export default function EquipmentManagement() {
             setShowConfirmDelete(false);
             setEquipmentToDelete(null);
           }}
-        />
-      )}
-
-      {showAssignModal && equipmentToAssign && (
-        <AssignEquipmentModal
-          equipment={equipmentToAssign}
-          onClose={handleAssignClose}
-          onDone={handleAssignDone}
         />
       )}
     </div>
