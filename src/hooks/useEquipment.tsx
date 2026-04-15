@@ -111,7 +111,7 @@ export function useEquipment() {
 
       return result;
     } catch (err) {
-      console.error('Error upgrading equipment:', err);
+      // console.error('Error upgrading equipment:', err);
       return { success: false, message: 'An error occurred during upgrade' };
     }
   };

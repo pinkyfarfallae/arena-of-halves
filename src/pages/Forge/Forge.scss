@@ -657,7 +657,7 @@
 
   text-shadow: 0 0 4px rgba(255, 180, 80, 0.6);
   white-space: nowrap;
-  
+
 
   transition: all 0.2s ease;
 
@@ -748,4 +748,52 @@
 .forge__action-button-icon {
   color: #ffd27a !important;
   filter: drop-shadow(0 0 4px rgba(255, 180, 80, 0.8));
+}
+
+/* ── Floating embers (12 particles) ── */
+.forge__embers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.forge__ember {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  animation: rise linear infinite;
+
+  @for $i from 1 through 24 {
+    &:nth-child(#{$i}) {
+      $size: 2px + random(4) * 1px;
+      width: $size;
+      height: $size;
+      left: 15% + random(70) * 1%;
+      bottom: random(10) * 1%;
+      background: nth(
+        (#ff8c32 #ffad42 #ff6a1a #ffc857 #ff5e2b #ffad42 #ff8c32 #ffc857 #ff6a1a #ff5e2b #ffad42 #ff8c32 #ff8c32 #ffad42 #ff6a1a #ffc857 #ff5e2b #ffad42 #ff8c32 #ffc857 #ff6a1a #ff5e2b #ffad42 #ff8c32),
+        $i
+      );
+      box-shadow: 0 0 #{3 + random(4)}px currentColor;
+      animation-duration: #{3 + random(4)}s;
+      animation-delay: #{random(40) / 10}s;
+    }
+  }
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70vh) translateX(#{-20 + random(40)}px) scale(0.2);
+  }
 }

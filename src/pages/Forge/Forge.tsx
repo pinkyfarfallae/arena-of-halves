@@ -51,9 +51,10 @@ import Ticket from '../../icons/Ticket';
 import { T } from '../../constants/translationKeys';
 import { GuaranteedUpgradeModal } from './components/GuaranteedUpgradeModal/GuaranteedUpgradeModal';
 import StandardUpgradeModal from './components/StandardUpgradeModal/StandardUpgradeModal';
+import { consumeItem } from '../../services/bag/bagService';
 
 function Forge() {
-  const { user, updateUser, refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { t } = useTranslation();
   const { width } = useScreenSize();
   const { bagEntries } = useBag(user?.characterId || '');
@@ -63,20 +64,11 @@ function Forge() {
   const [starterEquipment, setStarterEquipment] = useState<(any & Equipment)[]>([]);
   const [focusedEquipment, setFocusedEquipment] = useState<any & Equipment | null>(null);
 
-  const [userDrachma, setUserDrachma] = useState(0);
-
   const [loading, setLoading] = useState(true);
   const [receivingNew, setReceivingNew] = useState(false);
 
   const [upgradingMode, setUpgradingMode] = useState<UpgradeType | null>(null);
-  const [upgradingItem, setUpgradingItem] = useState<Equipment | null>(null);
 
-  const [upgradingCustom, setUpgradingCustom] = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<EquipmentCategory | null>(null);
-  const [selectedCustomItem, setSelectedCustomItem] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showCustomInfo, setShowCustomInfo] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -200,11 +192,8 @@ function Forge() {
         setPendingDeliveryEquipments(prev => prev.filter(item => item.itemId !== equipment.itemId));
         setFocusedEquipment(newItem);
         refreshUser();
-      } else {
-        setMessage({ type: 'error', text: 'Failed to assign equipment' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'An error occurred while assigning equipment' });
       console.error(err);
     } finally {
       setReceivingNew(false);
@@ -215,119 +204,62 @@ function Forge() {
     setUpgradingMode(type);
   };
 
-  const handleConfirmUpgrade = async (item: any & Equipment) => {
-    const selectedCategory = item.category;
+  const handleConfirmUpgrade = async (equipmentToUpgrade: Equipment, ticketsUsed: number = 0) => {
+    if (!equipmentToUpgrade || !user || equipment.length === 0 || !auth.currentUser) return;
 
-    if (!selectedCategory || !user || !equipment || !auth.currentUser) return;
+    const currentTier = () => {
+      switch (equipmentToUpgrade.tier) {
+        case '1' as EquipmentTier:
+          return EQUIPMENT_TIERS.LEVEL_1;
+        case '2' as EquipmentTier:
+          return EQUIPMENT_TIERS.LEVEL_2;
+        default:
+          return EQUIPMENT_TIERS.LEVEL_3;
+      }
+    };
+    const cost = getUpgradeCost(currentTier() as EquipmentTier);
 
-    const currentTier = equipment[selectedCategory];
-    const cost = getUpgradeCost(currentTier);
-
-    if (user.currency < cost) {
-      setMessage({ type: 'error', text: `Insufficient funds. Need ${cost} drachmas` });
-      setShowConfirm(false);
-      setTimeout(() => setMessage(null), 3000);
-      return;
-    }
-
-    setUpgradingItem(selectedCategory);
-    setShowConfirm(false);
-
-    const equipmentToUpgrade = { [selectedCategory]: currentTier } as any & Equipment;
+    const formattedEquipmentToUpgrade = { [equipmentToUpgrade.category]: currentTier() } as any & Equipment;
 
     try {
+      // Consume tickets if any are being used
+      if (ticketsUsed > 0) {
+        const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed);
+        if (!ticketResult.success) {
+          setUpgradingMode(null);
+          return;
+        }
+      }
+
       // Update equipment in Firestore
-      const result = await upgradeEquipment(user.characterId, selectedCategory, equipmentToUpgrade);
+      const result = await upgradeEquipment(user.characterId, equipmentToUpgrade.category, formattedEquipmentToUpgrade);
 
       if (result.success && result.newTier) {
         // Deduct currency from Google Sheets
         const currencyResult = await updateCharacterDrachma(user.characterId, -cost);
 
         if (currencyResult.success) {
-          setMessage({ type: 'success', text: result.message });
+          // Update local equipment state - update the specific item in the array
+          setEquipment(prev => prev.map(item =>
+            item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
+              ? { ...item, tier: result.newTier?.split('_')[1] || item.tier }
+              : item
+          ));
 
-          // Update local equipment state
-          setEquipment({
-            ...equipment,
-            [selectedCategory]: result.newTier,
-          });
+          setStarterEquipment(prev => prev.map(item =>
+            item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
+              ? { ...item, tier: result.newTier?.split('_')[1] || item.tier }
+              : item
+          ));
 
           // Refresh character data to get updated currency
           await refreshUser();
-        } else {
-          setMessage({ type: 'error', text: 'Equipment upgraded but failed to deduct currency' });
         }
-      } else {
-        setMessage({ type: 'error', text: result.message });
       }
     } catch (error) {
       console.error('Error during upgrade:', error);
-      setMessage({ type: 'error', text: 'An error occurred during upgrade' });
     }
-
-    setUpgradingItem(null);
-    setTimeout(() => setMessage(null), 3000);
   };
-
-  const handleCustomUpgradeClick = (itemId: string) => {
-    setSelectedCustomItem(itemId);
-    setShowConfirm(true);
-  };
-
-  // const handleConfirmCustomUpgrade = async () => {
-  //   if (!selectedCustomItem || !user || !equipment || !auth.currentUser) return;
-
-  //   const customItem = equipment.custom?.[selectedCustomItem];
-  //   if (!customItem) return;
-
-  //   const cost = getUpgradeCost(customItem.tier);
-
-  //   if (user.currency < cost) {
-  //     setMessage({ type: 'error', text: `Insufficient funds. Need ${cost} drachmas` });
-  //     setShowConfirm(false);
-  //     setTimeout(() => setMessage(null), 3000);
-  //     return;
-  //   }
-
-  //   setUpgradingCustom(selectedCustomItem);
-  //   setShowConfirm(false);
-
-  //   try {
-  //     const result = await upgradeCustomEquipment(user.characterId, selectedCustomItem);
-
-  //     if (result.success && result.newTier) {
-  //       const currencyResult = await updateCharacterDrachma(user.characterId, -cost);
-
-  //       if (currencyResult.success) {
-  //         setMessage({ type: 'success', text: result.message });
-
-  //         // Update local equipment state
-  //         setEquipment({
-  //           ...equipment,
-  //           custom: {
-  //             ...equipment.custom,
-  //             [selectedCustomItem]: {
-  //               ...customItem,
-  //               tier: result.newTier,
-  //             },
-  //           },
-  //         });
-
-  //         await refreshUser();
-  //       } else {
-  //         setMessage({ type: 'error', text: 'Equipment upgraded but failed to deduct currency' });
-  //       }
-  //     } else {
-  //       setMessage({ type: 'error', text: result.message });
-  //     }
-  //   } catch (error) {
-  //     console.error('Error during custom equipment upgrade:', error);
-  //     setMessage({ type: 'error', text: 'An error occurred during upgrade' });
-  //   }
-
-  //   setUpgradingCustom(null);
-  //   setTimeout(() => setMessage(null), 3000);
-  // };
 
   const slotWidth = 150;
 
@@ -365,6 +297,15 @@ function Forge() {
       <div className="forge__container">
         <div className="forge__background">
           <img src={ForgeBackground} alt="Forge Background" />
+          {/* Campfire embers */}
+          <div className="forge__embers">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <span key={i} className="forge__ember" />
+            ))}
+          </div>
+
+          {/* Campfire glow */}
+          <div className="forge__campfire" />
         </div>
         <div className="forge__equipment-shelf">
           {!loading && (
@@ -592,16 +533,17 @@ function Forge() {
           playerDrachma={user?.currency || 0}
           playerTickets={bagEntries.find(i => i.itemId === ITEMS.UPGRADE_GUARANTEE_TICKET)?.amount || 0}
           onCancel={() => setUpgradingMode(null)}
-          onConfirm={() => handleConfirmUpgrade(focusedEquipment)}
-        />)}
-      
+          onConfirm={(ticketsUsed) => handleConfirmUpgrade(focusedEquipment, ticketsUsed)}
+        />
+      )}
+
       {upgradingMode === UPGRADE_TYPE.STANDARD && focusedEquipment && (
         <StandardUpgradeModal
           equipment={focusedEquipment}
           playerDrachma={user?.currency || 0}
           playerTickets={bagEntries.find(i => i.itemId === ITEMS.UPGRADE_GUARANTEE_TICKET)?.amount || 0}
           onCancel={() => setUpgradingMode(null)}
-          onConfirm={() => handleConfirmUpgrade(focusedEquipment)}
+          onConfirm={(ticketsUsed) => handleConfirmUpgrade(focusedEquipment, ticketsUsed)}
         />
       )}
     </div>

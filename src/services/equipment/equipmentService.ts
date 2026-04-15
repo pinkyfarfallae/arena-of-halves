@@ -116,7 +116,7 @@ export const upgradeEquipment = async (
 
     return { success: true, message: 'Equipment upgraded successfully', newTier: nextTier };
   } catch (error) {
-    console.error('Error upgrading equipment:', error);
+    // console.error('Error upgrading equipment:', error);
     return { success: false, message: 'Failed to upgrade equipment' };
   }
 };

@@ -198,9 +198,9 @@ export const StandardUpgradeModal: React.FC<StandardUpgradeModalProps> = ({
             disabled={!canUpgrade || loading}
           >
             {loading ? (
-              <span>⚒ Forging...</span>
+              <span>Upgrading...</span>
             ) : canUpgrade ? (
-              <span>⚒ Forge Now</span>
+              <span>Upgrade Now</span>
             ) : (
               'Insufficient Drachma'
             )}
