@@ -174,8 +174,6 @@ function Shop() {
     }
   };
 
-  console.log('Bag entries:', bagEntries);
-
   const discountTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount, [bagEntries]);
 
   // Filter items based on search query
@@ -186,8 +184,9 @@ function Shop() {
     );
   }, [items, searchQuery]);
 
-  const limitedItems = filteredItems.filter(i => i.stock !== -1);
-  const unlimitedItems = filteredItems.filter(i => i.stock === -1);
+  console.log('Filtered Items:', filteredItems);
+  const limitedItems = filteredItems.filter(i => i.stock !== "infinity");
+  const unlimitedItems = filteredItems.filter(i => i.stock === "infinity");
 
   return (
     <div className="shop">
