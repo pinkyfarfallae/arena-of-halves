@@ -25,10 +25,9 @@ import { LANGUAGE } from '../../../../constants/language';
 import { PRACTICE_MODE } from '../../../../constants/practice';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
-import './TrainingApproval.scss';
 import Athena from '../../../../data/icons/deities/Athena';
-import { is } from '@react-three/fiber/dist/declarations/src/core/utils';
 import { updateTrainingPoints } from '../../../../services/training/trainingPoints';
+import './TrainingApproval.scss';
 
 function TrainingApproval() {
   const { user } = useAuth();

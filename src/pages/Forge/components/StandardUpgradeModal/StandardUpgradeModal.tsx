@@ -1,8 +1,5 @@
 import React, { useState } from "react";
 import { Equipment, EQUIPMENT_IMAGES, EQUIPMENT_TIER_EFFECTS, EQUIPMENT_TIER_NAMES, EQUIPMENT_TIERS, EquipmentCategory, EquipmentTier, UPGRADE_COSTS, UPGRADE_SUCCESS_RATES } from "../../../../constants/equipment";
-import Drachma from "../../../../icons/Drachma";
-import Ticket from "../../../../icons/Ticket";
-import Lightning from "../../../../icons/Lightning";
 import Close from "../../../../icons/Close";
 import Forge from "../../../LifeInCamp/components/LocationIcon/icons/Forge";
 import './StandardUpgradeModal.scss';

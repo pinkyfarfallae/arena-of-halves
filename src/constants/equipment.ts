@@ -11,7 +11,6 @@ import Shield_tier_3 from '../images/starter_equipment/shield_3.png';
 import Weapon_tier_1 from '../images/starter_equipment/weapon_1.png';
 import Weapon_tier_2 from '../images/starter_equipment/weapon_2.png';
 import Weapon_tier_3 from '../images/starter_equipment/weapon_3.png';
-import exp from "constants";
 
 export const EQUIPMENT_CATEGORIES = {
   WEAPON: 'weapon',

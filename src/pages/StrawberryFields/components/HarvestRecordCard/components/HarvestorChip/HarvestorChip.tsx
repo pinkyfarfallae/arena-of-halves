@@ -16,8 +16,9 @@ export default function HarvestorChip({ character }: { character: Character | un
       {(character && character.image) ? (
         <img
           src={character?.image || ''}
+          alt={character?.nicknameEng || 'Unknown'}
           className="strawberry-fields__harvest-record-submitter-avatar"
-          data-tooltip={character.nicknameEng}
+          data-tooltip={character?.nicknameEng || 'Unknown'}
           data-tooltip-pos="bottom"
         />
       ) : (

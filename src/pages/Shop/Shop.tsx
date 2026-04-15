@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, use } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { T } from '../../constants/translationKeys';
 import Drachma from '../../icons/Drachma';
-import { ShopItem, CartItem, fetchShopItems } from './shopData';
+import { ShopItem, CartItem } from '../../types/shop';
 import CheckoutModal from './components/CheckoutModal/CheckoutModal';
 import ChevronLeft from '../../icons/ChevronLeft';
 import Caduceus from './icons/Caduceus';

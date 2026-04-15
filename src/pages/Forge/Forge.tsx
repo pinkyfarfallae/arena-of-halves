@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect, useCallback, useMemo, use } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { auth } from '../../firebase';
@@ -7,11 +7,6 @@ import { updateCharacterDrachma } from '../../services/character/currencyService
 import {
   EQUIPMENT_CATEGORIES,
   EQUIPMENT_TIERS,
-  EQUIPMENT_CATEGORY_LABELS,
-  EQUIPMENT_CATEGORY_DESCRIPTIONS,
-  TIER_LABELS,
-  EQUIPMENT_TIER_NAMES,
-  EQUIPMENT_TIER_EFFECTS,
   EquipmentCategory,
   EquipmentTier,
   CUSTOM_EQUIPMENT,
@@ -22,23 +17,14 @@ import {
 } from '../../constants/equipment';
 import {
   upgradeEquipment,
-  getNextTier,
   getUpgradeCost,
   initializeEquipment,
-  canCreateCustomEquipment,
   getEquipmentData,
-  getPlayerCustomEquipment,
-  upgradeCustomEquipment,
   addCustomEquipment
 } from '../../services/equipment/equipmentService';
 import { fetchCustomEquipment } from '../../data/characters';
-import { CustomEquipmentInfo } from '../../types/character';
-import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import ChevronLeft from '../../icons/ChevronLeft';
-import Hephaetus from '../../data/icons/deities/Hephaestus';
-import './Forge.scss';
 import { getNonCustomEquipmentName } from '../../data/equipment';
-import Key from '../CampMembers/components/Doodle/icons/Key';
 import { useScreenSize } from '../../hooks/useScreenSize';
 import ForgeBackground from './images/forge_background.jpg'
 import ForgeTable from './images/forge_table.png';
@@ -52,6 +38,7 @@ import { T } from '../../constants/translationKeys';
 import { GuaranteedUpgradeModal } from './components/GuaranteedUpgradeModal/GuaranteedUpgradeModal';
 import StandardUpgradeModal from './components/StandardUpgradeModal/StandardUpgradeModal';
 import { consumeItem } from '../../services/bag/bagService';
+import './Forge.scss';
 
 function Forge() {
   const { user, refreshUser } = useAuth();

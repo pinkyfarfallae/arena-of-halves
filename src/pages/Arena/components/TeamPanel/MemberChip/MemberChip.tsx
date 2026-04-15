@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
-import { darken, hexToRgb, lightenColor, rgbToHex, rgbValues } from '../../../../../utils/color';
+import { darken, hexToRgb, lightenColor, rgbValues } from '../../../../../utils/color';
 import EfflorescenceMuse from './icons/EfflorescenceMuse';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';

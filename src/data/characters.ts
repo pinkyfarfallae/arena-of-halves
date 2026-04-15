@@ -9,8 +9,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { BagData } from '../types/character';
-import { useAuth } from '../hooks/useAuth';
-import { User } from 'firebase/auth';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo };
 export type { PowerDefinition };

@@ -39,7 +39,7 @@ import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
-import { fetchAllIrisWishes, fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
+import { fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import './CharacterInfo.scss';
 import { DEITY } from '../../constants/deities';
