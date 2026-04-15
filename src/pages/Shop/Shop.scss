@@ -102,10 +102,6 @@ $ink-faint: #a08a74;
   flex-shrink: 0;
 
   @media (max-width: $bp-compact) {
-    font-size: 0.85rem;
-  }
-
-  @media (max-width: $bp-mobile) {
     display: none;
   }
 }
@@ -117,21 +113,32 @@ $ink-faint: #a08a74;
 }
 
 /* Drachma balance chip */
-.shop__bar-balance {
+.shop__bar-balance,
+.shop__bar-discount {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  height: 32px;
   margin-left: auto;
   padding: 0.22rem 0.6rem;
   background: rgba($accent, 0.08);
   border: 1px solid rgba($accent, 0.18);
-  border-radius: 14px;
+  border-radius: 18px;
   flex-shrink: 0;
 
   @media (max-width: $bp-compact) {
-    padding: 0.18rem 0.45rem;
+    padding: 0.18rem 0.6rem;
     gap: 0.2rem;
   }
+}
+
+.shop__bar-discount {
+  margin-left: 0;
+}
+
+.drachma--bar {
+  color: $accent;
+  margin-right: 3px;
 }
 
 /* Drachma icon — base + size variants */
@@ -163,8 +170,11 @@ $ink-faint: #a08a74;
   color: $ink-faint;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
 
+  @media (max-width: $bp-compact) {
+    display: none;
+  }
+}
 
 .shop__bar-cart {
   display: none;

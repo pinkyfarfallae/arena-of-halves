@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { auth } from '../../firebase';
@@ -43,17 +43,23 @@ import ForgeTable from './images/forge_table.png';
 import Frame from './images/frame.png';
 import Label from './images/label.png';
 import Drachma from '../../icons/Drachma';
+import { useBag } from '../../hooks/useBag';
+import { ITEMS } from '../../constants/items';
+import Ticket from '../../icons/Ticket';
+import { T } from '../../constants/translationKeys';
 
 function Forge() {
   const { user, updateUser, refreshUser } = useAuth();
   const { t } = useTranslation();
   const { width } = useScreenSize();
+  const { bagEntries } = useBag(user?.characterId || '');
 
   const [equipment, setEquipment] = useState<(any & Equipment[])[]>([]);
   const [pendingDeliveryEquipments, setPendingDeliveryEquipments] = useState<(any & Equipment[])[]>([]);
   const [starterEquipment, setStarterEquipment] = useState<(any & Equipment)[]>([]);
-
   const [focusedEquipment, setFocusedEquipment] = useState<any & Equipment | null>(null);
+
+  const [userDrachma, setUserDrachma] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [receivingNew, setReceivingNew] = useState(false);
@@ -65,6 +71,8 @@ function Forge() {
   const [selectedCustomItem, setSelectedCustomItem] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showCustomInfo, setShowCustomInfo] = useState(false);
+
+  console.log(focusedEquipment, 'equipment', equipment);
 
   useEffect(() => {
     if (!user) return;
@@ -169,21 +177,27 @@ function Forge() {
 
     try {
       const categories = equipment.categories?.split(',').map((c: string) => c.trim()) || [];
-      const result = await addCustomEquipment(user?.characterId, equipment.itemId, categories);
 
-      if (result.success) {
+      const [addCustomResult, updateDrachmaResult] = await Promise.all([
+        addCustomEquipment(user?.characterId, equipment.itemId, categories),
+        updateCharacterDrachma(user?.characterId, -equipment.price),
+      ]);
+
+      if (addCustomResult.success && updateDrachmaResult.success) {
         const newItem = {
           id: equipment.itemId,
           name: equipment.labelEng,
           category: equipment.categories ? equipment.categories.split(',').map((c: string) => c.trim()) : [],
-          tier: equipment.tier,
+          tier: EQUIPMENT_TIERS.LEVEL_1.split('_')[1] || '1',
           custom: equipment.custom,
           imageUrl: equipment.imageUrl,
         };
         setEquipment(prev => [...prev, newItem]);
         setPendingDeliveryEquipments(prev => prev.filter(item => item.itemId !== equipment.itemId));
+        setFocusedEquipment(newItem);
+        refreshUser();
       } else {
-        setMessage({ type: 'error', text: result.message });
+        setMessage({ type: 'error', text: 'Failed to assign equipment' });
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'An error occurred while assigning equipment' });
@@ -192,6 +206,8 @@ function Forge() {
       setReceivingNew(false);
     }
   }, [equipment, user]);
+
+  const updateGuaranteeTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.UPGRADE_GUARANTEE_TICKET)?.amount || 0, [bagEntries]);
 
   const handleUpgradeClick = (category: EquipmentCategory) => {
     setSelectedCategory(category);
@@ -543,16 +559,38 @@ function Forge() {
   //   );
   // }
 
-  const numberIfDummy = width / 150 > (equipment.length + pendingDeliveryEquipments.length)
-    ? Math.ceil(width / 150) - equipment.length - pendingDeliveryEquipments.length
+  const slotWidth = 150;
+
+  const numberIfDummy = width / slotWidth > (equipment.length + pendingDeliveryEquipments.length)
+    ? Math.ceil(width / slotWidth) - equipment.length - pendingDeliveryEquipments.length
     : 0;
+
+  console.log(pendingDeliveryEquipments, focusedEquipment)
 
   return (
     <div className="forge">
-      <Link to="/life" className="forge__back">
-        <ChevronLeft />
-        Back to Camp
-      </Link>
+      <div className="forge__bar">
+        <Link to="/life" className="forge__back">
+          <ChevronLeft />
+          Back to Camp
+        </Link>
+
+        {/* Drachma balance */}
+        <div className="forge__bar-balance">
+          <Drachma className="drachma--bar" />
+          <span className="forge__bar-amount">{user?.currency?.toLocaleString() ?? '0'}</span>
+          <span className="forge__bar-unit">{t(T.DRACHMA).toLowerCase()}</span>
+        </div>
+
+        {/* 30% Discount Ticket */}
+        {updateGuaranteeTicket && (
+          <div className="forge__bar-discount">
+            <Ticket className="drachma--bar" />
+            <span className="forge__bar-amount">{updateGuaranteeTicket}</span>
+            <span className="forge__bar-unit">Upgrade Guarantee Ticket</span>
+          </div>
+        )}
+      </div>
 
       <div className="forge__container">
         <div className="forge__background">
@@ -565,7 +603,7 @@ function Forge() {
                 <div
                   key={`pending-${item.id}-${index}`}
                   className="forge__equipment-card forge__equipment-card--pending"
-                  onClick={() => setFocusedEquipment(item)}
+                  onClick={() => !receivingNew && setFocusedEquipment(item)}
                 >
                   <div className="forge__equipment-frame">
                     <img src={Frame} alt="Frame" />
@@ -594,7 +632,7 @@ function Forge() {
                 <div
                   key={item.id}
                   className="forge__equipment-card"
-                  onClick={() => setFocusedEquipment(item)}
+                  onClick={() => !receivingNew && setFocusedEquipment(item)}
                 >
                   <div className="forge__equipment-frame">
                     <img src={Frame} alt="Frame" />
@@ -649,7 +687,7 @@ function Forge() {
                   <div
                     key={item.id}
                     className="forge__equipment-card"
-                    onClick={() => setFocusedEquipment(item)}
+                    onClick={() => !receivingNew && setFocusedEquipment(item)}
                   >
                     <div className="forge__equipment-frame">
                       <img src={Frame} alt="Frame" />
@@ -734,11 +772,11 @@ function Forge() {
           )}
           {(!loading && focusedEquipment) ? (
             <div className="forge__focused-equipment-actions">
-              {pendingDeliveryEquipments.find((item) => item.id === focusedEquipment.id) && (
+              {pendingDeliveryEquipments.find((item) => item.itemId === focusedEquipment.itemId) && (
                 <button
                   className="forge__action-button--receive"
                   onClick={() => handleReceive(focusedEquipment)}
-                  disabled={receivingNew}
+                  disabled={receivingNew || (user?.currency || 0) < focusedEquipment.price}
                 >
                   {receivingNew
                     ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -23,9 +23,15 @@ import { updateCharacterDrachma } from '../../services/character/currencyService
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import { fetchItemInfo } from '../../data/characters';
 import './Shop.scss';
+import { useBag } from '../../hooks/useBag';
+import Ticket from '../../icons/Ticket';
+import { ITEMS } from '../../constants/items';
 
 function Shop() {
+  const { user, refreshUser } = useAuth();
   const { t, lang } = useTranslation();
+  const { bagEntries } = useBag(user?.characterId);
+
   const [items, setItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -35,7 +41,6 @@ function Shop() {
     } catch { return []; }
   });
 
-  const { user, refreshUser } = useAuth();
   const [tooltip, setTooltip] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
@@ -53,9 +58,9 @@ function Shop() {
     const loadItems = async () => {
       try {
         setLoading(true);
-        const data = await fetchItemInfo();
+        const items = await fetchItemInfo();
 
-        const availableItem = data.filter(i => !!i.available);
+        const availableItem = items.filter(i => !!i.available);
 
         const shopItems: ShopItem[] = availableItem.map(i => ({
           itemId: i.itemId,
@@ -169,6 +174,10 @@ function Shop() {
     }
   };
 
+  console.log('Bag entries:', bagEntries);
+
+  const discountTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount, [bagEntries]);
+
   // Filter items based on search query
   const filteredItems = useMemo(() => {
     return items.filter(item =>
@@ -200,6 +209,15 @@ function Shop() {
           <span className="shop__bar-amount">{user?.currency?.toLocaleString() ?? '0'}</span>
           <span className="shop__bar-unit">{t(T.DRACHMA).toLowerCase()}</span>
         </div>
+
+        {/* 30% Discount Ticket */}
+        {discountTicket && (
+          <div className="shop__bar-discount">
+            <Ticket className="drachma--bar" />
+            <span className="shop__bar-amount">{discountTicket}</span>
+            <span className="shop__bar-unit">Discount Ticket</span>
+          </div>
+        )}
 
         {/* Mobile cart toggle */}
         <button className="shop__bar-cart" onClick={() => setCartOpen(!cartOpen)}>

@@ -181,7 +181,8 @@ export const addCustomEquipment = async (
   characterId: string,
   itemId: string,
   categories: string[],
-  initialTier: EquipmentTier = EQUIPMENT_TIERS.LEVEL_1
+  initialTier: EquipmentTier = EQUIPMENT_TIERS.LEVEL_1,
+  skipLevelValidation: boolean = false
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_EQUIPMENT, characterId);
@@ -202,17 +203,19 @@ export const addCustomEquipment = async (
       equipment = docSnap.data() as PlayerEquipmentData;
     }
 
-    // Check if player has all required categories at Level 3
-    const missingCategories = categories.filter(cat => {
-      const categoryKey = cat as EquipmentCategory;
-      return equipment[categoryKey] !== EQUIPMENT_TIERS.LEVEL_3;
-    });
+    // Check if player has all required categories at Level 3 (skip for delivered equipment)
+    if (!skipLevelValidation) {
+      const missingCategories = categories.filter(cat => {
+        const categoryKey = cat as EquipmentCategory;
+        return equipment[categoryKey] !== EQUIPMENT_TIERS.LEVEL_3;
+      });
 
-    if (missingCategories.length > 0) {
-      return { 
-        success: false, 
-        message: `Player needs these categories at Level 3: ${missingCategories.join(', ')}` 
-      };
+      if (missingCategories.length > 0) {
+        return { 
+          success: false, 
+          message: `Player needs these categories at Level 3: ${missingCategories.join(', ')}` 
+        };
+      }
     }
 
     // Add custom equipment
