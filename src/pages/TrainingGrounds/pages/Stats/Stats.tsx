@@ -63,22 +63,20 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const activeUpgradeStat = upgrading
     ? PRACTICE_STATES_DETAIL.find((stat) => stat.id === upgrading)
     : null;
-  const emberParticles = Array.from({ length: 48 }, (_, index) => {
-    const left = (index * 7.5 + (index % 3) * 4.25) % 100;
-    const delay = (index % 12) * 0.18 + Math.floor(index / 12) * 0.12;
-    const duration = 4.8 + (index % 6) * 0.34;
-    const size = 2 + (index % 5);
-    const bottom = -18 + (index % 6) * 3;
+  const emberParticles = Array.from({ length: 48 }, () => {
+    const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
     return {
-      left: `${left}%`,
-      bottom: `${bottom}px`,
-      size: `${size}px`,
-      delay: `${delay}s`,
-      duration: `${duration}s`,
-      opacity: 0.34 + (index % 5) * 0.12,
+      left: `${rand(0, 100)}%`,
+      bottom: `${rand(-20, 0)}px`,
+      size: `${rand(1.5, 5)}px`,
+      delay: `${rand(0, 2)}s`,
+      duration: `${rand(3.5, 6)}s`,
+      opacity: rand(0.3, 0.8),
+      drift: `${rand(-30, 30)}px`,
     };
   });
+
   const fallingEmberParticles = Array.from({ length: 36 }, (_, index) => {
     const left = (index * 8.8 + (index % 4) * 3.5) % 100;
     const delay = (index % 9) * 0.22 + Math.floor(index / 9) * 0.12;
