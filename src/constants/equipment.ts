@@ -11,6 +11,7 @@ import Shield_tier_3 from '../images/starter_equipment/shield_3.png';
 import Weapon_tier_1 from '../images/starter_equipment/weapon_1.png';
 import Weapon_tier_2 from '../images/starter_equipment/weapon_2.png';
 import Weapon_tier_3 from '../images/starter_equipment/weapon_3.png';
+import exp from "constants";
 
 export const EQUIPMENT_CATEGORIES = {
   WEAPON: 'weapon',
@@ -34,8 +35,13 @@ export type EquipmentTier = typeof EQUIPMENT_TIERS[keyof typeof EQUIPMENT_TIERS]
 
 export const UPGRADE_COSTS = {
   [EQUIPMENT_TIERS.LEVEL_1]: 0,
-  [EQUIPMENT_TIERS.LEVEL_2]: 500,
-  [EQUIPMENT_TIERS.LEVEL_3]: 1000,
+  [EQUIPMENT_TIERS.LEVEL_2]: 300,
+  [EQUIPMENT_TIERS.LEVEL_3]: 500,
+};
+
+export const UPGRADE_SUCCESS_RATES = {
+  [EQUIPMENT_TIERS.LEVEL_2]: 70,
+  [EQUIPMENT_TIERS.LEVEL_3]: 40,
 };
 
 export interface Equipment {
@@ -163,3 +169,10 @@ export const EQUIPMENT_IMAGES: Record<EquipmentCategory, Record<EquipmentTier, s
     level_3: Boots_tier_3,
   },
 };
+
+export const UPGRADE_TYPE = {
+  STANDARD: 'standard',
+  GUARANTEED: 'guaranteed',
+}
+
+export type UpgradeType = typeof UPGRADE_TYPE[keyof typeof UPGRADE_TYPE];

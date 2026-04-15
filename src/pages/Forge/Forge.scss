@@ -619,7 +619,7 @@
 .forge__focused-equipment-actions {
   position: absolute;
   display: flex;
-  gap: 0.5rem;
+  gap: 1.5rem;
   width: 100%;
   height: 60px;
   min-height: 60px;
@@ -634,7 +634,7 @@
   }
 }
 
-.forge__action-button--receive {
+.forge__action-button {
   position: relative;
   background: linear-gradient(180deg, #773e15 0%, #a05017 50%, #c56b1f 100%);
   border: 1px solid #2b0f05;
@@ -656,6 +656,8 @@
     0 2px 6px rgba(0, 0, 0, 0.6);
 
   text-shadow: 0 0 4px rgba(255, 180, 80, 0.6);
+  white-space: nowrap;
+  
 
   transition: all 0.2s ease;
 
@@ -679,13 +681,6 @@
     filter: brightness(1.2);
   }
 
-  &:active {
-    transform: scale(0.97);
-    box-shadow:
-      inset 0 3px 6px rgba(0, 0, 0, 0.8),
-      0 0 6px rgba(255, 100, 30, 0.7);
-  }
-
   &:disabled {
     background: linear-gradient(180deg, #444 0%, #666 100%);
     color: #bbb;
@@ -697,6 +692,48 @@
       color: #bbb !important;
       filter: none !important;
     }
+  }
+}
+
+.forge__action-button--standard-upgrade {
+  background: linear-gradient(180deg, #5a3a1a 0%, #7a4a1f 50%, #8b5a2b 100%);
+
+  &::before {
+    background: radial-gradient(circle at 50% 0%, rgba(255, 180, 80, 0.25), transparent 60%);
+  }
+
+  &:not(:disabled):hover {
+    background: linear-gradient(180deg, #4a2d14 0%, #6a3d1a 50%, #7a4a1f 100%);
+  }
+}
+
+.forge__action-button--guaranteed-upgrade {
+  background: linear-gradient(180deg, #8a4b12 0%, #d97706 50%, #ffb347 100%);
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8), 0 0 12px rgba(255, 255, 255, 0.6);
+
+  box-shadow:
+    inset 0 2px 6px rgba(255, 220, 150, 0.4),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(255, 170, 60, 0.6);
+
+  &::before {
+    background: radial-gradient(circle at 50% 0%, rgba(255, 200, 120, 0.6), transparent 60%);
+  }
+
+  &:not(:disabled):hover {
+    background: linear-gradient(180deg, #a85a14 0%, #ff8c1a 50%, #e9b54d 100%);
+    filter: brightness(1.1);
+
+    box-shadow:
+      inset 0 2px 8px rgba(255, 240, 180, 0.4),
+      0 0 20px rgba(255, 180, 80, 0.5);
+  }
+
+  &:active {
+    box-shadow:
+      inset 0 3px 6px rgba(0, 0, 0, 0.8),
+      0 0 6px rgba(255, 100, 30, 0.7);
   }
 }
 
