@@ -272,13 +272,11 @@ function Forge() {
         </div>
 
         {/* 30% Discount Ticket */}
-        {updateGuaranteeTicket && (
-          <div className="forge__bar-discount">
-            <Ticket className="drachma--bar" />
-            <span className="forge__bar-amount">{updateGuaranteeTicket}</span>
-            <span className="forge__bar-unit">Upgrade Guarantee Ticket</span>
-          </div>
-        )}
+        <div className="forge__bar-discount">
+          <Ticket className="drachma--bar" />
+          <span className="forge__bar-amount">{updateGuaranteeTicket || 0}</span>
+          <span className="forge__bar-unit">Upgrade Guarantee Ticket</span>
+        </div>
       </div>
 
       <div className="forge__container">
