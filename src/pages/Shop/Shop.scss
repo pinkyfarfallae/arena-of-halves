@@ -1156,19 +1156,15 @@ $ink-faint: #a08a74;
 .cart__coupon-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.35rem;
-  padding: 0.4rem;
-  margin: 0 0.75rem 0.5rem;
-  width: calc(100% - 1.5rem);
+  padding: 0.6rem 0.75rem;
+  width: 100%;
   background: transparent;
-  border: 1px dashed rgba($wood-frame, 0.15);
-  border-radius: 5px;
+  background-color: rgba(160, 138, 116, 0.15);
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.58rem;
   font-weight: 600;
   color: $ink-faint;
-  cursor: pointer;
   transition: all 0.15s;
   letter-spacing: 0.02em;
 
@@ -1177,16 +1173,92 @@ $ink-faint: #a08a74;
     height: 14px;
     flex-shrink: 0;
   }
+}
+
+.cart__coupon-original {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: $ink-faint;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background-color: rgba($wood-frame, 0.2);
+  padding: 0.3rem 0.75rem;
+}
+
+.cart__coupon-original-price {
+  text-decoration: line-through;
+}
+
+.cart__coupon-discount {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: $accent-dark;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0 auto;
+}
+
+.cart__coupon-tickets,
+.cart__coupon-no-tickets,
+.cart__coupon-no-discount {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: $ink-faint;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cart__coupon-no-discount {
+  margin: 0 0 0 auto;
+  opacity: 0.7;
+}
+
+.cart__coupon-apply {
+  margin: 0 0 0 auto;
+  background: none;
+  color: rgba($ink, 0.5);
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba($ink, 0.2);
+  border-radius: 3px;
 
   &:hover {
-    border-color: rgba($accent, 0.3);
-    color: $accent-dark;
-    background: rgba($accent, 0.04);
+    color: $ink;
+    border: 1px solid $ink;
+  }
+}
+
+.cart__coupon-remove {
+  background: none;
+  color: rgba($ink, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba($ink, 0.2);
+  border-radius: 3px;
+  margin-left: 6px;
+
+  svg {
+    width: 12px;
+    height: 12px;
   }
 
-  @media (max-width: $bp-medium) {
-    margin: 0 0.6rem 0.5rem;
-    width: calc(100% - 1.2rem);
+  &:hover {
+    color: $ink;
   }
 }
 

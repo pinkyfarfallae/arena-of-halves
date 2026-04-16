@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -18,7 +18,7 @@ import Close from '../../icons/Close';
 import Coupon from './icons/Coupon';
 import { LANGUAGE } from '../../constants/language';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
-import { giveItem } from '../../services/bag/bagService';
+import { giveItem, consumeItem } from '../../services/bag/bagService';
 import { updateCharacterDrachma } from '../../services/character/currencyService';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import { fetchItemInfo } from '../../data/characters';
@@ -47,6 +47,24 @@ function Shop() {
   const [processing, setProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+
+  const [appliedDiscount, setAppliedDiscount] = useState(false);
+  const isFirstMount = useRef(true);
+
+  // On first mount: auto-apply if tickets exist
+  // After that: only auto-disable when tickets run out
+  useEffect(() => {
+    const discountTicketAmount = bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount || 0;
+    
+    if (isFirstMount.current && bagEntries.length > 0) {
+      // First mount: auto-apply if tickets available
+      setAppliedDiscount(discountTicketAmount > 0);
+      isFirstMount.current = false;
+    } else if (!isFirstMount.current && discountTicketAmount === 0 && appliedDiscount) {
+      // After first mount: auto-disable if tickets run out
+      setAppliedDiscount(false);
+    }
+  }, [bagEntries, appliedDiscount]);
 
   // Save cart to localStorage
   useEffect(() => {
@@ -129,22 +147,41 @@ function Shop() {
   const handlePay = async () => {
     if (!user?.characterId || processing) return;
 
+    setProcessing(true);
+
+    const discountTicketAmount = bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount || 0;
+    const hasDiscount = appliedDiscount && discountTicketAmount > 0;
+    const finalPrice = hasDiscount ? Math.round(totalPrice * 0.7) : totalPrice;
+
     // Check if user has enough drachma
-    if ((user.currency ?? 0) < totalPrice) {
-      alert('Insufficient drachma! You need ' + totalPrice + ' but only have ' + (user.currency ?? 0));
+    if ((user.currency ?? 0) < finalPrice) {
+      alert('Insufficient drachma! You need ' + finalPrice + ' but only have ' + (user.currency ?? 0));
+      setProcessing(false);
       return;
     }
 
-    setProcessing(true);
-
     try {
       // Deduct drachma
-      const drachmaResult = await updateCharacterDrachma(user.characterId, -totalPrice);
+      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice);
 
       if (!drachmaResult.success) {
         alert('Failed to process payment: ' + (drachmaResult.error || 'Unknown error'));
         setProcessing(false);
         return;
+      }
+
+      // Consume discount ticket if used
+      if (hasDiscount) {
+        console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
+        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1);
+        
+        if (consumeResult.success) {
+          console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
+        } else {
+          console.error('Failed to consume discount ticket:', consumeResult.error);
+          alert('Warning: Discount ticket could not be consumed. Error: ' + consumeResult.error);
+        }
+        // appliedDiscount will be auto-updated by useEffect watching bagEntries
       }
 
       // Add items to bag
@@ -515,17 +552,48 @@ function Shop() {
                   ))}
                 </div>
 
-                <button className="cart__coupon-btn">
+                {appliedDiscount && (
+                  <span className="cart__coupon-original">
+                    <span className="cart__coupon-original-price-label">Original Price</span>
+                    <span className="cart__coupon-original-price">{totalPrice.toFixed(0)} <Drachma /></span>
+                  </span>
+                )}
+
+                <div className="cart__coupon-btn">
                   <Coupon />
-                  {t(T.APPLY_COUPON)}
-                </button>
+                  {appliedDiscount ? (
+                    <>
+                      <span className="cart__coupon-tickets">Ticket Applied</span>
+                      <span className="cart__coupon-discount">-{Math.round(totalPrice * 0.3)} <Drachma /></span>
+                      <span className="cart__coupon-remove" onClick={() => setAppliedDiscount(false)}><Close /></span>
+                    </>
+                  ) : (
+                    <>
+                      {discountTicket && discountTicket > 0 ? (
+                        <>
+                          <span className="cart__coupon-tickets">{discountTicket} ticket{discountTicket > 1 ? 's' : ''} available</span>
+                          <span className="cart__coupon-apply" onClick={() => setAppliedDiscount(true)}>Apply</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="cart__coupon-no-tickets">No tickets</span>
+                          <span className="cart__coupon-no-discount">No discount</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 <div className="cart__footer">
                   <div className="cart__total">
                     <span>{t(T.TOTAL)} ({totalItems})</span>
-                    <span className="cart__total-amt">{totalPrice.toFixed(0)} <Drachma /></span>
+                    <span className="cart__total-amt">{appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice} <Drachma /></span>
                   </div>
-                  <button className="cart__pay" onClick={() => setShowCheckout(true)}>
+                  <button
+                    className="cart__pay"
+                    onClick={() => setShowCheckout(true)}
+                    disabled={processing || cart.length === 0 || (user?.currency ?? 0) < (appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice)}
+                  >
                     {t(T.CHECKOUT)}
                   </button>
                 </div>
@@ -540,7 +608,7 @@ function Shop() {
         showCheckout && (
           <CheckoutModal
             cart={cart}
-            totalPrice={totalPrice}
+            totalPrice={appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice}
             paySuccess={paySuccess}
             paying={processing}
             customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
