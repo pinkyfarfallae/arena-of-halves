@@ -34,6 +34,7 @@ import './Stats.scss';
 import { useBag } from '../../../../hooks/useBag';
 import { ITEMS } from '../../../../constants/items';
 import Plus from '../../../../icons/Plus';
+import { CHARACTER } from '../../../../constants/characters';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -54,7 +55,7 @@ const statIcons: Record<string, string> = {
 };
 
 export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission, loading }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void; loading?: boolean }) {
-  const { user, role, updateUser, refreshUser } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const { bagEntries } = useBag(user?.characterId);
   const { width } = useScreenSize();
   const trainingPointsRef = useRef<HTMLDivElement>(null);
@@ -68,7 +69,6 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const [showAthenaCodexPanel, setShowAthenaCodexPanel] = useState(false);
   const [codexCountToUse, setCodexCountToUse] = useState(1);
   const [processingCodex, setProcessingCodex] = useState(false);
-  const refundTicketCount = (role === ROLE.DEVELOPER || role === ROLE.ADMIN) ? 1 : 0;
   const MIN_UPGRADE_OVERLAY_MS = 3000;
   const UPGRADE_FADE_MS = 280;
   const showUpgradeOverlay = upgrading !== null;
@@ -78,6 +78,9 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const activeUpgradeStat = upgrading
     ? PRACTICE_STATES_DETAIL.find((stat) => stat.id === upgrading)
     : null;
+
+  const refundTicketEntry = bagEntries.find(entry => entry.itemId === ITEMS.REFUND_SKILL_TICKET);
+  const refundTicketCount = refundTicketEntry?.amount || 0;
 
   const getStatValue = (id: string) => {
     if (!user) return 0;
@@ -186,7 +189,10 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setIsRefundOverlayVisible(true);
     const startedAt = Date.now();
 
-    const result = await refundAllStats(user.characterId);
+    const [result, _] = await Promise.all([
+      refundAllStats(user.characterId),
+      consumeItem(user.characterId, ITEMS.REFUND_SKILL_TICKET, 1),
+    ]);
 
     const elapsed = Date.now() - startedAt;
     if (elapsed < MIN_UPGRADE_OVERLAY_MS) {
