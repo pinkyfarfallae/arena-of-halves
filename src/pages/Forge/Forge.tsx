@@ -61,6 +61,7 @@ function Forge() {
   const [upgradingEquipment, setUpgradingEquipment] = useState<Equipment | null>(null);
   const [upgradeSuccess, setUpgradeSuccess] = useState<boolean>(false);
   const [upgradeProcessing, setUpgradeProcessing] = useState<boolean>(true);
+  const [showingImpact, setShowingImpact] = useState<boolean>(false);
 
 
   useEffect(() => {
@@ -261,8 +262,15 @@ function Forge() {
 
       setUpgradeSuccess(success);
 
-      // Wait 5 seconds for forging animation, then show result
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait 4 seconds for forging animation
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      
+      // Show impact effect (BANG! or crack)
+      setShowingImpact(true);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Hide impact and show final result
+      setShowingImpact(false);
       setUpgradeProcessing(false);
 
       if (success) {
@@ -271,17 +279,32 @@ function Forge() {
 
         if (result.success && result.newTier) {
           // Update local equipment state - update the specific item in the array
-          setEquipment(prev => prev.map(item =>
+          setEquipment((prev: Equipment[]) => prev.map(item =>
             item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
               ? { ...item, tier: result.newTier?.split('_')[1] || item.tier }
               : item
           ));
 
-          setStarterEquipment(prev => prev.map(item =>
+          setStarterEquipment((prev: Equipment[]) => prev.map(item =>
             item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
-              ? { ...item, tier: result.newTier?.split('_')[1] || item.tier }
+              ? { ...item, 
+                  tier: result.newTier?.split('_')[1] || item.tier,
+                  name: getNonCustomEquipmentName(item.category, result.newTier as EquipmentTier) || item.name,
+                  image: EQUIPMENT_IMAGES[item.category][result.newTier as EquipmentTier] || EQUIPMENT_IMAGES[item.category][item.tier as EquipmentTier],
+                }
               : item
           ));
+
+          setFocusedEquipment((prev: Equipment | null) => {
+            if (prev?.id === equipmentToUpgrade.id || prev?.category === equipmentToUpgrade.category) {
+              return { ...prev, 
+                tier: result.newTier?.split('_')[1] || prev.tier,
+                name: getNonCustomEquipmentName(prev.category, result.newTier as EquipmentTier) || prev.name,
+                image: EQUIPMENT_IMAGES[prev.category][result.newTier as EquipmentTier] || EQUIPMENT_IMAGES[prev.category][prev.tier as EquipmentTier],
+              };
+            }
+            return prev;
+          });
 
           // Refresh character data to get updated currency
           await refreshUser();
@@ -568,7 +591,7 @@ function Forge() {
         </div>
       </div>
 
-      {upgradingMode === UPGRADE_TYPE.GUARANTEED && focusedEquipment && (
+      {upgradingMode === UPGRADE_TYPE.GUARANTEED && focusedEquipment && !showUpgradeOverlay && (
         <GuaranteedUpgradeModal
           equipment={focusedEquipment}
           playerDrachma={user?.currency || 0}
@@ -578,7 +601,7 @@ function Forge() {
         />
       )}
 
-      {upgradingMode === UPGRADE_TYPE.STANDARD && focusedEquipment && (
+      {upgradingMode === UPGRADE_TYPE.STANDARD && focusedEquipment && !showUpgradeOverlay && (
         <StandardUpgradeModal
           equipment={focusedEquipment}
           playerDrachma={user?.currency || 0}
@@ -594,6 +617,7 @@ function Forge() {
         isGuaranteed={upgradingMode === UPGRADE_TYPE.GUARANTEED}
         isSuccess={upgradeSuccess}
         isProcessing={upgradeProcessing}
+        showingImpact={showingImpact}
       />
     </div>
   );

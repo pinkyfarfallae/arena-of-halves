@@ -37,6 +37,7 @@ interface ForgeUpgradeOverlayProps {
   isGuaranteed: boolean;
   isSuccess: boolean;
   isProcessing: boolean;
+  showingImpact: boolean;
 }
 
 const ForgeUpgradeOverlay: React.FC<ForgeUpgradeOverlayProps> = ({
@@ -44,9 +45,13 @@ const ForgeUpgradeOverlay: React.FC<ForgeUpgradeOverlayProps> = ({
   equipmentName,
   isGuaranteed,
   isSuccess,
-  isProcessing
+  isProcessing,
+  showingImpact
 }) => {
   const getStateClass = () => {
+    if (showingImpact) {
+      return isSuccess ? 'forge-upgrade-overlay--impact-success' : 'forge-upgrade-overlay--impact-failure';
+    }
     if (!isProcessing) {
       return isSuccess ? 'forge-upgrade-overlay--success' : 'forge-upgrade-overlay--failure';
     }
@@ -98,18 +103,26 @@ const ForgeUpgradeOverlay: React.FC<ForgeUpgradeOverlayProps> = ({
       <div className="forge-upgrade-overlay__circle"></div>
       <div className="forge-upgrade-overlay__circle"></div>
 
+      {showingImpact && (
+        <div className="forge-upgrade-overlay__impact-flash"></div>
+      )}
+
       <div className="forge-upgrade-overlay__content">
-        <h2 className="forge-upgrade-overlay__title">
-          {isProcessing
-            ? 'Upgrading...'
-            : (isSuccess ? 'Success' : 'Failed')}
-        </h2>
-        <p className="forge-upgrade-overlay__subtitle">
-          {isProcessing
-            ? (isGuaranteed ? 'Guaranteed upgrade with enhancement tickets' : 'Testing fate with the flames')
-            : null}
-        </p>
-        {isProcessing && <p className="forge-upgrade-overlay__equipment">{equipmentName}</p>}
+        {showingImpact || !isProcessing ? (
+          <>
+            <h2 className="forge-upgrade-overlay__title">
+              {isSuccess ? 'Success' : 'Failed'}
+            </h2>
+          </>
+        ) : (
+          <>
+            <h2 className="forge-upgrade-overlay__title">Upgrading...</h2>
+            <p className="forge-upgrade-overlay__subtitle">
+              {isGuaranteed ? 'Guaranteed upgrade with enhancement tickets' : 'Testing fate with the flames'}
+            </p>
+            <p className="forge-upgrade-overlay__equipment">{equipmentName}</p>
+          </>
+        )}
       </div>
 
       <svg className="forge-upgrade-overlay__svg">

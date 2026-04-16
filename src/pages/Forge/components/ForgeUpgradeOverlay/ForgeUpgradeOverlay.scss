@@ -117,6 +117,42 @@
     }
   }
 
+  // Impact Success state
+  &--impact-success {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffffff;
+      box-shadow: 0 0 100px #FFD700, inset 0 0 100px #FFD700;
+      animation: impact-expand-success 1s ease-out forwards;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #ffe4b0;
+      box-shadow: 0 0 100px #FFA500, inset 0 0 100px #FFA500;
+      animation: impact-expand-success 1s ease-out 0.1s forwards;
+    }
+
+    .forge-upgrade-overlay__loader {
+      display: none;
+    }
+  }
+
+  // Impact Failure state
+  &--impact-failure {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffa1a1;
+      box-shadow: 0 0 100px #FF0000, inset 0 0 100px #FF0000;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #df1f1f;
+      box-shadow: 0 0 100px #df1f1f, inset 0 0 100px #df1f1f;
+    }
+
+    .forge-upgrade-overlay__loader {
+      display: none;
+    }
+  }
+
   &__circle {
     &:nth-child(2)::before {
       animation-delay: 2.5s;
@@ -139,8 +175,9 @@
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    margin-top: 2rem;
+    margin-top: 0.75rem;
     margin-left: 0.75rem;
+    padding: 0;
   }
 
   &__title {
@@ -205,6 +242,44 @@
     &--falling {
       animation-name: emberFallParticle, emberFlicker;
     }
+  }
+
+  &__impact-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+  }
+}
+
+// Success impact - bright golden flash
+.forge-upgrade-overlay--impact-success {
+  .forge-upgrade-overlay__impact-flash {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 215, 0, 0.6) 0%,
+      rgba(255, 215, 0, 0.4) 30%,
+      rgba(255, 165, 0, 0.2) 60%,
+      transparent 100%
+    );
+    animation: flash-burst 1s ease-out forwards;
+  }
+}
+
+// Failure impact - dark red pulse with shake
+.forge-upgrade-overlay--impact-failure {
+  animation: shake-screen 0.5s ease-in-out;
+
+  .forge-upgrade-overlay__impact-flash {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 0, 0, 0.5) 0%,
+      rgba(139, 0, 0, 0.3) 40%,
+      rgba(0, 0, 0, 0.4) 70%,
+      transparent 100%
+    );
+    animation: dark-pulse 1s ease-out forwards;
   }
 }
 
@@ -326,10 +401,6 @@
       font-size: 1rem;
     }
 
-    &__content {
-      padding: 0.6rem;
-    }
-
     &__subtitle {
       font-size: 0.6rem;
     }
@@ -397,6 +468,83 @@
 
   70% {
     opacity: 0.5;
+  }
+}
+
+@keyframes flash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+
+  60% {
+    opacity: 0.6;
+    transform: scale(1.5);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes dark-pulse {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  40% {
+    opacity: 0.4;
+  }
+
+  60% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shake-screen {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  10%, 30%, 50%, 70%, 90% {
+    transform: translate(-8px, 2px);
+  }
+
+  20%, 40%, 60%, 80% {
+    transform: translate(8px, -2px);
+  }
+}
+
+@keyframes impact-expand-success {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+    box-shadow: 0 0 150px #FFD700, inset 0 0 150px #FFD700;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 0.9;
+    box-shadow: 0 0 120px #FFD700, inset 0 0 120px #FFD700;
   }
 }
 
