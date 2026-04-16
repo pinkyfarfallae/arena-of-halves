@@ -440,7 +440,8 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
                 </>
               ) : (
                 <div className="training-stats__header-points-athena-codex-panel-no-codex">
-                  You don't have any Athena's Codex. Acquire them from the shop!
+                  You don't have any Athena's Codex. <br />
+                  Acquire them from the shop!
                 </div>
               )}
             </div>
