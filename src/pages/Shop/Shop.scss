@@ -1336,7 +1336,12 @@ $ink-faint: #a08a74;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 
-  &:hover {
+  &:disabled {
+    background: rgba($ink, 0.3);
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
     background: lighten($ink, 8%);
   }
 

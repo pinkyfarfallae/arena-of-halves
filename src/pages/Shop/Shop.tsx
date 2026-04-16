@@ -55,7 +55,7 @@ function Shop() {
   // After that: only auto-disable when tickets run out
   useEffect(() => {
     const discountTicketAmount = bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount || 0;
-    
+
     if (isFirstMount.current && bagEntries.length > 0) {
       // First mount: auto-apply if tickets available
       setAppliedDiscount(discountTicketAmount > 0);
@@ -174,7 +174,7 @@ function Shop() {
       if (hasDiscount) {
         console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
         const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1);
-        
+
         if (consumeResult.success) {
           console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
         } else {
@@ -247,13 +247,11 @@ function Shop() {
         </div>
 
         {/* 30% Discount Ticket */}
-        {discountTicket && (
-          <div className="shop__bar-discount">
-            <Ticket className="drachma--shop" />
-            <span className="shop__bar-amount">{discountTicket}</span>
-            <span className="shop__bar-unit">Discount Ticket</span>
-          </div>
-        )}
+        <div className="shop__bar-discount">
+          <Ticket className="drachma--shop" />
+          <span className="shop__bar-amount">{discountTicket || 0}</span>
+          <span className="shop__bar-unit">Discount Ticket</span>
+        </div>
 
         {/* Mobile cart toggle */}
         <button className="shop__bar-cart" onClick={() => setCartOpen(!cartOpen)}>
