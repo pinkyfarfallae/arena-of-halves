@@ -38,6 +38,8 @@ import { T } from '../../constants/translationKeys';
 import { GuaranteedUpgradeModal } from './components/GuaranteedUpgradeModal/GuaranteedUpgradeModal';
 import StandardUpgradeModal from './components/StandardUpgradeModal/StandardUpgradeModal';
 import { consumeItem } from '../../services/bag/bagService';
+import ForgeUpgradeOverlay from './components/ForgeUpgradeOverlay/ForgeUpgradeOverlay';
+import { UPGRADE_SUCCESS_RATES } from '../../constants/equipment';
 import './Forge.scss';
 
 function Forge() {
@@ -55,6 +57,10 @@ function Forge() {
   const [receivingNew, setReceivingNew] = useState(false);
 
   const [upgradingMode, setUpgradingMode] = useState<UpgradeType | null>(null);
+  const [showUpgradeOverlay, setShowUpgradeOverlay] = useState(false);
+  const [upgradingEquipment, setUpgradingEquipment] = useState<Equipment | null>(null);
+  const [upgradeSuccess, setUpgradeSuccess] = useState<boolean>(false);
+  const [upgradeProcessing, setUpgradeProcessing] = useState<boolean>(true);
 
 
   useEffect(() => {
@@ -208,24 +214,62 @@ function Forge() {
 
     const formattedEquipmentToUpgrade = { [equipmentToUpgrade.category]: currentTier() } as any & Equipment;
 
+    // Determine next tier for success rate calculation
+    const currentTierValue = currentTier();
+    const nextTierKey = currentTierValue === EQUIPMENT_TIERS.LEVEL_1 ? EQUIPMENT_TIERS.LEVEL_2 : EQUIPMENT_TIERS.LEVEL_3;
+    const baseSuccessRate = UPGRADE_SUCCESS_RATES[nextTierKey] || 0;
+
+    // Show upgrade overlay
+    setUpgradingEquipment(equipmentToUpgrade);
+    setUpgradeProcessing(true);
+    setShowUpgradeOverlay(true);
+
     try {
       // Consume tickets if any are being used
       if (ticketsUsed > 0) {
         const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed);
         if (!ticketResult.success) {
           setUpgradingMode(null);
+          setShowUpgradeOverlay(false);
+          setUpgradingEquipment(null);
           return;
         }
       }
 
-      // Update equipment in Firestore
-      const result = await upgradeEquipment(user.characterId, equipmentToUpgrade.category, formattedEquipmentToUpgrade);
+      // Deduct currency (materials consumed regardless of success)
+      const currencyResult = await updateCharacterDrachma(user.characterId, -cost);
+      if (!currencyResult.success) {
+        setUpgradingMode(null);
+        setShowUpgradeOverlay(false);
+        setUpgradingEquipment(null);
+        return;
+      }
 
-      if (result.success && result.newTier) {
-        // Deduct currency from Google Sheets
-        const currencyResult = await updateCharacterDrachma(user.characterId, -cost);
+      // Determine if upgrade succeeds
+      let success = false;
+      const isGuaranteedMode = upgradingMode === UPGRADE_TYPE.GUARANTEED;
 
-        if (currencyResult.success) {
+      if (isGuaranteedMode) {
+        // Guaranteed mode: always succeeds
+        success = true;
+      } else {
+        // Standard mode: calculate success rate and roll
+        const finalSuccessRate = Math.min(100, baseSuccessRate + (ticketsUsed * 30));
+        const roll = Math.random() * 100;
+        success = roll < finalSuccessRate;
+      }
+
+      setUpgradeSuccess(success);
+
+      // Wait 5 seconds for forging animation, then show result
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      setUpgradeProcessing(false);
+
+      if (success) {
+        // Update equipment in Firestore
+        const result = await upgradeEquipment(user.characterId, equipmentToUpgrade.category, formattedEquipmentToUpgrade);
+
+        if (result.success && result.newTier) {
           // Update local equipment state - update the specific item in the array
           setEquipment(prev => prev.map(item =>
             item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
@@ -243,8 +287,20 @@ function Forge() {
           await refreshUser();
         }
       }
+
+      // Wait another 1 second to show result
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Close overlay and modal
+      setShowUpgradeOverlay(false);
+      setUpgradingEquipment(null);
+      setUpgradingMode(null);
+
     } catch (error) {
       console.error('Error during upgrade:', error);
+      setShowUpgradeOverlay(false);
+      setUpgradingEquipment(null);
+      setUpgradingMode(null);
     }
   };
 
@@ -531,6 +587,14 @@ function Forge() {
           onConfirm={(ticketsUsed) => handleConfirmUpgrade(focusedEquipment, ticketsUsed)}
         />
       )}
+
+      <ForgeUpgradeOverlay
+        visible={showUpgradeOverlay}
+        equipmentName={focusedEquipment?.name || focusedEquipment?.labelEng || ''}
+        isGuaranteed={upgradingMode === UPGRADE_TYPE.GUARANTEED}
+        isSuccess={upgradeSuccess}
+        isProcessing={upgradeProcessing}
+      />
     </div>
   );
 }
