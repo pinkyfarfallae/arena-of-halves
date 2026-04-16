@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { use, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
@@ -6,6 +6,8 @@ import { PRACTICE_STATS } from '../../../../constants/practice';
 import { ROLE } from '../../../../constants/role';
 import { hexToRgb, lightenColor, rgbToHex } from '../../../../utils/color';
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
+import { addTrainingPoints } from '../../../../services/training/trainingPoints';
+import { consumeItem } from '../../../../services/bag/bagService';
 import { fetchAllCharacters } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
@@ -29,6 +31,9 @@ import fortuneIcon from './images/icons/fortune.png';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import './Stats.scss';
+import { useBag } from '../../../../hooks/useBag';
+import { ITEMS } from '../../../../constants/items';
+import Plus from '../../../../icons/Plus';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -50,12 +55,19 @@ const statIcons: Record<string, string> = {
 
 export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission, loading }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void; loading?: boolean }) {
   const { user, role, updateUser, refreshUser } = useAuth();
+  const { bagEntries } = useBag(user?.characterId);
   const { width } = useScreenSize();
+  const trainingPointsRef = useRef<HTMLDivElement>(null);
+  const athenaCodexPanelRef = useRef<HTMLDivElement>(null);
+  const originalCodexCountRef = useRef<number>(0);
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [isUpgradeOverlayVisible, setIsUpgradeOverlayVisible] = useState(false);
   const [isRefundOverlayVisible, setIsRefundOverlayVisible] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [noticeModal, setNoticeModal] = useState<{ title: string; message: string } | null>(null);
+  const [showAthenaCodexPanel, setShowAthenaCodexPanel] = useState(false);
+  const [codexCountToUse, setCodexCountToUse] = useState(1);
+  const [processingCodex, setProcessingCodex] = useState(false);
   const refundTicketCount = (role === ROLE.DEVELOPER || role === ROLE.ADMIN) ? 1 : 0;
   const MIN_UPGRADE_OVERLAY_MS = 3000;
   const UPGRADE_FADE_MS = 280;
@@ -203,7 +215,107 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setShowRefundConfirm(false);
   };
 
+  const handleUseCodex = async () => {
+    if (!user?.characterId) return;
+    if (processingCodex) return;
+
+    const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENAS_CODEX);
+    const availableCodex = codexEntry?.amount || 0;
+
+    if (availableCodex < codexCountToUse) {
+      setNoticeModal({
+        title: 'Not Enough Codex',
+        message: `You need ${codexCountToUse} Athena's Codex but only have ${availableCodex}.`,
+      });
+      return;
+    }
+
+    setProcessingCodex(true);
+
+    try {
+      // Consume codex items
+      const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENAS_CODEX, codexCountToUse);
+
+      if (!consumeResult.success) {
+        setNoticeModal({
+          title: 'Failed to Use Codex',
+          message: consumeResult.error || 'Could not consume codex items.',
+        });
+        setProcessingCodex(false);
+        return;
+      }
+
+      // Add training points (3 TP per codex)
+      const tpToAdd = codexCountToUse * 3;
+      const tpResult = await addTrainingPoints(user.characterId, tpToAdd);
+
+      if (!tpResult.success) {
+        setNoticeModal({
+          title: 'Failed to Add Training Points',
+          message: tpResult.error || 'Could not add training points.',
+        });
+        setProcessingCodex(false);
+        return;
+      }
+
+      // Refresh user data
+      await refreshUser();
+      const characters = await fetchAllCharacters(user);
+      const updated = characters.find((c) => c.characterId === user.characterId);
+      if (updated) {
+        updateUser(updated);
+      }
+
+      // Show success
+      setNoticeModal({
+        title: 'Codex Used Successfully',
+        message: `Used ${codexCountToUse} Athena's Codex and gained ${tpToAdd} Training Points!`,
+      });
+
+      // Reset and close panel
+      setCodexCountToUse(1);
+      setShowAthenaCodexPanel(false);
+    } catch (error) {
+      setNoticeModal({
+        title: 'Error',
+        message: 'An unexpected error occurred while using the codex.',
+      });
+    } finally {
+      setProcessingCodex(false);
+    }
+  };
+
   const isAllStatsZero = PRACTICE_STATES_DETAIL.every((stat) => getStatValue(stat.id) === 0);
+
+  const haseAthenaCodex = bagEntries.some(entry => entry.itemId === ITEMS.ATHENAS_CODEX && entry.amount > 0);
+  const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENAS_CODEX);
+  const availableCodex = codexEntry?.amount || 0;
+
+  useEffect(() => {
+    if (showAthenaCodexPanel) {
+      originalCodexCountRef.current = availableCodex;
+    }
+  }, [showAthenaCodexPanel]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (athenaCodexPanelRef.current && !athenaCodexPanelRef.current.contains(event.target as Node) &&
+        trainingPointsRef.current && !trainingPointsRef.current.contains(event.target as Node)) {
+        setShowAthenaCodexPanel(false);
+        setCodexCountToUse(1); // Reset count when closing
+      }
+    };
+
+    if (showAthenaCodexPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAthenaCodexPanel]);
 
   return (
     <div
@@ -248,9 +360,16 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
                 <span className="label">Refunds</span>
               </span>
             </button>
-            <div className="training-stats__header-points">
-              <span className="training-stats__header-points-icon">
+            <div
+              ref={trainingPointsRef}
+              className="training-stats__header-points"
+            >
+              <span
+                className="training-stats__header-points-icon"
+                onClick={() => setShowAthenaCodexPanel(prev => !prev)}
+              >
                 <TrainingPoint />
+                <Plus />
               </span>
               <span className="training-stats__header-points-text">
                 <span className="label">Points</span>
@@ -259,6 +378,65 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
                   <span>TP</span>
                 </span>
               </span>
+            </div>
+            <div
+              ref={athenaCodexPanelRef}
+              className={`training-stats__header-points-athena-codex-panel ${showAthenaCodexPanel ? 'visible' : ''}`}
+            >
+              <div className="training-stats__header-points-athena-codex-panel-title">Athena's Codex</div>
+              {haseAthenaCodex ? (
+                <>
+                  <div className="training-stats__header-points-athena-codex-panel-description">
+                    The mysterious tome that reveals the secrets of training.
+                  </div>
+                  <div className="training-stats__header-points-athena-codex-panel-info">
+                    <div className="info-row">
+                      <span className="label">Available:</span>
+                      <span className="value">{originalCodexCountRef.current} codex</span>
+                    </div>
+                  </div>
+                  <div className="training-stats__header-points-athena-codex-panel-cta">
+                    <div className="training-stats__header-points-athena-codex-panel-cta-number-adjustment">
+                      <button
+                        type="button"
+                        className="decrement"
+                        onClick={() => setCodexCountToUse(prev => Math.max(1, prev - 1))}
+                        disabled={codexCountToUse <= 1 || processingCodex}
+                      >
+                        −
+                      </button>
+                      <div className="training-stats__header-points-athena-codex-panel-cta-number-display">
+                        {codexCountToUse}
+                      </div>
+                      <button
+                        type="button"
+                        className="increment"
+                        onClick={() => setCodexCountToUse(prev => Math.min(originalCodexCountRef.current, prev + 1))}
+                        disabled={codexCountToUse >= originalCodexCountRef.current || processingCodex}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="training-stats__header-points-athena-codex-panel-cta-button"
+                      onClick={handleUseCodex}
+                      disabled={processingCodex || originalCodexCountRef.current < codexCountToUse}
+                    >
+                      <span className="training-stats__header-points-athena-codex-panel-cta-text">
+                        {processingCodex ? 'Processing...' : `Use ${codexCountToUse} Codex`}
+                      </span>
+                      <span className="training-stats__header-points-athena-codex-panel-cta-gain">
+                        +{codexCountToUse * 3} TP
+                      </span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="training-stats__header-points-athena-codex-panel-no-codex">
+                  You don't have any Athena's Codex. Acquire them from the shop!
+                </div>
+              )}
             </div>
           </div>
         </div>
