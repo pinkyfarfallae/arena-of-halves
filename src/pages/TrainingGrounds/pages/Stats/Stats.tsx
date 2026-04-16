@@ -203,6 +203,8 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setShowRefundConfirm(false);
   };
 
+  const isAllStatsZero = PRACTICE_STATES_DETAIL.every((stat) => getStatValue(stat.id) === 0);
+
   return (
     <div
       className="training-stats"
@@ -235,8 +237,8 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
               type="button"
               className="training-stats__header-refund-ticket"
               onClick={handleOpenRefundModal}
-              disabled={refundTicketCount <= 0}
-              data-tooltip={refundTicketCount <= 0 ? 'No refund ticket available' : 'Refund all stats'}
+              disabled={refundTicketCount <= 0 || isAllStatsZero}
+              data-tooltip={refundTicketCount <= 0 ? 'No refund ticket available' : isAllStatsZero ? 'All stats are zero' : 'Refund all stats'}
               data-tooltip-pos="bottom"
             >
               <span className="training-stats__header-refund-ticket-icon">

@@ -10,8 +10,8 @@
     justify-content: center;
     padding: 1rem;
     background:
-      radial-gradient(circle at 50% 55%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.14) 0%, transparent 30%),
-      radial-gradient(circle at 50% 55%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.06) 0%, transparent 42%),
+      radial-gradient(circle at 50% 55%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.14) 0%, transparent 30%),
+      radial-gradient(circle at 50% 55%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.06) 0%, transparent 42%),
       rgba(0, 0, 0, 0.92);
     backdrop-filter: blur(8px);
     opacity: 0;
@@ -38,13 +38,13 @@
       height: 100%;
       border-radius: 0;
       background:
-        radial-gradient(circle at 12% 85%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.18) 0 2px, transparent 7px),
-        radial-gradient(circle at 18% 78%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.12) 0 2px, transparent 7px),
-        radial-gradient(circle at 28% 92%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.16) 0 2px, transparent 7px),
-        radial-gradient(circle at 38% 80%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.1) 0 2px, transparent 7px),
-        radial-gradient(circle at 46% 88%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.14) 0 2px, transparent 7px);
+        radial-gradient(circle at 12% 85%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.18) 0 2px, transparent 7px),
+        radial-gradient(circle at 18% 78%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.12) 0 2px, transparent 7px),
+        radial-gradient(circle at 28% 92%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.16) 0 2px, transparent 7px),
+        radial-gradient(circle at 38% 80%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.1) 0 2px, transparent 7px),
+        radial-gradient(circle at 46% 88%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.14) 0 2px, transparent 7px);
       background-repeat: no-repeat;
-      filter: blur(0.6px) drop-shadow(0 0 6px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.35));
+      filter: blur(0.6px) drop-shadow(0 0 6px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.35));
       opacity: 0.35;
       animation: emberHaze 5.2s ease-in-out infinite;
       mix-blend-mode: screen;
@@ -62,10 +62,10 @@
     &-ember {
       position: absolute;
       border-radius: 999px;
-      background: rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.95);
+      background: rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.95);
       box-shadow:
-        0 0 6px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.7),
-        0 0 14px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.28);
+        0 0 6px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.7),
+        0 0 14px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.28);
       filter: blur(0.15px);
       transform: translate3d(0, 0, 0) scale(1);
       animation-name: emberRiseParticle, emberFlicker;
@@ -85,11 +85,11 @@
         conic-gradient(
           from 60deg,
           transparent 0deg 24deg,
-          rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.72) 24deg 34deg,
+          rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.72) 24deg 34deg,
           transparent 34deg 92deg,
-          rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.58) 92deg 104deg,
+          rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.58) 92deg 104deg,
           transparent 104deg 180deg,
-          rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.82) 180deg 190deg,
+          rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.82) 180deg 190deg,
           transparent 190deg 360deg
         );
       filter: blur(10px);
@@ -136,14 +136,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.42);
+    border: 2px solid rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.42);
     background:
-      radial-gradient(circle at 35% 30%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.28) 0%, transparent 42%),
-      radial-gradient(circle at 65% 70%, rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.12) 0%, transparent 58%),
-      rgba(255, 255, 255, 0.04);
+      radial-gradient(circle at 35% 30%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.28) 0%, transparent 42%),
+      radial-gradient(circle at 65% 70%, rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.12) 0%, transparent 58%),
+      rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.04);
     box-shadow:
-      0 0 22px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.24),
-      0 0 42px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.12);
+      0 0 22px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.24),
+      0 0 42px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.12);
     animation: upgradeFloat 1.8s ease-in-out infinite;
     filter: saturate(1.5);
 
@@ -152,7 +152,7 @@
       height: 68px;
       object-fit: contain;
       filter:
-        brightness(0) saturate(100%) invert(90%) sepia(14%) saturate(1600%) hue-rotate(0deg) brightness(1.08) drop-shadow(0 0 10px rgba(var(--overlay-stat-rgb, 255, 255, 255), 0.9));
+        brightness(0) saturate(100%) invert(90%) sepia(14%) saturate(1600%) hue-rotate(0deg) brightness(1.08) drop-shadow(0 0 10px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.9));
     }
   }
 
@@ -172,7 +172,8 @@
     text-shadow:
       0 0 2px rgba(0, 0, 0, 1),
       0 0 5px rgba(0, 0, 0, 1),
-      0 0 10px rgba(0, 0, 0, 1);
+      0 0 10px rgba(0, 0, 0, 1),
+      0 0 20px rgba(var(--overlay-stat-rgb, 192, 160, 98), 0.5);
   }
 
   &__upgrade-overlay-subtitle {
