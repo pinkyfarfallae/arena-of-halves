@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ref, update } from 'firebase/database';
 import { db } from '../../../../firebase';
 import { deleteRoom, toFighterState } from '../../../../services/battleRoom/battleRoom';
-import { fetchTodayIrisWish } from '../../../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../../../data/wishes';
 import { fetchNPCs } from '../../../../data/npcs';
 import { fetchAllCharacters } from '../../../../data/characters';
 import { getPowers } from '../../../../data/powers';
@@ -15,7 +15,7 @@ import './ConfigArenaModal.scss';
 import { COPY_TYPE, type CopyType } from '../../../../constants/lobby';
 import { ARENA_PATH, ARENA_ROLE, BATTLE_TEAM, ROOM_STATUS, teamPath, TEAM_SUB_PATH } from '../../../../constants/battle';
 import { CHARACTER } from '../../../../constants/characters';
-import { DEITY } from '../../../../constants/deities';
+import { Deity, DEITY } from '../../../../constants/deities';
 import { ROLE } from '../../../../constants/role';
 import { useAuth } from '../../../../hooks/useAuth';
 
@@ -69,8 +69,8 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
         const fightersWithWishes = await Promise.all(
           chars.map(async (c) => {
             const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
-            const wishesOfIris = await fetchTodayIrisWish(c.characterId).catch(() => null);
-            return toFighterState(c, getPowers(powerDeity), wishesOfIris?.deity || null);
+            const wishesOfIris = await fetchActiveTodayIrisWish(c.characterId).catch(() => null);
+            return toFighterState(c, getPowers(powerDeity), wishesOfIris?.deity as Deity || null);
           })
         );
         setPlayerCharacters(fightersWithWishes);

@@ -4,8 +4,16 @@ import { GID, csvUrl } from '../constants/sheets';
 import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
+import type { WishEntry } from '../types/character';
 
 const wishesCsvUrl = () => csvUrl(GID.WISHES);
+
+export interface IrisWishDoc {
+  userId: string;
+  date: string;
+  deity: string;
+  canceled?: boolean;
+}
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
@@ -93,7 +101,23 @@ export const saveIrisWish = async (userId: string, deity: string) => {
     userId,
     date,
     deity,
+    canceled: false,
   });
+};
+
+export const cancelTodayIrisWish = async (characterId: string) => {
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date());
+  const docId = `${characterId}_${date}`;
+
+  const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
+
+  await setDoc(ref, {
+    userId: characterId,
+    date,
+    canceled: true,
+  }, { merge: true });
 };
 
 export async function fetchWishes(): Promise<Wish[]> {
@@ -123,7 +147,14 @@ export const fetchTodayIrisWish = async (characterId: string) => {
 
   if (!snap.exists()) return null;
 
-  return snap.data(); // { userId, date, deity }
+  return snap.data() as IrisWishDoc;
+};
+
+/** Fetch today's Iris wish only if it is still active */
+export const fetchActiveTodayIrisWish = async (characterId: string) => {
+  const wish = await fetchTodayIrisWish(characterId);
+  if (!wish || wish.canceled || !wish.deity) return null;
+  return wish;
 };
 
 /** Fetch all Iris wishes for a specific character */
@@ -132,7 +163,20 @@ export const fetchAllIrisWishes = async (characterId: string) => {
   const q = query(ref, where('userId', '==', characterId));
   const snap = await getDocs(q);
 
-  return snap.docs.map(doc => doc.data());
+  return snap.docs.map(doc => doc.data() as IrisWishDoc);
+};
+
+/** Aggregate all Iris wishes for a specific character by deity */
+export const fetchIrisWishCountsForCharacter = async (characterId: string): Promise<WishEntry[]> => {
+  const wishes = await fetchAllIrisWishes(characterId);
+  const counts = new Map<string, number>();
+
+  wishes.forEach((wish) => {
+    if (!wish.deity) return;
+    counts.set(wish.deity, (counts.get(wish.deity) || 0) + 1);
+  });
+
+  return Array.from(counts.entries()).map(([deity, count]) => ({ deity, count }));
 };
 
 /** Fetch today's Iris wish of every character */
@@ -144,7 +188,7 @@ export const fetchTodayIrisWishes = async () => {
   const q = query(ref, where('date', '==', date));
   const snap = await getDocs(q);
 
-  return snap.docs.map(doc => doc.data());
+  return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 
 /** Fetch all Iris wishes for specific date */
@@ -153,7 +197,7 @@ export const fetchIrisWishesByDate = async (date: string) => {
   const q = query(ref, where('date', '==', date));
   const snap = await getDocs(q);
 
-  return snap.docs.map(doc => doc.data());
+  return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 
 /** Wishes associated with battle */

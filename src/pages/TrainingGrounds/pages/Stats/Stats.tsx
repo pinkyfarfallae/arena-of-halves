@@ -1,9 +1,8 @@
-import React, { use, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { PRACTICE_STATS } from '../../../../constants/practice';
-import { ROLE } from '../../../../constants/role';
 import { hexToRgb, lightenColor, rgbToHex } from '../../../../utils/color';
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
 import { addTrainingPoints } from '../../../../services/training/trainingPoints';
@@ -30,11 +29,10 @@ import experienceIcon from './images/icons/experience.png';
 import fortuneIcon from './images/icons/fortune.png';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
-import './Stats.scss';
 import { useBag } from '../../../../hooks/useBag';
 import { ITEMS } from '../../../../constants/items';
 import Plus from '../../../../icons/Plus';
-import { CHARACTER } from '../../../../constants/characters';
+import './Stats.scss';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -225,7 +223,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     if (!user?.characterId) return;
     if (processingCodex) return;
 
-    const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENAS_CODEX);
+    const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENA_S_CODEX);
     const availableCodex = codexEntry?.amount || 0;
 
     if (availableCodex < codexCountToUse) {
@@ -240,7 +238,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
     try {
       // Consume codex items
-      const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENAS_CODEX, codexCountToUse);
+      const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENA_S_CODEX, codexCountToUse);
 
       if (!consumeResult.success) {
         setNoticeModal({
@@ -293,8 +291,8 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
   const isAllStatsZero = PRACTICE_STATES_DETAIL.every((stat) => getStatValue(stat.id) === 0);
 
-  const haseAthenaCodex = bagEntries.some(entry => entry.itemId === ITEMS.ATHENAS_CODEX && entry.amount > 0);
-  const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENAS_CODEX);
+  const haseAthenaCodex = bagEntries.some(entry => entry.itemId === ITEMS.ATHENA_S_CODEX && entry.amount > 0);
+  const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENA_S_CODEX);
   const availableCodex = codexEntry?.amount || 0;
 
   useEffect(() => {

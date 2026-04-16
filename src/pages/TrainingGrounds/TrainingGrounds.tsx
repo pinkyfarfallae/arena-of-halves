@@ -23,7 +23,7 @@ import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../constants/practice';
 import { ARENA_ACTIONS, ArenaAction } from '../../constants/arenaAction';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import './TrainingGrounds.scss';
 import { DEITY } from '../../constants/deities';
 import HeraBlocked from '../../components/HeraBlocked/HeraBlocked';
@@ -82,7 +82,7 @@ export default function TrainingGrounds() {
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
           getTodayProgress(user.characterId).catch(() => null),
           fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
-          fetchTodayIrisWish(user?.characterId).catch(() => null),
+          fetchActiveTodayIrisWish(user?.characterId).catch(() => null),
         ]);
 
         if (!mounted) return;

@@ -81,11 +81,11 @@ import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
 import { getDiceSize } from '../../utils/getDiceSize';
 import { PRACTICE_STATES } from '../../constants/practice';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { getTodayDate } from '../../utils/date';
 import { useDailyTrigger } from '../../hooks/useDailyTrigger';
 import BeyondTodayPracticeModal from './components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
-import { DEITY } from '../../constants/deities';
+import { Deity, DEITY } from '../../constants/deities';
 import './Arena.scss';
 
 /**
@@ -707,8 +707,8 @@ function Arena(props?: ArenaDemoProps) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
         const powers = room.practiceMode ? [] : getPowers(powerDeity);
-        const wishesOfIris = await fetchTodayIrisWish(user.characterId);
-        const fighter = toFighterState(user, powers, wishesOfIris?.deity);
+        const wishesOfIris = await fetchActiveTodayIrisWish(user.characterId);
+        const fighter = toFighterState(user, powers, wishesOfIris?.deity as Deity || null);
         const result = await joinRoom(arenaId, fighter);
         if (result) {
           const resultA = teamMembersFromFirebase(result.teamA?.members);

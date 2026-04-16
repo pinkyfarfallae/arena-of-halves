@@ -221,7 +221,7 @@ function Shop() {
     );
   }, [items, searchQuery]);
 
-  console.log('Filtered Items:', filteredItems);
+  // console.log('Filtered Items:', filteredItems);
   const limitedItems = filteredItems.filter(i => i.stock !== "infinity");
   const unlimitedItems = filteredItems.filter(i => i.stock === "infinity");
 

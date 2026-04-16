@@ -892,7 +892,15 @@ export const UI_TEXT = {
     en: 'Tyche has blessed your die,\ntransforming it into a mighty 20-faced die.\nFortune smiles upon you!',
     th: 'ไทคีได้อวยพรลูกเต๋าของคุณ\nลูกเต๋าของคุณจะมีถึง 20 หน้า โชคเข้าข้างคุณแล้ว!'
   },
-
+  // Nemesis's Cookie
+  NEMESIS_COOKIE_BUTTON_LABEL: {
+    en: "Decree Purge",
+    th: 'ปลดพันธะลิขิต'
+  },
+  NEMESIS_COOKIE_MESSAGE: {
+    en: "Decree Purged",
+    th: 'พ้นพันธะลิขิต'
+  }
 } as const;
 
 /**))

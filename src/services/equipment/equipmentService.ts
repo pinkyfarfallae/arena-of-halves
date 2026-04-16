@@ -8,7 +8,6 @@ import {
   EquipmentCategory, 
   EquipmentTier 
 } from '../../constants/equipment';
-import { Character } from '../../types/character';
 
 /**
  * Equipment data stored in Firestore per user

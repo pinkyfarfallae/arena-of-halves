@@ -28,7 +28,7 @@ import { getTodayDate } from '../../../../utils/date';
 import { useDailyTrigger } from '../../../../hooks/useDailyTrigger';
 import BeyondTodayPracticeModal from '../../../Arena/components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
 import { DieNoticeModal } from './components/DieNoticeModal/DieNoticeModal';
-import { fetchTodayIrisWish } from '../../../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 interface PaperRoll {
   target: number;
@@ -88,7 +88,7 @@ export default function TrainWithAdmin() {
       const [trainings, todayProgress, todayUserIrisWish] = await Promise.all([
         fetchUserTrainingTasks(user.characterId).catch(() => [] as TrainingTask[]),
         getTodayProgress(user.characterId).catch(() => null),
-        fetchTodayIrisWish(user?.characterId).catch(() => null),
+        fetchActiveTodayIrisWish(user?.characterId).catch(() => null),
       ]);
 
       const deity = todayUserIrisWish?.deity;

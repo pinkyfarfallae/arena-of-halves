@@ -79,12 +79,18 @@ export function useBag(userId: string | undefined) {
     }
 
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
+    const prevData = bagData;
+    setBagData((current) => ({
+      ...current,
+      [itemId]: { amount, type },
+    }));
     
     try {
       await setDoc(docRef, {
         [itemId]: { amount, type },
       }, { merge: true });
     } catch (err) {
+      setBagData(prevData);
       // console.error('Error adding item:', err);
       throw err;
     }
@@ -117,6 +123,8 @@ export function useBag(userId: string | undefined) {
     } else {
       await addItem(itemId, newAmount, currentItem.type);
     }
+
+    return;
   };
 
   /**
@@ -129,12 +137,19 @@ export function useBag(userId: string | undefined) {
     }
 
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
+    const prevData = bagData;
+    setBagData((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
     
     try {
       await updateDoc(docRef, {
         [itemId]: deleteField(),
       });
     } catch (err) {
+      setBagData(prevData);
       // console.error('Error removing item:', err);
       throw err;
     }
