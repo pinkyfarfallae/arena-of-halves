@@ -1,0 +1,266 @@
+@import '../../../../../../styles/variables';
+
+.training-stats {
+  &__upgrade-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 431;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background:
+      radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.2) 0%, transparent 28%),
+      radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+      rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    transform: scale(1.01);
+    pointer-events: none;
+    overflow: hidden;
+    transition:
+      opacity 280ms ease,
+      transform 280ms ease;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      width: min(54vw, 420px);
+      height: min(54vw, 420px);
+      background:
+        conic-gradient(
+          from 35deg,
+          transparent 0deg 20deg,
+          rgba(255, 255, 255, 0.78) 20deg 30deg,
+          transparent 30deg 96deg,
+          rgba(255, 255, 255, 0.6) 96deg 108deg,
+          transparent 108deg 178deg,
+          rgba(255, 255, 255, 0.82) 178deg 190deg,
+          transparent 190deg 360deg
+        );
+      filter: blur(10px);
+      opacity: 0.72;
+      mask: radial-gradient(circle, transparent 48%, #000 50%, #000 57%, transparent 58%);
+      animation:
+        refundArcFall 1.9s ease-in-out infinite reverse,
+        refundArcSpin 3.6s linear infinite reverse;
+    }
+
+    &--visible {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    &-embers {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    &-ember {
+      position: absolute;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle, rgba(var(--ember-rgb, 255, 255, 255), 1) 0%, rgba(var(--ember-rgb, 255, 255, 255), 0.92) 32%, rgba(var(--ember-rgb, 255, 255, 255), 0.32) 58%, rgba(var(--ember-rgb, 255, 255, 255), 0) 76%);
+      box-shadow:
+        0 0 14px rgba(var(--ember-rgb, 255, 255, 255), 1),
+        0 0 32px rgba(var(--ember-rgb, 255, 255, 255), 0.7);
+      filter: blur(0px);
+      z-index: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      animation-name: refundEmberRise, refundEmberFlicker;
+      animation-timing-function: linear, ease-in-out;
+      animation-iteration-count: infinite, infinite;
+      will-change: transform, opacity;
+
+      &--rise {
+        animation-name: refundEmberRise, refundEmberFlicker;
+      }
+
+      &--falling {
+        animation-name: refundEmberFall, refundEmberFlicker;
+      }
+    }
+
+    &-card {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      text-align: center;
+    }
+
+    &-arc {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.18) 0%, transparent 46%),
+        conic-gradient(
+          from 180deg,
+          transparent 0deg 15deg,
+          rgba(255, 255, 255, 0.94) 15deg 30deg,
+          transparent 30deg 70deg,
+          rgba(255, 255, 255, 0.78) 70deg 84deg,
+          transparent 84deg 132deg,
+          rgba(255, 255, 255, 0.9) 132deg 146deg,
+          transparent 146deg 360deg
+        );
+      filter: blur(0.3px) drop-shadow(0 0 24px rgba(255, 255, 255, 1));
+      animation: refundArcFloat 2.1s ease-in-out infinite;
+    }
+
+    &-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      color: white;
+    }
+
+    &-title {
+      font-family: 'Cinzel', serif;
+      font-size: 0.95rem;
+      font-weight: 550;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 2px rgba(0, 0, 0, 1),
+        0 0 5px rgba(0, 0, 0, 1),
+        0 0 10px rgba(0, 0, 0, 1);
+    }
+
+    &-subtitle {
+      font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.82);
+      text-shadow:
+        0 0 2px rgba(0, 0, 0, 1),
+        0 0 5px rgba(0, 0, 0, 1);
+    }
+  }
+}
+
+@keyframes refundArcRise {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.94) rotate(-8deg);
+    opacity: 0.45;
+  }
+
+  45% {
+    transform: translate(-50%, -53%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  60% {
+    transform: translate(-50%, -47%) scale(1.02) rotate(10deg);
+    opacity: 0.82;
+  }
+}
+
+@keyframes refundArcFall {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1.04) rotate(14deg);
+    opacity: 0.35;
+  }
+
+  35% {
+    transform: translate(-50%, -47%) scale(0.98) rotate(2deg);
+    opacity: 0.92;
+  }
+
+  70% {
+    transform: translate(-50%, -54%) scale(1.03) rotate(-12deg);
+    opacity: 0.62;
+  }
+}
+
+@keyframes refundArcSpin {
+  from {
+    filter: blur(16px) hue-rotate(0deg);
+  }
+
+  to {
+    filter: blur(16px) hue-rotate(10deg);
+  }
+}
+
+@keyframes refundEmberRise {
+  0% {
+    transform: translateY(30%) scale(0.72);
+  }
+
+  30% {
+    transform: translateY(0) scale(0.95);
+  }
+
+  60% {
+    transform: translateY(-60px) scale(1);
+  }
+
+  100% {
+    transform: translateY(-160px) scale(0.75);
+  }
+}
+
+@keyframes refundEmberFall {
+  0% {
+    transform: translateY(-18px) scale(0.72);
+  }
+
+  20% {
+    transform: translateY(8px) scale(0.9);
+  }
+
+  45% {
+    transform: translateY(66px) scale(1);
+  }
+
+  75% {
+    transform: translateY(152px) scale(0.92);
+  }
+
+  100% {
+    transform: translateY(240px) scale(0.78);
+  }
+}
+
+@keyframes refundEmberFlicker {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+
+  20% {
+    opacity: 0.42;
+  }
+
+  45% {
+    opacity: 0.92;
+  }
+
+  75% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes refundIconFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
