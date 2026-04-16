@@ -351,21 +351,24 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
           </Link>
           <div className="training-stats__header-title">Stats</div>
           <div className="training-stats__header-points-container">
-            <button
-              type="button"
-              className="training-stats__header-refund-ticket"
-              onClick={handleOpenRefundModal}
-              disabled={refundTicketCount <= 0 || isAllStatsZero}
+            <span
               data-tooltip={refundTicketCount <= 0 ? 'No refund ticket available' : isAllStatsZero ? 'All stats are zero' : 'Refund all stats'}
               data-tooltip-pos="bottom"
             >
-              <span className="training-stats__header-refund-ticket-icon">
-                <Refund />
-              </span>
-              <span className="training-stats__header-refund-ticket-text">
-                <span className="label">Refunds</span>
-              </span>
-            </button>
+              <button
+                type="button"
+                className="training-stats__header-refund-ticket"
+                onClick={handleOpenRefundModal}
+                disabled={refundTicketCount <= 0 || isAllStatsZero}
+              >
+                <span className="training-stats__header-refund-ticket-icon">
+                  <Refund />
+                </span>
+                <span className="training-stats__header-refund-ticket-text">
+                  <span className="label">Refunds</span>
+                </span>
+              </button>
+            </span>
             <div
               ref={trainingPointsRef}
               className="training-stats__header-points"
