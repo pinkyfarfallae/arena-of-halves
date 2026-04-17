@@ -1,6 +1,6 @@
 export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 
-const DEPLOYMENT_ID = 'AKfycbxEvBnYUJnfKDGVMVCNEiug8sohF78rUdyan-q2eYC5ou2Fd8fXyKwkiobqfKtdguUpjg';
+const DEPLOYMENT_ID = 'AKfycbxC0KEwU2MM6beLebIvR40ZqvQr3xwTyplfD84KNrR3sK-okz0JbMY9vR9Yd6fTczJSWg';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export const GID = {
@@ -9,7 +9,7 @@ export const GID = {
   POWERS: '979138238',
   WISHES: '198616624',
   ITEM_INFO: '403375390',
-  CUSTOM_EQUIPMENT: '1866887317', // TODO: Update with actual GID from Google Sheets
+  CUSTOM_EQUIPMENT: '1866887317',
   PLAYER_BAG: '927684470',
   SHOP: '819284917',
   HARVEST: '390673925',

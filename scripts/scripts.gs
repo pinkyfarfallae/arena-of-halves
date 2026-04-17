@@ -645,46 +645,16 @@ function handleApproveHarvest(params) {
   if (reviewedByCol !== -1) harvestSheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
   if (charCountCol !== -1) harvestSheet.getRange(rowIndex + 1, charCountCol + 1).setValue(charCount);
   if (mentionCountCol !== -1) harvestSheet.getRange(rowIndex + 1, mentionCountCol + 1).setValue(mentionCount);
-  if (drachmaRewardCol !== -1) harvestSheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward);
+  if (drachmaRewardCol !== -1) harvestSheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward); // Now accepts JSON string map
   if (roleplayersCol !== -1) harvestSheet.getRange(rowIndex + 1, roleplayersCol + 1).setValue(roleplayers.join(','));
 
-  // Award drachma to all roleplayers using updateCharacterDrachma
-  var awarded = [];
-  var failed = [];
-  
-  for (var r = 0; r < roleplayers.length; r++) {
-    var roleplayerId = roleplayers[r].toString().trim();
-    var rewardAmount = drachmaReward;
-    
-    // Check if this roleplayer has Demeter bonus (2x reward)
-    var hasDemeterBonus = false;
-    for (var d = 0; d < demeterBonusIds.length; d++) {
-      if (demeterBonusIds[d].toString().trim().toLowerCase() === roleplayerId.toLowerCase()) {
-        hasDemeterBonus = true;
-        break;
-      }
-    }
-    
-    if (hasDemeterBonus) {
-      rewardAmount = drachmaReward * 2;
-    }
-    
-    // Use the centralized updateCharacterDrachma function
-    var result = updateCharacterDrachma(roleplayerId, rewardAmount);
-    var resultData = JSON.parse(result.getContent());
-    
-    if (resultData.success) {
-      var bonusLabel = hasDemeterBonus ? ' (Demeter x2)' : '';
-      awarded.push(roleplayerId + bonusLabel + ': ' + resultData.previous + ' → ' + resultData.current);
-    } else {
-      failed.push(roleplayerId + ': ' + (resultData.error || 'Unknown error'));
-    }
-  }
+  // Note: Drachma distribution is now handled by the frontend with individual calculated rewards
+  // This backend call only records the drachmaReward (JSON map: {charId: amount}) for leaderboard tracking
+  // The frontend awards each participant their individual reward (base + gardening set + solo + Demeter wish bonuses)
 
   return jsonResponse({ 
-    success: true, 
-    awarded: awarded,
-    failed: failed.length > 0 ? failed : undefined
+    success: true,
+    message: 'Harvest approved and recorded. Individual rewards handled by frontend.'
   });
 }
 
@@ -1342,13 +1312,32 @@ function handleFetchTopHarvesters(limit) {
   for (var i = 1; i < harvestData.length; i++) {
     var row = harvestData[i];
     if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
-      var drachma = drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0;
-      var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+      var drachmaValue = drachmaRewardCol !== -1 ? row[drachmaRewardCol] : '';
+      var drachmaStr = drachmaValue.toString().trim();
+      
+      // Try to parse as JSON map (new format: {"charA": 50, "charB": 100})
+      if (drachmaStr && (drachmaStr.indexOf('{') === 0)) {
+        try {
+          var rewardMap = JSON.parse(drachmaStr);
+          for (var charId in rewardMap) {
+            var amount = parseInt(rewardMap[charId], 10) || 0;
+            earnings[charId] = (earnings[charId] || 0) + amount;
+          }
+        } catch (e) {
+          // Invalid JSON, skip this record
+        }
+      } else {
+        // Legacy format: single number divided among participants
+        var drachma = parseInt(drachmaStr || '0', 10);
+        var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+        var participantCount = roleplayers.length || 1;
+        var perParticipant = Math.floor(drachma / participantCount);
 
-      for (var r = 0; r < roleplayers.length; r++) {
-        var charId = roleplayers[r].trim();
-        if (charId) {
-          earnings[charId] = (earnings[charId] || 0) + drachma;
+        for (var r = 0; r < roleplayers.length; r++) {
+          var charId = roleplayers[r].trim();
+          if (charId) {
+            earnings[charId] = (earnings[charId] || 0) + perParticipant;
+          }
         }
       }
     }

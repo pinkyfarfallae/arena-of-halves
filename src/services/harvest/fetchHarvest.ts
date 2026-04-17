@@ -39,7 +39,7 @@ export async function approveHarvest(
   reviewedBy: string,
   charCount: number,
   mentionCount: number,
-  drachmaReward: number,
+  drachmaReward: string | number, // Now accepts JSON string map or legacy number
   roleplayers: string[],
   demeterBonusIds: string[] = []
 ): Promise<{ success: boolean; awarded?: string[]; error?: string }> {

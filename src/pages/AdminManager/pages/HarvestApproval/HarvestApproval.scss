@@ -938,7 +938,7 @@
   gap: 0.75rem;
   margin-bottom: 1rem;
 
-  @media (max-width: $bp-compact) {
+  @media (max-width: 675px) {
     grid-template-columns: 1fr;
   }
 }
@@ -1150,6 +1150,10 @@
   position: relative;
   z-index: 1;
 
+  @media (max-width: $bp-mobile) {
+    gap: 0.1rem
+  }
+
   &:hover {
     border-color: rgba($strawberry-pink, 0.5);
     box-shadow: 0 2px 12px rgba($strawberry-red, 0.12);
@@ -1174,6 +1178,10 @@
     cursor: pointer;
     accent-color: $strawberry-pink;
     flex-shrink: 0;
+
+    @media (max-width: $bp-mobile) {
+      margin-right: 3px;
+    }
   }
 }
 
@@ -1220,6 +1228,12 @@
   padding: 0rem 0.4rem;
   border-radius: 8px;
   transform: translate(50%, -50%);
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.35rem;
+    padding: 0rem 0.2rem;
+    right: 2px;
+  }
 }
 
 .harvest-approval__roleplayer-info {
@@ -1229,7 +1243,10 @@
   gap: 0.25rem;
   justify-content: space-between;
   min-width: 0;
-  margin-left: 5px;
+
+  @media (max-width: $bp-mobile) {
+    margin-left: 8px;
+  }
 }
 
 .harvest-approval__roleplayer-name {
@@ -1251,12 +1268,16 @@
 }
 
 .harvest-approval__roleplayer-handle {
-  font-size: 0.6rem;
+  font-size: 0.5rem;
   color: $berry-text-soft;
   font-family: 'Monaco', 'Menlo', monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  @media (max-width: $bp-mobile) {
+    font-size: 0.45rem;
+  }
 }
 
 // Actions
@@ -1391,6 +1412,7 @@
   from {
     transform: scale(0);
   }
+
   to {
     transform: scale(1);
   }
@@ -1701,5 +1723,36 @@
 @media (max-width: $bp-mobile) {
   .harvest-approval {
     margin: -1rem -0.75rem;
+  }
+}
+
+.harvest-approval__roleplayer-gardening-set {
+  display: flex;
+  align-items: center;
+  font-size: 0.45rem;
+  font-weight: 600;
+  color: #558b2f;
+  text-transform: none;
+  margin-left: 4px;
+  margin-right: auto;
+
+  svg {
+    width: 10px;
+    height: 10px;
+    color: #7cac5a;
+    margin-right: 4px;
+    margin-top: -2px;
+  }
+
+  @media (max-width: $bp-mobile) {
+    margin-left: 0px;
+    font-size: 0;
+
+    svg {
+      margin-top: 0;
+      margin-left: 4px;
+      width: 12px;
+      height: 12px;
+    }
   }
 }

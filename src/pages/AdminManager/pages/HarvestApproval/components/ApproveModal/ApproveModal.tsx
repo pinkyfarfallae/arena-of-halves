@@ -9,6 +9,16 @@ interface ApproveModalProps {
     reward: number;
     roleplayers: string[];
     isSolo: boolean;
+    participantRewards: {
+      characterId: string;
+      name: string;
+      reward: number;
+      bonuses: {
+        hasGardeningSet: boolean;
+        hasDemeterWish: boolean;
+        isSolo: boolean;
+      };
+    }[];
   } | null;
   onClose: () => void;
   onConfirm: () => void;
@@ -27,20 +37,40 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
               <span className="modal-label">Character Count:</span>
               <span className="modal-value">{approveData.charCount.toLocaleString()}</span>
             </div>
-            <div className="modal-summary-item">
-              <span className="modal-label">Tweet Count:</span>
-              <span className="modal-value">{approveData.tweetCount}</span>
-            </div>
-            <div className="modal-summary-item">
-              <span className="modal-label">Participants:</span>
-              <span className="modal-value">{approveData.roleplayers.length}</span>
-            </div>
-            <div className="modal-summary-item modal-summary-item--highlight">
-              <span className="modal-label">Total Reward:</span>
-              <span className="modal-value">
-                <Drachma /> {approveData.reward}
-                {approveData.isSolo && <span className="modal-badge">+50% Solo</span>}
-              </span>
+          </div>
+          <div className="modal-participants">
+            <div className="modal-participants__title">Participant Rewards:</div>
+            <div className="modal-participants__list">
+              {approveData.participantRewards.map((participant) => (
+                <div key={participant.characterId} className="modal-participants__item">
+                  <div className="modal-participants__info-container">
+                    <div className="modal-participants__info">
+                      <span className="modal-participants__name">{participant.name}</span>
+                    </div>
+                    <span className="modal-participants__reward">
+                      <Drachma /> {participant.reward}
+                    </span>
+                  </div>
+                  <div className="modal-participants__bonuses">
+                    <span className={`modal-badge ${participant.bonuses.hasGardeningSet ? 'modal-badge--gardening' : ''}`}>
+                      Ceiling<>(</>({approveData.charCount} ÷ 200) x {participant.bonuses.hasGardeningSet
+                        ? <>15 <span className="modal-badge--gardening-info">Gardening Set</span></>
+                        : '10'}
+                      {(!participant.bonuses.isSolo && !participant.bonuses.hasDemeterWish) && <>)</>}
+                    </span>
+                    {participant.bonuses.isSolo && (
+                      <span className="modal-badge modal-badge--solo">
+                        x 1.5 <span className="modal-badge--gardening-info">Solo</span>
+                        {!participant.bonuses.hasDemeterWish && <>)</>}
+                      </span>
+
+                    )}
+                    {participant.bonuses.hasDemeterWish && (
+                      <span className="modal-badge modal-badge--wish">x 2 <span className="modal-badge--gardening-info">Demeter Wish</span><>)</></span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
           <p className="modal-note">
