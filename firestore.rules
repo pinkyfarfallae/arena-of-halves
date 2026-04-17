@@ -53,9 +53,9 @@ service cloud.firestore {
         return state is string && (state == 'waiting' || state == 'live' || state == 'finished');
       }
       
-      // Helper to validate roll value (1-12 or 0 for placeholder)
+      // Helper to validate roll value (1-22 or 0 for placeholder)
       function isValidRoll(roll) {
-        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
+        return roll is int && ((roll >= 1 && roll <= 22) || roll == 0);
       }
       
       // Helper to validate rolls array (optional, for normal training mode)

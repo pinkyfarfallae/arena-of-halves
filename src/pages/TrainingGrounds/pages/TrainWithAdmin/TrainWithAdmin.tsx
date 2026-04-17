@@ -30,15 +30,21 @@ import BeyondTodayPracticeModal from '../../../Arena/components/BeyondTodayPract
 import { DieNoticeModal } from './components/DieNoticeModal/DieNoticeModal';
 import { fetchActiveTodayIrisWish } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
+import { useBag } from '../../../../hooks/useBag';
+import { ITEMS } from '../../../../constants/items';
+import Shirt from '../../../../icons/Shirt';
 interface PaperRoll {
   target: number;
   roll: number | null;
   rolled: boolean;
-  
+
 }
 
 export default function TrainWithAdmin() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { bagEntries } = useBag(user?.characterId || '');
+
   const [targets, setTargets] = useState<number[] | null>(null);
   const [papers, setPapers] = useState<PaperRoll[]>([]);
   const [currentRollIndex, setCurrentRollIndex] = useState<number>(0);
@@ -58,7 +64,7 @@ export default function TrainWithAdmin() {
   const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
   const [showDieNotice, setShowDieNotice] = useState(false);
 
-  const navigate = useNavigate();
+  const hasCampTShirt = (bagEntries.find(entry => entry.itemId === ITEMS.CAMP_TSHIRT)?.amount || 0) > 0;
 
   useDailyTrigger(() => {
     setBeyondTodayPractice(true);
@@ -93,7 +99,7 @@ export default function TrainWithAdmin() {
 
       const deity = todayUserIrisWish?.deity;
 
-      if (deity === DEITY.HYPNOS) { 
+      if (deity === DEITY.HYPNOS) {
         setDie(10);
         setShowDieNotice(true);
       } else if (deity === DEITY.TYCHE) {
@@ -184,10 +190,13 @@ export default function TrainWithAdmin() {
     const newPapers = [...papers];
     newPapers[currentRollIndex] = {
       ...newPapers[currentRollIndex],
-      roll: result,
+      roll: result + (hasCampTShirt ? 2 : 0),
       rolled: true,
     };
     setPapers(newPapers);
+
+    // Let the updated paper paint before we advance the focus to the next one.
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)));
 
     const nextIndex = currentRollIndex + 1;
     setCurrentRollIndex(nextIndex);
@@ -457,7 +466,10 @@ export default function TrainWithAdmin() {
             {paper.rolled && (
               <>
                 <div className="train-with-admin__paper-divider"></div>
-                <div className="train-with-admin__paper-result">{paper.roll}</div>
+                <div className="train-with-admin__paper-result" style={hasCampTShirt ? {marginRight: '16px', color: '#ff4005'} : {}}>
+                  {paper.roll}
+                  {hasCampTShirt && <span className="train-with-admin__paper-bonus">+2 <Shirt /></span>}
+                </div>
                 <div className={`train-with-admin__paper-status ${paper.roll! >= paper.target ? 'passed' : 'failed'}`}>
                   {paper.roll! >= paper.target ? '✓' : '✗'}
                 </div>
@@ -525,7 +537,7 @@ export default function TrainWithAdmin() {
             navigate('/training-grounds');
           }}
         />)}
-      
+
       {showDieNotice && (
         <DieNoticeModal die={die} onClose={() => setShowDieNotice(false)} />
       )}
