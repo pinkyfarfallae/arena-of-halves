@@ -33,6 +33,7 @@ import { useBag } from '../../../../hooks/useBag';
 import { ITEMS } from '../../../../constants/items';
 import Plus from '../../../../icons/Plus';
 import './Stats.scss';
+import { updateCharacterDrachma } from '../../../../services/character/currencyService';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -149,6 +150,12 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       const updated = characters.find(c => c.characterId === user.characterId);
       if (updated) {
         updateUser(updated);
+      }
+
+      const hasNikeStatue = (bagEntries.find(entry => entry.itemId === ITEMS.NIKE_S_STATUE)?.amount || 0) > 0;
+
+      if(hasNikeStatue) {
+        updateCharacterDrachma(user.characterId, 30);
       }
     }
 
