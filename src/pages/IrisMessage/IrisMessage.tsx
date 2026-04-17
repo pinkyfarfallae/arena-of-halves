@@ -14,6 +14,9 @@ import { applyWishEffect } from '../../services/irisWish/applyWishesEffect';
 import { DEITY } from '../../constants/deities';
 import { onRoomsList, updateTodayWishesForRoom } from '../../services/battleRoom/battleRoom';
 import './IrisMessage.scss';
+import { useBag } from '../../hooks/useBag';
+import { ITEMS } from '../../constants/items';
+import { updateCharacterDrachma } from '../../services/character/currencyService';
 
 interface Props {
   retossable?: boolean;
@@ -23,6 +26,7 @@ interface Props {
 
 function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: Props) {
   const { user } = useAuth();
+  const { bagEntries } = useBag(user?.characterId || '');
   const [phase, setPhase] = useState<Phase>(IRIS_PHASE.IDLE);
   const [wish, setWish] = useState<Wish | null>(null);
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
@@ -103,9 +107,9 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
     setPhase(IRIS_PHASE.TOSSING);
 
     if (!isAdmin && user?.characterId) {
-      saveIrisWish(user.characterId, pick.deity).catch((err) => {
-        // console.error('Failed to save Iris wish:', err);
-      });
+      saveIrisWish(user.characterId, pick.deity).catch(() => { });
+      const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
+      if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
     }
 
     setTimeout(() => {
@@ -123,20 +127,20 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
               room.teamB?.members?.some(p => p.characterId === user?.characterId);
 
             const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
-            
+
             if (isFighter || isInvited) {
               updateTodayWishesForRoom(room.arenaId).catch(err => {
                 // console.error(`Failed to update today's wishes for room ${room.arenaId}:`, err);
               });
             }
           });
-          
+
           // Unsubscribe after first snapshot (we only need to update once)
           unsubscribe();
         });
       }
     }, 2200);
-  }, [phase, wishes, user?.characterId, isAdmin, userTodayWish]);
+  }, [phase, wishes, user?.characterId, isAdmin, userTodayWish, bagEntries]);
 
   const reset = useCallback(() => {
     setPhase(IRIS_PHASE.IDLE);
