@@ -246,6 +246,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
 
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
   &--cancel {
     background: white;
     border: 2px solid $strawberry-cream;

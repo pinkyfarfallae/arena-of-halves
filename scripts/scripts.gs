@@ -577,7 +577,7 @@ function handleApproveHarvest(params) {
   var reviewedBy = (params.reviewedBy || '').toString().trim();
   var charCount = parseInt(params.charCount || '0', 10);
   var mentionCount = parseInt(params.mentionCount || '0', 10);
-  var drachmaReward = parseInt(params.drachmaReward || '0', 10);
+  var drachmaReward = params.drachmaReward || ''; // Can be number or JSON string
   var roleplayers = params.roleplayers || []; // Array of characterIds
   var demeterBonusIds = params.demeterBonusIds || []; // Array of characterIds with Demeter blessing
 

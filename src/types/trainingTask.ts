@@ -14,7 +14,7 @@ export interface HarvestSubmission {
   reviewedBy?: string;
   charCount?: number;
   mentionCount?: number;
-  drachmaReward?: number;
+  drachmaReward?: number | string; // Can be number (legacy) or JSON string map (new format)
   roleplayers?: string;
   rejectReason?: string;
 }

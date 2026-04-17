@@ -45,7 +45,6 @@ export const getEquipmentData = async (characterId: string): Promise<PlayerEquip
       boots: EQUIPMENT_TIERS.LEVEL_1,
     };
   } catch (error) {
-    console.error('Error getting equipment data:', error);
     return {
       weapon: EQUIPMENT_TIERS.LEVEL_1,
       armor: EQUIPMENT_TIERS.LEVEL_1,
@@ -115,7 +114,6 @@ export const upgradeEquipment = async (
 
     return { success: true, message: 'Equipment upgraded successfully', newTier: nextTier };
   } catch (error) {
-    // console.error('Error upgrading equipment:', error);
     return { success: false, message: 'Failed to upgrade equipment' };
   }
 };
@@ -146,7 +144,6 @@ export const initializeEquipment = async (
 
     return { success: true, message: 'Equipment initialized successfully' };
   } catch (error) {
-    console.error('Error initializing equipment:', error);
     return { success: false, message: 'Failed to initialize equipment' };
   }
 };
@@ -230,7 +227,6 @@ export const addCustomEquipment = async (
 
     return { success: true, message: 'Custom equipment added successfully' };
   } catch (error) {
-    console.error('Error adding custom equipment:', error);
     return { success: false, message: 'Failed to add custom equipment' };
   }
 };
@@ -275,7 +271,6 @@ export const upgradeCustomEquipment = async (
 
     return { success: true, message: 'Custom equipment upgraded', newTier: nextTier };
   } catch (error) {
-    console.error('Error upgrading custom equipment:', error);
     return { success: false, message: 'Failed to upgrade custom equipment' };
   }
 };
@@ -310,7 +305,6 @@ export const removeCustomEquipment = async (
 
     return { success: true, message: 'Custom equipment removed' };
   } catch (error) {
-    console.error('Error removing custom equipment:', error);
     return { success: false, message: 'Failed to remove custom equipment' };
   }
 };
@@ -325,7 +319,6 @@ export const getPlayerCustomEquipment = async (
     const equipment = await getEquipmentData(characterId);
     return equipment.custom || {};
   } catch (error) {
-    console.error('Error getting custom equipment:', error);
     return {};
   }
 };

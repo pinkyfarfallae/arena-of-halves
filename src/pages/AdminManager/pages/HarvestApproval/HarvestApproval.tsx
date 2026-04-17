@@ -72,6 +72,7 @@ function HarvestApproval() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [tempRejectReason, setTempRejectReason] = useState('');
+  const [isApproving, setIsApproving] = useState(false);
   const [approveData, setApproveData] = useState<{
     charCount: number;
     tweetCount: number;
@@ -301,6 +302,8 @@ function HarvestApproval() {
   const handleApprove = async (submissionId: string) => {
     if (!approveData) return;
 
+    setIsApproving(true);
+
     // Award drachma to each participant based on their individual calculated rewards
     const rewardPromises = approveData.participantRewards.map((participant) =>
       updateCharacterDrachma(participant.characterId, participant.reward)
@@ -309,7 +312,7 @@ function HarvestApproval() {
     try {
       await Promise.all(rewardPromises);
     } catch (error) {
-      console.error('Failed to award drachma:', error);
+      setIsApproving(false);
       return;
     }
 
@@ -345,6 +348,7 @@ function HarvestApproval() {
     );
 
     if (!result.success) {
+      setIsApproving(false);
       return;
     }
 
@@ -355,7 +359,7 @@ function HarvestApproval() {
             ...s,
             status: HARVEST_SUBMISSION_STATUS.APPROVED,
             reviewedAt: new Date().toISOString(),
-            drachmaReward: totalDrachmaAwarded,
+            drachmaReward: JSON.stringify(rewardMap), // Store JSON map for consistency
             charCount: approveData.charCount,
             tweetCount: approveData.tweetCount,
             roleplayers: approveData.roleplayers.join(','),
@@ -366,6 +370,7 @@ function HarvestApproval() {
 
     setShowApproveModal(false);
     setApproveData(null);
+    setIsApproving(false);
 
     const pendingCount = submissions.filter(
       (s) => {
@@ -883,7 +888,8 @@ function HarvestApproval() {
       <ApproveModal
         show={showApproveModal && !!approveData && !!reviewingSubmission}
         approveData={approveData}
-        onClose={() => setShowApproveModal(false)}
+        isApproving={isApproving}
+        onClose={() => !isApproving && setShowApproveModal(false)}
         onConfirm={() => reviewingSubmission && handleApprove(reviewingSubmission.id)}
       />
 
