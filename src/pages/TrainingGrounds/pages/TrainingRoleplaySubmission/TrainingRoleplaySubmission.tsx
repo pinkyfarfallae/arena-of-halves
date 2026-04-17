@@ -17,12 +17,17 @@ import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPoi
 import Swords from '../../../../icons/Swords';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 import Alert from './icons/Alert';
+import { useBag } from '../../../../hooks/useBag';
 import './TrainingRoleplaySubmission.scss';
+import { ITEMS } from '../../../../constants/items';
+import { consumeItem, giveItem } from '../../../../services/bag/bagService';
+import { BAG_ITEM_TYPES } from '../../../../constants/bag';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
   const { width } = useScreenSize();
   const { t, lang } = useTranslation();
+  const { bagEntries } = useBag(user?.characterId || '');
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
@@ -35,6 +40,13 @@ function TrainingRoleplaySubmission() {
   const [ticketsToApply, setTicketsToApply] = useState(0);
   const [isChangeRoleplayUrl, setIsChangeRoleplayUrl] = useState(false);
   const [isSubmittingRecheck, setIsSubmittingRecheck] = useState(false);
+
+  // Initialize ticketsToApply when sheet task loads
+  useEffect(() => {
+    if (sheetTask && sheetTask.tickets !== undefined) {
+      setTicketsToApply(sheetTask.tickets);
+    }
+  }, [sheetTask]);
 
   useEffect(() => {
     if (!user?.characterId) return;
@@ -84,6 +96,14 @@ function TrainingRoleplaySubmission() {
   const sheetTaskDate = sheetTask?.date ?? '';
   const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
   const sheetTaskTickets = sheetTask?.tickets ?? 0;
+
+  const availableTickets = useMemo(() => {
+    return bagEntries.find(entry => entry.itemId === ITEMS.SKIP_TICKET)?.amount || 0;
+  }, [bagEntries]);
+
+  // Calculate min and max tickets
+  const minTickets = 0;
+  const maxTickets = Math.min(availableTickets + sheetTaskTickets, 5);
 
   const handleRecheck = async () => {
     if (!user?.characterId) {
@@ -157,12 +177,39 @@ function TrainingRoleplaySubmission() {
         timeZone: 'Asia/Bangkok'
       }).format(new Date(sheetTaskDate));
 
-      await submitTrainingRoleplay(
-        user.characterId,
-        date,
-        urlToSubmit,
-        ticketsToApply
-      );
+      const ticketDifference = ticketsToApply - sheetTaskTickets;
+
+      if (ticketDifference > 0) {
+        // Using more tickets than before - consume additional tickets
+        await Promise.all([
+          submitTrainingRoleplay(
+            user.characterId,
+            date,
+            urlToSubmit,
+            ticketsToApply
+          ),
+          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference)
+        ]);
+      } else if (ticketDifference < 0) {
+        // Using fewer tickets than before - return unused tickets
+        await Promise.all([
+          submitTrainingRoleplay(
+            user.characterId,
+            date,
+            urlToSubmit,
+            ticketsToApply
+          ),
+          giveItem(user.characterId, ITEMS.SKIP_TICKET, Math.abs(ticketDifference), BAG_ITEM_TYPES.ITEM)
+        ]);
+      } else {
+        // Same number of tickets - just submit
+        await submitTrainingRoleplay(
+          user.characterId,
+          date,
+          urlToSubmit,
+          ticketsToApply
+        );
+      }
 
       setSheetTask((prev) => prev ? {
         ...prev,
@@ -172,7 +219,7 @@ function TrainingRoleplaySubmission() {
         rejectReason: '',
       } : prev);
       setFirstTweetUrl('');
-      setTicketsToApply(0);
+      // Don't reset ticketsToApply - it stays as the committed amount
       setIsChangeRoleplayUrl(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
@@ -342,7 +389,7 @@ function TrainingRoleplaySubmission() {
                         }}
                         disabled={isSubmittingRecheck}
                       >
-                        Change Roleplay Url
+                        Change Roleplay URL
                       </button>
                       <button
                         className="training-roleplay-submission__form-waiting-button"
@@ -424,8 +471,12 @@ function TrainingRoleplaySubmission() {
                         <div className="training-roleplay-submission__tickets-info">
                           <Trophy width={14} height={14} />
                           <span className="training-roleplay-submission__tickets-label">
-                            {/* waiting for edit */}
-                            Available Tickets: <strong>{sheetTaskTickets}</strong>
+                            Available Tickets: <strong>{availableTickets}</strong>
+                            {sheetTaskTickets > ticketsToApply && (
+                              <span className="training-roleplay-submission__tickets-committed">
+                                {' '}(+{sheetTaskTickets - ticketsToApply} ticket{sheetTaskTickets - ticketsToApply > 1 ? 's' : ''} refunded)
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="training-roleplay-submission__tickets-controls">
@@ -434,35 +485,24 @@ function TrainingRoleplaySubmission() {
                           </label>
                           <input
                             type="number"
-                            min="0"
-                            max={Math.min(sheetTaskTickets, 5)}
+                            min={minTickets}
+                            max={maxTickets}
                             value={ticketsToApply}
                             onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              const maxTickets = Math.min(sheetTaskTickets, 5);
-                              setTicketsToApply(Math.max(0, Math.min(value, maxTickets)));
+                              const value = parseInt(e.target.value) || minTickets;
+                              setTicketsToApply(Math.max(minTickets, Math.min(value, maxTickets)));
                             }}
                             className="training-roleplay-submission__tickets-input"
                           />
                           <button
                             className="training-roleplay-submission__tickets-button"
-                            onClick={() => {
-                              const maxTickets = Math.min(sheetTaskTickets, 5);
-                              setTicketsToApply(maxTickets);
-                            }}
-                            disabled={sheetTaskTickets === 0}
+                            onClick={() => setTicketsToApply(maxTickets)}
+                            disabled={ticketsToApply >= maxTickets}
                           >
-                            Use Max ({Math.min(sheetTaskTickets, 5)})
+                            Use Max ({maxTickets})
                           </button>
                         </div>
                       </div>
-                      {ticketsToApply > 0 && (
-                        <div className="training-roleplay-submission__tickets-hint">
-                          <span>
-                            Applying {ticketsToApply} ticket{ticketsToApply > 1 ? 's' : ''} reduces requirement by {ticketsToApply * 200} chars
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <button
