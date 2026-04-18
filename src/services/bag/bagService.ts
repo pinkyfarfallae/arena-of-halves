@@ -1,7 +1,7 @@
 import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import type { BagData } from '../../types/character';
+import type { BagData, BagItemData } from '../../types/character';
 import { BagItemType } from '../../constants/bag';
 
 /**
@@ -21,6 +21,39 @@ export async function getBagData(userId: string): Promise<BagData> {
   }
 
   return {};
+}
+
+/**
+ * Merge metadata into an item while keeping its existing fields.
+ */
+export async function setBagItemData(
+  userId: string,
+  itemId: string,
+  data: BagItemData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
+    const currentBag = await getBagData(userId);
+    const currentItem = currentBag[itemId];
+
+    if (!currentItem) {
+      await setDoc(docRef, {
+        [itemId]: data,
+      }, { merge: true });
+      return { success: true };
+    }
+
+    await setDoc(docRef, {
+      [itemId]: {
+        ...currentItem,
+        ...data,
+      },
+    }, { merge: true });
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
 }
 
 /**
@@ -53,7 +86,8 @@ export async function setItemAmount(
   userId: string,
   itemId: string,
   amount: number,
-  type: BagItemType
+  type: BagItemType,
+  extraData?: Partial<BagItemData>
 ): Promise<{ success: boolean; error?: string }> {
   if (amount < 0) {
     return { success: false, error: 'Amount cannot be negative' };
@@ -68,9 +102,16 @@ export async function setItemAmount(
         [itemId]: deleteField(),
       });
     } else {
+      const currentBag = await getBagData(userId);
+      const currentItem = currentBag[itemId];
       // Set or update item
       await setDoc(docRef, {
-        [itemId]: { amount, type },
+        [itemId]: {
+          ...currentItem,
+          amount,
+          type,
+          ...extraData,
+        },
       }, { merge: true });
     }
 
@@ -96,6 +137,7 @@ export async function giveItem(
   itemId: string,
   amount: number,
   type: BagItemType,
+  extraData?: Partial<BagItemData>,
 ): Promise<{ success: boolean; newAmount?: number; error?: string }> {
   if (amount <= 0) {
     return { success: false, error: 'Amount must be positive' };
@@ -105,7 +147,7 @@ export async function giveItem(
     const currentAmount = await getItemAmount(userId, itemId);
     const newAmount = currentAmount + amount;
 
-    const result = await setItemAmount(userId, itemId, newAmount, type);
+    const result = await setItemAmount(userId, itemId, newAmount, type, extraData);
 
     if (result.success) {
       return { success: true, newAmount };
@@ -155,7 +197,10 @@ export async function consumeItem(
     }
 
     const newAmount = currentAmount - amount;
-    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type);
+    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type, {
+      income: currentItem.income,
+      available: currentItem.available,
+    });
 
     if (result.success) {
       return { success: true, newAmount };
@@ -234,10 +279,11 @@ export async function transferItem(
     }
 
     // Add to destination
-    const giveResult = await giveItem(toUserId, itemId, amount, sourceItem.type);
+    const { amount: _amount, type: _type, ...metadata } = sourceItem;
+    const giveResult = await giveItem(toUserId, itemId, amount, sourceItem.type, metadata);
     if (!giveResult.success) {
       // Rollback: give back to source
-      await giveItem(fromUserId, itemId, amount, sourceItem.type);
+      await giveItem(fromUserId, itemId, amount, sourceItem.type, metadata);
       return giveResult;
     }
 

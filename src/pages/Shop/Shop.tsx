@@ -188,7 +188,15 @@ function Shop() {
       for (const item of cart) {
         // Determine item type from itemId prefix
 
-        const result = await giveItem(user.characterId, item.itemId, item.quantity, BAG_ITEM_TYPES.ITEM);
+        const result = await giveItem(
+          user.characterId,
+          item.itemId,
+          item.quantity,
+          BAG_ITEM_TYPES.ITEM,
+          item.itemId === ITEMS.HERMES_S_PURSE
+            ? { income: 0, available: true }
+            : undefined
+        );
 
         if (!result.success) {
           // console.error(`Failed to add ${item.itemId} to bag:`, result.error);

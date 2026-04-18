@@ -45,13 +45,19 @@ export interface BagEntry {
   itemId: string;
   amount: number;
   type: BagItemType;
+  income?: number;
+  available?: boolean;
+}
+
+export interface BagItemData {
+  amount: number;
+  type: BagItemType;
+  income?: number;
+  available?: boolean;
 }
 
 export interface BagData {
-  [itemId: string]: {
-    amount: number;
-    type: BagItemType;
-  };
+  [itemId: string]: BagItemData;
 }
 
 export interface Character {
