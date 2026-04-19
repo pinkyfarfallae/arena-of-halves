@@ -474,7 +474,6 @@ function HarvestApproval() {
 
   return (
     <div className="harvest-approval">
-
       {/* Layout */}
       <div className={`harvest-approval__container ${sidebarOpen ? 'harvest-approval__container--sidebar-open' : ''}`}>
         {/* Main */}

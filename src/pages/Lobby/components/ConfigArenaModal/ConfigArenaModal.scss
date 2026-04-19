@@ -17,13 +17,25 @@ $ink-faint: #9a8b76;
 $team-b-accent: #2d6a8f;
 
 @keyframes cam-overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes cam-scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ── Overlay ── */
@@ -125,7 +137,10 @@ $team-b-accent: #2d6a8f;
 
   &--success {
     color: $gold-dark;
-    svg { color: $gold-dark; }
+
+    svg {
+      color: $gold-dark;
+    }
   }
 }
 
@@ -181,9 +196,46 @@ $team-b-accent: #2d6a8f;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
 
   input {
+    appearance: none;
+    -webkit-appearance: none;
+    /* For Safari */
     margin-top: 0.2rem;
     flex-shrink: 0;
     accent-color: $crimson-bright;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1.5px solid color-mix(in srgb, $crimson-bright 25%, white 75%);
+    background-color: #ffffff;
+    border-radius: 4px;
+    margin-top: 1px;
+    transition: all 0.15s;
+
+    &:hover {
+      border-color: $crimson-bright;
+    }
+
+    &:checked {
+      background-color: $crimson-bright;
+      border-color: $crimson-bright;
+
+      &::after {
+        content: '';
+        display: block;
+        width: 0.375rem;
+        height: 0.625rem;
+        border: solid #fff;
+        border-width: 0 0.125rem 0.125rem 0;
+        transform: rotate(45deg);
+        margin-left: 3.5px;
+      }
+
+      &:hover {
+        border-color: color-mix(in srgb, $crimson-bright 75%, rgb(0, 0, 0) 25%);
+        background-color: color-mix(in srgb, $crimson-bright 75%, rgb(0, 0, 0) 25%);
+      }
+    }
   }
 }
 
@@ -265,7 +317,9 @@ $team-b-accent: #2d6a8f;
     border-color: rgba($gold, 0.4);
     background: $gold-pale;
 
-    svg { color: $gold-dark; }
+    svg {
+      color: $gold-dark;
+    }
   }
 
   &--active {
@@ -273,7 +327,9 @@ $team-b-accent: #2d6a8f;
     background: $crimson-soft;
     box-shadow: 0 0 0 1px rgba($crimson, 0.08);
 
-    svg { color: $crimson-bright; }
+    svg {
+      color: $crimson-bright;
+    }
 
     &:hover {
       border-color: $crimson-bright;
@@ -322,7 +378,9 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   cursor: pointer;
   transition: border-color 0.15s;
 
-  &:hover { border-color: rgba($gold, 0.4); }
+  &:hover {
+    border-color: rgba($gold, 0.4);
+  }
 
   .cam__npc-card {
     .cam__npc-stats {
@@ -337,7 +395,9 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   margin-left: auto;
   transition: transform 0.2s;
 
-  &--open { transform: rotate(180deg); }
+  &--open {
+    transform: rotate(180deg);
+  }
 }
 
 .cam__npc-placeholder {
@@ -368,15 +428,21 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   transition: background 0.12s;
   text-align: left;
 
-  &:hover { background: $gold-pale; }
+  &:hover {
+    background: $gold-pale;
+  }
 
   &--active {
     background: $crimson-soft;
 
-    &:hover { background: $crimson-soft; }
+    &:hover {
+      background: $crimson-soft;
+    }
   }
 
-  & + & { border-top: 1px solid rgba($gold, 0.08); }
+  &+& {
+    border-top: 1px solid rgba($gold, 0.08);
+  }
 }
 
 .cam__npc-card {
@@ -560,9 +626,17 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   letter-spacing: 0.06em;
   line-height: 1;
 
-  .cam__npc-stat--hp & { color: $hp-color; }
-  .cam__npc-stat--dmg & { color: $dmg-color; }
-  .cam__npc-stat--spd & { color: $spd-color; }
+  .cam__npc-stat--hp & {
+    color: $hp-color;
+  }
+
+  .cam__npc-stat--dmg & {
+    color: $dmg-color;
+  }
+
+  .cam__npc-stat--spd & {
+    color: $spd-color;
+  }
 }
 
 .cam__npc-stat-val {
@@ -571,9 +645,17 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   font-weight: 700;
   line-height: 1.2;
 
-  .cam__npc-stat--hp & { color: darken($hp-color, 5%); }
-  .cam__npc-stat--dmg & { color: darken($dmg-color, 5%); }
-  .cam__npc-stat--spd & { color: darken($spd-color, 5%); }
+  .cam__npc-stat--hp & {
+    color: darken($hp-color, 5%);
+  }
+
+  .cam__npc-stat--dmg & {
+    color: darken($dmg-color, 5%);
+  }
+
+  .cam__npc-stat--spd & {
+    color: darken($spd-color, 5%);
+  }
 }
 
 /* ── Error ── */
@@ -603,7 +685,9 @@ $spd-bg: rgba(21, 101, 192, 0.08);
   border: none;
   transition: all 0.2s;
 
-  &:active { transform: scale(0.98); }
+  &:active {
+    transform: scale(0.98);
+  }
 
   &--create {
     background: linear-gradient(145deg, $crimson-bright, darken($crimson-bright, 6%));

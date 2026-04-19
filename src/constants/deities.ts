@@ -51,3 +51,8 @@ export const DEITY_CABIN: Record<string, number> = {
   [DEITY.HECATE]: 20,
   [DEITY.PERSEPHONE]: 21,
 };
+
+/** Cabin map to deity */
+export const CABIN_DEITY: Record<number, string> = Object.fromEntries(
+  Object.entries(DEITY_CABIN).map(([deity, cabin]) => [cabin, deity])
+);

@@ -20,12 +20,13 @@ interface Props<T extends Record<string, any>> {
   actions?: Action<T>[];
   headerColor?: string;
   loading?: boolean;
+  hideHeaders?: boolean;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function Table<T extends Record<string, any>>({
-  columns, data, rowKey, actions, headerColor, loading,
+  columns, data, rowKey, actions, headerColor, loading, hideHeaders = false,
 }: Props<T>) {
   const hasActions = actions && actions.length > 0;
 
@@ -34,16 +35,18 @@ export default function Table<T extends Record<string, any>>({
   return (
     <div className="at">
       <table className="at__table">
-        <thead style={headerColor ? { background: headerColor } : undefined}>
-          <tr>
-            {columns.map(c => (
-              <th key={c.key} style={c.width ? { width: c.width } : undefined}>
-                {c.label}
-              </th>
-            ))}
-            {hasActions && <th className="at__th-actions" />}
-          </tr>
-        </thead>
+        {!hideHeaders && (
+          <thead style={headerColor ? { background: headerColor } : undefined}>
+            <tr>
+              {columns.map(c => (
+                <th key={c.key} style={c.width ? { width: c.width } : undefined}>
+                  {c.label}
+                </th>
+              ))}
+              {hasActions && <th className="at__th-actions" />}
+            </tr>
+          </thead>
+        )}
         <tbody>
           {data.length === 0 ? (
             <tr>

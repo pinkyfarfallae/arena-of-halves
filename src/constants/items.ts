@@ -1,4 +1,7 @@
 export const ITEMS = {
+  DRACHMA: 'drachma',
+  TRAINING_POINTS: 'training_points',
+
   SHOP_30_DISCOUNT_TICKET: '30_discount_ticket',
 
   HEALTH_POTION_S: 'health_potion_s',
