@@ -19,8 +19,8 @@ import { hexToRgb } from './utils/color';
 import DailyGift from './components/DailyGift/DailyGift';
 import { getTodayDate } from './utils/date';
 import { updateCharacterDrachma } from './services/character/currencyService';
-import { LOCAL_STORAGE_KEYS } from './constants/localStorage';
-import { getUserDailyClaim, markUserClaimedToday } from './services/daily/dailyClaimService';
+// Using server-side persistence for daily claims; no localStorage fallback
+import { getUserDailyClaim, tryClaimToday, unmarkUserClaimedToday } from './services/daily/dailyClaimService';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -108,18 +108,10 @@ function AppShell() {
     if (!user) return;
 
     (async () => {
-      const today = getTodayDate();
-      const lsKey = `${LOCAL_STORAGE_KEYS.DAILY_CLAIM_PREFIX}${user.characterId}`;
       try {
         // Prefer server-side claim API which also assigns a stable amount
         const serverEntry = await getUserDailyClaim(user.characterId).catch(() => ({ accepted: false, amount: (Math.floor(Math.random() * 5) + 1) * 10 }));
-        if (serverEntry.accepted) {
-          try { localStorage.setItem(lsKey, today); } catch { }
-          return;
-        }
-
-        const claimedLs = localStorage.getItem(lsKey);
-        if (claimedLs === today) return;
+        if (serverEntry.accepted) return;
 
         // show modal with server-assigned amount
         setGiftAmount(serverEntry.amount);
@@ -150,16 +142,25 @@ function AppShell() {
           onClaim={async () => {
             setShowDailyGift(false);
             try {
+              // Reserve the claim atomically to prevent double-claim on refresh
+              const reserved = await tryClaimToday(user.characterId);
+              if (!reserved) {
+                // Someone already claimed (or transaction failed)
+                try { await refreshUser(); } catch {}
+                return;
+              }
+
               const res = await updateCharacterDrachma(user.characterId, giftAmount);
               if (res.success) {
-                const key = `${LOCAL_STORAGE_KEYS.DAILY_CLAIM_PREFIX}${user.characterId}`;
-                localStorage.setItem(key, getTodayDate());
-                try { await markUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
                 try { await refreshUser(); } catch (e) { /* ignore */ }
               } else {
+                // Award failed; rollback reservation
+                try { await unmarkUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
                 console.error('Failed to award daily gift', res.error);
               }
             } catch (err) {
+              // If something unexpectedly fails, attempt rollback
+              try { await unmarkUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
               console.error('Error claiming daily gift', err);
             }
           }}
