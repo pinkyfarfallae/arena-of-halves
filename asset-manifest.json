@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/arena-of-halves/static/css/main.63b956fc.css",
-    "main.js": "/arena-of-halves/static/js/main.d614a31b.js",
+    "main.css": "/arena-of-halves/static/css/main.eea06fa3.css",
+    "main.js": "/arena-of-halves/static/js/main.dd2da18f.js",
     "static/js/895.9d51f5b3.chunk.js": "/arena-of-halves/static/js/895.9d51f5b3.chunk.js",
     "static/js/485.e15878bb.chunk.js": "/arena-of-halves/static/js/485.e15878bb.chunk.js",
     "static/js/369.3c63f067.chunk.js": "/arena-of-halves/static/js/369.3c63f067.chunk.js",
@@ -11,17 +11,33 @@
     "static/js/353.3d1aa03d.chunk.js": "/arena-of-halves/static/js/353.3d1aa03d.chunk.js",
     "static/js/453.f44f79f6.chunk.js": "/arena-of-halves/static/js/453.f44f79f6.chunk.js",
     "static/js/37.205443b5.chunk.js": "/arena-of-halves/static/js/37.205443b5.chunk.js",
+    "static/media/forge_background.jpg": "/arena-of-halves/static/media/forge_background.2559905e40e6db91f49b.jpg",
+    "static/media/forge_table.png": "/arena-of-halves/static/media/forge_table.cbec9c1052315737002a.png",
+    "static/media/frame.png": "/arena-of-halves/static/media/frame.f8304965636c2c42e41b.png",
+    "static/media/shield_3.png": "/arena-of-halves/static/media/shield_3.dfacd7ceee78f99c4dbb.png",
+    "static/media/weapon_1.png": "/arena-of-halves/static/media/weapon_1.01a81ff6374b713c3a32.png",
+    "static/media/shield_2.png": "/arena-of-halves/static/media/shield_2.58b85cffc7a2e3e6b076.png",
+    "static/media/armor_3.png": "/arena-of-halves/static/media/armor_3.a8fcd86c63150275483b.png",
+    "static/media/boots_3.png": "/arena-of-halves/static/media/boots_3.d897cfed2d21813b59ca.png",
+    "static/media/armor_1.png": "/arena-of-halves/static/media/armor_1.7d52230f05921806c6ab.png",
+    "static/media/shield_1.png": "/arena-of-halves/static/media/shield_1.e681c4761d248712197c.png",
     "static/media/skeleton.png": "/arena-of-halves/static/media/skeleton.ec322014d0dbd32ca3c0.png",
+    "static/media/armor_2.png": "/arena-of-halves/static/media/armor_2.fe9046d461a6584ba739.png",
     "static/media/strength.png": "/arena-of-halves/static/media/strength.b4fb9a514f4b4d940434.png",
+    "static/media/weapon_3.png": "/arena-of-halves/static/media/weapon_3.def6bf7e417efce31421.png",
+    "static/media/boots_2.png": "/arena-of-halves/static/media/boots_2.2601d4954cef53ff9b0f.png",
     "static/media/hera.png": "/arena-of-halves/static/media/hera.2d972180cbefc298b300.png",
+    "static/media/boots_1.png": "/arena-of-halves/static/media/boots_1.e52b7d4f74a57a723582.png",
+    "static/media/weapon_2.png": "/arena-of-halves/static/media/weapon_2.66ff092aa0461cbf88dd.png",
     "static/media/fortune.png": "/arena-of-halves/static/media/fortune.070efbb4969e7804b2d3.png",
     "static/media/mobility.png": "/arena-of-halves/static/media/mobility.9920c95ff732f766ead6.png",
+    "static/media/label.png": "/arena-of-halves/static/media/label.4c8c081b1f3e7f4b9737.png",
     "static/media/experience.png": "/arena-of-halves/static/media/experience.9abaf1068d8728d90a37.png",
     "static/media/intelligence.png": "/arena-of-halves/static/media/intelligence.56b9057e8d30454cbe2e.png",
     "static/media/technique.png": "/arena-of-halves/static/media/technique.8fcf1f72b97648088974.png",
     "index.html": "/arena-of-halves/index.html",
-    "main.63b956fc.css.map": "/arena-of-halves/static/css/main.63b956fc.css.map",
-    "main.d614a31b.js.map": "/arena-of-halves/static/js/main.d614a31b.js.map",
+    "main.eea06fa3.css.map": "/arena-of-halves/static/css/main.eea06fa3.css.map",
+    "main.dd2da18f.js.map": "/arena-of-halves/static/js/main.dd2da18f.js.map",
     "895.9d51f5b3.chunk.js.map": "/arena-of-halves/static/js/895.9d51f5b3.chunk.js.map",
     "485.e15878bb.chunk.js.map": "/arena-of-halves/static/js/485.e15878bb.chunk.js.map",
     "369.3c63f067.chunk.js.map": "/arena-of-halves/static/js/369.3c63f067.chunk.js.map",
@@ -33,7 +49,7 @@
     "37.205443b5.chunk.js.map": "/arena-of-halves/static/js/37.205443b5.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.63b956fc.css",
-    "static/js/main.d614a31b.js"
+    "static/css/main.eea06fa3.css",
+    "static/js/main.dd2da18f.js"
   ]
 }
