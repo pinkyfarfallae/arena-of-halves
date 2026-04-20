@@ -89,6 +89,21 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // User Daily Claims (per-date map of claimed users)
+    // Document ID: YYYY-MM-DD
+    // Shape: { <characterId>: true }
+    match /userDailyClaims/{date} {
+      // Allow authenticated users to read whether a user has claimed today
+      allow read: if isAuthenticated();
+
+      // Allow authenticated users to create/update today's claims document
+      // Basic validation: document id must be a valid date
+      allow create, update: if isAuthenticated() && isValidDate(date) && request.resource.data.keys().size() > 0;
+
+      // No deletes
+      allow delete: if false;
+    }
+
     // Player wishes of Iris
     // Document ID format: {userId}_{date}
     match /playerWishesOfIris/{docId} {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -15,8 +15,13 @@ import Lobby from './pages/Lobby/Lobby';
 import Arena from './pages/Arena/Arena';
 import StrawberryFields from './pages/StrawberryFields/StrawberryFields';
 import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
-import './App.scss';
 import { hexToRgb } from './utils/color';
+import DailyGift from './components/DailyGift/DailyGift';
+import { getTodayDate } from './utils/date';
+import { updateCharacterDrachma } from './services/character/currencyService';
+import { LOCAL_STORAGE_KEYS } from './constants/localStorage';
+import { getUserDailyClaim, markUserClaimedToday } from './services/daily/dailyClaimService';
+import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
   '--ci-primary': t[0],
@@ -92,9 +97,38 @@ function AppRoutes() {
 }
 
 function AppShell() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+
+  const [showDailyGift, setShowDailyGift] = useState(false);
+  const [giftAmount, setGiftAmount] = useState(0);
 
   let themeVars: React.CSSProperties | undefined;
+
+  useEffect(() => {
+    if (!user) return;
+
+    (async () => {
+      const today = getTodayDate();
+      const lsKey = `${LOCAL_STORAGE_KEYS.DAILY_CLAIM_PREFIX}${user.characterId}`;
+      try {
+        // Prefer server-side claim API which also assigns a stable amount
+        const serverEntry = await getUserDailyClaim(user.characterId).catch(() => ({ accepted: false, amount: (Math.floor(Math.random() * 5) + 1) * 10 }));
+        if (serverEntry.accepted) {
+          try { localStorage.setItem(lsKey, today); } catch { }
+          return;
+        }
+
+        const claimedLs = localStorage.getItem(lsKey);
+        if (claimedLs === today) return;
+
+        // show modal with server-assigned amount
+        setGiftAmount(serverEntry.amount);
+        setShowDailyGift(true);
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [user]);
 
   if (user) {
     themeVars = applyTheme(user.theme);
@@ -110,6 +144,27 @@ function AppShell() {
   return (
     <div className="app" style={themeVars}>
       <AppRoutes />
+      {user && showDailyGift && (
+        <DailyGift
+          amount={giftAmount}
+          onClaim={async () => {
+            setShowDailyGift(false);
+            try {
+              const res = await updateCharacterDrachma(user.characterId, giftAmount);
+              if (res.success) {
+                const key = `${LOCAL_STORAGE_KEYS.DAILY_CLAIM_PREFIX}${user.characterId}`;
+                localStorage.setItem(key, getTodayDate());
+                try { await markUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
+                try { await refreshUser(); } catch (e) { /* ignore */ }
+              } else {
+                console.error('Failed to award daily gift', res.error);
+              }
+            } catch (err) {
+              console.error('Error claiming daily gift', err);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
