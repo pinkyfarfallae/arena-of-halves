@@ -275,7 +275,7 @@ const PlayerInventory = () => {
       }
     };
     fetchPlayers();
-  }, [user]);
+  }, [user?.characterId]);
 
   useEffect(() => {
     if (checkboxRef.current) {

@@ -168,7 +168,7 @@ export default function TrainingGrounds() {
     return () => {
       mounted = false;
     };
-  }, [todayDate, user, createdPracticeArenaId, existingPvpArenaId]);
+  }, [todayDate, user?.characterId, createdPracticeArenaId, existingPvpArenaId]);
 
   const handleTrainWithAdmin = () => {
     navigate('/training-grounds/guided');
@@ -422,7 +422,17 @@ export default function TrainingGrounds() {
   return (
     <div className="training-grounds">
       <Routes>
-        <Route path="/" element={<Stats onSelectTrainingWithAdminMode={handleTrainWithAdmin} onSelectPvPMode={handlePvPMode} onSelectRolePlaySubmission={handleRolePlaySubmission} loading={!pvpGateReady} />} />
+        <Route
+          path="/"
+          element={
+            <Stats
+              onSelectTrainingWithAdminMode={handleTrainWithAdmin}
+              onSelectPvPMode={handlePvPMode}
+              onSelectRolePlaySubmission={handleRolePlaySubmission}
+              loading={!pvpGateReady}
+            />
+          }
+        />
         <Route path="/pvp" element={<PvP />} />
         <Route path="/pvp/:arenaId" element={<PvP />} />
         <Route path="/guided" element={<TrainWithAdmin />} />

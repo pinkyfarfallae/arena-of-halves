@@ -105,7 +105,7 @@ export default function TrainingPracticeModal({
     return () => {
       mounted = false;
     };
-  }, [open, currentCharacterId, user]);
+  }, [open, currentCharacterId, user?.characterId]);
 
   useEffect(() => {
     if (open) {

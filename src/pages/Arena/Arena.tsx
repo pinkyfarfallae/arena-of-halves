@@ -731,7 +731,7 @@ function Arena(props?: ArenaDemoProps) {
     await joinAsViewer(arenaId, { characterId: myId, nicknameEng: user.nicknameEng });
     setRole(ARENA_ROLE.VIEWER);
     setJoined(true);
-  }, [room, user, arenaId, joined, watchOnly]);
+  }, [room, user?.characterId, arenaId, joined, watchOnly]);
 
   /* ── Track active season from Ephemeral Season power ── */
   useEffect(() => {
@@ -984,7 +984,7 @@ function Arena(props?: ArenaDemoProps) {
         leaveViewer(arenaId, user.characterId);
       }
     };
-  }, [role, arenaId, user]);
+  }, [role, arenaId, user?.characterId]);
 
   /* ── Clear original rolls when turn changes ────────────────── */
   useEffect(() => {

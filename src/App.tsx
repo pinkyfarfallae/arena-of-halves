@@ -120,7 +120,7 @@ function AppShell() {
         // ignore
       }
     })();
-  }, [user]);
+  }, [user?.characterId, refreshUser]);
 
   if (user) {
     themeVars = applyTheme(user.theme);

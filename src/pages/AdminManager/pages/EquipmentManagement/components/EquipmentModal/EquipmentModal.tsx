@@ -64,7 +64,7 @@ const EquipmentModal: React.FC<Props> = (props) => {
         name: `${c.nicknameEng} (${c.characterId})`
       })));
     });
-  }, [user]);
+  }, [user?.characterId]);
 
   // Update categories string when selection changes
   useEffect(() => {

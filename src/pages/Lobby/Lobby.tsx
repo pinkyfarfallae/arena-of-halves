@@ -92,7 +92,7 @@ function Lobby() {
     })();
 
     return () => { mounted = false; };
-  }, [user]);
+  }, [user?.characterId]);
 
   const handleCreate = async () => {
     if (!user) return;

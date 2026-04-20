@@ -87,7 +87,7 @@ function HarvestApproval() {
   useEffect(() => {
     if (!user) return;
     fetchAllCharacters(user).then(setCharacters);
-  }, [user]);
+  }, [user?.characterId]);
 
   useEffect(() => {
     const loadHarvests = async () => {

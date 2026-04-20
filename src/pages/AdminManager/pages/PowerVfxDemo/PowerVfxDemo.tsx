@@ -94,7 +94,7 @@ export default function PowerVfxDemo() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user?.characterId]);
 
   const fighterOptions = useMemo((): FighterOption[] => {
     const memberOpts = members.map((m) => ({

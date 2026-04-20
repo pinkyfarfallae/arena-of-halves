@@ -1,0 +1,25 @@
+@import '../../../../styles/variables';
+
+.npc-affinity-management {
+  width: 100%;
+  min-width: calc(100vw - $sidebar-width);
+  height: calc(100% + 2.5rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: -1.25rem -1.5rem;
+  background-color: #ffffff;
+
+  @media (max-width: $bp-medium) {
+    max-height: calc(100vh - $topbar-height);
+    min-width: 100vw;
+  }
+
+  @media (max-width: $bp-compact) {
+    margin: -1.25rem -1.5rem;
+  }
+
+  @media (max-width: $bp-mobile) {
+    margin: -1rem -0.75rem;
+  }
+}

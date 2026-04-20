@@ -74,7 +74,7 @@ function TrainingApproval() {
     const fetchData = async () => {
       setLoading(true);
 
-      if (!user) return;
+      if (!user || (characters.length > 0 && trainingTasks.length > 0)) return;
 
       await Promise.all([
         fetchAllCharacters(user)
@@ -106,7 +106,7 @@ function TrainingApproval() {
     };
 
     fetchData();
-  }, [user]);
+  }, [user?.characterId]);
 
   useEffect(() => {
     if (!reviewText.trim()) return;
@@ -378,7 +378,7 @@ function TrainingApproval() {
       '--accent-dark': user?.theme[19] || '#0f1a2e',
       '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
     } as React.CSSProperties;
-  }, [user]);
+  }, [user?.theme, user?.characterId]);
 
   return (
     <div className="harvest-approval" style={colorStyle}>
