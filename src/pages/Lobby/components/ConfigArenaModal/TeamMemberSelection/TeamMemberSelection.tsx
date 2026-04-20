@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { fetchAllCharacters } from '../../../../../data/characters';
 import { getPowers } from '../../../../../data/powers';
 import { toFighterState } from '../../../../../services/battleRoom/battleRoom';
-import { fetchTodayIrisWish } from '../../../../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../../../../data/wishes';
 import { POWER_OVERRIDES } from '../../../../CharacterInfo/constants/overrides';
 import type { FighterState } from '../../../../../types/battle';
 import { useAuth } from '../../../../../hooks/useAuth';
+import { Deity } from '../../../../../types/deity';
 
 interface Props {
   teamSize: number;
@@ -28,8 +29,8 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
           chars.map(async (c) => {
             const powerDeity = POWER_OVERRIDES[c.characterId?.toLowerCase()] ?? c.deityBlood;
             const powers = getPowers(powerDeity);
-            const wishesOfIris = await fetchTodayIrisWish(c.characterId).catch(() => null);
-            return toFighterState(c, powers, wishesOfIris?.deity || null);
+            const wishesOfIris = await fetchActiveTodayIrisWish(c.characterId).catch(() => null);
+            return toFighterState(c, powers, wishesOfIris?.deity as Deity || null);
           })
         );
         setFighters(fighterList);

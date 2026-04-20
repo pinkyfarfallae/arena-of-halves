@@ -230,10 +230,43 @@
   }
 
   input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    /* For Safari */
     width: 1rem;
     height: 1rem;
     accent-color: var(--ci-primary, #c0a062);
     flex-shrink: 0;
+    cursor: pointer;
+    border: 1.5px solid color-mix(in srgb, var(--ci-primary, #c0a062) 25%, white 75%);
+    background-color: #ffffff;
+    border-radius: 4px;
+    transition: all 0.15s;
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--ci-primary, #c0a062) 40%, white 60%);
+    }
+
+    &:checked {
+      border-color: var(--ci-primary, #c0a062);
+      background-color: var(--ci-primary, #c0a062);
+
+      &::after {
+        content: '';
+        display: block;
+        width: 6px;
+        height: 10px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+        margin-left: 3.5px;
+      }
+
+      &:hover {
+        border-color: color-mix(in srgb, var(--ci-primary, #c0a062) 90%, rgb(0, 0, 0) 10%);
+        background-color: color-mix(in srgb, var(--ci-primary, #c0a062) 90%, rgb(0, 0, 0) 10%);
+      }
+    }
   }
 
   .effect-stack-modal__option-badge {

@@ -1,0 +1,658 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Josefin+Slab:wght@700&display=swap');
+@import '../../../../styles/variables';
+
+.forge-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+
+  &--visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &__circle {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    filter: url(#wavy) blur(1px);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 100px;
+      bottom: 100px;
+      right: 100px;
+      left: 100px;
+      border: 20px solid #FF5E13;
+      border-radius: 50%;
+      box-shadow: 0 0 50px #FF5E13, inset 0 0 50px #FF5E13;
+      -webkit-box-reflect: below 10px linear-gradient(transparent, transparent, #0002);
+      animation: forge-ring-pulse 1s ease-in-out infinite;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100px;
+      bottom: 100px;
+      right: 100px;
+      left: 100px;
+      border: 20px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 50px #FFA500, inset 0 0 50px #fff;
+      animation: forge-ring-pulse 1.5s ease-in-out infinite 1.5s;
+    }
+  }
+
+  // Success state - Gold colors
+  &--success {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffffff;
+      box-shadow: 0 0 50px #FFD700, inset 0 0 50px #FFD700;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #ffe4b0;
+      box-shadow: 0 0 50px #FFA500, inset 0 0 50px #FFA500;
+    }
+
+    .forge-upgrade-overlay__ember {
+      background: rgba(255, 215, 0, 0.95);
+      box-shadow:
+        0 0 6px rgba(255, 215, 0, 0.7),
+        0 0 14px rgba(255, 165, 0, 0.5);
+    }
+
+    .forge-upgrade-overlay__title {
+      text-shadow:
+        0 0 10px rgba(255, 215, 0, 0.8),
+        0 0 20px rgba(255, 215, 0, 0.6),
+        0 0 30px rgba(255, 215, 0, 0.4);
+      animation: gold-text-glow 2s ease-in-out infinite;
+    }
+
+    .forge-upgrade-overlay__loader {
+      animation: loaderRotate 4000ms ease-in-out infinite;
+    }
+  }
+
+  // Failure state - Red colors
+  &--failure {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffa1a1;
+      box-shadow: 0 0 50px #FF0000, inset 0 0 50px #FF0000;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #df1f1f;
+      box-shadow: 0 0 50px #CC0000, inset 0 0 50px #CC0000;
+    }
+
+    .forge-upgrade-overlay__ember {
+      background: rgba(255, 0, 0, 0.95);
+      box-shadow:
+        0 0 6px rgba(255, 0, 0, 0.7),
+        0 0 14px rgba(204, 0, 0, 0.5);
+    }
+
+    .forge-upgrade-overlay__title {
+      text-shadow:
+        0 0 10px rgba(255, 0, 0, 0.8),
+        0 0 20px rgba(255, 0, 0, 0.6),
+        0 0 30px rgba(255, 0, 0, 0.4);
+      animation: red-text-glow 2s ease-in-out infinite;
+    }
+
+    .forge-upgrade-overlay__loader {
+      display: none;
+    }
+  }
+
+  // Impact Success state
+  &--impact-success {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffffff;
+      box-shadow: 0 0 100px #FFD700, inset 0 0 100px #FFD700;
+      animation: impact-expand-success 1s ease-out forwards;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #ffe4b0;
+      box-shadow: 0 0 100px #FFA500, inset 0 0 100px #FFA500;
+      animation: impact-expand-success 1s ease-out 0.1s forwards;
+    }
+
+    .forge-upgrade-overlay__loader {
+      display: none;
+    }
+  }
+
+  // Impact Failure state
+  &--impact-failure {
+    .forge-upgrade-overlay__circle::before {
+      border-color: #ffa1a1;
+      box-shadow: 0 0 100px #FF0000, inset 0 0 100px #FF0000;
+    }
+
+    .forge-upgrade-overlay__circle::after {
+      border-color: #df1f1f;
+      box-shadow: 0 0 100px #df1f1f, inset 0 0 100px #df1f1f;
+    }
+
+    .forge-upgrade-overlay__loader {
+      display: none;
+    }
+  }
+
+  &__circle {
+    &:nth-child(2)::before {
+      animation-delay: 2.5s;
+    }
+
+    &:nth-child(2)::after {
+      animation-delay: 4s;
+    }
+  }
+
+  &__content {
+    position: relative;
+    z-index: 10;
+    color: white;
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    margin-left: 0.75rem;
+    padding: 0;
+  }
+
+  &__title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    text-shadow:
+      0 0 10px rgba(255, 136, 0, 0.8),
+      0 0 20px rgba(255, 68, 0, 0.6),
+      0 0 30px rgba(255, 68, 0, 0.4);
+    animation: fire-text-glow 2s ease-in-out infinite;
+  }
+
+  &__subtitle {
+    font-size: 0.8rem;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    text-shadow:
+      0 0 5px rgba(0, 0, 0, 0.8),
+      0 0 10px rgba(255, 136, 0, 0.4);
+  }
+
+  &__equipment {
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: #ffffff;
+    text-shadow:
+      0 0 10px rgba(255, 136, 0, 0.8),
+      0 0 20px rgba(255, 68, 0, 0.4);
+  }
+
+  &__svg {
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  &__embers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 1;
+    min-height: 100%;
+  }
+
+  &__ember {
+    position: absolute;
+    border-radius: 999px;
+    background: rgba(255, 94, 19, 0.95);
+    box-shadow:
+      0 0 6px rgba(255, 136, 0, 0.7),
+      0 0 14px rgba(255, 68, 0, 0.5);
+    filter: blur(0.15px);
+    transform: translate3d(0, 0, 0) scale(1);
+    animation-name: emberRiseParticle, emberFlicker;
+    animation-timing-function: linear, ease-in-out;
+    animation-iteration-count: infinite, infinite;
+    will-change: transform, opacity;
+
+    &--falling {
+      animation-name: emberFallParticle, emberFlicker;
+    }
+  }
+
+  &__impact-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+  }
+}
+
+// Success impact - bright golden flash
+.forge-upgrade-overlay--impact-success {
+  .forge-upgrade-overlay__impact-flash {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 215, 0, 0.6) 0%,
+      rgba(255, 215, 0, 0.4) 30%,
+      rgba(255, 165, 0, 0.2) 60%,
+      transparent 100%
+    );
+    animation: flash-burst 1s ease-out forwards;
+  }
+}
+
+// Failure impact - dark red pulse with shake
+.forge-upgrade-overlay--impact-failure {
+  animation: shake-screen 0.5s ease-in-out;
+
+  .forge-upgrade-overlay__impact-flash {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 0, 0, 0.5) 0%,
+      rgba(139, 0, 0, 0.3) 40%,
+      rgba(0, 0, 0, 0.4) 70%,
+      transparent 100%
+    );
+    animation: dark-pulse 1s ease-out forwards;
+  }
+}
+
+@keyframes forge-ring-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes fire-text-glow {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 10px rgba(255, 136, 0, 0.8),
+      0 0 20px rgba(255, 68, 0, 0.6),
+      0 0 30px rgba(255, 68, 0, 0.4);
+  }
+
+  50% {
+    text-shadow:
+      0 0 20px rgba(255, 136, 0, 1),
+      0 0 40px rgba(255, 68, 0, 0.8),
+      0 0 60px rgba(255, 68, 0, 0.6);
+  }
+}
+
+@keyframes gold-text-glow {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 10px rgba(255, 215, 0, 0.8),
+      0 0 20px rgba(255, 215, 0, 0.6),
+      0 0 30px rgba(255, 215, 0, 0.4);
+  }
+
+  50% {
+    text-shadow:
+      0 0 20px rgba(255, 215, 0, 1),
+      0 0 40px rgba(255, 215, 0, 0.8),
+      0 0 60px rgba(255, 215, 0, 0.6);
+  }
+}
+
+@keyframes red-text-glow {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 10px rgba(255, 0, 0, 0.8),
+      0 0 20px rgba(255, 0, 0, 0.6),
+      0 0 30px rgba(255, 0, 0, 0.4);
+  }
+
+  50% {
+    text-shadow:
+      0 0 20px rgba(255, 0, 0, 1),
+      0 0 40px rgba(255, 0, 0, 0.8),
+      0 0 60px rgba(255, 0, 0, 0.6);
+  }
+}
+
+@media (max-width: $bp-compact) {
+  .forge-upgrade-overlay {
+    &__circle {
+      width: 400px;
+      height: 400px;
+
+      &::before,
+      &::after {
+        top: 50px;
+        bottom: 50px;
+        right: 50px;
+        left: 50px;
+        border-width: 15px;
+      }
+    }
+
+    &__title {
+      font-size: 1.2rem;
+    }
+
+    &__subtitle {
+      font-size: 0.6rem;
+    }
+
+    &__equipment {
+      font-size: 0.65rem;
+    }
+  }
+}
+
+@media (max-width: $bp-mobile) {
+  .forge-upgrade-overlay {
+    &__circle {
+      width: 300px;
+      height: 300px;
+
+      &::before,
+      &::after {
+        top: 30px;
+        bottom: 30px;
+        right: 30px;
+        left: 30px;
+        border-width: 10px;
+      }
+    }
+
+    &__title {
+      font-size: 1rem;
+    }
+
+    &__subtitle {
+      font-size: 0.6rem;
+    }
+  }
+}
+
+@keyframes emberRiseParticle {
+  0% {
+    transform: translateY(80%) scale(0.75);
+  }
+
+  25% {
+    transform: translateY(0) scale(1);
+  }
+
+  55% {
+    transform: translateY(-96px) scale(1.05);
+  }
+
+  85% {
+    transform: translateY(-178px) scale(0.9);
+  }
+
+  100% {
+    transform: translateY(-250px) scale(0.72);
+  }
+}
+
+@keyframes emberFallParticle {
+  0% {
+    transform: translateY(-18px) scale(0.72);
+  }
+
+  20% {
+    transform: translateY(8px) scale(0.9);
+  }
+
+  45% {
+    transform: translateY(66px) scale(1);
+  }
+
+  75% {
+    transform: translateY(152px) scale(0.92);
+  }
+
+  100% {
+    transform: translateY(240px) scale(0.78);
+  }
+}
+
+@keyframes emberFlicker {
+
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+
+  15% {
+    opacity: 0.35;
+  }
+
+  35% {
+    opacity: 0.85;
+  }
+
+  70% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes flash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+
+  60% {
+    opacity: 0.6;
+    transform: scale(1.5);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes dark-pulse {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  40% {
+    opacity: 0.4;
+  }
+
+  60% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shake-screen {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  10%, 30%, 50%, 70%, 90% {
+    transform: translate(-8px, 2px);
+  }
+
+  20%, 40%, 60%, 80% {
+    transform: translate(8px, -2px);
+  }
+}
+
+@keyframes impact-expand-success {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+    box-shadow: 0 0 150px #FFD700, inset 0 0 150px #FFD700;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 0.9;
+    box-shadow: 0 0 120px #FFD700, inset 0 0 120px #FFD700;
+  }
+}
+
+.forge-upgrade-overlay__loader {
+  --sizeVar: 40vmax;
+  position: absolute;
+  width: var(--sizeVar);
+  height: var(--sizeVar);
+  animation: loaderRotate 2000ms ease-in-out infinite;
+  opacity: 0.25;
+  filter: brightness(1.1) blur(50px);
+
+  &::before {
+    content: "";
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    background: radial-gradient(circle,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0) 70%);
+  }
+}
+
+.forge-upgrade-overlay__loader-square {
+  position: absolute;
+  width: 45%;
+  height: 45%;
+  background-color: #f25022;
+  transform-origin: center;
+  animation: squareAnim 4000ms cubic-bezier(1, 0, 0, 1) infinite,
+    squareBlink 1000ms ease-in-out infinite;
+  box-shadow: 0 0 8px #f25022aa, 0 0 32px #f2502277;
+
+  &:nth-of-type(2) {
+    background-color: #df9100;
+    box-shadow: 0 0 8px #ffcc00aa, 0 0 32px #ffae0077;
+    animation-delay: -1000ms, -75ms;
+  }
+
+  &:nth-of-type(3) {
+    background-color: #ffb902;
+    box-shadow: 0 0 8px #ffb902aa, 0 0 32px #ffb90277;
+    animation-delay: -2000ms, -150ms;
+  }
+
+  &:nth-of-type(4) {
+    background-color: #ef4c01;
+    box-shadow: 0 0 8px #ef4c01aa, 0 0 32px #ef4c0177;
+    animation-delay: -3000ms, -225ms;
+  }
+}
+
+@keyframes squareAnim {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(120%, 0);
+  }
+
+  50% {
+    transform: translate(120%, 120%);
+  }
+
+  75% {
+    transform: translate(0, 120%);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes squareBlink {
+  0% {
+    filter: brightness(110%);
+  }
+
+  20% {
+    filter: brightness(110%);
+  }
+
+  50% {
+    filter: brightness(80%);
+  }
+
+  80% {
+    filter: brightness(110%);
+  }
+
+  100% {
+    filter: brightness(110%);
+  }
+}
+
+@keyframes loaderRotate {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.7);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}

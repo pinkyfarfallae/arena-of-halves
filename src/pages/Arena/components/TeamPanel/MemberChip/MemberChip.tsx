@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
 import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
-import { lightenColor } from '../../../../../utils/color';
+import { darken, hexToRgb, lightenColor, rgbValues } from '../../../../../utils/color';
 import EfflorescenceMuse from './icons/EfflorescenceMuse';
 import PetalVines from './icons/PetalVines';
 import Flower from './icons/Flower';
@@ -67,9 +67,9 @@ function EffectPipTooltip({ pip, rect }: { pip: EffectPip; rect: DOMRect }) {
 
   // Translate effect name if tag is available
   const effectName = pip.tag ? getEffectName(pip.tag, lang) : (pip.displayName ?? pip.powerName);
-  
+
   // Use Thai nickname if available and language is Thai
-  const displaySourceName = pip.sourceName === TARGET_TYPES.SELF 
+  const displaySourceName = pip.sourceName === TARGET_TYPES.SELF
     ? t('SELF')
     : (lang === LANGUAGE.THAI && pip.sourceNameTh ? pip.sourceNameTh : pip.sourceName);
 
@@ -2072,7 +2072,16 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
       {showResurrecting && battleLive && (
         <div className="mchip__resurrect-mist" aria-hidden="true">
           {Array.from({ length: 14 }, (_, i) => (
-            <span key={i} className="mchip__resurrect-mist-particle" />
+            <span
+              key={i}
+              className="mchip__resurrect-mist-particle"
+              style={{
+                '--resurrect-mist-particle-1': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(darken(fighter.theme[0], 0.55)) : hexToRgb('#0d0015'),
+                '--resurrect-mist-particle-2': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(darken(fighter.theme[0], 0.45)) : hexToRgb('#1a0a2e'),
+                '--resurrect-mist-particle-3': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(darken(fighter.theme[0], 0.25)) : hexToRgb('#7e57c2'),
+                '--resurrect-mist-particle-4': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(darken(fighter.theme[0], 0.35)) : hexToRgb('#4a148c'),
+              } as React.CSSProperties}
+            />
           ))}
         </div>
       )}
@@ -2081,7 +2090,15 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
       {isResurrected && battleLive && (
         <div className="mchip__death-mist" aria-hidden="true">
           {Array.from({ length: 10 }, (_, i) => (
-            <span key={i} className="mchip__death-mist-particle" />
+            <span 
+              key={i} 
+              className="mchip__death-mist-particle" 
+              style={{
+                '--death-mist-particle-1': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? hexToRgb(fighter.theme[0]) : hexToRgb('#9c27b0'),
+                '--death-mist-particle-2': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(lightenColor(fighter.theme[0], 0.15)) : hexToRgb('#7e57c2'),
+                '--death-mist-particle-3': effectPips?.some((pip) => pip.tag === EFFECT_TAGS.HADES_WISH_USED)  ? rgbValues(lightenColor(fighter.theme[0], 0.55)) : hexToRgb('#ce93d8'),
+              } as React.CSSProperties}
+            />
           ))}
         </div>
       )}

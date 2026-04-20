@@ -18,7 +18,7 @@ import Eye from '../../icons/Eye';
 import ConfigArenaModal from './components/ConfigArenaModal/ConfigArenaModal';
 import BattleLogModal from './components/BattleLogModal/BattleLogModal';
 import { ArenaAction, ARENA_ACTIONS } from '../../constants/arenaAction';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { DEITY, type Deity } from '../../constants/deities';
 import HeraBlocked from '../../components/HeraBlocked/HeraBlocked';
 import './Lobby.scss';
@@ -84,8 +84,8 @@ function Lobby() {
     let mounted = true;
     void (async () => {
       try {
-        const wishes = await fetchTodayIrisWish(user.characterId);
-        if (mounted) setUserWishesOfIris(wishes?.deity || null);
+        const wishes = await fetchActiveTodayIrisWish(user.characterId);
+        if (mounted) setUserWishesOfIris(wishes?.deity as Deity || null);
       } catch {
         // Ignore errors here - we'll just treat it as no wish today
       }

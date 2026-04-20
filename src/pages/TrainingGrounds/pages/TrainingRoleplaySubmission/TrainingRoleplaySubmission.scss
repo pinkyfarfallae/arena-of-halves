@@ -530,7 +530,7 @@
         }
       }
 
-      &-actions{
+      &-actions {
         width: 100%;
         max-width: 100%;
         display: flex;
@@ -542,7 +542,7 @@
       &-button {
         min-width: 152px;
         max-width: 152px;
-        padding: 0.6rem 1rem;
+        padding: 0.6rem 0.5rem;
         background: var(--primary-color, #c0a062);
         color: white;
         border: none;
@@ -1051,6 +1051,12 @@
       }
     }
 
+    &-committed {
+      font-size: 0.7rem;
+      color: rgba(var(--primary-color-rgb), 0.6);
+      font-weight: 600;
+    }
+
     &-controls {
       display: flex;
       align-items: center;
@@ -1061,6 +1067,50 @@
       @media (max-width: $bp-compact) {
         width: 100%;
         justify-content: space-between;
+      }
+    }
+
+    &-adjuster {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid rgba(var(--primary-color-rgb), 0.25);
+      border-radius: 4px;
+      background: white;
+      overflow: hidden;
+
+      &-btn {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(var(--primary-color-rgb), 0.08);
+        color: var(--primary-color, #c0a062);
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover:not(:disabled) {
+          background: rgba(var(--primary-color-rgb), 0.15);
+        }
+
+        &:active:not(:disabled) {
+          background: rgba(var(--primary-color-rgb), 0.2);
+        }
+
+        &:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: $bp-compact) {
+          width: 28px;
+          height: 28px;
+          font-size: 0.9rem;
+        }
       }
     }
 
@@ -1174,6 +1224,19 @@
       span {
         color: var(--primary-color, #c0a062);
         font-weight: 600;
+      }
+
+      &-additional {
+        color: rgba(var(--primary-color-rgb), 0.7);
+        font-weight: 700;
+        font-style: normal;
+      }
+
+      &-change {
+        color: rgba(var(--primary-color-rgb), 0.8);
+        font-weight: 700;
+        font-style: normal;
+        font-size: 0.62rem;
       }
     }
   }

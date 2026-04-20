@@ -5,17 +5,19 @@ import User from './pages/User/User';
 import SystemTesting, { SystemTestDice, SystemTestIris } from './pages/SystemTesting/SystemTesting';
 import PowerVfxDemo from './pages/PowerVfxDemo/PowerVfxDemo';
 import HarvestApproval from './pages/HarvestApproval/HarvestApproval';
-import './AdminManager.scss';
 import DailyTrainingConfig from './pages/DailyTrainingConfig/DailyTrainingConfig';
 import TrainingApproval from './pages/TrainingApproval/TrainingApproval';
 import ItemManagement from './pages/ItemManagement/ItemManagement';
-import WeaponManagement from './pages/WeaponManagement/WeaponManagement';
+import EquipmentManagement from './pages/EquipmentManagement/EquipmentManagement';
+import PlayerInventory from './pages/PlayerInventory/PlayerInventory';
+import './AdminManager.scss';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
+  { label: 'Player Inventory', path: 'player-inventory' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Item Management', path: 'item-management' },
-  { label: 'Weapon Management', path: 'weapon-management', developerOnly: true },
+  { label: 'Custom Equipment', path: 'equipment-management' },
   { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'Daily Training Config', path: 'daily-training-config' },
   { label: 'Training Approval', path: 'training-approval' },
@@ -53,6 +55,7 @@ function AdminManager() {
         <Routes>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<User />} />
+          <Route path="player-inventory" element={<PlayerInventory />} />
           <Route path="harvest-approval" element={<HarvestApproval />} />
           <Route path="testing" element={<SystemTesting />} />
           <Route path="testing/dice" element={<SystemTestDice />} />
@@ -61,7 +64,7 @@ function AdminManager() {
           <Route path="daily-training-config" element={<DailyTrainingConfig />} />
           <Route path="training-approval" element={<TrainingApproval />} />
           <Route path="item-management" element={<ItemManagement />} />
-          <Route path="weapon-management" element={<WeaponManagement />} />
+          <Route path="equipment-management" element={<EquipmentManagement />} />
         </Routes>
       </div>
     </div>

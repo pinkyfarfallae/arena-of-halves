@@ -15,6 +15,7 @@ import Tweets from './icons/Tweets';
 import RolePlayers from './icons/RolePlayers';
 import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
+import { parseDrachmaReward } from '../../../../utils/harvestReward';
 import './SubmissionCard.scss';
 
 export default function SubmissionCard({ submission, focused, onClick, forcedCompact }: { submission: HarvestSubmission, focused?: boolean, onClick?: () => void, forcedCompact?: boolean }) {
@@ -36,6 +37,7 @@ export default function SubmissionCard({ submission, focused, onClick, forcedCom
 
   const roleplayers = submission.roleplayers?.split(',').map(r => r.trim()) || [];
   const isSolo = roleplayers.length === 1;
+  const { display: rewardDisplay, label: rewardLabel } = parseDrachmaReward(submission.drachmaReward, isSolo);
 
   return (
     <div
@@ -78,8 +80,8 @@ export default function SubmissionCard({ submission, focused, onClick, forcedCom
             <div className="strawberry-fields__submission-stats">
               <div className="strawberry-fields__stat-item">
                 <Drachma />
-                <span className="strawberry-fields__stat-value">{submission.drachmaReward}</span>
-                <span className="strawberry-fields__stat-label">{isSolo ? 'total' : 'per person'}</span>
+                <span className="strawberry-fields__stat-value">{rewardDisplay}</span>
+                <span className="strawberry-fields__stat-label">{rewardLabel}</span>
               </div>
 
               <div className="strawberry-fields__stat-item strawberry-fields__stat-item--compact">

@@ -1,0 +1,62 @@
+@import '../../../../../../styles/variables';
+
+.training-stats {
+  &__notice-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 420;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(15, 15, 15, 0.45);
+    backdrop-filter: blur(4px);
+  }
+
+  &__notice-modal {
+    width: min(100%, 380px);
+    padding: 1.2rem 1.15rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.25);
+  }
+
+  &__notice-modal-title {
+    margin: 0 0 0.55rem;
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--dark-color, #2c2c2c);
+  }
+
+  &__notice-modal-message {
+    margin: 0 0 1rem;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: rgba(var(--dark-color-rgb), 0.85);
+  }
+
+  &__notice-modal-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, var(--primary-color, #c0a062), color-mix(in srgb, var(--primary-color, #c0a062) 75%, black));
+    color: white;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+  }
+}

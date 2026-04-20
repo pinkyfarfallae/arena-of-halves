@@ -39,7 +39,7 @@ export async function approveHarvest(
   reviewedBy: string,
   charCount: number,
   mentionCount: number,
-  drachmaReward: number,
+  drachmaReward: string | number, // Now accepts JSON string map or legacy number
   roleplayers: string[],
   demeterBonusIds: string[] = []
 ): Promise<{ success: boolean; awarded?: string[]; error?: string }> {
@@ -123,7 +123,7 @@ export async function fetchHarvests(
       reviewedBy: h.reviewedby || undefined,
       charCount: h.charcount ? Number(h.charcount) : undefined,
       mentionCount: h.mentioncount ? Number(h.mentioncount) : undefined,
-      drachmaReward: h.drachmareward ? Number(h.drachmareward) : undefined,
+      drachmaReward: h.drachmareward || undefined, // Keep as-is (number or JSON string)
       roleplayers: h.roleplayers
         ? h.roleplayers.split(',').map((r: string) => r.trim()).filter(Boolean).join(',')
         : undefined,

@@ -1,4 +1,5 @@
 import { BagItemType } from "../constants/bag";
+import { EquipmentCategory, EquipmentTier } from "../constants/equipment";
 import { Deity } from "./deity";
 
 export type Theme25 = [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
@@ -22,10 +23,21 @@ export interface ItemInfo {
   labelEng: string;
   labelThai: string;
   imageUrl: string;
-  tier?: string; // Only for weapons
   description?: string;
   price?: number;
   piece?: number | 'infinity';
+  available?: boolean;
+}
+
+export interface CustomEquipmentInfo {
+  itemId: string;
+  labelEng: string;
+  labelThai: string;
+  imageUrl: string;
+  description?: string;
+  categories: string; // Comma-separated: e.g., "weapon,armor"
+  characterId?: string; // Optional: which character owns this
+  price?: number;
   available?: boolean;
 }
 
@@ -33,13 +45,19 @@ export interface BagEntry {
   itemId: string;
   amount: number;
   type: BagItemType;
+  income?: number;
+  available?: boolean;
+}
+
+export interface BagItemData {
+  amount: number;
+  type: BagItemType;
+  income?: number;
+  available?: boolean;
 }
 
 export interface BagData {
-  [itemId: string]: {
-    amount: number;
-    type: BagItemType;
-  };
+  [itemId: string]: BagItemData;
 }
 
 export interface Character {
@@ -100,4 +118,12 @@ export interface Character {
 
   /* Training points */
   trainingPoints: number;
+
+  /* Equipment levels */
+  equipment?: {
+    weapon?: EquipmentTier;
+    armor?: EquipmentTier;
+    shield?: EquipmentTier;
+    boots?: EquipmentTier;
+  };
 }

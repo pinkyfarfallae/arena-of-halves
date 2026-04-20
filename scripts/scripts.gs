@@ -20,6 +20,7 @@ var CHARACTER_SHEET_NAME = 'Character Info';
 var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
 var TRAINING_SHEET_NAME = 'Daily Training Dice';
+var CUSTOM_EQUIPMENT = 'Custom Equipment';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -185,6 +186,18 @@ function doPost(e) {
 
     if (data.action === 'deleteItem') {
       return handleDeleteItem(data.itemId);
+    }
+
+    if (data.action === 'createEquipment') {
+      return handleCreateEquipment(data);
+    }
+
+    if (data.action === 'editEquipment') {
+      return handleEditEquipment(data.itemId, data.fields);
+    }
+
+    if (data.action === 'deleteEquipment') {
+      return handleDeleteEquipment(data.itemId);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -564,7 +577,7 @@ function handleApproveHarvest(params) {
   var reviewedBy = (params.reviewedBy || '').toString().trim();
   var charCount = parseInt(params.charCount || '0', 10);
   var mentionCount = parseInt(params.mentionCount || '0', 10);
-  var drachmaReward = parseInt(params.drachmaReward || '0', 10);
+  var drachmaReward = params.drachmaReward || ''; // Can be number or JSON string
   var roleplayers = params.roleplayers || []; // Array of characterIds
   var demeterBonusIds = params.demeterBonusIds || []; // Array of characterIds with Demeter blessing
 
@@ -632,46 +645,16 @@ function handleApproveHarvest(params) {
   if (reviewedByCol !== -1) harvestSheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
   if (charCountCol !== -1) harvestSheet.getRange(rowIndex + 1, charCountCol + 1).setValue(charCount);
   if (mentionCountCol !== -1) harvestSheet.getRange(rowIndex + 1, mentionCountCol + 1).setValue(mentionCount);
-  if (drachmaRewardCol !== -1) harvestSheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward);
+  if (drachmaRewardCol !== -1) harvestSheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward); // Now accepts JSON string map
   if (roleplayersCol !== -1) harvestSheet.getRange(rowIndex + 1, roleplayersCol + 1).setValue(roleplayers.join(','));
 
-  // Award drachma to all roleplayers using updateCharacterDrachma
-  var awarded = [];
-  var failed = [];
-  
-  for (var r = 0; r < roleplayers.length; r++) {
-    var roleplayerId = roleplayers[r].toString().trim();
-    var rewardAmount = drachmaReward;
-    
-    // Check if this roleplayer has Demeter bonus (2x reward)
-    var hasDemeterBonus = false;
-    for (var d = 0; d < demeterBonusIds.length; d++) {
-      if (demeterBonusIds[d].toString().trim().toLowerCase() === roleplayerId.toLowerCase()) {
-        hasDemeterBonus = true;
-        break;
-      }
-    }
-    
-    if (hasDemeterBonus) {
-      rewardAmount = drachmaReward * 2;
-    }
-    
-    // Use the centralized updateCharacterDrachma function
-    var result = updateCharacterDrachma(roleplayerId, rewardAmount);
-    var resultData = JSON.parse(result.getContent());
-    
-    if (resultData.success) {
-      var bonusLabel = hasDemeterBonus ? ' (Demeter x2)' : '';
-      awarded.push(roleplayerId + bonusLabel + ': ' + resultData.previous + ' → ' + resultData.current);
-    } else {
-      failed.push(roleplayerId + ': ' + (resultData.error || 'Unknown error'));
-    }
-  }
+  // Note: Drachma distribution is now handled by the frontend with individual calculated rewards
+  // This backend call only records the drachmaReward (JSON map: {charId: amount}) for leaderboard tracking
+  // The frontend awards each participant their individual reward (base + gardening set + solo + Demeter wish bonuses)
 
   return jsonResponse({ 
-    success: true, 
-    awarded: awarded,
-    failed: failed.length > 0 ? failed : undefined
+    success: true,
+    message: 'Harvest approved and recorded. Individual rewards handled by frontend.'
   });
 }
 
@@ -1329,13 +1312,32 @@ function handleFetchTopHarvesters(limit) {
   for (var i = 1; i < harvestData.length; i++) {
     var row = harvestData[i];
     if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
-      var drachma = drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0;
-      var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+      var drachmaValue = drachmaRewardCol !== -1 ? row[drachmaRewardCol] : '';
+      var drachmaStr = drachmaValue.toString().trim();
+      
+      // Try to parse as JSON map (new format: {"charA": 50, "charB": 100})
+      if (drachmaStr && (drachmaStr.indexOf('{') === 0)) {
+        try {
+          var rewardMap = JSON.parse(drachmaStr);
+          for (var charId in rewardMap) {
+            var amount = parseInt(rewardMap[charId], 10) || 0;
+            earnings[charId] = (earnings[charId] || 0) + amount;
+          }
+        } catch (e) {
+          // Invalid JSON, skip this record
+        }
+      } else {
+        // Legacy format: single number divided among participants
+        var drachma = parseInt(drachmaStr || '0', 10);
+        var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+        var participantCount = roleplayers.length || 1;
+        var perParticipant = Math.floor(drachma / participantCount);
 
-      for (var r = 0; r < roleplayers.length; r++) {
-        var charId = roleplayers[r].trim();
-        if (charId) {
-          earnings[charId] = (earnings[charId] || 0) + drachma;
+        for (var r = 0; r < roleplayers.length; r++) {
+          var charId = roleplayers[r].trim();
+          if (charId) {
+            earnings[charId] = (earnings[charId] || 0) + perParticipant;
+          }
         }
       }
     }
@@ -1836,4 +1838,150 @@ function handleDeleteItem(itemId) {
   }
 
   return jsonResponse({ error: 'Item not found: ' + itemId });
+}
+
+/* ══════════════════════════════════════
+   CUSTOM EQUIPMENT MANAGEMENT
+   ══════════════════════════════════════ */
+
+/* ══════════════════════════════════════
+   CREATE CUSTOM EQUIPMENT
+   - Adds a new custom equipment to the Custom Equipment sheet
+   ══════════════════════════════════════ */
+function handleCreateEquipment(params) {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found. Please create it first.' });
+  }
+
+  var itemId = (params.itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  // Check if item already exists
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol !== -1) {
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+        return jsonResponse({ error: 'Equipment with this ID already exists: ' + itemId });
+      }
+    }
+  }
+
+  // Map headers to column indices
+  var colMap = {};
+  headers.forEach(function(h, idx) {
+    colMap[h] = idx;
+  });
+
+  // Prepare row data (match header order)
+  var newRow = [];
+  for (var i = 0; i < headers.length; i++) {
+    newRow.push(''); // Initialize with empty values
+  }
+
+  // Fill in the values
+  if (colMap['itemid'] !== undefined) newRow[colMap['itemid']] = params.itemId || '';
+  if (colMap['label (eng)'] !== undefined) newRow[colMap['label (eng)']] = params.labelEng || '';
+  if (colMap['label (thai)'] !== undefined) newRow[colMap['label (thai)']] = params.labelThai || '';
+  if (colMap['image url'] !== undefined) newRow[colMap['image url']] = params.imageUrl || '';
+  if (colMap['description'] !== undefined) newRow[colMap['description']] = params.description || '';
+  if (colMap['categories'] !== undefined) newRow[colMap['categories']] = params.categories || '';
+  if (colMap['characterid'] !== undefined) newRow[colMap['characterid']] = params.characterId || '';
+  if (colMap['price'] !== undefined) newRow[colMap['price']] = params.price || 0;
+  if (colMap['available'] !== undefined) newRow[colMap['available']] = params.available !== undefined ? params.available : true;
+
+  sheet.appendRow(newRow);
+  return jsonResponse({ success: true, itemId: params.itemId });
+}
+
+/* ══════════════════════════════════════
+   EDIT CUSTOM EQUIPMENT
+   - Updates an existing custom equipment
+   ══════════════════════════════════════ */
+function handleEditEquipment(itemId, fields) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found' });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol === -1) {
+    return jsonResponse({ error: 'itemid column not found' });
+  }
+
+  // Find the equipment row
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+      // Update each field
+      for (var key in fields) {
+        if (fields.hasOwnProperty(key)) {
+          var colIdx = headers.indexOf(key.toLowerCase());
+          if (colIdx !== -1) {
+            var value = fields[key];
+            // Convert string 'true'/'false' to boolean for available field
+            if (key.toLowerCase() === 'available' && typeof value === 'string') {
+              value = value === 'true' || value === true;
+            }
+            sheet.getRange(i + 1, colIdx + 1).setValue(value);
+          }
+        }
+      }
+      return jsonResponse({ success: true, itemId: itemId });
+    }
+  }
+
+  return jsonResponse({ error: 'Equipment not found: ' + itemId });
+}
+
+/* ══════════════════════════════════════
+   DELETE CUSTOM EQUIPMENT
+   - Removes a custom equipment from the sheet
+   ══════════════════════════════════════ */
+function handleDeleteEquipment(itemId) {
+  itemId = (itemId || '').toString().trim();
+  if (!itemId) {
+    return jsonResponse({ error: 'Missing itemId' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
+  
+  if (!sheet) {
+    return jsonResponse({ error: 'Custom Equipment sheet not found' });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+  var itemIdCol = headers.indexOf('itemid');
+
+  if (itemIdCol === -1) {
+    return jsonResponse({ error: 'itemid column not found' });
+  }
+
+  // Find and delete the equipment row
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (data[i][itemIdCol].toString().trim().toLowerCase() === itemId.toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ success: true, itemId: itemId });
+    }
+  }
+
+  return jsonResponse({ error: 'Equipment not found: ' + itemId });
 }

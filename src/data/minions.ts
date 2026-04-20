@@ -1,6 +1,6 @@
 import { Theme25 } from '../types/character';
 // Import skeleton sprite so bundler provides a correct asset URL
-import skeletonImg from '../images/skeleton.png';
+import skeletonImg from '../images/minions/skeleton.png';
 import { Minion } from '../types/minions';
 
 /**

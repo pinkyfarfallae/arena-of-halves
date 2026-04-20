@@ -1,5 +1,5 @@
 import { splitCSVRows, parseCSVLine } from '../utils/csv';
-import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character } from '../types/character';
+import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo } from '../types/character';
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
@@ -9,10 +9,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { BagData } from '../types/character';
-import { useAuth } from '../hooks/useAuth';
-import { User } from 'firebase/auth';
 
-export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character };
+export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo };
 export type { PowerDefinition };
 export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
@@ -255,41 +253,6 @@ export async function fetchItemInfo(): Promise<ItemInfo[]> {
   return items;
 }
 
-export async function fetchWeaponInfo(): Promise<ItemInfo[]> {
-  const url = csvUrl(GID.WEAPON_INFO);
-  const res = await fetch(url);
-  const text = await res.text();
-  const lines = splitCSVRows(text);
-  if (lines.length < 2) return [];
-
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-
-  const items: ItemInfo[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCSVLine(lines[i]);
-    const get = (name: string) => {
-      const idx = headers.indexOf(name);
-      return idx !== -1 ? cols[idx] ?? '' : '';
-    };
-    const itemId = get('itemid');
-    if (itemId) {
-      const piece = get('piece');
-      items.push({
-        itemId,
-        labelEng: get('label (eng)'),
-        labelThai: get('label (thai)'),
-        imageUrl: toDirectImageUrl(get('image url')) || '',
-        tier: get('tier'), // Weapons have tier
-        description: get('description'),
-        price: parseFloat(get('price')) || undefined,
-        piece: piece === 'infinity' ? 'infinity' : (parseInt(piece) || undefined),
-        available: get('available').toLowerCase() === 'true',
-      });
-    }
-  }
-  return items;
-}
-
 export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, characterId);
@@ -437,7 +400,6 @@ export interface CreateItemPayload {
   labelEng: string;
   labelThai: string;
   imageUrl: string;
-  tier?: string; // Only for weapons
   description: string;
   price: number;
   piece: number | 'infinity';
@@ -479,6 +441,101 @@ export async function deleteItem(itemId: string): Promise<boolean> {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: ACTIONS.DELETE_ITEM, itemId }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ══════════════════════════════════════
+   CUSTOM EQUIPMENT MANAGEMENT
+   ══════════════════════════════════════ */
+
+export async function fetchCustomEquipment(): Promise<CustomEquipmentInfo[]> {
+  const url = csvUrl(GID.CUSTOM_EQUIPMENT);
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const lines = splitCSVRows(text);
+    if (lines.length < 2) return [];
+
+    const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+
+    const equipment: CustomEquipmentInfo[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      const get = (name: string) => {
+        const idx = headers.indexOf(name);
+        return idx !== -1 ? cols[idx] ?? '' : '';
+      };
+      const itemId = get('itemid');
+      if (itemId) {
+        equipment.push({
+          itemId,
+          labelEng: get('label (eng)') || get('labeleng'),
+          labelThai: get('label (thai)') || get('labelthai'),
+          imageUrl: toDirectImageUrl(get('image url') || get('imageurl')) || '',
+          description: get('description'),
+          categories: get('categories') || get('equipmenttype'),
+          characterId: get('characterid'),
+          price: parseFloat(get('price')) || undefined,
+          available: get('available').toLowerCase() === 'true',
+        });
+      }
+    }
+    return equipment;
+  } catch (error) {
+    console.error('Error fetching custom equipment:', error);
+    return [];
+  }
+}
+
+export interface CreateCustomEquipmentPayload {
+  itemId: string;
+  labelEng: string;
+  labelThai: string;
+  imageUrl: string;
+  description: string;
+  categories: string; // Comma-separated categories
+  characterId?: string;
+  price: number;
+  available: boolean;
+}
+
+export async function createCustomEquipment(payload: CreateCustomEquipmentPayload): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.CREATE_EQUIPMENT, ...payload }),
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('Error creating custom equipment:', e);
+    return false;
+  }
+}
+
+export async function editCustomEquipment(
+  itemId: string,
+  fields: Record<string, any>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.EDIT_EQUIPMENT, itemId, fields }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteCustomEquipment(itemId: string): Promise<boolean> {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ACTIONS.DELETE_EQUIPMENT, itemId }),
     });
     return res.ok;
   } catch (e) {

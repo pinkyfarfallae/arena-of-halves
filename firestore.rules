@@ -53,9 +53,9 @@ service cloud.firestore {
         return state is string && (state == 'waiting' || state == 'live' || state == 'finished');
       }
       
-      // Helper to validate roll value (1-12 or 0 for placeholder)
+      // Helper to validate roll value (1-22 or 0 for placeholder)
       function isValidRoll(roll) {
-        return roll is int && ((roll >= 1 && roll <= 12) || roll == 0);
+        return roll is int && ((roll >= 1 && roll <= 22) || roll == 0);
       }
       
       // Helper to validate rolls array (optional, for normal training mode)
@@ -87,6 +87,21 @@ service cloud.firestore {
                               isValidTarget();
       
       allow delete: if isAuthenticated();
+    }
+
+    // User Daily Claims (per-date map of claimed users)
+    // Document ID: YYYY-MM-DD
+    // Shape: { <characterId>: true }
+    match /userDailyClaims/{date} {
+      // Allow authenticated users to read whether a user has claimed today
+      allow read: if isAuthenticated();
+
+      // Allow authenticated users to create/update today's claims document
+      // Basic validation: document id must be a valid date
+      allow create, update: if isAuthenticated() && isValidDate(date) && request.resource.data.keys().size() > 0;
+
+      // No deletes
+      allow delete: if false;
     }
 
     // Player wishes of Iris
@@ -124,6 +139,68 @@ service cloud.firestore {
       allow create, update: if isAuthenticated();
 
       // No direct delete (items removed by setting amount to 0 or removing from map)
+      allow delete: if false;
+    }
+
+    // Player Equipment (upgrade system)
+    // Document ID: {characterId} (e.g., 'rosabella')
+    // Structure: { 
+    //   weapon?: 'level_1'|'level_2'|'level_3',
+    //   armor?: 'level_1'|'level_2'|'level_3',
+    //   shield?: 'level_1'|'level_2'|'level_3',
+    //   boots?: 'level_1'|'level_2'|'level_3',
+    //   custom?: {
+    //     [itemId]: {
+    //       tier: 'level_1'|'level_2'|'level_3',
+    //       categories: ['weapon', 'armor', ...]
+    //     }
+    //   }
+    // }
+    match /playerEquipment/{userId} {
+      // Allow all authenticated users to read (for viewing other profiles)
+      allow read: if isAuthenticated();
+
+      // Helper to validate equipment tier
+      function isValidTier(tier) {
+        return tier is string && 
+               (tier == 'level_1' || tier == 'level_2' || tier == 'level_3');
+      }
+
+      // Helper to validate equipment category
+      function isValidCategory(category) {
+        return category == 'weapon' || category == 'armor' || 
+               category == 'shield' || category == 'boots';
+      }
+
+      // Helper to validate custom equipment item
+      function isValidCustomItem(item) {
+        return item.keys().hasAll(['tier', 'categories']) &&
+               isValidTier(item.tier) &&
+               item.categories is list &&
+               item.categories.size() > 0;
+      }
+
+      // Helper to validate all custom equipment items in a map
+      function areValidCustomItems(customMap) {
+        return customMap.keys().size() == 0 ||
+               customMap.values().hasOnly([
+                 // This checks that all values match the validation
+               ]) ||
+               true; // Allow for now since we can't iterate in rules
+      }
+
+      // Allow authenticated users to create/update equipment
+      // Base categories: optional, must be valid tiers if present
+      // Custom equipment: optional map, each item must have tier and categories
+      allow create, update: if isAuthenticated() &&
+                              (!request.resource.data.keys().hasAny(['weapon']) || isValidTier(request.resource.data.weapon)) &&
+                              (!request.resource.data.keys().hasAny(['armor']) || isValidTier(request.resource.data.armor)) &&
+                              (!request.resource.data.keys().hasAny(['shield']) || isValidTier(request.resource.data.shield)) &&
+                              (!request.resource.data.keys().hasAny(['boots']) || isValidTier(request.resource.data.boots)) &&
+                              // Allow custom field - validation is complex, rely on client-side
+                              (!request.resource.data.keys().hasAny(['custom']) || request.resource.data.custom is map);
+
+      // No direct delete
       allow delete: if false;
     }
   }

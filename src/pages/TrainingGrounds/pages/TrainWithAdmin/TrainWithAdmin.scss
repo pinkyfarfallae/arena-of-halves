@@ -132,12 +132,12 @@
     }
 
     &.passed {
-      background: linear-gradient(135deg, rgba(76, 175, 80, 0.4) 0%, rgba(76, 175, 80, 0.2) 100%);
+      background: linear-gradient(135deg, rgba(132, 205, 134, 0.4) 0%, rgba(144, 230, 146, 0.2) 100%);
       border-color: #4caf50;
     }
 
     &.failed {
-      background: linear-gradient(135deg, rgba(244, 67, 54, 0.5) 0%, rgba(244, 67, 54, 0.3) 100%);
+      background: linear-gradient(135deg, rgba(255, 154, 146, 0.5) 0%, rgba(255, 194, 190, 0.3) 100%);
       border-color: #f44336;
     }
 
@@ -198,6 +198,7 @@
       font-size: 1.8rem;
       font-weight: bold;
       opacity: 0.9;
+      position: relative;
       color: var(--foreground-color);
       text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
 
@@ -223,6 +224,43 @@
 
       &.failed {
         color: #b71c1c;
+      }
+    }
+
+    &-bonus {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      margin-left: 2px;
+      font-size: 0.75rem;
+      color: #ff4005;
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 100%;
+      width: fit-content;
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      @media (max-width: $bp-medium) {
+        font-size: 0.65rem;
+
+        svg {
+          width: 12px;
+          height: 12px;
+        }
+      }
+
+      @media (max-width: $bp-compact) {
+        font-size: 0.6rem;
+
+        svg {
+          width: 10px;
+          height: 10px;
+        }
       }
     }
   }

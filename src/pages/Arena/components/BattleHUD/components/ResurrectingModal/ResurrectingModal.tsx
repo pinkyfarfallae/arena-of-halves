@@ -1,7 +1,7 @@
 import React from 'react';
 import './ResurrectingModal.scss';
 import { Theme25 } from '../../../../../../types/character';
-import { colorMix, darken, hexToRgb, lightenColor, rgbToHex, rgbValues } from '../../../../../../utils/color';
+import { colorMix, darken, lightenColor, rgbToHex, rgbValues } from '../../../../../../utils/color';
 
 /**
  * Modal for the self-resurrect overlay (Hades Death Keeper):

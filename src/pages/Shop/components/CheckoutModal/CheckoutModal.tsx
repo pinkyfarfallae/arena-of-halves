@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import Drachma from '../../../../icons/Drachma';
-import { CartItem } from '../../shopData';
+import { CartItem } from '../../../../types/shop';
 import Close from '../../../../icons/Close';
 import './CheckoutModal.scss';
 

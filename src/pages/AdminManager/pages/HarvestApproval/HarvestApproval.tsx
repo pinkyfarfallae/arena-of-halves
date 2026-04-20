@@ -21,6 +21,21 @@ import SuccessModal from './components/SuccessModal/SuccessModal';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 import './HarvestApproval.scss';
+import { getItemAmount } from '../../../../services/bag/bagService';
+import { ITEMS } from '../../../../constants/items';
+import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
+import { updateCharacterDrachma } from '../../../../services/character/currencyService';
+
+type ApproveParticipantReward = {
+  characterId: string;
+  name: string;
+  reward: number;
+  bonuses: {
+    hasGardeningSet: boolean;
+    hasDemeterWish: boolean;
+    isSolo: boolean;
+  };
+};
 
 function HarvestApproval() {
   const { user } = useAuth();
@@ -35,6 +50,7 @@ function HarvestApproval() {
 
   const [matchedCharacters, setMatchedCharacters] = useState<Character[]>([]);
   const [selectedRoleplayers, setSelectedRoleplayers] = useState<string[]>([]);
+  const [characterBagData, setCharacterBagData] = useState<Record<string, { hasGardeningSet: boolean }>>({});
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarView, setSidebarView] = useState<HarvestSubmissionStatus>(HARVEST_SUBMISSION_STATUS.PENDING);
@@ -56,12 +72,14 @@ function HarvestApproval() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [tempRejectReason, setTempRejectReason] = useState('');
+  const [isApproving, setIsApproving] = useState(false);
   const [approveData, setApproveData] = useState<{
     charCount: number;
     tweetCount: number;
     reward: number;
     roleplayers: string[];
     isSolo: boolean;
+    participantRewards: ApproveParticipantReward[];
   } | null>(null);
 
   const [reviewingTaskDateWishes, setReviewingTaskDateWishes] = useState<any[]>([]);
@@ -145,12 +163,56 @@ function HarvestApproval() {
     setSelectedRoleplayers(matched.map((c) => c.characterId));
   }, [reviewText, characters]);
 
+  // Fetch bag data for matched characters
+  useEffect(() => {
+    if (matchedCharacters.length === 0) {
+      setCharacterBagData({});
+      return;
+    }
+
+    const fetchBagData = async () => {
+      const bagDataMap: Record<string, { hasGardeningSet: boolean }> = {};
+
+      await Promise.all(
+        matchedCharacters.map(async (char) => {
+          const gardeningSetAmount = await getItemAmount(char.characterId, ITEMS.DEMETER_S_GARDENING_SET);
+          bagDataMap[char.characterId] = {
+            hasGardeningSet: gardeningSetAmount > 0
+          };
+        })
+      );
+
+      setCharacterBagData(bagDataMap);
+    };
+
+    fetchBagData();
+  }, [matchedCharacters]);
+
   const countCharacters = (text: string) =>
     text.replace(/\s+/g, '').length;
 
   const calculateRewards = (charCount: number, isSolo: boolean) => {
     const base = (charCount / 200) * 10;
     return isSolo ? Math.ceil(base * 1.5) : Math.ceil(base);
+  };
+
+  const calculateParticipantReward = (
+    charCount: number,
+    isSolo: boolean,
+    hasDemeterGardeningSet: boolean,
+    hasDemeterWish: boolean
+  ) => {
+    // Step 1: Base calculation (gardening set provides +50% base rate)
+    const baseRate = hasDemeterGardeningSet ? 15 : 10;
+    const base = (charCount / 200) * baseRate;
+
+    // Step 2: Solo bonus (+50%)
+    const afterSolo = isSolo ? base * 1.5 : base;
+
+    // Step 3: Demeter wish bonus (x2)
+    const final = hasDemeterWish ? afterSolo * 2 : afterSolo;
+
+    return Math.ceil(final);
   };
 
   const toggleRoleplayer = (id: string) => {
@@ -202,6 +264,29 @@ function HarvestApproval() {
     const mentionCount = scriptParsed.tweetCount;
     const isSolo = selectedRoleplayers.length === 1;
     const reward = calculateRewards(charCount, isSolo);
+    const participantRewards = selectedRoleplayers.map((charId) => {
+      const hasDemeterGardeningSet = characterBagData[charId]?.hasGardeningSet || false;
+      const hasDemeterWish = reviewingTaskDateWishes.some(
+        (w) => w.deity === DEITY.DEMETER && w.userId === charId
+      );
+      const participantReward = calculateParticipantReward(
+        charCount,
+        isSolo,
+        hasDemeterGardeningSet,
+        hasDemeterWish
+      );
+
+      return {
+        characterId: charId,
+        name: getCharacterName(charId),
+        reward: participantReward,
+        bonuses: {
+          hasGardeningSet: hasDemeterGardeningSet,
+          hasDemeterWish: hasDemeterWish,
+          isSolo: isSolo,
+        },
+      };
+    });
 
     setApproveData({
       charCount,
@@ -209,6 +294,7 @@ function HarvestApproval() {
       reward,
       roleplayers: selectedRoleplayers,
       isSolo,
+      participantRewards,
     });
     setShowApproveModal(true);
   };
@@ -216,7 +302,37 @@ function HarvestApproval() {
   const handleApprove = async (submissionId: string) => {
     if (!approveData) return;
 
-    // Collect character IDs that have Demeter blessing for this date
+    setIsApproving(true);
+
+    // Award drachma to each participant based on their individual calculated rewards
+    const rewardPromises = approveData.participantRewards.map((participant) =>
+      updateCharacterDrachma(participant.characterId, participant.reward)
+    );
+
+    try {
+      await Promise.all(rewardPromises);
+    } catch (error) {
+      setIsApproving(false);
+      return;
+    }
+
+    // Build reward map: { characterId: individualReward }
+    const rewardMap = approveData.participantRewards.reduce<Record<string, number>>(
+      (map, participant) => {
+        map[participant.characterId] = participant.reward;
+        return map;
+      },
+      {}
+    );
+
+    // Calculate total for display
+    const totalDrachmaAwarded = approveData.participantRewards.reduce(
+      (sum, participant) => sum + participant.reward,
+      0
+    );
+
+    // Record the harvest approval in backend
+    // Pass rewardMap as JSON string for accurate leaderboard tracking
     const demeterBonusIds = reviewingTaskDateWishes
       .filter((w) => w.deity === DEITY.DEMETER)
       .map((w) => w.userId);
@@ -226,12 +342,13 @@ function HarvestApproval() {
       user?.characterId || 'admin',
       approveData.charCount,
       approveData.tweetCount,
-      approveData.reward,
+      JSON.stringify(rewardMap), // Store individual rewards as JSON map
       approveData.roleplayers,
       demeterBonusIds
     );
 
     if (!result.success) {
+      setIsApproving(false);
       return;
     }
 
@@ -242,7 +359,7 @@ function HarvestApproval() {
             ...s,
             status: HARVEST_SUBMISSION_STATUS.APPROVED,
             reviewedAt: new Date().toISOString(),
-            drachmaReward: approveData.reward,
+            drachmaReward: JSON.stringify(rewardMap), // Store JSON map for consistency
             charCount: approveData.charCount,
             tweetCount: approveData.tweetCount,
             roleplayers: approveData.roleplayers.join(','),
@@ -253,6 +370,7 @@ function HarvestApproval() {
 
     setShowApproveModal(false);
     setApproveData(null);
+    setIsApproving(false);
 
     const pendingCount = submissions.filter(
       (s) => {
@@ -356,7 +474,6 @@ function HarvestApproval() {
 
   return (
     <div className="harvest-approval">
-
       {/* Layout */}
       <div className={`harvest-approval__container ${sidebarOpen ? 'harvest-approval__container--sidebar-open' : ''}`}>
         {/* Main */}
@@ -623,7 +740,9 @@ function HarvestApproval() {
                                       const matches = w.userId === char.characterId && w.deity === DEITY.DEMETER;
                                       return matches;
                                     });
-                                    
+
+                                    const hasDemeterGardeningSet = characterBagData[char.characterId]?.hasGardeningSet || false;
+
                                     return (
                                       <label
                                         key={char.characterId}
@@ -652,6 +771,11 @@ function HarvestApproval() {
                                           <span className="harvest-approval__roleplayer-name">
                                             {char.nicknameEng || char.characterId}
                                           </span>
+                                          {hasDemeterGardeningSet && (
+                                            <span className="harvest-approval__roleplayer-gardening-set">
+                                              item bonus <Basket />
+                                            </span>
+                                          )}
                                           {char.twitter && (
                                             <span className="harvest-approval__roleplayer-handle">
                                               @{extractTwitterHandle(char.twitter)}
@@ -763,7 +887,8 @@ function HarvestApproval() {
       <ApproveModal
         show={showApproveModal && !!approveData && !!reviewingSubmission}
         approveData={approveData}
-        onClose={() => setShowApproveModal(false)}
+        isApproving={isApproving}
+        onClose={() => !isApproving && setShowApproveModal(false)}
         onConfirm={() => reviewingSubmission && handleApprove(reviewingSubmission.id)}
       />
 

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBag } from '../../hooks/useBag';
-import { fetchCharacter, fetchWishes as fetchWishesFromCharacter, fetchItemInfo, fetchWeaponInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES } from '../../data/characters';
-import { fetchWishes } from '../../data/wishes';
+import { fetchCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES, fetchCustomEquipment } from '../../data/characters';
+import { cancelTodayIrisWish, fetchWishes, fetchIrisWishCountsForCharacter } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
 import { applyTheme } from '../../App';
@@ -39,11 +39,18 @@ import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
 import { CHARACTER_PRACTICE_STATES } from '../../data/practiceStates';
-import { fetchAllIrisWishes, fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
+import { fetchTodayIrisWish, WISHES_FALLBACK } from '../../data/wishes';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
-import './CharacterInfo.scss';
-import { Deity, DEITY } from '../../constants/deities';
+import { DEITY } from '../../constants/deities';
 import { Wish } from '../../types/wish';
+import { getEquipmentData, initializeEquipment } from '../../services/equipment/equipmentService';
+import { CUSTOM_EQUIPMENT, Equipment, EQUIPMENT_CATEGORIES, EQUIPMENT_IMAGES, EQUIPMENT_TIERS, EquipmentCategory, EquipmentTier } from '../../constants/equipment';
+import { getNonCustomEquipmentName } from '../../data/equipment';
+import { useScreenSize } from '../../hooks/useScreenSize';
+import { ITEMS } from '../../constants/items';
+import { useTranslation } from '../../hooks/useTranslation';
+import './CharacterInfo.scss';
+import { T } from '../../constants/translationKeys';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -69,17 +76,19 @@ function FormatText({ text }: { text: string }) {
 
 function CharacterInfo() {
   const { user, refreshUser } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const { width } = useScreenSize();
   const { id } = useParams<{ id?: string }>();
   const [viewed, setViewed] = useState<Character | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [powers, setPowers] = useState<Power[]>([]);
   const [wishesData, setWishesData] = useState<Wish[]>([]);
   const [wishes, setWishes] = useState<WishEntry[]>([]);
-  const [todayWish, setUserTodayWish] = useState<WishEntry | null>(null);
+  const [todayWish, setUserTodayWish] = useState<(WishEntry & { canceled?: boolean }) | null>(null);
   const [loadingPowers, setLoadingPowers] = useState(false);
   const [bagItems, setBagItems] = useState<(ItemInfo & BagEntry)[]>([]);
-  const [bagWeapons, setBagWeapons] = useState<(any & BagEntry)[]>([]);
+  const [bagWeapons, setBagWeapons] = useState<(any & Equipment[])[]>([]);
 
   // Modal open state (setters used by UI; values reserved for future use)
   const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -99,7 +108,7 @@ function CharacterInfo() {
   const char = isOwnProfile ? user : viewed;
 
   // Use Firestore-based bag hook (must be after char is defined)
-  const { bagEntries, loading: loadingBag } = useBag(char?.characterId);
+  const { bagEntries, loading: loadingBag, updateItemAmount } = useBag(char?.characterId);
 
   useEffect(() => {
     if (isOwnProfile || !id) {
@@ -129,17 +138,69 @@ function CharacterInfo() {
 
     const fetchData = async () => {
       try {
-        const [fetchedWishes, userWishes, wish] = await Promise.all([
+        const [fetchedWishes, userWishes, wish, weapons, customEquipment] = await Promise.all([
           fetchWishes().catch(() => WISHES_FALLBACK),
-          fetchWishesFromCharacter(char.characterId).catch(() => []),
+          fetchIrisWishCountsForCharacter(char.characterId).catch(() => []),
           fetchTodayIrisWish(char.characterId).catch(() => null),
+          getEquipmentData(char.characterId).catch(() => []),
+          fetchCustomEquipment().catch(() => []),
         ]);
 
         setWishesData(fetchedWishes);
         setWishes(userWishes);
 
+        if (weapons) {
+          const weaponData = Object.entries(weapons).flatMap(([key, value]) => {
+            if (key === CUSTOM_EQUIPMENT && value && typeof value === 'object') {
+              return Object.entries(value).map(([customKey, each]: [string, any]) => {
+                const imageUrl = customEquipment.find(ce => ce.itemId === customKey)?.imageUrl || '';
+                const name = customEquipment.find(ce => ce.itemId === customKey)?.labelEng || customKey;
+                return {
+                  id: customKey,
+                  name: name,
+                  category: each.categories || [],
+                  tier: each.tier.split('_')[1] || '1',
+                  custom: true,
+                  imageUrl: imageUrl,
+                }
+              });
+            } else {
+              const catagory = key as EquipmentCategory;
+              const tier = value as EquipmentTier;
+              const imageUrl = EQUIPMENT_IMAGES[catagory][tier] || '';
+
+              return {
+                id: key,
+                name: getNonCustomEquipmentName(catagory, tier),
+                category: catagory,
+                tier: value.split('_')[1] || '1',
+                custom: false,
+                imageUrl: imageUrl,
+              };
+            }
+          });
+          setBagWeapons(weaponData);
+        } else {
+          initializeEquipment(char.characterId);
+          const initialEquipment: Record<EquipmentCategory, EquipmentTier> = {
+            [EQUIPMENT_CATEGORIES.WEAPON]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.ARMOR]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.SHIELD]: EQUIPMENT_TIERS.LEVEL_1,
+            [EQUIPMENT_CATEGORIES.BOOTS]: EQUIPMENT_TIERS.LEVEL_1,
+          };
+          const weaponData = Object.entries(initialEquipment).map(([key, value]) => ({
+            id: key,
+            name: getNonCustomEquipmentName(key as EquipmentCategory, value as EquipmentTier),
+            category: key as EquipmentCategory,
+            tier: '1',
+            custom: false,
+            imageUrl: '',
+          }));
+          setBagWeapons(weaponData);
+        }
+
         const matchedWish = wish
-          ? { deity: wish.deity, count: 1 }
+          ? { deity: wish.deity, count: 1, canceled: wish.canceled }
           : null;
 
         setUserTodayWish(matchedWish);
@@ -157,9 +218,9 @@ function CharacterInfo() {
   useEffect(() => {
     if (!char?.characterId || loadingBag) return;
 
-    Promise.all([fetchItemInfo(), fetchWeaponInfo()])
-      .then(([items, weapons]) => {
-        const allInfo = [...items, ...weapons];
+    Promise.all([fetchItemInfo()])
+      .then(([items]) => {
+        const allInfo = [...items];
         const joinedItems = bagEntries
           .filter((b) => b.type === BAG_ITEM_TYPES.ITEM)
           .map((b) => {
@@ -168,20 +229,10 @@ function CharacterInfo() {
           })
           .filter(Boolean) as (ItemInfo & BagEntry)[];
 
-        const joinedWeapons = bagEntries
-          .filter((b) => b.type === BAG_ITEM_TYPES.WEAPON)
-          .map((b) => {
-            const info = allInfo.find((it) => it.itemId === b.itemId);
-            return info ? { ...info, ...b } : null;
-          })
-          .filter(Boolean) as (ItemInfo & BagEntry)[];
-
         setBagItems(joinedItems);
-        setBagWeapons(joinedWeapons);
       })
       .catch(() => {
         setBagItems([]);
-        setBagWeapons([]);
       });
   }, [char?.characterId, bagEntries, loadingBag]);
 
@@ -191,15 +242,56 @@ function CharacterInfo() {
 
   const SLOT_MIN = 12;
 
-  const weaponSlots: { name: string; quantity: number; imageUrl?: string; tier?: string }[] = useMemo(() => {
-    const slots = bagWeapons.map((w) => ({
-      name: w.labelEng,
-      quantity: w.amount,
-      imageUrl: w.imageUrl || undefined,
-      tier: w.tier || undefined,
-    }));
-    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined, tier: undefined });
-    return slots;
+  const weaponSlots = useMemo(() => {
+    const filledSlots = bagWeapons
+      .slice(0, SLOT_MIN)
+      .map((w) => {
+        return {
+          name: w.name,
+          quantity: 1,
+          category: w.category,
+          imageUrl: w.imageUrl,
+          tier: w.tier,
+          custom: w.custom,
+        }
+      })
+      // Sort by weapon - armor-shield-boots, then custom, then sort each category by tier descending
+      .sort((a, b) => {
+        const getCategory = (w: any) =>
+          Array.isArray(w.category) ? w.category[0] : w.category;
+
+        const categoryOrderMap: Record<string, number> = {
+          weapon: 1,
+          armor: 2,
+          shield: 3,
+          boots: 4,
+        };
+
+        if (a.custom !== b.custom) {
+          return a.custom ? 1 : -1;
+        }
+
+        const catA = categoryOrderMap[getCategory(a)] || 99;
+        const catB = categoryOrderMap[getCategory(b)] || 99;
+        if (catA !== catB) return catA - catB;
+
+        const tierA = parseInt(a.tier || '0', 10);
+        const tierB = parseInt(b.tier || '0', 10);
+
+        return tierB - tierA;
+      });
+
+    const emptySlots = Array.from(
+      { length: Math.max(0, SLOT_MIN - filledSlots.length) },
+      () => ({
+        name: '',
+        quantity: 0,
+        imageUrl: undefined,
+        tier: undefined,
+      })
+    );
+
+    return [...filledSlots, ...emptySlots];
   }, [bagWeapons]);
 
   const itemSlots: { name: string; quantity: number; imageUrl?: string; }[] = useMemo(() => {
@@ -217,6 +309,51 @@ function CharacterInfo() {
       .map(type => powers.find(p => p.type === type))
       .filter(Boolean) as Power[];
   }, [powers]);
+
+  const justiceCookieAmount = useMemo(
+    () => bagEntries.find((entry) => entry.itemId === ITEMS.NEMESIS_S_JUSTICE_COOKIE)?.amount || 0,
+    [bagEntries],
+  );
+
+  const wishCountMap = useMemo(
+    () => new Map(wishes.map(({ deity, count }) => [deity, count])),
+    [wishes],
+  );
+
+  const displayWishes = useMemo(
+    () => wishesData.map(({ deity }) => ({
+      deity,
+      count: wishCountMap.get(deity) || 0,
+    })),
+    [wishesData, wishCountMap],
+  );
+
+  const handleUseJusticeCookie = async () => {
+    if (!user?.characterId || !todayWish || todayWish.canceled || justiceCookieAmount <= 0) return;
+
+    const previousWish = todayWish;
+    setUserTodayWish((current) => (current ? { ...current, canceled: true } : current));
+
+    try {
+      try {
+        await updateItemAmount(ITEMS.NEMESIS_S_JUSTICE_COOKIE, -1);
+      } catch {
+        setUserTodayWish(previousWish);
+        return;
+      }
+
+      await cancelTodayIrisWish(user.characterId);
+    } catch {
+      setUserTodayWish(previousWish);
+      if (user?.characterId) {
+        try {
+          await updateItemAmount(ITEMS.NEMESIS_S_JUSTICE_COOKIE, 1);
+        } catch {
+          // Best-effort rollback; bag snapshot will reconcile if this fails.
+        }
+      }
+    }
+  };
 
   if (!char) return null;
   if (!user) return null;
@@ -334,7 +471,7 @@ function CharacterInfo() {
           {/* Today Wish */}
           {todayWish && todayWish.deity && (
             <div
-              className={`cs__today-wish ${todayWish.count > 0 ? 'cs__today-wish--active' : ''}`}
+              className={`cs__today-wish ${todayWish.count > 0 ? 'cs__today-wish--active' : ''} ${todayWish.canceled ? 'cs__today-wish--canceled' : ''}`}
               style={{
                 '--deity-primary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[0] || DEFAULT_THEME[0],
                 '--deity-secondary': DEITY_THEMES[todayWish.deity.toLowerCase()]?.[1] || DEFAULT_THEME[1],
@@ -346,13 +483,28 @@ function CharacterInfo() {
                 </span>
                 <span className="cs__today-wish-text">
                   <span className="cs__today-wish-blessing-by">
-                    By Iris’ hand, a word finds its way to {isOwnProfile ? 'you' : char.sex ? 'him' : 'her'} from
+                    {width > 460
+                      ? <>By Iris’ hand, a word finds its way to {isOwnProfile ? 'you' : char.sex ? 'him' : 'her'} from</>
+                      : 'Decreed by '
+                    }
                     <b>{todayWish.deity}</b> ...
                   </span>
                   <span className="cs__today-wish-name">{wishesData.find(w => w.deity === todayWish.deity)?.name}</span>
                 </span>
               </div>
               <span className="cs__today-wish-description">{wishesData.find(w => w.deity === todayWish.deity)?.description}</span>
+              {((isOwnProfile && justiceCookieAmount > 0 && !todayWish.canceled) || todayWish.canceled) && (
+                <div className="cs__today-wish-actions">
+                  <button
+                    className="cs__today-wish-action"
+                    type="button"
+                    onClick={handleUseJusticeCookie}
+                    disabled={todayWish.canceled || justiceCookieAmount <= 0}
+                  >
+                    {todayWish.canceled ? t(T.NEMESIS_COOKIE_MESSAGE) : t(T.NEMESIS_COOKIE_BUTTON_LABEL)}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -395,7 +547,7 @@ function CharacterInfo() {
               </div>
               <div className="cs__slots">
                 {weaponSlots.map((w, i) => (
-                  <Slot key={`w${i}`} name={w.name || undefined} icon="⚔" quantity={w.quantity} imageUrl={w.imageUrl} tier={w.tier} />
+                  <Slot key={`w${i}`} name={w.name || undefined} icon="⚔" quantity={w.quantity} imageUrl={w.imageUrl} tier={w.tier} hideAmount />
                 ))}
               </div>
               <button className="cs__slots-more" onClick={() => setWeaponModal(true)}>
@@ -419,11 +571,11 @@ function CharacterInfo() {
           </div>
 
           {/* Wishes */}
-          {wishes.length > 0 && (
+          {wishesData.length > 0 && (
             <div className="cs__wishes">
               <h3 className="cs__wishes-title"><span className="cs__wishes-diamond">◆</span>Divine Wishes</h3>
               <div className="cs__wishes-grid">
-                {wishes.map(({ deity, count }) => {
+                {displayWishes.map(({ deity, count }) => {
                   const iconKey = toDeityKey(deity);
                   return (
                     <div key={deity} className={`cs__wish ${count > 0 ? 'cs__wish--active' : ''} ${todayWish?.deity === deity ? 'cs__wish--today' : ''}`}>

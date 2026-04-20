@@ -9,6 +9,7 @@ import OpenLink from '../SubmissionCard/icons/OpenLink';
 import Strawberry from '../../../LifeInCamp/components/LocationIcon/icons/Strawberry';
 import { Character } from '../../../../data/characters';
 import { hexToRgb } from '../../../../utils/color';
+import { parseDrachmaReward } from '../../../../utils/harvestReward';
 import HarvestorChip from './components/HarvestorChip/HarvestorChip';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../CharacterInfo/constants/overrides';
 import { DEITY_SVG } from '../../../../data/deities';
@@ -39,6 +40,7 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
   }, [submission.roleplayers]);
   
   const isSolo = roleplayers.length === 1;
+  const { display: rewardDisplay } = parseDrachmaReward(submission.drachmaReward, isSolo);
 
   useEffect(() => {
     let mounted = true;
@@ -115,7 +117,7 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
             </div>
             <div className="strawberry-fields__harvest-record-info-item">
               <Drachma />
-              <span>{submission.drachmaReward}</span>
+              <span>{rewardDisplay}</span>
             </div>
           </div>
         </>

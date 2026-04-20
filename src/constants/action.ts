@@ -33,4 +33,7 @@ export const ACTIONS = {
   CREATE_ITEM: 'createItem',
   EDIT_ITEM: 'editItem',
   DELETE_ITEM: 'deleteItem',
+  CREATE_EQUIPMENT: 'createEquipment',
+  EDIT_EQUIPMENT: 'editEquipment',
+  DELETE_EQUIPMENT: 'deleteEquipment',
 };

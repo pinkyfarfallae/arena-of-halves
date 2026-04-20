@@ -46,7 +46,7 @@ import * as ZeusService from './zeus/zeus';
 import * as ApolloService from './apollo/apollo';
 import * as PersephoneService from './persephone';
 import { DEITY, Deity } from '../../constants/deities';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { getDiceSize } from '../../utils/getDiceSize';
 import { NEMESIS_RETALIATION } from '../../constants/iris';
 import { nikeAwardedAfterWinTheFight } from '../irisWish/applyWishesEffect';
@@ -468,7 +468,7 @@ export async function updateTodayWishesForRoom(arenaId: string): Promise<void> {
   const teamAMembers = teamMembersFromFirebase(room.teamA?.members);
   for (let i = 0; i < teamAMembers.length; i++) {
     const member = teamAMembers[i];
-    const todayWish = await fetchTodayIrisWish(member.characterId);
+    const todayWish = await fetchActiveTodayIrisWish(member.characterId);
     const newDeity = (todayWish?.deity as Deity) || null;
     const oldDeity = member.wishOfIris || null;
 
@@ -506,7 +506,7 @@ export async function updateTodayWishesForRoom(arenaId: string): Promise<void> {
   const teamBMembers = teamMembersFromFirebase(room.teamB?.members);
   for (let i = 0; i < teamBMembers.length; i++) {
     const member = teamBMembers[i];
-    const todayWish = await fetchTodayIrisWish(member.characterId);
+    const todayWish = await fetchActiveTodayIrisWish(member.characterId);
     const newDeity = (todayWish?.deity as Deity) || null;
     const oldDeity = member.wishOfIris || null;
 

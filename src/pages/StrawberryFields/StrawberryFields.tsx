@@ -24,7 +24,7 @@ import Crown from '../../icons/Crown';
 import { hexToRgb } from '../../utils/color';
 import InfoCircle from '../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../hooks/useScreenSize';
-import { fetchTodayIrisWish } from '../../data/wishes';
+import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { DEITY } from '../../constants/deities';
 import './StrawberryFields.scss';
 
@@ -110,7 +110,7 @@ function StrawberryFields() {
       }
     };
 
-    fetchTodayIrisWish(user?.characterId || '').then(wish => {
+    fetchActiveTodayIrisWish(user?.characterId || '').then(wish => {
       if (!mounted) return;
       setHasDemeterBonus(wish?.deity === DEITY.DEMETER);
     }).catch(() => {

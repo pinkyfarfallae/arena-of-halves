@@ -662,14 +662,30 @@
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--deity-primary) 12%, transparent);
   background: linear-gradient(135deg,
-    color-mix(in srgb, var(--deity-primary) 18%, var(--ci-bg-alt)),
-    color-mix(in srgb, var(--ci-primary) 14%, var(--ci-bg-alt)) 70%,
-    white);
+      color-mix(in srgb, var(--deity-primary) 18%, var(--ci-bg-alt)),
+      color-mix(in srgb, var(--ci-primary) 14%, var(--ci-bg-alt)) 70%,
+      white);
   color: black;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   animation: cs-wish-glow-today 3s ease-in-out infinite;
+  position: relative;
+}
+
+.cs__today-wish--canceled {
+  filter: saturate(0.45) brightness(0.95);
+  opacity: 0.78;
+
+  .cs__today-wish-icon {
+    filter: saturate(0.55);
+  }
+
+  .cs__today-wish-name,
+  .cs__today-wish-description,
+  .cs__today-wish-blessing-by {
+    color: color-mix(in srgb, var(--deity-primary) 55%, #4f5866);
+  }
 }
 
 .cs__today-wish-header {
@@ -687,9 +703,8 @@
   justify-content: center;
   border-radius: 8px;
   background: linear-gradient(135deg,
-    var(--deity-primary),
-    color-mix(in srgb, var(--deity-primary) 50%, var(--deity-secondary) 50%)
-  );
+      var(--deity-primary),
+      color-mix(in srgb, var(--deity-primary) 50%, var(--deity-secondary) 50%));
 
   svg {
     width: 70%;
@@ -732,6 +747,41 @@
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid color-mix(in srgb, var(--deity-primary) 50%, transparent);
+}
+
+.cs__today-wish-actions {
+  display: flex;
+  justify-content: flex-end;
+  position: absolute;
+  right: 0.8rem;
+}
+
+.cs__today-wish-action {
+  border: 1px solid color-mix(in srgb, var(--deity-primary) 45%, transparent);
+  background: linear-gradient(135deg,
+      color-mix(in srgb, var(--deity-primary) 18%, white),
+      color-mix(in srgb, var(--deity-secondary) 18%, white));
+  color: color-mix(in srgb, var(--deity-primary) 80%, black);
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--deity-primary) 18%, transparent);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--deity-primary) 22%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: wait;
+    transform: none;
+  }
 }
 
 /* ══════════════════════════════════

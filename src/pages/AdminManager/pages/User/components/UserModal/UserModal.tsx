@@ -103,6 +103,10 @@ export default function UserModal(props: Props) {
       };
       // Close modal immediately, parent shows loading overlay
       onDone(createUser(payload));
+      // Assign default equipment
+      // updateUserEquipment(payload.characterId, [
+      //   'eq-001', 'eq-002', 'eq-003', // Starter Sword, Shield, Armor
+      // ]);
     }
   };
 
