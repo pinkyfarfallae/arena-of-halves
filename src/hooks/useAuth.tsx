@@ -148,6 +148,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Poll user data every 5 seconds for real-time updates
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      refreshUser();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user, refreshUser]);
+
   const value: AuthContextType = {
     user,
     role,

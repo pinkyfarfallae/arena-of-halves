@@ -65,6 +65,22 @@ export function useEquipment() {
     loadEquipment();
   }, []);
 
+  // Poll equipment data every 5 seconds for real-time updates
+  useEffect(() => {
+    if (!auth.currentUser || loading) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const data = await getEquipmentData(auth.currentUser!.uid);
+        setEquipment(data);
+      } catch (err) {
+        console.error('Failed to refresh equipment:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
   /**
    * Upgrade a specific equipment category
    * Handles both equipment upgrade and currency deduction
