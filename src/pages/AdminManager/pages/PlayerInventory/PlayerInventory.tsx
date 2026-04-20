@@ -12,7 +12,7 @@ import { CABIN_DEITY, Deity } from "../../../../constants/deities";
 import Person from "../../../../components/Navbar/icons/Person";
 import { SEX } from "../../../../constants/sex";
 import Table, { Column } from "../../../../components/Table/Table";
-import { getBagData, giveItem, consumeItem, getItemAmount } from "../../../../services/bag/bagService";
+import { getBagData, giveItem, consumeItem, getItemAmount, setBagItemData } from "../../../../services/bag/bagService";
 import { updateCharacterDrachma } from "../../../../services/character/currencyService";
 import { addTrainingPoints, spendTrainingPoints } from "../../../../services/training/trainingPoints";
 import { BAG_ITEM_TYPES } from "../../../../constants/bag";
@@ -558,15 +558,21 @@ const PlayerInventory = () => {
                           } else {
                             if (pending.action === ACTION.ADD) {
                               const res = await giveItem(userId, itemId, pending.amount, BAG_ITEM_TYPES.ITEM);
-                              // console.log('giveItem result', { userId, itemId, pending, res });
-                              if (res.success) {
-                                if (typeof res.newAmount === 'number') {
-                                  setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: res.newAmount || 0 }));
-                                } else {
-                                  const current = await getItemAmount(userId, itemId).catch(() => undefined);
-                                  if (typeof current === 'number') setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: current }));
+                                if (res.success) {
+                                  const newAmount = typeof res.newAmount === 'number' ? res.newAmount : await getItemAmount(userId, itemId).catch(() => undefined);
+                                  if (typeof newAmount === 'number') setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: newAmount }));
+
+                                  // Special-case item post-effects
+                                  if (itemId === ITEMS.HERMES_S_PURSE) {
+                                    // Ensure purse metadata exists (income, available)
+                                    await setBagItemData(userId, itemId, {
+                                      amount: newAmount ?? 0,
+                                      type: BAG_ITEM_TYPES.ITEM,
+                                      income: 0,
+                                      available: true,
+                                    });
+                                  }
                                 }
-                              }
                             } else {
                               const res = await consumeItem(userId, itemId, pending.amount);
                               // console.log('consumeItem result', { userId, itemId, pending, res });
