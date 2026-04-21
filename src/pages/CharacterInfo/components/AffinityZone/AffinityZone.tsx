@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import type { Character } from '../../types/character';
-import HeartAffinity from '../../pages/AdminManager/pages/NpcAffinityManagement/icons/HeartAffinity';
-import { DEITY_THEMES } from '../../constants/theme';
+import type { Character } from '../../../../types/character';
+import HeartAffinity from '../../../AdminManager/pages/NpcAffinityManagement/icons/HeartAffinity';
+import { DEITY_THEMES } from '../../../../constants/theme';
 import './AffinityZone.scss';
 
 type Props = {
@@ -43,10 +43,10 @@ export default function AffinityZone({ character, affinities, npcs, maxShown }: 
                   return (
                     <HeartAffinity
                       key={i}
-                      style={{ 
-                        fill: isFilled 
-                          ? `url(#gradient-${npc.characterId})` 
-                          : 'rgba(0, 0, 0, 0.1)' 
+                      style={{
+                        fill: isFilled
+                          ? `url(#gradient-${npc.characterId})`
+                          : 'rgba(0, 0, 0, 0.1)'
                       }}
                     />
                   );

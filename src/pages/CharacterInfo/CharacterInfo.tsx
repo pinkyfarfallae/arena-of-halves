@@ -53,7 +53,7 @@ import './CharacterInfo.scss';
 import { T } from '../../constants/translationKeys';
 import { getAffinityForCharacter } from '../../services/npcAffinityService';
 import { fetchAllNPCs } from '../../data/npcs';
-import AffinityZone from '../../components/AffinityZone/AffinityZone';
+import AffinityZone from './components/AffinityZone/AffinityZone';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {

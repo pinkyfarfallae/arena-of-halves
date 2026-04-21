@@ -155,7 +155,7 @@ export default function NpcAffinityManagement() {
           const affinity = affinityChanges[row.characterId] ?? originalSelectedPlayerAffinities[row.characterId] ?? 0;
           return (
             <div className="npc-affinity-management__heart-affinity-cell">
-              <div className="npc-affinity-management__heart-affinity-wrapper">
+              <div className={`npc-affinity-management__heart-affinity-wrapper ${isDragging ? 'dragging' : ''}`}>
                 {Array.from({ length: 10 }).map((_, i) => {
                   const value = 10 - i;
                   return (
@@ -171,11 +171,35 @@ export default function NpcAffinityManagement() {
                       />
                       <label
                         htmlFor={`h${value}-${row.characterId}`}
+                        data-value={value}
                         onClick={(e) => {
+                          // if this click follows a drag, ignore it
+                          if (draggingRef.current) {
+                            e.preventDefault();
+                            return;
+                          }
                           e.preventDefault();
                           const current = affinity;
                           const next = (current >= value) ? Math.max(0, value - 1) : value;
                           setAffinityChanges(prev => ({ ...prev, [row.characterId]: next }));
+                        }}
+                        onPointerDown={(e) => {
+                          // start a short hold timer; only enter drag mode after the hold
+                          if (dragTimeoutRef.current) {
+                            window.clearTimeout(dragTimeoutRef.current);
+                          }
+                          dragTimeoutRef.current = window.setTimeout(() => {
+                            draggingRef.current = true;
+                            setIsDragging(true);
+                            setAffinityChanges(prev => ({ ...prev, [row.characterId]: value }));
+                            dragTimeoutRef.current = null;
+                          }, 200);
+                        }}
+                        onPointerEnter={(e) => {
+                          // if dragging, update affinity as user moves across hearts
+                          if (!draggingRef.current) return;
+                          e.preventDefault();
+                          setAffinityChanges(prev => ({ ...prev, [row.characterId]: value }));
                         }}
                       >
                         <HeartAffinity />
@@ -197,6 +221,34 @@ export default function NpcAffinityManagement() {
   }, [affinityChanges, originalSelectedPlayerAffinities]);
 
   const savingRef = useRef(false);
+
+  const draggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const onUp = () => {
+      // clear any pending drag-start timeout
+      if (dragTimeoutRef.current) {
+        window.clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+
+      if (draggingRef.current) {
+        draggingRef.current = false;
+        setIsDragging(false);
+      }
+    };
+
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointerup', onUp);
+      if (dragTimeoutRef.current) {
+        window.clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div
