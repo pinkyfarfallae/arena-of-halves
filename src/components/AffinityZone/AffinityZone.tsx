@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import './AffinityZone.scss';
 import type { Character } from '../../types/character';
 import HeartAffinity from '../../pages/AdminManager/pages/NpcAffinityManagement/icons/HeartAffinity';
 import { DEITY_THEMES } from '../../constants/theme';
-import { colorMix } from '../../utils/color';
+import './AffinityZone.scss';
 
 type Props = {
   character: Character;
