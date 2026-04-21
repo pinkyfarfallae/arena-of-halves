@@ -51,6 +51,9 @@ import { ITEMS } from '../../constants/items';
 import { useTranslation } from '../../hooks/useTranslation';
 import './CharacterInfo.scss';
 import { T } from '../../constants/translationKeys';
+import { getAffinityForCharacter } from '../../services/npcAffinityService';
+import { fetchAllNPCs } from '../../data/npcs';
+import AffinityZone from './components/AffinityZone/AffinityZone';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -83,6 +86,8 @@ function CharacterInfo() {
   const [viewed, setViewed] = useState<Character | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [powers, setPowers] = useState<Power[]>([]);
+  const [npcs, setNpcs] = useState<Character[]>([]);
+  const [affinities, setAffinities] = useState<Record<string, number>>({});
   const [wishesData, setWishesData] = useState<Wish[]>([]);
   const [wishes, setWishes] = useState<WishEntry[]>([]);
   const [todayWish, setUserTodayWish] = useState<(WishEntry & { canceled?: boolean }) | null>(null);
@@ -138,16 +143,20 @@ function CharacterInfo() {
 
     const fetchData = async () => {
       try {
-        const [fetchedWishes, userWishes, wish, weapons, customEquipment] = await Promise.all([
+        const [fetchedWishes, userWishes, wish, weapons, customEquipment, affinities, allNpcs] = await Promise.all([
           fetchWishes().catch(() => WISHES_FALLBACK),
           fetchIrisWishCountsForCharacter(char.characterId).catch(() => []),
           fetchTodayIrisWish(char.characterId).catch(() => null),
           getEquipmentData(char.characterId).catch(() => []),
           fetchCustomEquipment().catch(() => []),
+          getAffinityForCharacter(char.characterId).catch(() => ({})),
+          fetchAllNPCs().catch(() => []),
         ]);
 
         setWishesData(fetchedWishes);
         setWishes(userWishes);
+        setAffinities(affinities);
+        setNpcs(allNpcs);
 
         if (weapons) {
           const weaponData = Object.entries(weapons).flatMap(([key, value]) => {
@@ -410,7 +419,6 @@ function CharacterInfo() {
           <VitalBar value={char.hp} max={20} label="HP" />
           <VitalBar value={char.speed} max={20} label="SPD" accent />
         </div>
-
       </aside>
 
       {/* ─── RIGHT: Journal Panel ─── */}
@@ -746,6 +754,9 @@ function CharacterInfo() {
               </>
             );
           })()}
+
+          {/* Affinities */}
+          <AffinityZone character={char} affinities={affinities} npcs={npcs} />
         </div>
       </main>
 

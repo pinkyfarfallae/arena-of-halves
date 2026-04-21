@@ -41,7 +41,7 @@ export default function TeamMemberSelection({ teamSize, onSelect }: Props) {
     };
 
     loadCharacters();
-  }, [user]);
+  }, [user?.characterId]);
 
   const handleToggle = (characterId: string) => {
     const newSelected = new Set(selected);

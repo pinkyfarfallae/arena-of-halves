@@ -106,6 +106,10 @@
   color: var(--ci-muted, #888);
   font-size: 0.82rem;
   padding: 2.5rem 1rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ═══════════════════════════════════

@@ -27,7 +27,7 @@ function CampMembers() {
       .then(setMembers)
       .catch(() => setMembers([]))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user?.characterId]);
 
   /* stable per-card rotation + decoration + deity-based doodles (8–10) */
   const cardMeta = useMemo(() =>

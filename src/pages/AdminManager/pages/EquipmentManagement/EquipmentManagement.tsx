@@ -38,10 +38,13 @@ export default function EquipmentManagement() {
     if (!user) return;
     setLoading(true);
     try {
-      Promise.all([fetchCustomEquipment(), fetchAllCharacters(user)]).then(([data, characters]) => {
-        setEquipment(data);
-        setCharacters(characters);
-      });
+      const [data, characters] = await Promise.all([
+        fetchCustomEquipment(),
+        fetchAllCharacters(user),
+      ]);
+
+      setEquipment(data);
+      setCharacters(characters);
     } catch (error) {
       console.error('Failed to load custom equipment:', error);
     } finally {

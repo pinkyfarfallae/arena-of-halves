@@ -47,7 +47,7 @@ export default function SubmissionCard({ task, focused, onClick, disabled, force
       '--accent-dark': user?.theme[19] || '#0f1a2e',
       '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
     } as React.CSSProperties;
-  }, [user]);
+  }, [user?.theme, user?.characterId]);
 
   return (
     <div

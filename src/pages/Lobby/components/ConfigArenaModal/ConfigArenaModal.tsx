@@ -79,7 +79,7 @@ export default function ConfigArenaModal({ arenaId, preservedRoomLabel, player, 
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user?.characterId]);
 
   const npcIdSet = useMemo(
     () => new Set(npcs.map((n) => n.characterId.toLowerCase())),

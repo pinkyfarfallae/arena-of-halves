@@ -64,23 +64,7 @@ function StrawberryFields() {
     return () => {
       mounted = false;
     };
-  }, [user]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (!user) return;
-
-    fetchAllCharacters(user)
-      .then((data) => {
-        if (mounted) setAllCampData(data || []);
-      })
-      .catch(() => { });
-
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
+  }, [user?.characterId]);
 
   useEffect(() => {
     if (!user?.characterId) return;

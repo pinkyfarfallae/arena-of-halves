@@ -81,7 +81,7 @@ export default function PvP() {
       '--overlay-text': user?.theme[17] || '#333333',
       '--accent-dark': user?.theme[19] || '#0f1a2e',
     } as React.CSSProperties;
-  }, [user]);
+  }, [user?.theme, user?.characterId]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
   const hasLiveNormalTraining = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;

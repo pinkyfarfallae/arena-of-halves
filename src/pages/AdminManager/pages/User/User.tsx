@@ -47,7 +47,7 @@ export default function User() {
     });
     setUsers(merged);
     setLoading(false);
-  }, [user]);
+  }, [user?.characterId]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 

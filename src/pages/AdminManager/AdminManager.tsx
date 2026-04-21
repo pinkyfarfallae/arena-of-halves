@@ -11,16 +11,18 @@ import ItemManagement from './pages/ItemManagement/ItemManagement';
 import EquipmentManagement from './pages/EquipmentManagement/EquipmentManagement';
 import PlayerInventory from './pages/PlayerInventory/PlayerInventory';
 import './AdminManager.scss';
+import NpcAffinityManagement from './pages/NpcAffinityManagement/NpcAffinityManagement';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'Player Inventory', path: 'player-inventory' },
-  { label: 'System Testing', path: 'testing' },
   { label: 'Item Management', path: 'item-management' },
+  { label: 'NPC Affinity', path: 'npc-affinity' },
   { label: 'Custom Equipment', path: 'equipment-management' },
   { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'Daily Training Config', path: 'daily-training-config' },
   { label: 'Training Approval', path: 'training-approval' },
+  { label: 'System Testing', path: 'testing' },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
 
@@ -65,6 +67,7 @@ function AdminManager() {
           <Route path="training-approval" element={<TrainingApproval />} />
           <Route path="item-management" element={<ItemManagement />} />
           <Route path="equipment-management" element={<EquipmentManagement />} />
+          <Route path="npc-affinity" element={<NpcAffinityManagement />} />
         </Routes>
       </div>
     </div>
