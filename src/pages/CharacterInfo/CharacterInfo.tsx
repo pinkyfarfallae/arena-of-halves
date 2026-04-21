@@ -756,7 +756,7 @@ function CharacterInfo() {
           })()}
 
           {/* Affinities */}
-          <AffinityZone characterId={char.characterId} affinities={affinities} npcs={npcs} />
+          <AffinityZone character={char} affinities={affinities} npcs={npcs} />
         </div>
       </main>
 
