@@ -3,9 +3,10 @@ import { DEITY_THEMES, DEFAULT_THEME } from './characters';
 import { getPowers } from './powers';
 import { POWER_OVERRIDES } from '../pages/CharacterInfo/constants/overrides';
 import { csvUrl, GID } from '../constants/sheets';
-import type { Theme25 } from '../types/character';
+import type { Character, Theme25 } from '../types/character';
 import type { FighterState } from '../types/battle';
 import { Deity } from '../types/deity';
+import { DEITY_CABIN } from '../constants/deities';
 
 /** Convert Google Drive share links to direct thumbnail URLs */
 function toDirectImageUrl(raw?: string): string | undefined {
@@ -43,7 +44,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
 
   const hp = num('hp');
   const strength = num('strength');
-  
+
   // Calculate critical rate based on strength
   let criticalRate = 25; // default 25%
   if (strength > 3 && strength < 5) {
@@ -51,7 +52,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
   } else if (strength === 5) {
     criticalRate = 75; // 75% if strength === 5
   }
-  
+
   return {
     characterId: get('npcid'),
     nicknameEng: get('nickname (eng)'),
@@ -75,6 +76,77 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     quota: num('technique') < 3 ? 2 : 3,
     criticalRate,
   };
+}
+
+/** Fetch all NPCs */
+export async function fetchAllNPCs(): Promise<Character[]> {
+  const res = await fetch(csvUrl(GID.NPC));
+  const text = await res.text();
+  const lines = splitCSVRows(text);
+  if (lines.length < 2) return [];
+
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const npcs: Character[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const base = rowToFighter(headers, cols);
+    if (!base.characterId) continue;
+
+    npcs.push({
+      characterId: base.characterId,
+      nicknameThai: base.nicknameThai,
+      nicknameEng: base.nicknameEng,
+      nameThai: base.nicknameThai,
+      nameEng: base.nicknameEng,
+      sex: base.sex,
+      deityBlood: base.deityBlood,
+      cabin: DEITY_CABIN[base.deityBlood as Deity] || 0,
+      hp: base.maxHp,
+      damage: base.damage,
+      defendDiceUp: base.defendDiceUp,
+      attackDiceUp: base.attackDiceUp,
+      speed: base.speed,
+      passiveSkillPoint: base.passiveSkillPoint,
+      skillPoint: base.skillPoint,
+      ultimateSkillPoint: base.ultimateSkillPoint,
+      reroll: base.rerollsLeft,
+      currency: 0,
+      theme: base.theme || DEITY_THEMES[base.deityBlood.toLowerCase().trim()] || DEFAULT_THEME,
+      image: base.image,
+      humanParent: '',
+      eyeColor: '',
+      hairColor: '',
+      appearance: '',
+      species: '',
+      aliases: '',
+      age: '',
+      birthdate: '',
+      beads: '',
+      weight: '',
+      height: '',
+      genderIdentity: '',
+      ethnicity: '',
+      nationality: '',
+      residence: '',
+      religion: '',
+      personality: '',
+      background: '',
+      strengths: '',
+      weaknesses: '',
+      abilities: '',
+      powers: '',
+      strength: 0,
+      mobility: 0,
+      intelligence: 0,
+      technique: 0,
+      experience: 0,
+      fortune: 0,
+      trainingPoints: 0
+    });
+  }
+
+  return npcs;
 }
 
 /** Fetch all NPCs from the spreadsheet and return as FighterState[] ready for battle. */

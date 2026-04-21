@@ -203,5 +203,20 @@ service cloud.firestore {
       // No direct delete
       allow delete: if false;
     }
+
+    // NPC Affinity (admin-managed affinity values for each player)
+    // Document ID: {characterId}
+    // Structure: { npcId: affinityValue, ... }
+    match /npcAffinity/{characterId} {
+      // Allow authenticated users to read affinity data
+      allow read: if isAuthenticated();
+
+      // Allow authenticated users to create/update affinity documents
+      // Validation: document must be a map. Client enforces value ranges (1-10).
+      allow create, update: if isAuthenticated() && request.resource.data is map;
+
+      // No deletes
+      allow delete: if false;
+    }
   }
 }
