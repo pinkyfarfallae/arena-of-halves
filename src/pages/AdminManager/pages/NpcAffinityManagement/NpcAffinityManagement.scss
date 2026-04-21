@@ -647,6 +647,13 @@
       display: flex;
       align-items: center;
       gap: 2rem;
+
+      @media (max-width: $bp-mobile) {
+        gap: 0.2rem;
+        max-width: 100%;
+        overflow: hidden;
+        justify-content: space-between;
+      }
     }
 
     &-wrapper {
@@ -655,6 +662,12 @@
       gap: 0.5rem;
       align-items: center;
       width: fit-content;
+
+      @media (max-width: $bp-mobile) {
+        gap: 0.2rem;
+        overflow: hidden;
+        justify-content: space-between;
+      }
 
       input {
         border: 0;
@@ -697,6 +710,23 @@
       font-size: 1rem;
       color: var(--player-primary, #000);
       font-weight: 700;
+
+      @media (max-width: $bp-mobile) {
+        min-width: 25px;
+        text-align: end;
+      }
+    }
+  }
+
+  td[data-label="Affinity"] {
+    @media (max-width: $bp-mobile) {
+      max-width: 100%;
+      width: 100% !important;
+      grid-column: 1 / -1;
+
+      &::before {
+        display: none;
+      }
     }
   }
 }

@@ -166,13 +166,18 @@ export default function NpcAffinityManagement() {
                         id={`h${value}-${row.characterId}`}
                         value={String(value)}
                         checked={affinity >= value}
-                        onChange={() => setAffinityChanges(prev => {
+                        onMouseDown={(e) => { e.preventDefault(); }}
+                        readOnly
+                      />
+                      <label
+                        htmlFor={`h${value}-${row.characterId}`}
+                        onClick={(e) => {
+                          e.preventDefault();
                           const current = affinity;
                           const next = (current >= value) ? Math.max(0, value - 1) : value;
-                          return { ...prev, [row.characterId]: next };
-                        })}
-                      />
-                      <label htmlFor={`h${value}-${row.characterId}`}>
+                          setAffinityChanges(prev => ({ ...prev, [row.characterId]: next }));
+                        }}
+                      >
                         <HeartAffinity />
                       </label>
                     </React.Fragment>
@@ -383,7 +388,7 @@ export default function NpcAffinityManagement() {
                           {members.map(player => (
                             <div
                               key={player.characterId}
-                              className={`npc-affinity-management__sidebar__item ${pendingSelectedPlayer?.characterId === player.characterId ? 'npc-affinity-management__sidebar__item--selected' : ''}`}
+                              className={`npc-affinity-management__sidebar__item ${(selectedPlayer?.characterId === player.characterId || pendingSelectedPlayer?.characterId === player.characterId) ? 'npc-affinity-management__sidebar__item--selected' : ''}`}
                               onClick={() =>
                                 requestChangeSelectedPlayer(player)}
                               style={{
@@ -426,7 +431,11 @@ export default function NpcAffinityManagement() {
           title="Discard unsaved changes?"
           message={`You have unsaved affinity changes for ${selectedPlayer.nicknameEng}. If you switch to another player, those changes will be lost. Do you want to continue?`}
           onConfirm={() => applySelectedPlayer(pendingSelectedPlayer)}
-          onCancel={() => setShowConfirmChangeSelectedPlayer(false)}
+          onCancel={() => {
+            setShowConfirmChangeSelectedPlayer(false);
+            setPendingSelectedPlayer(null);
+            setSelectedPlayer(selectedPlayer);
+          }}
         />
       )}
     </div>
