@@ -12,4 +12,6 @@ export interface CampLocation {
   actionIcons?: string[];
   actionPaths?: string[];
   adminOnly?: boolean;
+  /** Optional override for where the info panel should appear relative to the pin */
+  panelPlacement?: 'left' | 'right' | 'above' | 'below';
 }

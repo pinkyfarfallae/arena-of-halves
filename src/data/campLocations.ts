@@ -20,8 +20,12 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     icon: 'big-house',
     color: '#406cffff',
     x: 45, y: 28,
+    panelPlacement: 'left',
     size: 'lg',
     tags: ['headquarters', 'council'],
+    actionLabels: ['Report to Chiron'],
+    actionIcons: ['council'],
+    actionPaths: ['/big-house'],
   },
   {
     id: CAMP_LOCATION.WOODS,
@@ -91,7 +95,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionPaths: ['/craft-forge'],
   },
   {
-    id: 'archery-range',
+    id: CAMP_LOCATION.ARCHERY_RANGE,
     name: 'Archery Range',
     description: 'Apollo cabin practically lives here. Targets range from standard bullseyes to moving automaton dummies.',
     icon: 'archery',
@@ -111,7 +115,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['entertainment', 'social'],
   },
   {
-    id: 'stables',
+    id: CAMP_LOCATION.STABLES,
     name: 'The Stables',
     description: 'Home to pegasi, horses, and the occasional hippocampus. Demeter and Poseidon kids are naturals here.',
     icon: 'stables',
@@ -134,7 +138,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionPaths: ['/strawberry-fields'],
   },
   {
-    id: 'climbing-wall',
+    id: CAMP_LOCATION.CLIMBING_WALL,
     name: 'Climbing Wall',
     description: 'Not your ordinary climbing wall — this one has real lava, falling boulders, and clashing walls. Safety harnesses optional.',
     icon: 'climbing',
@@ -164,7 +168,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['weapons', 'equipment'],
   },
   {
-    id: 'iris-fountain',
+    id: CAMP_LOCATION.IRIS_FOUNTAIN,
     name: 'Iris Fountain',
     description: 'Toss a golden drachma into the rainbow mist and pray to Iris for a message. The camp\'s lifeline to the outside world.',
     icon: 'fountain',
