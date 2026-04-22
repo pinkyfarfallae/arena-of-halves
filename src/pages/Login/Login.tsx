@@ -67,7 +67,7 @@ function Login() {
           <h1 className="login__title">Welcome, Half-Blood</h1>
           <p className="login__subtitle">Signed in as <strong>{user?.characterId}</strong></p>
 
-          <button className="login__btn" onClick={logout}>
+          <button className="login__btn" onClick={() => logout().catch(console.error)}>
             Leave Camp
           </button>
 

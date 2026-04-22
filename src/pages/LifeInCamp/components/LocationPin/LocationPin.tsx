@@ -27,12 +27,30 @@ function LocationPin({ location, dimmed, adminOnly = false }: { location: CampLo
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const edge = [
-    location.y < 15 ? 'life__pin--below' : '',
-    location.x > 65 ? 'life__pin--left' : '',
-    location.x < 15 ? 'life__pin--right' : '',
-    location.y > 70 ? 'life__pin--above' : '',
-  ].filter(Boolean).join(' ');
+  let edge = '';
+  if (location.panelPlacement) {
+    switch (location.panelPlacement) {
+      case 'left':
+        edge = 'life__pin--left';
+        break;
+      case 'right':
+        edge = 'life__pin--right';
+        break;
+      case 'above':
+        edge = 'life__pin--above';
+        break;
+      case 'below':
+        edge = 'life__pin--below';
+        break;
+    }
+  } else {
+    edge = [
+      location.y < 15 ? 'life__pin--below' : '',
+      location.x > 65 ? 'life__pin--left' : '',
+      location.x < 15 ? 'life__pin--right' : '',
+      location.y > 70 ? 'life__pin--above' : '',
+    ].filter(Boolean).join(' ');
+  }
 
   return (
     <div

@@ -4,7 +4,7 @@ import type { FighterState } from '../../../../../../types/battle';
 import { getQuotaCost } from '../../../../../../types/power';
 import { getAffordablePowers } from '../../../../../../services/powerEngine/powerEngine';
 import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
-import { SKILL_UNLOCK } from '../../../../../../constants/character';
+import { SKILL_UNLOCK, getSkillPointLevel } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
 import { PANEL_SIDE, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
 import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/powerDisableReason';
@@ -361,9 +361,11 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
               const realIdx = attackerPowers.indexOf(p);
               const cost = getQuotaCost(p.type);
               const isDK = p.name === POWER_NAMES.DEATH_KEEPER;
+              const skillLevel = getSkillPointLevel(attacker.skillPoint);
               const unlocked = isDK || (
                 (p.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
-                ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
+                (p.type === POWER_TYPES.FIRST_SKILL && skillLevel >= 1) ||
+                (p.type === POWER_TYPES.SECOND_SKILL && skillLevel >= 2)
               );
               const canAfford = isDK || attacker.quota >= cost;
               const usable = isDK
@@ -411,9 +413,11 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
         const costH = getQuotaCost(hoveredPower.type);
         const isDKH = hoveredPower.name === POWER_NAMES.DEATH_KEEPER;
         const canAffordH = isDKH || attacker.quota >= costH;
+        const skillLevelH = getSkillPointLevel(attacker.skillPoint);
         const unlockedH = isDKH || (
           (hoveredPower.type === POWER_TYPES.ULTIMATE && attacker.ultimateSkillPoint === SKILL_UNLOCK) ||
-          ((hoveredPower.type === POWER_TYPES.FIRST_SKILL || hoveredPower.type === POWER_TYPES.SECOND_SKILL) && attacker.skillPoint === SKILL_UNLOCK)
+          (hoveredPower.type === POWER_TYPES.FIRST_SKILL && skillLevelH >= 1) ||
+          (hoveredPower.type === POWER_TYPES.SECOND_SKILL && skillLevelH >= 2)
         );
         const usableH = isDKH
           ? (deadTeammateIds?.size ?? 0) > 0 && !disabledPowerNames?.has(hoveredPower.name)

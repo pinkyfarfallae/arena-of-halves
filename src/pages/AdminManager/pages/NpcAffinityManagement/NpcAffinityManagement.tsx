@@ -43,11 +43,12 @@ export default function NpcAffinityManagement() {
   const [affinityChanges, setAffinityChanges] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    if (!user) return;
     const fetchData = async () => {
       setLoading(true);
 
       const [fetchedPlayers, fetchedNpcs] = await Promise.all([
-        fetchAllCharacters(),
+        fetchAllCharacters(user),
         fetchAllNPCs(),
       ]);
 

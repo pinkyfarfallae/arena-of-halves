@@ -14,6 +14,7 @@ import AdminManager from './pages/AdminManager/AdminManager';
 import Lobby from './pages/Lobby/Lobby';
 import Arena from './pages/Arena/Arena';
 import StrawberryFields from './pages/StrawberryFields/StrawberryFields';
+import BigHouse from './pages/BigHouse/BigHouse';
 import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
 import { hexToRgb } from './utils/color';
 import DailyGift from './components/DailyGift/DailyGift';
@@ -82,7 +83,8 @@ function AppRoutes() {
           <Route path="/life" element={<LifeInCamp />} />
           <Route path="/iris-message" element={<IrisMessage />} />
           <Route path="/shop" element={<Shop />} />
-          <Route path="/craft-forge" element={<Forge />} />
+          <Route path="/forge" element={<Forge />} />
+          <Route path="/big-house" element={<BigHouse />} />
           <Route path="/strawberry-fields" element={<StrawberryFields />} />
           <Route path="/training-grounds/*" element={<TrainingGrounds />} />
           <Route path="/arena" element={<Lobby />} />
@@ -104,6 +106,15 @@ function AppShell() {
 
   let themeVars: React.CSSProperties | undefined;
 
+  // Reset daily gift state when user logs out
+  useEffect(() => {
+    if (!user) {
+      setShowDailyGift(false);
+      setGiftAmount(0);
+    }
+  }, [user]);
+
+  // Check for unclaimed daily gift when user logs in
   useEffect(() => {
     if (!user) return;
 
@@ -120,7 +131,7 @@ function AppShell() {
         // ignore
       }
     })();
-  }, [user?.characterId, refreshUser]);
+  }, [user?.characterId]);
 
   if (user) {
     themeVars = applyTheme(user.theme);
@@ -156,12 +167,12 @@ function AppShell() {
               } else {
                 // Award failed; rollback reservation
                 try { await unmarkUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
-                console.error('Failed to award daily gift', res.error);
+                // console.error('Failed to award daily gift', res.error);
               }
             } catch (err) {
               // If something unexpectedly fails, attempt rollback
               try { await unmarkUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
-              console.error('Error claiming daily gift', err);
+              // console.error('Error claiming daily gift', err);
             }
           }}
         />

@@ -898,8 +898,25 @@ export const UI_TEXT = {
     th: 'ปลดพันธะลิขิต'
   },
   NEMESIS_COOKIE_MESSAGE: {
-    en: "Decree Purged",
+    en: "Decreed Purge",
     th: 'พ้นพันธะลิขิต'
+  },
+  // Big House
+  BIG_HOUSE: {
+    en: 'Big House',
+    th: 'บ้านใหญ่'
+  },
+  BIG_HOUSE_TITLE: {
+    en: 'Report Mission',
+    th: 'รายงานภารกิจ'
+  },
+  BIG_HOUSE_FOOTER_TITLE: {
+    en: 'Rules for Reporting Missions',
+    th: 'กฎการรายงานภารกิจ'
+  },
+  BIG_HOUSE_SIDEBAR_TITLE: {
+    en: 'Reported Missions',
+    th: 'ภารกิจที่รายงานแล้ว'
   }
 } as const;
 

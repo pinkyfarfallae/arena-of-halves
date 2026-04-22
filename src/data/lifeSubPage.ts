@@ -2,9 +2,10 @@ export const lifeSubPages = [
   '/iris-message',
   '/shop',
   '/arena',
-  '/craft-forge',
+  '/forge',
   '/strawberry-fields',
   '/training-grounds',
+  '/big-house',
 ];
 
 export function isLifeSubPage(path: string): boolean {

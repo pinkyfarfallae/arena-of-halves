@@ -104,6 +104,12 @@ export const POWER_NAMES = {
   FLORAL_FRAGRANCE: 'Floral Fragrance',
   EPHEMERAL_SEASON: 'Ephemeral Season',
   POMEGRANATES_OATH: "Pomegranate's Oath",
+
+  // Morpheus
+  // DREAM_WEAVER: 'Dream Weaver',
+  // NIGHTMARE_VEIL: 'Nightmare Veil',
+  // LUCID_DREAM: 'Lucid Dream',
+  // ETERNAL_SLUMBER: 'Eternal Slumber',
 } as const;
 
 export type PowerName = (typeof POWER_NAMES)[keyof typeof POWER_NAMES];

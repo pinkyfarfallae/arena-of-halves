@@ -4,7 +4,7 @@ import type { ActiveEffect, PowerDefinition, ModStat } from '../../types/power';
 import { getQuotaCost } from '../../types/power';
 import { EFFECT_TAGS } from '../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../constants/powers';
-import { SKILL_UNLOCK } from '../../constants/character';
+import { SKILL_UNLOCK, getSkillPointLevel } from '../../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { isHealingNullified, addSunbornSovereignRecoveryStack } from './apollo/helpers';
@@ -119,13 +119,16 @@ export function isStunned(effects: ActiveEffect[], fighterId: string): boolean {
 export function getAffordablePowers(fighter: FighterState): { power: PowerDefinition; index: number }[] {
   const result: { power: PowerDefinition; index: number }[] = [];
   const powers = fighter.powers ?? [];
+  const skillLevel = getSkillPointLevel(fighter.skillPoint);
+  
   for (let i = 0; i < powers.length; i++) {
     const p = powers[i];
     if (p.type === POWER_TYPES.PASSIVE) continue;
 
     // Check unlock
     if (p.type === POWER_TYPES.ULTIMATE && fighter.ultimateSkillPoint !== SKILL_UNLOCK) continue;
-    if ((p.type === POWER_TYPES.FIRST_SKILL || p.type === POWER_TYPES.SECOND_SKILL) && fighter.skillPoint !== SKILL_UNLOCK) continue;
+    if (p.type === POWER_TYPES.FIRST_SKILL && skillLevel < 1) continue;
+    if (p.type === POWER_TYPES.SECOND_SKILL && skillLevel < 2) continue;
 
     // Check quota
     const cost = getQuotaCost(p.type);
