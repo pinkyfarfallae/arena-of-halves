@@ -222,7 +222,7 @@ function Navbar() {
           <Settings />
           <span>{t(T.SETTINGS)}</span>
         </button>
-        <button className="topbar-menu__item topbar-menu__item--logout" onClick={() => { logout(); close(); }}>
+        <button className="topbar-menu__item topbar-menu__item--logout" onClick={() => { logout().catch(console.error); close(); }}>
           <Logout />
           <span>{t(T.LOGOUT)}</span>
         </button>
@@ -266,7 +266,7 @@ function Navbar() {
           <Settings strokeWidth="1.5" />
         </button>
 
-        <button className="sidebar__icon sidebar__icon--logout" onClick={logout} data-tooltip={t(T.LOGOUT)} data-tooltip-pos="right">
+        <button className="sidebar__icon sidebar__icon--logout" onClick={() => logout().catch(console.error)} data-tooltip={t(T.LOGOUT)} data-tooltip-pos="right">
           <Logout />
         </button>
       </nav>

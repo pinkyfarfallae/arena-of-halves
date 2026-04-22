@@ -1,7 +1,7 @@
-export default function BigHouse() {
-  const props = { viewBox: '0 0 32 32', fill: 'none', stroke: 'currentColor', strokeWidth: '1', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+export default function BigHouse(props: React.SVGProps<SVGSVGElement>) {
+  const p = { viewBox: '0 0 32 32', fill: 'none', stroke: 'currentColor', strokeWidth: '1', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, ...props };
   return (
-    <svg {...props}>
+    <svg {...p}>
       <path d="M5 16l11-10 11 10" fill="currentColor" opacity="0.1" />
       <rect x="8" y="16" width="16" height="10" rx="1" fill="currentColor" opacity="0.15" />
       <path d="M5 16l11-10 11 10" strokeWidth="1" />

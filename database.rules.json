@@ -3,7 +3,7 @@
     ".read": "auth != null",
     ".write": "auth != null",
     
-    "arena": {
+    "arenas": {
       ".read": "auth != null",
       ".write": "auth != null",
       

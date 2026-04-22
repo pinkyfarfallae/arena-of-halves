@@ -120,7 +120,8 @@ function Lobby() {
       setCreatedRoomLabel(trimmedTitle.length > 0 ? trimmedTitle : null);
       setCreatedArenaId(arenaId);
 
-    } catch {
+    } catch (err) {
+      console.error('Failed to create room:', err);
       setError('Failed to create room. Try again.');
     } finally {
       setLoading(null);

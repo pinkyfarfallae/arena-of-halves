@@ -346,7 +346,7 @@ export function toFighterState(character: Character, powers: PowerDefinition[], 
     nicknameThai: character.nicknameThai,
     sex: character.sex,
     deityBlood: character.deityBlood,
-    image: character.image,
+    image: character.image || '',
     theme: character.theme,
 
     maxHp: character.hp,
@@ -453,6 +453,33 @@ function getValidTargetIds(
 
 export function roomRef(arenaId: string) {
   return ref(db, `arenas/${arenaId}`);
+}
+
+/* ── sanitize for Firebase (remove undefined values) ── */
+
+function sanitizeForFirebase<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirebase(item)) as T;
+  }
+  
+  if (typeof obj === 'object') {
+    const sanitized: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = (obj as any)[key];
+        if (value !== undefined) {
+          sanitized[key] = sanitizeForFirebase(value);
+        }
+      }
+    }
+    return sanitized as T;
+  }
+  
+  return obj;
 }
 
 /* ── update today wishes to existing arena room ────────────────────────────────────────── */
@@ -588,7 +615,10 @@ export async function createRoom(
     ...extraFields,
   };
 
-  await set(roomRef(arenaId), room);
+  // Sanitize to remove undefined values (Firebase doesn't accept them)
+  const sanitizedRoom = sanitizeForFirebase(room);
+  await set(roomRef(arenaId), sanitizedRoom);
+  
   return arenaId;
 }
 

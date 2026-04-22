@@ -14,7 +14,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   restoring: boolean;
   login: (characterId: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (patch: Partial<Character>) => void;
   refreshUser: () => Promise<void>;
 }
@@ -123,14 +123,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, []);
 
-  const logout = useCallback(() => {
-    signOut(auth);
+  const logout = useCallback(async () => {
+    try {
+      // Clear user state first to trigger component cleanup
+      setUser(null);
+      setRole(ROLE.PLAYER);
+      
+      // Give components a moment to unmount and cleanup listeners
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Then sign out from Firebase
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
     
     localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
-    setUser(null);
-    setRole(ROLE.PLAYER);
   }, []);
 
   const updateUser = useCallback((patch: Partial<Character>) => {

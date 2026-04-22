@@ -32,10 +32,13 @@ export function useBag(userId: string | undefined) {
     setError(null);
 
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
+    let isMounted = true;
     
     const unsubscribe = onSnapshot(
       docRef,
       (snapshot) => {
+        if (!isMounted) return;
+        
         if (snapshot.exists()) {
           setBagData(snapshot.data() as BagData);
         } else {
@@ -44,13 +47,18 @@ export function useBag(userId: string | undefined) {
         setLoading(false);
       },
       (err) => {
+        if (!isMounted) return;
+        
         // console.error('Error fetching bag data:', err);
         setError(err.message);
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [userId]);
 
   // Convert bag data to array format (for backward compatibility)

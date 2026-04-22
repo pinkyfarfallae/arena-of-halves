@@ -83,7 +83,7 @@ function HarvestRulesModal({ onClose }: HarvestRulesModalProps) {
               </div>
             </div>
             <div className="harvest-rules-modal__sub-box">
-              <p>หากโรลเพลย์แบบกลุ่ม จะได้เงินรวมกัน เช่น 50 เมนชั่น ทุกคนจะได้ 500 ดรัคมาเท่ากัน</p>
+              <p>หากโรลเพลย์แบบกลุ่ม จะได้เงินรวมกัน เช่น 10,000 ตัวอักษร ทุกคนจะได้ 500 ดรัคมาเท่ากัน</p>
             </div>
             <div className="harvest-rules-modal__sub-box">
               <p>หากโรลเพลย์คนเดียว อัตราค่าตอบแทนจะเพิ่มขึ้นเป็น 1.5 เท่า</p>
@@ -97,7 +97,7 @@ function HarvestRulesModal({ onClose }: HarvestRulesModalProps) {
                 <Pencil />
               </div>
               <div className="harvest-rules-modal__bed-content">
-                <p>การเปิดเธรดโรลเพลย์สามารถตกแต่งตามอัธยาศัย ขอเพียงติด #HBxCCss2</p>
+                <p>การเปิดเธรดโรลเพลย์สามารถตกแต่งตามอัธยาศัย ขอเพียงติด #HBxCC</p>
               </div>
             </div>
           </div>

@@ -23,8 +23,8 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     panelPlacement: 'left',
     size: 'lg',
     tags: ['headquarters', 'council'],
-    actionLabels: ['Report to Chiron'],
-    actionIcons: ['council'],
+    actionLabels: ['Report to Council'],
+    actionIcons: ['house'],
     actionPaths: ['/big-house'],
   },
   {
@@ -92,7 +92,7 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     tags: ['crafting', 'weapons'],
     actionLabels: ['Craft Your Owned'],
     actionIcons: ['craft'],
-    actionPaths: ['/craft-forge'],
+    actionPaths: ['/forge'],
   },
   {
     id: CAMP_LOCATION.ARCHERY_RANGE,
