@@ -22,6 +22,7 @@ export const DEITY = {
   NIKE: 'Nike',
   HEBE: 'Hebe',
   TYCHE: 'Tyche',
+  MORPHEUS: 'Morpheus',
 } as const;
 
 /** Deity display name (PascalCase) — use for labels, DEITY_POWERS, and DEITY_SVG keys. */
@@ -50,6 +51,7 @@ export const DEITY_CABIN: Record<string, number> = {
   [DEITY.TYCHE]: 19,
   [DEITY.HECATE]: 20,
   [DEITY.PERSEPHONE]: 21,
+  [DEITY.MORPHEUS]: 22,
 };
 
 /** Cabin map to deity */

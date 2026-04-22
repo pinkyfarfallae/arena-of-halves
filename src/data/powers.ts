@@ -836,6 +836,66 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       skipDice: true,
     },
   ],
+
+  /* ────────────────────────── Morpheus ────────────────────── */
+  // [DEITY.MORPHEUS]: [
+  //   {
+  //     deity: DEITY.MORPHEUS,
+  //     type: POWER_TYPES.PASSIVE,
+  //     name: DEITY_POWER_NAMES.DREAM_WEAVER,
+  //     description:
+  //       'ทายาทแห่งมอร์ฟีอัสมีโอกาส 25% ที่จะทำให้ศัตรูที่โจมตีเข้าสู่สถานะ "หลับใฝ่ฝัน" เมื่อโจมตีสำเร็จ ศัตรูที่หลับใฝ่ฝันจะข้ามเทิร์นการโจมตีครั้งถัดไปและฟื้นฟู HP 1 หน่วย',
+  //     available: true,
+  //     effect: EFFECT_TYPES.DEBUFF,
+  //     target: TARGET_TYPES.ENEMY,
+  //     value: 0,
+  //     duration: 1,
+  //   },
+  //   {
+  //     deity: DEITY.MORPHEUS,
+  //     type: POWER_TYPES.FIRST_SKILL,
+  //     name: DEITY_POWER_NAMES.NIGHTMARE_VEIL,
+  //     description:
+  //       'ทายาทแห่งมอร์ฟีอัสห่อหุ้มศัตรู 1 ตัวด้วยฝันร้าย ทำให้เป้าหมายเข้าสู่สถานะ "ฝันร้าย" เป็นเวลา 2 รอบ ศัตรูที่อยู่ในสถานะฝันร้ายจะมีความเร็วลดลง 3 หน่วยและมีโอกาสติดคริติคอลลดลง 25% จากนั้นทำการโจมตีตามปกติ',
+  //     available: true,
+  //     effect: EFFECT_TYPES.DEBUFF,
+  //     target: TARGET_TYPES.ENEMY,
+  //     value: 3,
+  //     duration: 2,
+  //     modStat: MOD_STAT.SPEED,
+  //     effects: [
+  //       { effect: EFFECT_TYPES.DEBUFF, target: TARGET_TYPES.ENEMY, value: 3, duration: 2, modStat: MOD_STAT.SPEED },
+  //       { effect: EFFECT_TYPES.DEBUFF, target: TARGET_TYPES.ENEMY, value: 25, duration: 2, modStat: MOD_STAT.CRITICAL_RATE },
+  //     ],
+  //   },
+  //   {
+  //     deity: DEITY.MORPHEUS,
+  //     type: POWER_TYPES.SECOND_SKILL,
+  //     name: DEITY_POWER_NAMES.LUCID_DREAM,
+  //     description:
+  //       'ทายาทแห่งมอร์ฟีอัสเสียสละโอกาสในการโจมตีเพื่อเข้าสู่สถานะ "ฝันรู้ตัว" เป็นเวลา 3 รอบ ในขณะที่อยู่ในสถานะฝันรู้ตัว ทายาทแห่งมอร์ฟีอัสจะมีความเร็วเพิ่มขึ้น 4 หน่วยและมีโอกาสหลบหลีกการโจมตี 30%',
+  //     available: true,
+  //     effect: EFFECT_TYPES.BUFF,
+  //     target: TARGET_TYPES.SELF,
+  //     value: 4,
+  //     duration: 3,
+  //     modStat: MOD_STAT.SPEED,
+  //     skipDice: true,
+  //   },
+  //   {
+  //     deity: DEITY.MORPHEUS,
+  //     type: POWER_TYPES.ULTIMATE,
+  //     name: DEITY_POWER_NAMES.ETERNAL_SLUMBER,
+  //     description:
+  //       'ทายาทแห่งมอร์ฟีอัสเสียสละโอกาสในการโจมตีเพื่อปล่อยพลังการนอนหลับนิรันดร์ ทำให้ศัตรูทุกตัวเข้าสู่สถานะ "หลับลึก" เป็นเวลา 1 รอบ ศัตรูที่หลับลึกจะข้ามเทิร์นถัดไปทั้งหมดและฟื้นฟู HP 2 หน่วย อย่างไรก็ตาม หากศัตรูที่หลับลึกถูกโจมตี พวกเขาจะตื่นขึ้นทันทีและได้รับดาเมจเพิ่มเติม 50%',
+  //     available: true,
+  //     effect: EFFECT_TYPES.DEBUFF,
+  //     target: TARGET_TYPES.AREA,
+  //     value: 0,
+  //     duration: 1,
+  //     skipDice: true,
+  //   },
+  // ],
 };
 
 /** Powers that do not stack — re-cast resets duration. Don't show "stack" in pip tooltip. */
