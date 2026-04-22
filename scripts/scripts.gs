@@ -219,14 +219,14 @@ function doOptions(e) {
    ══════════════════════════════════════ */
 function handleCreateUser(params) {
   var characterId = (params.characterId || '').toString().trim();
-  var password    = (params.password || '').toString().trim();
-  var nameThai    = (params.nameThai || '').toString().trim();
-  var nameEng     = (params.nameEng || '').toString().trim();
-  var nickThai    = (params.nicknameThai || '').toString().trim();
-  var nickEng     = (params.nicknameEng || '').toString().trim();
-  var deityBlood  = (params.deityBlood || '').toString().trim();
-  var sex         = (params.sex || '').toString().trim();
-  var cabin       = parseInt(params.cabin || '0', 10) || 0;
+  var password = (params.password || '').toString().trim();
+  var nameThai = (params.nameThai || '').toString().trim();
+  var nameEng = (params.nameEng || '').toString().trim();
+  var nickThai = (params.nicknameThai || '').toString().trim();
+  var nickEng = (params.nicknameEng || '').toString().trim();
+  var deityBlood = (params.deityBlood || '').toString().trim();
+  var sex = (params.sex || '').toString().trim();
+  var cabin = parseInt(params.cabin || '0', 10) || 0;
 
   if (!characterId || !password) {
     return jsonResponse({ error: 'Missing characterId or password' });
@@ -290,7 +290,7 @@ function handleCreateUser(params) {
     else if (ch === 'attack dice up') charRow.push(0);
     else if (ch === 'speed') charRow.push(10);
     else if (ch === 'passive skill point') charRow.push('locked');
-    else if (ch === 'skill point') charRow.push('locked');
+    else if (ch === 'skill point') charRow.push(0);
     else if (ch === 'ultimate skill point') charRow.push('locked');
     else if (ch === 'reroll') charRow.push(0);
     else if (ch === 'currency') charRow.push(0);
@@ -652,7 +652,7 @@ function handleApproveHarvest(params) {
   // This backend call only records the drachmaReward (JSON map: {charId: amount}) for leaderboard tracking
   // The frontend awards each participant their individual reward (base + gardening set + solo + Demeter wish bonuses)
 
-  return jsonResponse({ 
+  return jsonResponse({
     success: true,
     message: 'Harvest approved and recorded. Individual rewards handled by frontend.'
   });
@@ -797,7 +797,7 @@ function updateCharacterDrachma(characterId, amount) {
 
       // Prevent negative currency
       if (newCurrency < 0) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Insufficient funds',
           current: currentCurrency,
           attempted: amount,
@@ -806,8 +806,8 @@ function updateCharacterDrachma(characterId, amount) {
       }
 
       sheet.getRange(i + 1, currencyCol + 1).setValue(newCurrency);
-      return jsonResponse({ 
-        success: true, 
+      return jsonResponse({
+        success: true,
         characterId: characterId,
         previous: currentCurrency,
         change: amount,
@@ -858,8 +858,8 @@ function updateTrainingPoints(characterId, amount) {
   }
 
   if (trainingPointsCol === -1) {
-    return jsonResponse({ 
-      error: 'trainingPoints column not found in spreadsheet. Please add a "trainingPoints" column to the Character Info sheet.' 
+    return jsonResponse({
+      error: 'trainingPoints column not found in spreadsheet. Please add a "trainingPoints" column to the Character Info sheet.'
     });
   }
 
@@ -870,7 +870,7 @@ function updateTrainingPoints(characterId, amount) {
 
       // Prevent negative training points
       if (newPoints < 0) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Insufficient training points',
           current: currentPoints,
           attempted: amount,
@@ -879,8 +879,8 @@ function updateTrainingPoints(characterId, amount) {
       }
 
       sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
-      return jsonResponse({ 
-        success: true, 
+      return jsonResponse({
+        success: true,
         characterId: characterId,
         previous: currentPoints,
         change: amount,
@@ -954,7 +954,7 @@ function upgradeStat(characterId, statId, pointsToSpend) {
 
       // Check if stat is already at max
       if (currentStatValue >= MAX_STAT_LEVEL) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Stat is already at maximum level',
           currentValue: currentStatValue,
           maxLevel: MAX_STAT_LEVEL
@@ -963,7 +963,7 @@ function upgradeStat(characterId, statId, pointsToSpend) {
 
       // Check if character has enough training points
       if (currentPoints < pointsToSpend) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Insufficient training points',
           available: currentPoints,
           required: pointsToSpend
@@ -977,7 +977,7 @@ function upgradeStat(characterId, statId, pointsToSpend) {
       var newPoints = currentPoints - pointsUsed;
 
       if (levelsToGain === 0) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Cannot upgrade. Stat is at max level.',
           currentValue: currentStatValue
         });
@@ -987,7 +987,91 @@ function upgradeStat(characterId, statId, pointsToSpend) {
       sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
       sheet.getRange(i + 1, statCol + 1).setValue(newStatValue);
 
-      return jsonResponse({ 
+      // Update derived stats based on which practice stat was upgraded
+      switch (statId) {
+        case 'strength':
+          switch (newStatValue) {
+            case 1:
+            case 2:
+            case 4:
+              const currentDamageRaw = getCharacterInfo(characterId, 'damage');
+              const currentDamage = Number(currentDamageRaw) || 0;
+              handleEditUser(characterId, { 'damage': currentDamage + 1 });
+              break;
+            default:
+              break;
+          };
+          break;
+
+        case 'mobility':
+          const currentSpeedRaw = getCharacterInfo(characterId, 'speed');
+          const currentSpeed = Number(currentSpeedRaw) || 0;
+
+          switch (newStatValue) {
+            case 1:
+            case 2:
+            case 3:
+              handleEditUser(characterId, { 'speed': currentSpeed + 1 });
+              break;
+            case 4:
+              handleEditUser(characterId, { 'speed': currentSpeed + 2 });
+              break;
+            default:
+              break;
+          };
+          break;
+
+        case 'intelligence':
+          const currentDefDiceUpRaw = getCharacterInfo(characterId, 'defend dice up');
+          const currentAtkDiceUpRaw = getCharacterInfo(characterId, 'attack dice up');
+
+          const currentDefDiceUp = Number(currentDefDiceUpRaw) || 0;
+          const currentAtkDiceUp = Number(currentAtkDiceUpRaw) || 0;
+
+          switch (newStatValue) {
+            case (newStatValue % 2 == 0):
+              handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
+              break;
+            case (newStatValue % 2 == 1):
+              handleEditUser(characterId, { 'attack dice up': currentAtkDiceUp + 1 });
+              if (newStatValue === 5) {
+                handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
+              }
+              break;
+          }
+          break;
+
+        case 'technique':
+          switch (newStatValue) {
+            case 1:
+              handleEditUser(characterId, { 'passive skill point': 'unlocked' });
+              break;
+            case 2:
+              handleEditUser(characterId, { 'skill point': '1' });
+              break;
+            case 3:
+              updateTrainingPoints(characterId, 1);
+              break;
+            case 4:
+              handleEditUser(characterId, { 'skill point': '2' });
+              break;
+            case 5:
+              handleEditUser(characterId, { 'ultimate skill point': 'unlocked' });
+              break;
+            default:
+              break;
+          }
+          break;
+
+        case 'experience':
+          if (newStatValue !== 5) {
+            const currentHp = Number(getCharacterInfo(characterId, 'hp')) || 0;
+            handleEditUser(characterId, { 'hp': currentHp + newStatValue });
+          }
+          break;
+      }
+
+      return jsonResponse({
         success: true,
         characterId: characterId,
         stat: statId,
@@ -1001,6 +1085,78 @@ function upgradeStat(characterId, statId, pointsToSpend) {
   }
 
   return jsonResponse({ error: 'Character not found: ' + characterId });
+}
+
+/* ══════════════════════════════════════
+   REVERT DERIVED STATS FOR REFUND
+   - Helper function to revert derived stats when refunding a practice stat
+   ══════════════════════════════════════ */
+function revertDerivedStatsForRefund(characterId, statId, oldValue, newValue) {
+  switch (statId) {
+    case 'strength':
+      // Strength gives +1 damage at levels 1, 2, and 4
+      if (oldValue === 1 || oldValue === 2 || oldValue === 4) {
+        var currentDamage = Number(getCharacterInfo(characterId, 'damage')) || 0;
+        handleEditUser(characterId, { 'damage': Math.max(1, currentDamage - 1) });
+      }
+      break;
+
+    case 'mobility':
+      // Mobility gives +1 speed at levels 1, 2, 3 and +2 at level 4
+      var currentSpeed = Number(getCharacterInfo(characterId, 'speed')) || 0;
+      if (oldValue === 4) {
+        handleEditUser(characterId, { 'speed': Math.max(10, currentSpeed - 2) });
+      } else if (oldValue === 1 || oldValue === 2 || oldValue === 3) {
+        handleEditUser(characterId, { 'speed': Math.max(10, currentSpeed - 1) });
+      }
+      break;
+
+    case 'intelligence':
+      // Intelligence alternates between defense and attack dice up
+      // Even levels: +1 defend dice up, Odd levels: +1 attack dice up (plus def at 5)
+      var currentDefDiceUp = Number(getCharacterInfo(characterId, 'defend dice up')) || 0;
+      var currentAtkDiceUp = Number(getCharacterInfo(characterId, 'attack dice up')) || 0;
+      
+      if (oldValue % 2 === 0) {
+        // Was even level, revert defend dice up
+        handleEditUser(characterId, { 'defend dice up': Math.max(0, currentDefDiceUp - 1) });
+      } else {
+        // Was odd level, revert attack dice up
+        handleEditUser(characterId, { 'attack dice up': Math.max(0, currentAtkDiceUp - 1) });
+        if (oldValue === 5) {
+          // Level 5 also gave defend dice up
+          handleEditUser(characterId, { 'defend dice up': Math.max(0, currentDefDiceUp - 1) });
+        }
+      }
+      break;
+
+    case 'technique':
+      // Revert skill unlocks
+      if (oldValue === 1) {
+        handleEditUser(characterId, { 'passive skill point': 'locked' });
+      } else if (oldValue === 2) {
+        handleEditUser(characterId, { 'skill point': '0' });
+      } else if (oldValue === 3) {
+        // Level 3 gave +1 training point, already handled by refund system
+      } else if (oldValue === 4) {
+        handleEditUser(characterId, { 'skill point': '1' });
+      } else if (oldValue === 5) {
+        handleEditUser(characterId, { 'ultimate skill point': 'locked' });
+      }
+      break;
+
+    case 'experience':
+      // Experience gives HP based on level (except level 5)
+      if (oldValue !== 5) {
+        var currentHp = Number(getCharacterInfo(characterId, 'hp')) || 0;
+        handleEditUser(characterId, { 'hp': Math.max(10, currentHp - oldValue) });
+      }
+      break;
+
+    case 'fortune':
+      // Fortune has no derived stats currently
+      break;
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1059,7 +1215,7 @@ function refundStat(characterId, statId) {
 
       // Check if stat is already at minimum
       if (currentStatValue <= 0) {
-        return jsonResponse({ 
+        return jsonResponse({
           error: 'Stat is already at minimum level (0)',
           currentValue: currentStatValue
         });
@@ -1073,7 +1229,10 @@ function refundStat(characterId, statId) {
       sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
       sheet.getRange(i + 1, statCol + 1).setValue(newStatValue);
 
-      return jsonResponse({ 
+      // Revert derived stats based on refunded practice stat
+      revertDerivedStatsForRefund(characterId, statId, currentStatValue, newStatValue);
+
+      return jsonResponse({
         success: true,
         characterId: characterId,
         stat: statId,
@@ -1149,6 +1308,18 @@ function refundAllStats(characterId) {
       var newPoints = currentPoints + pointsRefunded;
       sheet.getRange(i + 1, trainingPointsCol + 1).setValue(newPoints);
 
+      // Reset all derived stats to initial values
+      handleEditUser(characterId, {
+        'hp': 10,
+        'damage': 1,
+        'defend dice up': 0,
+        'attack dice up': 0,
+        'speed': 10,
+        'passive skill point': 'locked',
+        'skill point': '0',
+        'ultimate skill point': 'locked'
+      });
+
       return jsonResponse({
         success: true,
         characterId: characterId,
@@ -1197,7 +1368,7 @@ function handleFetchHarvestRecords() {
   var submittedAtCol = headers.indexOf('submittedat');
 
   var approvedHarvests = [];
-  
+
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
@@ -1206,7 +1377,7 @@ function handleFetchHarvestRecords() {
         charCount: charCountCol !== -1 ? parseInt(row[charCountCol] || '0', 10) : 0,
         mentionCount: mentionCountCol !== -1 ? parseInt(row[mentionCountCol] || '0', 10) : 0,
         drachmaReward: drachmaRewardCol !== -1 ? parseInt(row[drachmaRewardCol] || '0', 10) : 0,
-        roleplayers: roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [],
+        roleplayers: roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function (x) { return x.trim(); }) : [],
         url: urlCol !== -1 ? row[urlCol].toString() : '',
         submittedAt: submittedAtCol !== -1 ? row[submittedAtCol].toString() : ''
       });
@@ -1218,7 +1389,7 @@ function handleFetchHarvestRecords() {
   }
 
   // Sort by date (latest to oldest) to prioritize recent records in case of ties
-  approvedHarvests.sort(function(a, b) {
+  approvedHarvests.sort(function (a, b) {
     var dateA = new Date(a.submittedAt).getTime();
     var dateB = new Date(b.submittedAt).getTime();
     return dateB - dateA; // Descending (latest first)
@@ -1232,19 +1403,19 @@ function handleFetchHarvestRecords() {
 
   for (var j = 0; j < approvedHarvests.length; j++) {
     var harvest = approvedHarvests[j];
-    
+
     if (harvest.charCount > longestHarvest.charCount) {
       longestHarvest = harvest;
     }
-    
+
     if (harvest.roleplayers.length > mostParticipants.roleplayers.length) {
       mostParticipants = harvest;
     }
-    
+
     if (harvest.drachmaReward > biggestReward.drachmaReward) {
       biggestReward = harvest;
     }
-    
+
     if (harvest.mentionCount > mostTweets.mentionCount) {
       mostTweets = harvest;
     }
@@ -1314,7 +1485,7 @@ function handleFetchTopHarvesters(limit) {
     if (statusCol !== -1 && row[statusCol].toString().toLowerCase() === 'approved') {
       var drachmaValue = drachmaRewardCol !== -1 ? row[drachmaRewardCol] : '';
       var drachmaStr = drachmaValue.toString().trim();
-      
+
       // Try to parse as JSON map (new format: {"charA": 50, "charB": 100})
       if (drachmaStr && (drachmaStr.indexOf('{') === 0)) {
         try {
@@ -1329,7 +1500,7 @@ function handleFetchTopHarvesters(limit) {
       } else {
         // Legacy format: single number divided among participants
         var drachma = parseInt(drachmaStr || '0', 10);
-        var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function(x) { return x.trim(); }) : [];
+        var roleplayers = roleplayersCol !== -1 ? row[roleplayersCol].toString().split(',').filter(function (x) { return x.trim(); }) : [];
         var participantCount = roleplayers.length || 1;
         var perParticipant = Math.floor(drachma / participantCount);
 
@@ -1352,7 +1523,7 @@ function handleFetchTopHarvesters(limit) {
     });
   }
 
-  leaderboard.sort(function(a, b) {
+  leaderboard.sort(function (a, b) {
     return b.totalDrachma - a.totalDrachma; // Descending (highest first)
   });
 
@@ -1367,7 +1538,7 @@ function handleFetchTopHarvesters(limit) {
 
     for (var l = 0; l < leaderboard.length; l++) {
       var leaderId = leaderboard[l].characterId.toLowerCase();
-      
+
       for (var c = 1; c < charData.length; c++) {
         if (charIdCol !== -1 && charData[c][charIdCol].toString().trim().toLowerCase() === leaderId) {
           leaderboard[l].nicknameEng = nickEngCol !== -1 ? charData[c][nickEngCol].toString() : '';
@@ -1398,11 +1569,11 @@ function handleFetchTopHarvesters(limit) {
 function getTrainingSheet() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(TRAINING_SHEET_NAME);
-  
+
   if (!sheet) {
     return null;
   }
-  
+
   return sheet;
 }
 
@@ -1439,23 +1610,23 @@ function handleSubmitTraining(params) {
   }
 
   var sheet = getTrainingSheet();
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-  
+
   var id = userId + '_' + date;
-  
+
   if (findTaskRow(sheet, id) > 0) {
     return jsonResponse({ error: 'Training task already exists for this date' });
   }
-  
+
   var newRow = [
     id, date, userId, attempt, JSON.stringify(rolls), mode,
     success ? 'TRUE' : 'FALSE', '', 0, 'pending', '', '', '',
     arenaId, opponentId, opponentName, battleRounds
   ];
-  
+
   sheet.appendRow(newRow);
   return jsonResponse({ success: true, id: id });
 }
@@ -1476,26 +1647,26 @@ function handleSubmitTrainingRoleplay(params) {
   }
 
   var sheet = getTrainingSheet();
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-  
+
   var row = findTaskRow(sheet, userId + '_' + date);
-  
+
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
-  
+
   sheet.getRange(row, 8).setValue(roleplayUrl);
   sheet.getRange(row, 9).setValue(tickets);
-  
+
   var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
   if (currentVerified === 'rejected') {
     sheet.getRange(row, 10).setValue('pending');
     sheet.getRange(row, 13).setValue('');
   }
-  
+
   return jsonResponse({ success: true });
 }
 
@@ -1520,13 +1691,13 @@ function handleVerifyTraining(params) {
   }
 
   var sheet = getTrainingSheet();
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-  
+
   var row = findTaskRow(sheet, userId + '_' + date);
-  
+
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
@@ -1540,7 +1711,7 @@ function handleVerifyTraining(params) {
   // Award training point if approved
   if (verified === 'approved') {
     var shouldAwardPoint = false;
-    
+
     // PvP mode: award TP for both success and fail
     if (mode === 'pvp') {
       shouldAwardPoint = true;
@@ -1549,21 +1720,21 @@ function handleVerifyTraining(params) {
     else if (success) {
       shouldAwardPoint = true;
     }
-    
+
     if (shouldAwardPoint) {
       var trainingPointResult = updateTrainingPoints(userId, 1);
       var trainingPointData = JSON.parse(trainingPointResult.getContent());
-      
+
       if (!trainingPointData.success) {
-        return jsonResponse({ 
-          success: false, 
+        return jsonResponse({
+          success: false,
           verified: verified,
           error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
         });
       }
-      
-      return jsonResponse({ 
-        success: true, 
+
+      return jsonResponse({
+        success: true,
         verified: verified,
         trainingPoints: {
           previous: trainingPointData.previous,
@@ -1572,7 +1743,7 @@ function handleVerifyTraining(params) {
       });
     }
   }
-  
+
   return jsonResponse({ success: true, verified: verified });
 }
 
@@ -1590,13 +1761,13 @@ function handleRecheckTraining(params) {
   }
 
   var sheet = getTrainingSheet();
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-  
+
   var row = findTaskRow(sheet, userId + '_' + date);
-  
+
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
@@ -1608,7 +1779,7 @@ function handleRecheckTraining(params) {
 
   sheet.getRange(row, 10).setValue('pending');
   sheet.getRange(row, 13).setValue('');
-  
+
   return jsonResponse({ success: true, verified: 'pending' });
 }
 
@@ -1619,33 +1790,33 @@ function handleRecheckTraining(params) {
    ══════════════════════════════════════ */
 function handleFetchTrainings(userId, verified, mode) {
   var sheet = getTrainingSheet();
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
-  
+
   var data = sheet.getDataRange().getValues();
-  
+
   if (data.length <= 1) {
     return jsonResponse({ trainings: [] });
   }
-  
+
   var trainings = [];
-  
+
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    
+
     if (userId && row[2] !== userId) continue;
     if (verified && row[9].toString().toLowerCase() !== verified.toLowerCase()) continue;
     if (mode && row[5] !== mode) continue;
-    
+
     var rolls = [];
     try {
       rolls = JSON.parse(row[4]);
     } catch (e) {
       rolls = [];
     }
-    
+
     trainings.push({
       id: row[0] || '',
       date: row[1] || '',
@@ -1666,7 +1837,7 @@ function handleFetchTrainings(userId, verified, mode) {
       battleRounds: row[16] || 0
     });
   }
-  
+
   return jsonResponse({ trainings: trainings });
 }
 
@@ -1700,12 +1871,12 @@ function handleCreateItem(params) {
   }
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
-  
+
   // Determine which sheet to use
   var isWeapon = itemId.toLowerCase().startsWith('weapon_');
   var sheetName = isWeapon ? 'Weapon Info' : 'Item Info';
   var sheet = ss.getSheetByName(sheetName);
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + sheetName });
   }
@@ -1738,7 +1909,7 @@ function handleCreateItem(params) {
     else if (h === 'available') row.push(available);
     else row.push('');
   }
-  
+
   sheet.appendRow(row);
 
   return jsonResponse({ success: true, itemId: itemId, sheet: sheetName });
@@ -1758,7 +1929,7 @@ function handleEditItem(itemId, fields) {
   }
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
-  
+
   // Try both sheets
   var sheets = ['Item Info', 'Weapon Info'];
   var updated = false;
@@ -1814,7 +1985,7 @@ function handleDeleteItem(itemId) {
   }
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
-  
+
   // Try both sheets
   var sheets = ['Item Info', 'Weapon Info'];
 
@@ -1851,7 +2022,7 @@ function handleDeleteItem(itemId) {
 function handleCreateEquipment(params) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Custom Equipment sheet not found. Please create it first.' });
   }
@@ -1876,7 +2047,7 @@ function handleCreateEquipment(params) {
 
   // Map headers to column indices
   var colMap = {};
-  headers.forEach(function(h, idx) {
+  headers.forEach(function (h, idx) {
     colMap[h] = idx;
   });
 
@@ -1913,7 +2084,7 @@ function handleEditEquipment(itemId, fields) {
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Custom Equipment sheet not found' });
   }
@@ -1962,7 +2133,7 @@ function handleDeleteEquipment(itemId) {
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(CUSTOM_EQUIPMENT);
-  
+
   if (!sheet) {
     return jsonResponse({ error: 'Custom Equipment sheet not found' });
   }
@@ -1984,4 +2155,36 @@ function handleDeleteEquipment(itemId) {
   }
 
   return jsonResponse({ error: 'Equipment not found: ' + itemId });
+}
+
+/* ══════════════════════════════════════
+   INSIDE HELPER
+   ══════════════════════════════════════ */
+
+function getCharacterInfo(characterId, field) {
+  characterId = (characterId || '').toString().trim().toLowerCase();
+  field = (field || '').toString().trim().toLowerCase();
+
+  if (!characterId || !field) return null;
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(CHARACTER_SHEET_NAME);
+  if (!sheet) return null;
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+
+  var headers = data[0].map(h => h.toString().toLowerCase());
+  var idCol = headers.indexOf('characterid');
+  var fieldCol = headers.indexOf(field);
+
+  if (idCol === -1 || fieldCol === -1) return null;
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol].toString().trim().toLowerCase() === characterId) {
+      return data[i][fieldCol];
+    }
+  }
+
+  return null; // not found
 }

@@ -33,6 +33,7 @@ import Document from './icons/Document';
 import EditPencil from './icons/EditPencil';
 import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
+import { getSkillPointLevel } from '../../constants/character';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
 import { isSkillUnlocked } from '../../constants/character';
 import { SEX } from '../../constants/sex';
@@ -451,23 +452,29 @@ function CharacterInfo() {
           <StatOrb value={char.attackDiceUp} label="ATTACK DICE" />
           <StatOrb value={char.reroll} label="REROLL" />
           {([
-            [POWER_TYPES.PASSIVE, char.passiveSkillPoint],
-            [POWER_TYPES.FIRST_SKILL, char.skillPoint],
-            [POWER_TYPES.ULTIMATE, char.ultimateSkillPoint],
-          ] as [string, string][]).map(([label, val]) => {
+            [POWER_TYPES.PASSIVE, char.passiveSkillPoint, 'PASSIVE'],
+            [POWER_TYPES.FIRST_SKILL, char.skillPoint, 'SKILL'],
+            [POWER_TYPES.ULTIMATE, char.ultimateSkillPoint, 'ULTIMATE'],
+          ] as [string, string, string][]).map(([type, val, displayLabel]) => {
+            const isRegularSkill = type === POWER_TYPES.FIRST_SKILL;
             const unlocked = isSkillUnlocked(val);
+            const level = isRegularSkill ? getSkillPointLevel(val) : (unlocked ? 1 : 0);
+            const maxLevel = isRegularSkill ? 2 : 1;
+            const progress = maxLevel > 0 ? level / maxLevel : 0;
+            const dashOffset = (1 - progress) * 2 * Math.PI * 26;
+            
             return (
-              <div key={label} className={`so so--accent ${unlocked ? 'so--unlocked' : 'so--locked'}`}>
+              <div key={type} className={`so so--accent ${unlocked ? 'so--unlocked' : 'so--locked'}`}>
                 <div className="so__orb">
                   <svg className="so__svg" viewBox="0 0 60 60">
                     <circle cx="30" cy="30" r={26} className="so__track" />
                     <circle cx="30" cy="30" r={26} className="so__arc"
-                      strokeDasharray={2 * Math.PI * 26} strokeDashoffset={unlocked ? 0 : 2 * Math.PI * 26} />
+                      strokeDasharray={2 * Math.PI * 26} strokeDashoffset={dashOffset} />
                     <circle cx="30" cy="30" r={18} className="so__inner" />
                   </svg>
                   {unlocked ? <LockOpen className="so__lock-icon" /> : <LockClosed className="so__lock-icon" />}
                 </div>
-                <span className="so__label">{label}</span>
+                <span className="so__label">{displayLabel}</span>
               </div>
             );
           })}
