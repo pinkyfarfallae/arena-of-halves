@@ -23,9 +23,9 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     panelPlacement: 'left',
     size: 'lg',
     tags: ['headquarters', 'council'],
-    actionLabels: ['Report to Council'],
-    actionIcons: ['house'],
-    actionPaths: ['/big-house'],
+    // actionLabels: ['Report to Council'],
+    // actionIcons: ['house'],
+    // actionPaths: ['/big-house'],
   },
   {
     id: CAMP_LOCATION.WOODS,

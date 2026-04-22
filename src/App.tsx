@@ -106,6 +106,15 @@ function AppShell() {
 
   let themeVars: React.CSSProperties | undefined;
 
+  // Reset daily gift state when user logs out
+  useEffect(() => {
+    if (!user) {
+      setShowDailyGift(false);
+      setGiftAmount(0);
+    }
+  }, [user]);
+
+  // Check for unclaimed daily gift when user logs in
   useEffect(() => {
     if (!user) return;
 
@@ -122,7 +131,7 @@ function AppShell() {
         // ignore
       }
     })();
-  }, [user?.characterId, refreshUser]);
+  }, [user?.characterId]);
 
   if (user) {
     themeVars = applyTheme(user.theme);
