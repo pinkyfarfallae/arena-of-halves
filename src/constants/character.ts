@@ -1,17 +1,17 @@
 /**
  * Canonical value for "unlocked" skill point (passive / skill / ultimate).
  */
-export const SKILL_UNLOCK = 'unlock';
+export const SKILL_UNLOCKED = 'unlocked';
 
 /**
  * Check if a skill point slot is unlocked.
- * For passive/ultimate: checks for 'unlock' string
+ * For passive/ultimate: checks for 'unlocked' string
  * For regular skills: checks numeric value (0 = locked, 1 = first slot, 2 = both slots)
  */
 export function isSkillUnlocked(value: string | undefined): boolean {
   if (!value) return false;
   const lower = value.toLowerCase();
-  if (lower === SKILL_UNLOCK) return true;
+  if (lower === SKILL_UNLOCKED) return true;
   // Also accept numeric string '1' or '2' as unlocked for skill points
   const num = parseInt(value, 10);
   return !isNaN(num) && num > 0;
@@ -24,7 +24,7 @@ export function isSkillUnlocked(value: string | undefined): boolean {
 export function getSkillPointLevel(value: string | undefined): number {
   if (!value) return 0;
   const lower = value.toLowerCase();
-  if (lower === SKILL_UNLOCK || lower === 'unlocked') return 2; // 'unlocked' = both slots
+  if (lower === SKILL_UNLOCKED || lower === 'unlocked') return 2; // 'unlocked' = both slots
   const num = parseInt(value, 10);
   return isNaN(num) ? 0 : Math.max(0, Math.min(2, num));
 }

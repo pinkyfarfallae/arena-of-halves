@@ -6,7 +6,6 @@
 import type { BattleRoom, BattleState } from '../../../types/battle';
 import { EFFECT_TAGS } from '../../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../../constants/powers';
-import { SKILL_UNLOCK } from '../../../constants/character';
 import { ARENA_PATH } from '../../../constants/battle';
 import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
 import { findFighter, makeEffectId } from '../powerEngine';
@@ -27,7 +26,7 @@ export function applySecretOfDryadPassive(
   if (!attacker) return {};
 
   // Do not apply unless passive skill is unlocked
-  if (attacker.passiveSkillPoint !== SKILL_UNLOCK) return {};
+  if (attacker.passiveSkillPoint !== 'unlocked') return {};
 
   // Only if fighter has Secret of Dryad in their powers list (members from Firebase may omit `powers`)
   const passive = (attacker.powers ?? []).find(

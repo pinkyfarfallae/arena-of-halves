@@ -12,7 +12,6 @@ import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
 import { BATTLE_TEAM, effectivePomCoAttackerId, PANEL_SIDE, PHASE, TURN_ACTION, type PanelSide } from '../../../../constants/battle';
 import { MOD_STAT, TARGET_TYPES } from '../../../../constants/effectTypes';
 import './TeamPanel.scss';
-import { SKILL_UNLOCK } from '../../../../constants/character';
 import { CHARACTER } from '../../../../constants/characters';
 
 interface Props {
@@ -283,7 +282,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
         // Shock hit: attacker has Lightning Reflex passive → electric zap on defender
         const attacker = turn?.attackerId ? fighterMap.get(turn.attackerId) : undefined;
         const hasLightningReflex = !suppressPracticeVfx && !!(
-          attacker?.passiveSkillPoint === SKILL_UNLOCK &&
+          attacker?.passiveSkillPoint === 'unlocked' &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
         );
         const isShockHit = !suppressPracticeVfx && !isEliminated && (!!((isHit || playbackMainHit) && hasLightningReflex && turn?.defenderId === m.characterId)

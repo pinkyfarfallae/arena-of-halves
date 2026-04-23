@@ -7,7 +7,6 @@ import type { FighterState } from '../../../types/battle';
 import type { Theme25 } from '../../../types/character';
 import { DEITY_THEMES } from '../../../constants/theme';
 import { DEITY } from '../../../constants/deities';
-import { SKILL_UNLOCK } from '../../../constants/character';
 
 const DEITIES_WITH_THEMES = [
   DEITY.ZEUS,
@@ -54,8 +53,8 @@ function makeFighter(
     defendDiceUp: 0,
     speed: 5,
     rerollsLeft: 0,
-    passiveSkillPoint: SKILL_UNLOCK,
-    skillPoint: SKILL_UNLOCK,
+    passiveSkillPoint: 'unlocked',
+    skillPoint: 'unlocked',
     ultimateSkillPoint: '',
     technique: 0,
     quota: 2,
