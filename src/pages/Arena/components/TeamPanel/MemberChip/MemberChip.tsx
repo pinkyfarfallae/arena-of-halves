@@ -160,7 +160,7 @@ interface Props {
   hasSunbornSovereign?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
-  isFragranceWaved?: boolean;
+  isBlossomScentraWaved?: boolean;
   /** Apollo's Hymn: heal VFX (sun/corona wave). When true, show hymn wave for ~3s (keyed by hymnLogKey). */
   isHymnWaved?: boolean;
   /** Imprecated Poem: Healing Nullified verse — dedicated frame VFX. */
@@ -200,23 +200,23 @@ interface Props {
   minionPulseMap?: Record<string, number>;
   /** Whether transient-driven hits (minion pulses) are permitted right now */
   allowTransientHits?: boolean;
-  /** Optional unique key derived from a recent log entry so Floral Fragrance
+  /** Optional unique key derived from a recent log entry so Blossom Scentra
    *  from persistent logs is only shown once per client. If provided, the
-   *  chip will consult localStorage to avoid re-showing the fragrance after a
+   *  chip will consult localStorage to avoid re-showing the Blossom Scentra wave after a
    *  refresh. */
-  floralLogKey?: string | undefined;
-  /** Floral Fragrance heal amount from log (shown as +n HP in fragrance wave). */
-  floralFragranceHeal?: number;
-  /** When set, delay showing the fragrance wave by this many ms (e.g. to sync with D4 result card). */
-  floralFragranceDelayMs?: number;
-  /** True when Floral Heal D4 result card is visible; when false and isFloralHealTarget, hide fragrance wave (healing ended). */
-  floralHealResultCardVisible?: boolean;
-  /** True when this chip is the Floral Fragrance heal target (allyTargetId); used with floralHealResultCardVisible to hide wave after heal. */
-  isFloralHealTarget?: boolean;
-  /** True when the caster of Floral Fragrance (for this heal) is Rosabella — use Rose icon in petal emission instead of Flower. */
-  floralFragranceCasterIsRosabella?: boolean;
-  /** In demo mode, when this key changes (effect selection changed), hide the fragrance wave. Not tied to Replay so Replay can re-trigger hit/shock without breaking fragrance. */
-  demoFragranceSessionKey?: string;
+  blossomScentraLogKey?: string | undefined;
+  /** Blossom Scentra heal amount from log (shown as +n HP in Blossom Scentra wave). */
+  blossomScentraHeal?: number;
+  /** When set, delay showing the Blossom Scentra wave wave by this many ms (e.g. to sync with D4 result card). */
+  blossomScentraDelayMs?: number;
+  /** True when Blossom Scentra Heal D4 result card is visible; when false and isBlossomScentraHealTarget, hide Blossom Scentra wave wave (healing ended). */
+  blossomScentraHealResultCardVisible?: boolean;
+  /** True when this chip is the Blossom Scentra heal target (allyTargetId); used with blossomScentraHealResultCardVisible to hide wave after heal. */
+  isBlossomScentraHealTarget?: boolean;
+  /** True when the caster of Blossom Scentra (for this heal) is Rosabella — use Rose icon in petal emission instead of Flower. */
+  blossomScentraCasterIsRosabella?: boolean;
+  /** In demo mode, when this key changes (effect selection changed), hide the Blossom Scentra wave wave. Not tied to Replay so Replay can re-trigger hit/shock without breaking Blossom Scentra. */
+  demoBlossomScentraSessionKey?: string;
   /** Soul Devourer lifesteal: show +{n} HP in frame (inline, once per key). */
   soulDevourerHealAmount?: number;
   soulDevourerHealKey?: string;
@@ -238,7 +238,7 @@ interface Props {
   isNemesisReattackHitAttacker?: boolean;
 }
 
-export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isFragranceWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, floralLogKey, floralFragranceHeal, floralFragranceDelayMs, floralHealResultCardVisible, isFloralHealTarget, floralFragranceCasterIsRosabella, demoFragranceSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker, isNemesisReattackHitDefender, isNemesisReattackHitAttacker }: Props) {
+export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefender, isEliminated, isTargetable, isSpotlight, isCrit, isHit, isShockHit, isKeraunosVoltageHit, isJoltArcAttackHit, isShocked, hasJoltArcDeceleration, isEfflorescenceMuse, hasPomegranateEffect, isSpiritForm, isShadowCamouflaged, hasBeyondNimbus, hasSoulDevourer, hasDeathKeeper, hasSunbornSovereign, isResurrected, isResurrecting, isBlossomScentraWaved, isHymnWaved, isImprecatedPoemHealingNullified, isImprecatedPoemCursed, imprecatedPoemVerseTags, turnOrder, effectPips, statMods, displayCriticalRate, battleLive, onSelect, minions, visualDefenderId, minionHitPulseId, minionHitPulseDurationMs = 1500, hitEventKey, shockHitEventKey, playbackHitTargetId, playbackHitEventKey, minionPulseMap, allowTransientHits = true, blossomScentraLogKey, blossomScentraHeal, blossomScentraDelayMs, blossomScentraHealResultCardVisible, isBlossomScentraHealTarget, blossomScentraCasterIsRosabella, demoBlossomScentraSessionKey, hymnLogKey, hymnHeal, soulDevourerHealAmount = 0, soulDevourerHealKey, suppressSpringHealVfx, casterFrameRef, defenderFrameRef, volleyArrowHitActive, isVolleyArrowHitDefender, isVolleyArrowHitAttacker, isNemesisReattackHitDefender, isNemesisReattackHitAttacker }: Props) {
   const chipRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frameLayout, setFrameLayout] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -505,158 +505,158 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
     if (!isJoltArcAttackHit) prevIsJoltArcAttackRef.current = false;
   }, [isJoltArcAttackHit]);
 
-  /* ── Fragrance wave + heal boost: brief 3s effect when Floral Fragrance applied ── */
-  const [showFragranceWave, setShowFragranceWave] = useState(false);
-  const prevFragranceRef = useRef(false);
-  const fragranceSuppressRef = useRef(false);
-  const fragranceSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fragranceWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fragranceDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* ── Blossom Scentra wave + heal boost: brief 3s effect when Blossom Scentra applied ── */
+  const [showBlossomScentraWave, setShowBlossomScentraWave] = useState(false);
+  const prevBlossomScentraRef = useRef(false);
+  const blossomScentraSuppressRef = useRef(false);
+  const blossomScentraSuppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blossomScentraWaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blossomScentraDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const springWaveActiveRef = useRef(false);
   const springShownKeyRef = useRef<string | null>(null);
   const [showSpringHealVfx, setShowSpringHealVfx] = useState(false);
 
-  // Spring heal: show VFX like Floral using separate state, no other effect clears it
+  // Spring heal: show VFX like Blossom Scentra using separate state, no other effect clears it
   useEffect(() => {
-    const isSpring = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_') && floralFragranceHeal != null && floralFragranceHeal > 0;
+    const isSpring = typeof blossomScentraLogKey === 'string' && blossomScentraLogKey.startsWith('spring_') && blossomScentraHeal != null && blossomScentraHeal > 0;
     if (suppressSpringHealVfx || !isSpring) {
       setShowSpringHealVfx(false);
       springShownKeyRef.current = null;
       return;
     }
-    if (springShownKeyRef.current === floralLogKey) return;
-    springShownKeyRef.current = floralLogKey;
+    if (springShownKeyRef.current === blossomScentraLogKey) return;
+    springShownKeyRef.current = blossomScentraLogKey;
     setShowSpringHealVfx(true);
     const t = setTimeout(() => {
       setShowSpringHealVfx(false);
       springShownKeyRef.current = null;
     }, 3000);
     return () => clearTimeout(t);
-  }, [floralLogKey ?? '', floralFragranceHeal, suppressSpringHealVfx]);
+  }, [blossomScentraLogKey ?? '', blossomScentraHeal, suppressSpringHealVfx]);
 
   useEffect(() => {
-    if (!isFragranceWaved || (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_'))) {
-      if (suppressSpringHealVfx && typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_')) {
-        setShowFragranceWave(false);
+    if (!isBlossomScentraWaved || (suppressSpringHealVfx && typeof blossomScentraLogKey === 'string' && blossomScentraLogKey.startsWith('spring_'))) {
+      if (suppressSpringHealVfx && typeof blossomScentraLogKey === 'string' && blossomScentraLogKey.startsWith('spring_')) {
+        setShowBlossomScentraWave(false);
         springWaveActiveRef.current = false;
-        if (fragranceDelayTimerRef.current) {
-          clearTimeout(fragranceDelayTimerRef.current);
-          fragranceDelayTimerRef.current = null;
+        if (blossomScentraDelayTimerRef.current) {
+          clearTimeout(blossomScentraDelayTimerRef.current);
+          blossomScentraDelayTimerRef.current = null;
         }
-        if (fragranceWaveTimerRef.current) {
-          clearTimeout(fragranceWaveTimerRef.current);
-          fragranceWaveTimerRef.current = null;
+        if (blossomScentraWaveTimerRef.current) {
+          clearTimeout(blossomScentraWaveTimerRef.current);
+          blossomScentraWaveTimerRef.current = null;
         }
       }
-      if (!isFragranceWaved) {
-        prevFragranceRef.current = false;
+      if (!isBlossomScentraWaved) {
+        prevBlossomScentraRef.current = false;
         if (springWaveActiveRef.current) return;
-        if (fragranceDelayTimerRef.current) {
-          clearTimeout(fragranceDelayTimerRef.current);
-          fragranceDelayTimerRef.current = null;
+        if (blossomScentraDelayTimerRef.current) {
+          clearTimeout(blossomScentraDelayTimerRef.current);
+          blossomScentraDelayTimerRef.current = null;
         }
-        if (fragranceWaveTimerRef.current) {
-          clearTimeout(fragranceWaveTimerRef.current);
-          fragranceWaveTimerRef.current = null;
+        if (blossomScentraWaveTimerRef.current) {
+          clearTimeout(blossomScentraWaveTimerRef.current);
+          blossomScentraWaveTimerRef.current = null;
         }
-        setShowFragranceWave(false);
+        setShowBlossomScentraWave(false);
       }
       return;
     }
-    const isSpringKey = typeof floralLogKey === 'string' && floralLogKey.startsWith('spring_');
+    const isSpringKey = typeof blossomScentraLogKey === 'string' && blossomScentraLogKey.startsWith('spring_');
     if (isSpringKey && suppressSpringHealVfx) return;
-    if (!isSpringKey && prevFragranceRef.current) return;
+    if (!isSpringKey && prevBlossomScentraRef.current) return;
     // Only show wave when boost would show (same condition as +n HP)
-    if (!(floralFragranceHeal != null && floralFragranceHeal > 0)) return;
+    if (!(blossomScentraHeal != null && blossomScentraHeal > 0)) return;
 
-    // If this fragrance originates from a persistent log entry, check localStorage
+    // If this Blossom Scentra heal originates from a persistent log entry, check localStorage
     // so we only show it once per client (prevents showing again after reload).
     // Spring (Ephemeral Season) heal: never skip so VFX always shows.
-    if (floralLogKey && !isSpringKey) {
+    if (blossomScentraLogKey && !isSpringKey) {
       try {
-        const seen = window.localStorage.getItem(floralLogKey);
+        const seen = window.localStorage.getItem(blossomScentraLogKey);
         if (seen) {
-          prevFragranceRef.current = true;
+          prevBlossomScentraRef.current = true;
           return;
         }
       } catch (e) { }
     }
 
-    // Show the wave when isFragranceWaved is true; optionally delay to sync with result card (e.g. D4 heal crit).
+    // Show the wave when isBlossomScentraWaved is true; optionally delay to sync with result card (e.g. D4 heal crit).
     // Mark as seen in localStorage immediately (not when the 3s timer fires) so a refresh during the wave doesn't re-show it.
     const showWave = () => {
-      if (floralLogKey && !isSpringKey) {
-        try { window.localStorage.setItem(floralLogKey, '1'); } catch (e) { }
+      if (blossomScentraLogKey && !isSpringKey) {
+        try { window.localStorage.setItem(blossomScentraLogKey, '1'); } catch (e) { }
       }
       if (isSpringKey) springWaveActiveRef.current = true;
-      setShowFragranceWave(true);
-      fragranceWaveTimerRef.current = setTimeout(() => {
+      setShowBlossomScentraWave(true);
+      blossomScentraWaveTimerRef.current = setTimeout(() => {
         if (isSpringKey) springWaveActiveRef.current = false;
-        setShowFragranceWave(false);
-        fragranceWaveTimerRef.current = null;
+        setShowBlossomScentraWave(false);
+        blossomScentraWaveTimerRef.current = null;
       }, 3000);
-      prevFragranceRef.current = true;
+      prevBlossomScentraRef.current = true;
     };
-    if (typeof floralFragranceDelayMs === 'number' && floralFragranceDelayMs > 0) {
-      if (fragranceDelayTimerRef.current) clearTimeout(fragranceDelayTimerRef.current);
-      fragranceDelayTimerRef.current = setTimeout(showWave, floralFragranceDelayMs);
+    if (typeof blossomScentraDelayMs === 'number' && blossomScentraDelayMs > 0) {
+      if (blossomScentraDelayTimerRef.current) clearTimeout(blossomScentraDelayTimerRef.current);
+      blossomScentraDelayTimerRef.current = setTimeout(showWave, blossomScentraDelayMs);
       return () => {
-        if (fragranceDelayTimerRef.current) {
-          clearTimeout(fragranceDelayTimerRef.current);
-          fragranceDelayTimerRef.current = null;
+        if (blossomScentraDelayTimerRef.current) {
+          clearTimeout(blossomScentraDelayTimerRef.current);
+          blossomScentraDelayTimerRef.current = null;
         }
       };
     }
-    if (fragranceDelayTimerRef.current) {
-      clearTimeout(fragranceDelayTimerRef.current);
-      fragranceDelayTimerRef.current = null;
+    if (blossomScentraDelayTimerRef.current) {
+      clearTimeout(blossomScentraDelayTimerRef.current);
+      blossomScentraDelayTimerRef.current = null;
     }
     showWave();
     // Dependencies normalized to stable primitives to avoid array size changing between renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(isFragranceWaved), floralFragranceHeal ?? 0, floralLogKey ?? '', floralFragranceDelayMs ?? 0, suppressSpringHealVfx]);
+  }, [Boolean(isBlossomScentraWaved), blossomScentraHeal ?? 0, blossomScentraLogKey ?? '', blossomScentraDelayMs ?? 0, suppressSpringHealVfx]);
 
   // When healing hasn't started yet and result card is hidden/not shown, cancel the pending wave (e.g., user went back). Don't interrupt an already-running wave — let it complete its 3s duration.
-  const hideFragranceAfterHeal = Boolean(isFloralHealTarget && floralHealResultCardVisible !== true && !showFragranceWave);
+  const hideBlossomScentraAfterHeal = Boolean(isBlossomScentraHealTarget && blossomScentraHealResultCardVisible !== true && !showBlossomScentraWave);
   useEffect(() => {
-    if (!hideFragranceAfterHeal) return;
-    setShowFragranceWave(false);
-    // Keep prevFragranceRef true while isFragranceWaved stays true so the wave does not re-trigger
-    // (same one-shot behavior as +HP text / hymn — see TeamPanel isFragranceWaved + floralLogIsLatestEntry).
-    if (fragranceDelayTimerRef.current) {
-      clearTimeout(fragranceDelayTimerRef.current);
-      fragranceDelayTimerRef.current = null;
+    if (!hideBlossomScentraAfterHeal) return;
+    setShowBlossomScentraWave(false);
+    // Keep prevBlossomScentraRef true while isBlossomScentraWaved stays true so the wave does not re-trigger
+    // (same one-shot behavior as +HP text / hymn — see TeamPanel isBlossomScentraWaved + blossomScentraLogIsLatestEntry).
+    if (blossomScentraDelayTimerRef.current) {
+      clearTimeout(blossomScentraDelayTimerRef.current);
+      blossomScentraDelayTimerRef.current = null;
     }
-    if (fragranceWaveTimerRef.current) {
-      clearTimeout(fragranceWaveTimerRef.current);
-      fragranceWaveTimerRef.current = null;
+    if (blossomScentraWaveTimerRef.current) {
+      clearTimeout(blossomScentraWaveTimerRef.current);
+      blossomScentraWaveTimerRef.current = null;
     }
-  }, [hideFragranceAfterHeal]);
+  }, [hideBlossomScentraAfterHeal]);
 
-  // Demo mode: hide fragrance wave only when effect selection changes (_demoVfxKey), not when Replay is clicked, so Replay can re-trigger hit/shock without breaking
+  // Demo mode: hide Blossom Scentra wave wave only when effect selection changes (_demoVfxKey), not when Replay is clicked, so Replay can re-trigger hit/shock without breaking
   const lastDemoSessionKeyRef = useRef<string | null>(null);
-  if (demoFragranceSessionKey != null && demoFragranceSessionKey !== '' && showFragranceWave && isFragranceWaved && lastDemoSessionKeyRef.current === null) {
-    lastDemoSessionKeyRef.current = demoFragranceSessionKey;
+  if (demoBlossomScentraSessionKey != null && demoBlossomScentraSessionKey !== '' && showBlossomScentraWave && isBlossomScentraWaved && lastDemoSessionKeyRef.current === null) {
+    lastDemoSessionKeyRef.current = demoBlossomScentraSessionKey;
   }
-  if (demoFragranceSessionKey == null || demoFragranceSessionKey === '' || !showFragranceWave) lastDemoSessionKeyRef.current = null;
-  const demoSessionMismatch = demoFragranceSessionKey != null && lastDemoSessionKeyRef.current != null && lastDemoSessionKeyRef.current !== demoFragranceSessionKey;
+  if (demoBlossomScentraSessionKey == null || demoBlossomScentraSessionKey === '' || !showBlossomScentraWave) lastDemoSessionKeyRef.current = null;
+  const demoSessionMismatch = demoBlossomScentraSessionKey != null && lastDemoSessionKeyRef.current != null && lastDemoSessionKeyRef.current !== demoBlossomScentraSessionKey;
 
   useEffect(() => {
     if (!demoSessionMismatch) return;
-    setShowFragranceWave(false);
+    setShowBlossomScentraWave(false);
     lastDemoSessionKeyRef.current = null;
-    if (fragranceDelayTimerRef.current) {
-      clearTimeout(fragranceDelayTimerRef.current);
-      fragranceDelayTimerRef.current = null;
+    if (blossomScentraDelayTimerRef.current) {
+      clearTimeout(blossomScentraDelayTimerRef.current);
+      blossomScentraDelayTimerRef.current = null;
     }
-    if (fragranceWaveTimerRef.current) {
-      clearTimeout(fragranceWaveTimerRef.current);
-      fragranceWaveTimerRef.current = null;
+    if (blossomScentraWaveTimerRef.current) {
+      clearTimeout(blossomScentraWaveTimerRef.current);
+      blossomScentraWaveTimerRef.current = null;
     }
   }, [demoSessionMismatch]);
 
   // Derive visible state: hide when healing ended or (in demo) effect selection changed; Replay click does not hide. Spring heal uses separate state showSpringHealVfx
-  const showFragranceVisual = (showFragranceWave && (isFragranceWaved || springWaveActiveRef.current) && !hideFragranceAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
+  const showBlossomScentraVisual = (showBlossomScentraWave && (isBlossomScentraWaved || springWaveActiveRef.current) && !hideBlossomScentraAfterHeal && !demoSessionMismatch) || showSpringHealVfx;
 
   /* ── Apollo's Hymn wave: sun/corona VFX for ~3s when hymn heal applied ── */
   const [showHymnWave, setShowHymnWave] = useState(false);
@@ -692,30 +692,30 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
   // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
   const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
 
-  // If the fighter's HP increases (heal applied), clear the fragrance wave visual
+  // If the fighter's HP increases (heal applied), clear the Blossom Scentra wave wave visual
   // immediately to avoid leaving the +HP text stuck — unless the increase is the
-  // heal we are showing (Floral Fragrance or Ephemeral Season: Spring; same VFX, same prop).
+  // heal we are showing (Blossom Scentra or Ephemeral Season: Spring; same VFX, same prop).
   const prevHpRef = useRef<number>(fighter.currentHp);
   const [displayHp, setDisplayHp] = useState(fighter.currentHp);
   useEffect(() => {
     const prev = prevHpRef.current;
     if (fighter.currentHp > prev) {
       const increase = fighter.currentHp - prev;
-      const isFloralFragranceHeal = floralFragranceHeal != null && increase === floralFragranceHeal;
-      if (!isFloralFragranceHeal) {
-        setShowFragranceWave(false);
-        prevFragranceRef.current = false;
-        fragranceSuppressRef.current = true;
-        if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
-        fragranceSuppressTimer.current = setTimeout(() => {
-          fragranceSuppressRef.current = false;
-          fragranceSuppressTimer.current = null;
+      const isBlossomScentraHeal = blossomScentraHeal != null && increase === blossomScentraHeal;
+      if (!isBlossomScentraHeal) {
+        setShowBlossomScentraWave(false);
+        prevBlossomScentraRef.current = false;
+        blossomScentraSuppressRef.current = true;
+        if (blossomScentraSuppressTimer.current) clearTimeout(blossomScentraSuppressTimer.current);
+        blossomScentraSuppressTimer.current = setTimeout(() => {
+          blossomScentraSuppressRef.current = false;
+          blossomScentraSuppressTimer.current = null;
         }, 800);
       }
     }
     prevHpRef.current = fighter.currentHp;
     return undefined;
-  }, [fighter.currentHp, floralFragranceHeal]);
+  }, [fighter.currentHp, blossomScentraHeal]);
 
   useEffect(() => {
     if (fighter.currentHp >= displayHp) {
@@ -734,13 +734,13 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
 
   useEffect(() => {
     return () => {
-      if (fragranceSuppressTimer.current) clearTimeout(fragranceSuppressTimer.current);
-      if (fragranceWaveTimerRef.current) clearTimeout(fragranceWaveTimerRef.current);
-      if (fragranceDelayTimerRef.current) clearTimeout(fragranceDelayTimerRef.current);
+      if (blossomScentraSuppressTimer.current) clearTimeout(blossomScentraSuppressTimer.current);
+      if (blossomScentraWaveTimerRef.current) clearTimeout(blossomScentraWaveTimerRef.current);
+      if (blossomScentraDelayTimerRef.current) clearTimeout(blossomScentraDelayTimerRef.current);
     };
   }, []);
 
-  /* ── Soul Devourer lifesteal: same style as Floral Fragrance (wave + border + accents + heal text), black/purple; show 3s when key+amount appear ── */
+  /* ── Soul Devourer lifesteal: same style as Blossom Scentra (wave + border + accents + heal text), black/purple; show 3s when key+amount appear ── */
   const [showSoulDevourerHeal, setShowSoulDevourerHeal] = useState(false);
   const [soulDevourerHealDisplayAmount, setSoulDevourerHealDisplayAmount] = useState(0);
   const prevSoulDevourerHealKeyRef = useRef<string | null>(null);
@@ -907,7 +907,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
     battleLive && showResFlash && 'mchip--res-flash',
     battleLive && showResGlow && 'mchip--res-glow',
     battleLive && isResurrected && 'mchip--resurrected',
-    battleLive && showFragranceVisual && 'mchip--fragrance-waved',
+    battleLive && showBlossomScentraVisual && 'mchip--blossom-scentra-waved',
     battleLive && showHymnWave && isHymnWaved && 'mchip--hymn-waved',
     battleLive && isImprecatedPoemHealingNullified && 'mchip--imprecated-poem-healing-nullified',
     battleLive && isImprecatedPoemCursed && 'mchip--imprecated-poem-cursed',
@@ -1232,16 +1232,16 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
         </div>
       )}
 
-      {/* Fragrance Wave — falling flower/leaf particles (Floral Fragrance or Ephemeral Season: Spring heal, same VFX) */}
-      {showFragranceVisual && battleLive && <div className="mchip__fragrance-wave" aria-hidden="true" />}
+      {/* Blossom Scentra Wave — falling flower/leaf particles (Blossom Scentra or Ephemeral Season: Spring heal, same VFX) */}
+      {showBlossomScentraVisual && battleLive && <div className="mchip__scentra-wave" aria-hidden="true" />}
 
       {/* Apollo's Hymn — sun / corona wave (border + accents + heal text are around/inside frame, see frame-wrap below) */}
       {showHymnWave && isHymnWaved && battleLive && (
         <div className="mchip__hymn-wave" aria-hidden="true" />
       )}
 
-      {/* Fragrance petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
-      {showFragranceVisual && battleLive && !hasEfflorescenceMuseInPips && (() => {
+      {/* Blossom Scentra petal emission — splash out (same VFX as Efflorescence Muse) only when target has no Efflorescence Muse in effect pips at heal time */}
+      {showBlossomScentraVisual && battleLive && !hasEfflorescenceMuseInPips && (() => {
         const flowerParticles = Array.from({ length: 12 }, (_, i) => ({
           angle: (i / 12) * 360 + 8,
           delay: i * 0.18,
@@ -1265,11 +1265,11 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
           color: ['#f8bbd0', '#c8e6c9', '#fff9c4', '#e1bee7'][i % 4],
         }));
         return (
-          <div className="mchip__fragrance-petal-emission" aria-hidden="true">
+          <div className="mchip__scentra-petal-emission" aria-hidden="true">
             {flowerParticles.map((p, i) => (
               <div
                 key={`f-${i}`}
-                className="mchip__fragrance-petal-emission-flower"
+                className="mchip__scentra-petal-emission-flower"
                 style={
                   {
                     '--angle': `${p.angle}deg`,
@@ -1279,7 +1279,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
                   } as React.CSSProperties
                 }
               >
-                {floralFragranceCasterIsRosabella ? (
+                {blossomScentraCasterIsRosabella ? (
                   <Rose width={14} height={14} color="#f48fb1" centerColor="#e91e63" />
                 ) : (
                   <Flower width={14} height={14} />
@@ -1289,7 +1289,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
             {leafParticles.map((p, i) => (
               <span
                 key={`l-${i}`}
-                className="mchip__fragrance-petal-emission-leaf"
+                className="mchip__scentra-petal-emission-leaf"
                 style={
                   {
                     '--angle': `${p.angle}deg`,
@@ -1304,7 +1304,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
             {dustParticles.map((p, i) => (
               <span
                 key={`d-${i}`}
-                className="mchip__fragrance-petal-emission-dust"
+                className="mchip__scentra-petal-emission-dust"
                 style={
                   {
                     '--angle': `${p.angle}deg`,
@@ -1377,7 +1377,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
         </div>
       )}
 
-      {/* Soul Devourer lifesteal — same layout as Floral: wave (particles) only here; border + accents + text inside frame below */}
+      {/* Soul Devourer lifesteal — same layout as Blossom Scentra: wave (particles) only here; border + accents + text inside frame below */}
       {battleLive && showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
         <div className="mchip__soul-devourer-wave" aria-hidden="true" />
       )}
@@ -1709,22 +1709,22 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
 
               {/* Petal leaf accents — green spots around frame edge */}
               {isEfflorescenceMuse && <div className="mchip__petal-accents" aria-hidden="true" />}
-              {/* Fragrance Wave border + accents (separate divs) + heal boost floating text */}
-              {showFragranceVisual && (
+              {/* Blossom Scentra Wave border + accents (separate divs) + heal boost floating text */}
+              {showBlossomScentraVisual && (
                 <>
-                  <div className="mchip__fragrance-border" aria-hidden="true" />
-                  <div className="mchip__fragrance-accents" aria-hidden="true" />
-                  {floralFragranceHeal != null && floralFragranceHeal > 0 && (
-                    <div className="mchip__heal-boost" aria-hidden="true">+{floralFragranceHeal} HP</div>
+                  <div className="mchip__scentra-border" aria-hidden="true" />
+                  <div className="mchip__scentra-accents" aria-hidden="true" />
+                  {blossomScentraHeal != null && blossomScentraHeal > 0 && (
+                    <div className="mchip__heal-boost" aria-hidden="true">+{blossomScentraHeal} HP</div>
                   )}
                 </>
               )}
-              {/* Apollo's Hymn — floating heal text (same position as Floral: centered on frame) */}
+              {/* Apollo's Hymn — floating heal text (same position as Blossom Scentra: centered on frame) */}
               {showHymnWave && isHymnWaved && battleLive && hymnHeal != null && hymnHeal > 0 && (
                 <div className="mchip__hymn-heal-boost" aria-hidden="true">+{hymnHeal} HP</div>
               )}
 
-              {/* Soul Devourer lifesteal — same structure as Floral: border + accents + floating heal text (black/purple) */}
+              {/* Soul Devourer lifesteal — same structure as Blossom Scentra: border + accents + floating heal text (black/purple) */}
               {showSoulDevourerHeal && soulDevourerHealDisplayAmount > 0 && (
                 <>
                   <div className="mchip__soul-devourer-border" aria-hidden="true" />

@@ -1,9 +1,9 @@
 @use '../vars' as v;
 
-/* ── Floral Fragrance — power VFX (fragrance border, accents, wave) ───────────── */
+/* ── Blossom Scentra — power VFX (fragrance border, accents, wave) ───────────── */
 
-/* Fragrance border ring — green↔pink gradient (Floral Fragrance) */
-.mchip__fragrance-border {
+/* Fragrance border ring — green↔pink gradient (Blossom Scentra) */
+.mchip__blossom-scentra-border {
   position: absolute;
   inset: -2.5px;
   border-radius: inherit;
@@ -17,7 +17,7 @@
       rgba(#f8bbd0, 0.7) 75%,
       rgba(#81c784, 0.8) 100%);
   background-size: 200% 100%;
-  animation: fragrance-border-flow 3s ease-in-out infinite;
+  animation: blossom-scentra-border-flow 3s ease-in-out infinite;
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -29,7 +29,7 @@
 }
 
 /* Fragrance accents — flower/leaf spots around frame */
-.mchip__fragrance-accents {
+.mchip__blossom-scentra-accents {
   position: absolute;
   inset: -6px;
   border-radius: inherit;
@@ -42,11 +42,11 @@
     radial-gradient(ellipse 6px 9px at 15% 75%, rgba(#81c784, 0.7) 0%, transparent 100%),
     radial-gradient(ellipse 8px 5px at 50% 6%, rgba(#f48fb1, 0.6) 0%, transparent 100%),
     radial-gradient(ellipse 7px 6px at 48% 94%, rgba(#a5d6a7, 0.65) 0%, transparent 100%);
-  animation: fragrance-accents-drift 4s ease-in-out infinite alternate;
+  animation: blossom-scentra-accents-drift 4s ease-in-out infinite alternate;
 }
 
-/* Fragrance Wave particles (Floral Fragrance buff) */
-.mchip__fragrance-wave {
+/* Fragrance Wave particles (Blossom Scentra buff) */
+.mchip__blossom-scentra-wave {
   position: absolute;
   inset: 0;
   z-index: 3;
@@ -116,7 +116,7 @@
       radial-gradient(ellipse 6px 8px at 8% 82%, rgba(#a5d6a7, 0.6) 0%, transparent 100%),
       radial-gradient(ellipse 7px 6px at 92% 100%, rgba(#81c784, 0.65) 0%, transparent 100%),
       radial-gradient(ellipse 5px 7px at 42% 75%, rgba(#a5d6a7, 0.55) 0%, transparent 100%);
-    animation: fragrance-splash-up 6s ease-out infinite;
+    animation: blossom-scentra-splash-up 6s ease-out infinite;
   }
 
   // Layer 2: offset pattern with more density (+50%) — splash upward with delay
@@ -145,11 +145,11 @@
       radial-gradient(ellipse 6px 7px at 72% 86%, rgba(#f8bbd0, 0.6) 0%, transparent 100%),
       radial-gradient(ellipse 8px 4px at 58% 98%, rgba(#a5d6a7, 0.65) 0%, transparent 100%),
       radial-gradient(ellipse 5px 6px at 28% 102%, rgba(#f48fb1, 0.6) 0%, transparent 100%);
-    animation: fragrance-splash-up 7s ease-out infinite 0.3s;
+    animation: blossom-scentra-splash-up 7s ease-out infinite 0.3s;
   }
 }
 
-@keyframes fragrance-border-flow {
+@keyframes blossom-scentra-border-flow {
   0% {
     background-position: 0% 50%;
   }
@@ -163,7 +163,7 @@
   }
 }
 
-@keyframes fragrance-accents-drift {
+@keyframes blossom-scentra-accents-drift {
   0% {
     transform: translateY(0) rotate(0deg);
     opacity: 0.85;
@@ -175,7 +175,7 @@
   }
 }
 
-@keyframes fragrance-splash-up {
+@keyframes blossom-scentra-splash-up {
   0% {
     transform: translateY(0) scaleY(1);
     opacity: 1;
@@ -192,10 +192,10 @@
   }
 }
 
-/* Floral Fragrance — splash-out petal emission (same VFX as Efflorescence Muse); only when target has no Efflorescence Muse in effect pips at heal time */
-$fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
+/* Blossom Scentra — splash-out petal emission (same VFX as Efflorescence Muse); only when target has no Efflorescence Muse in effect pips at heal time */
+$scentra-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 100%);
 
-.mchip__fragrance-petal-emission {
+.mchip__blossom-scentra-petal-emission {
   position: absolute;
   width: 200%;
   height: 175%;
@@ -208,10 +208,10 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
   opacity: 0.6;
   z-index: 1;
   mask-image:
-    $fragrance-petal-clip,
+    $scentra-petal-clip,
     linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
   -webkit-mask-image:
-    $fragrance-petal-clip,
+    $scentra-petal-clip,
     linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
   mask-size: 100% 100%;
   mask-repeat: no-repeat;
@@ -221,7 +221,7 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
   -webkit-mask-composite: source-in;
 }
 
-.mchip__fragrance-petal-emission-flower {
+.mchip__blossom-scentra-petal-emission-flower {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -234,16 +234,16 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
   justify-content: center;
   transform-origin: center center;
   filter: drop-shadow(0 0 5px rgba(#f48fb1, 0.5));
-  animation: fragrance-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation: blossom-scentra-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
   animation-delay: var(--delay, 0s);
 }
 
-.mchip__fragrance-petal-emission-flower svg {
+.mchip__blossom-scentra-petal-emission-flower svg {
   width: 14px;
   height: 14px;
 }
 
-.mchip__fragrance-petal-emission-leaf {
+.mchip__blossom-scentra-petal-emission-leaf {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -257,11 +257,11 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
     0 0 6px rgba(#a5d6a7, 0.6),
     0 0 12px rgba(#66bb6a, 0.25);
   transform-origin: center center;
-  animation: fragrance-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
+  animation: blossom-scentra-petal-emission-burst-drift var(--duration, 5s) ease-out infinite;
   animation-delay: var(--delay, 0s);
 }
 
-.mchip__fragrance-petal-emission-dust {
+.mchip__blossom-scentra-petal-emission-dust {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -275,11 +275,11 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
     0 0 6px var(--dust-color),
     0 0 12px rgba(255, 255, 255, 0.4);
   transform-origin: center center;
-  animation: fragrance-petal-emission-burst-drift var(--duration, 4.5s) ease-out infinite;
+  animation: blossom-scentra-petal-emission-burst-drift var(--duration, 4.5s) ease-out infinite;
   animation-delay: var(--delay, 0s);
 }
 
-@keyframes fragrance-petal-emission-burst-drift {
+@keyframes blossom-scentra-petal-emission-burst-drift {
   0% {
     transform: rotate(var(--angle, 0deg)) translateY(0) rotate(0deg) scale(0);
     opacity: 0;
@@ -308,7 +308,7 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
 
 /* Compact: fragrance border, accents, wave, petal emission */
 @media (max-width: v.$bp-compact) {
-  .mchip__fragrance-petal-emission {
+  .mchip__blossom-scentra-petal-emission {
     width: 100%;
     mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
     -webkit-mask-image: linear-gradient(90deg, black 0%, black 55%, transparent 100%);
@@ -318,16 +318,16 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
     -webkit-mask-repeat: no-repeat;
   }
 
-  .mchip__fragrance-border {
+  .mchip__blossom-scentra-border {
     inset: -2px;
     padding: 1.5px;
   }
 
-  .mchip__fragrance-accents {
+  .mchip__blossom-scentra-accents {
     inset: -4px;
   }
 
-  .mchip__fragrance-wave {
+  .mchip__blossom-scentra-wave {
     &::before {
       background:
         radial-gradient(ellipse 6px 4px at 20% 5%, rgba(#f48fb1, 0.75) 0%, transparent 100%),
@@ -394,7 +394,7 @@ $fragrance-petal-clip: linear-gradient(180deg, black 0%, black 50%, transparent 
   }
 }
 
-/* ── Floating text (Floral Fragrance: damage -n HP) ───────────────────────── */
+/* ── Floating text (Blossom Scentra: damage -n HP) ───────────────────────── */
 
 .mchip__heal-boost {
   position: absolute;

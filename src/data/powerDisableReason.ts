@@ -40,7 +40,7 @@ export const POWER_DISABLE_REASONS: Record<string, Record<string, string>> = {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
   },
   // Persephone
-  [POWER_NAMES.FLORAL_FRAGRANCE]: {
+  [POWER_NAMES.BLOSSOM_SCENTRA]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
     ALL_HEALING_NULLIFIED_INFO: 'ขณะนี้ทุกคนในทีมถูกคำสาป "สูญสิ้นเยียวยา" ทำให้การฟื้นฟู HP จะไม่มีผล',
   },
@@ -62,7 +62,7 @@ export interface GetDisabledPowersParams {
   teamMinionsB: Array<{ masterId?: string }> | undefined;
   attackerSkeletonCount?: number;
   deadTeammateCount?: number;
-  /** Self + alive teammates (for Floral Fragrance, check if everyone is affected by Healing Nullified) */
+  /** Self + alive teammates (for Blossom Scentra, check if everyone is affected by Healing Nullified) */
   attackerAllyIds?: string[];
 }
 
@@ -153,8 +153,8 @@ export function getDisabledPowersAndReasons(params: GetDisabledPowersParams): Di
       ae.some((e) => e.targetId === id && e.tag === EFFECT_TAGS.HEALING_NULLIFIED),
     );
     if (allHealingNullified) {
-      infoReasons[POWER_NAMES.FLORAL_FRAGRANCE] =
-        POWER_DISABLE_REASONS[POWER_NAMES.FLORAL_FRAGRANCE]?.ALL_HEALING_NULLIFIED_INFO ?? 'ขณะนี้ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จะไม่มีผล';
+      infoReasons[POWER_NAMES.BLOSSOM_SCENTRA] =
+        POWER_DISABLE_REASONS[POWER_NAMES.BLOSSOM_SCENTRA]?.ALL_HEALING_NULLIFIED_INFO ?? 'ขณะนี้ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จะไม่มีผล';
       infoReasons[POWER_NAMES.EPHEMERAL_SEASON] =
         POWER_DISABLE_REASONS[POWER_NAMES.EPHEMERAL_SEASON]?.ALL_HEALING_NULLIFIED_SPRING_INFO ?? 'หากเลือก "สารทฤดู" แต่ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จากสารทฤดูจะไม่มีผล';
     }

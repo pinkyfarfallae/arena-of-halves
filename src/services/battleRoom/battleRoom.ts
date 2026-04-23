@@ -14,14 +14,14 @@ import {
   isStunned, applyPowerEffect, tickEffects, buildPassiveEffects,
   makeEffectId,
   applyLightningSparkPassive, applyJoltArc, applyKeraunosVoltageShockSingleTarget,
-  applySecretOfDryadPassive, onEfflorescenceMuseTurnStart, applyFloralFragranced, applyApolloHymn, applySeasonEffects, applyImprecatedPoem,
+  applySecretOfDryadPassive, onEfflorescenceMuseTurnStart, applyBlossomScentra, applyApolloHymn, applySeasonEffects, applyImprecatedPoem,
   applyPomegranateOath, applyBeyondTheNimbusTeamShock,
   addSunbornSovereignRecoveryStack,
   getEffectiveHealForReceiver,
   isHealingNullified,
 } from '../powerEngine/powerEngine';
 import { getPowers } from '../../data/powers';
-import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../constants/effectTags';
+import { EFFECT_TAGS } from '../../constants/effectTags';
 import { POWER_NAMES, POWERS_DEFENDER_CANNOT_DEFEND } from '../../constants/powers';
 import {
   ARENA_PATH,
@@ -118,8 +118,8 @@ export function sanitizeBattleLog(log: unknown[]): unknown[] {
  * RTDB update() merges keys — stale battle/turn fields (e.g. usedPowerName from the previous fighter)
  * persist unless explicitly removed. Use null so the next fighter's SELECT_ACTION is clean (ActionSelectModal needs !confirmedPowerName).
  */
-/** Clear turn keys that must not leak into ROLLING_FLORAL_HEAL (RTDB merge). */
-function nullStaleFieldsForFloralHealTurn(): Record<string, unknown> {
+/** Clear turn keys that must not leak into ROLLING_BLOSSOM_SCENTRA_HEAL (RTDB merge). */
+function nullStaleFieldsForBlossomScentraHealTurn(): Record<string, unknown> {
   return {
     defenderId: null,
     visualDefenderId: null,
@@ -173,9 +173,9 @@ function clearStaleTurnFieldsForNewSelectAction(): Record<string, unknown> {
     nemesisReattackTargetId: null,
     nemesisReattackDamage: null,
     nemesisReattackFromCoAttack: null,
-    floralHealWinFaces: null,
-    floralHealRoll: null,
-    floralHealSkipped: null,
+    blossomHealWinFaces: null,
+    blossomHealRoll: null,
+    blossomHealSkipped: null,
     healSkipReason: null,
     selectedSeason: null,
     selectedPoem: null,
@@ -2478,50 +2478,50 @@ export async function selectAction(
       return;
     }
 
-    // ── Floral Fragrance: always roll D4 for heal crit (player & NPC), unless Healing Nullified ──
+    // ── Blossom Scentra: always roll D4 for heal crit (player & NPC), unless Healing Nullified ──
     const ally = findFighter(room, allyTargetId);
     const attacker = findFighter(room, attackerId);
     const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
 
     // Heal skipped (e.g. Healing Nullified): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
-    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && allyHasHealingNullified && ally && attacker) {
-      const turnFloralSkip: Record<string, unknown> = {
+    if (power.name === POWER_NAMES.BLOSSOM_SCENTRA && allyHasHealingNullified && ally && attacker) {
+      const turnBlossomScentraSkip: Record<string, unknown> = {
         attackerId,
         attackerTeam: battle.turn.attackerTeam,
-        phase: PHASE.ROLLING_FLORAL_HEAL,
+        phase: PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL,
         action: TURN_ACTION.POWER,
         usedPowerIndex: effectivePowerIndex,
         usedPowerName: power.name,
         allyTargetId,
-        floralHealSkipped: true,
+        blossomHealSkipped: true,
         healSkipReason: EFFECT_TAGS.HEALING_NULLIFIED,
       };
-      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralSkip);
-      updates[ARENA_PATH.BATTLE_TURN] = turnFloralSkip;
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnBlossomScentraSkip);
+      updates[ARENA_PATH.BATTLE_TURN] = turnBlossomScentraSkip;
       await update(roomRef(arenaId), updates);
       return;
     }
 
-    // Floral Fragrance: always show D4 roll for heal crit (use target's crit rate)
-    if (power.name === POWER_NAMES.FLORAL_FRAGRANCE && ally && attacker) {
+    // Blossom Scentra: always show D4 roll for heal crit (use target's crit rate)
+    if (power.name === POWER_NAMES.BLOSSOM_SCENTRA && ally && attacker) {
       // Heal crit rate = caster's current critical rate (base + buffs/debuffs)
       const baseCritRate = typeof attacker.criticalRate === 'number' ? attacker.criticalRate : 25;
       const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);
       const healCritRate = Math.min(100, Math.max(0, baseCritRate + critMod));
       const winFaces = getWinningFaces(healCritRate);
-      const turnFloralD4: Record<string, unknown> = {
-        ...nullStaleFieldsForFloralHealTurn(),
+      const turnBlossomScentraD4: Record<string, unknown> = {
+        ...nullStaleFieldsForBlossomScentraHealTurn(),
         attackerId,
         attackerTeam: battle.turn.attackerTeam,
-        phase: PHASE.ROLLING_FLORAL_HEAL,
+        phase: PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL,
         action: TURN_ACTION.POWER,
         usedPowerIndex: effectivePowerIndex,
         usedPowerName: power.name,
         allyTargetId,
-        floralHealWinFaces: winFaces,
+        blossomHealWinFaces: winFaces,
       };
-      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnFloralD4);
-      updates[ARENA_PATH.BATTLE_TURN] = turnFloralD4;
+      deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, turnBlossomScentraD4);
+      updates[ARENA_PATH.BATTLE_TURN] = turnBlossomScentraD4;
       await update(roomRef(arenaId), updates);
       return;
     }
@@ -3230,11 +3230,11 @@ export async function advanceAfterShadowCamouflageD4(arenaId: string): Promise<v
 }
 
 /**
- * Advance after caster acknowledges "heal skipped" (e.g. Floral Fragrance on target with Healing Nullified).
+ * Advance after caster acknowledges "heal skipped" (e.g. Blossom Scentra on target with Healing Nullified).
  * Writes log entry with heal: 0, healSkipReason, then advances to SELECT_TARGET.
  */
-export async function advanceAfterFloralHealSkippedAck(arenaId: string): Promise<void> {
-  return PersephoneService.advanceAfterFloralHealSkippedAck(arenaId, {
+export async function advanceAfterBlossomScentraHealSkippedAck(arenaId: string): Promise<void> {
+  return PersephoneService.advanceAfterBlossomScentraHealSkippedAck(arenaId, {
     roomRef,
     findFighter,
     sanitizeBattleLog,
@@ -3649,10 +3649,10 @@ export async function advanceAfterResurrection(arenaId: string): Promise<void> {
   });
 }
 
-/* ── advance after Floral Fragrance D4 heal-crit roll (Efflorescence Muse) ─── */
+/* ── advance after Blossom Scentra D4 heal-crit roll (Efflorescence Muse) ─── */
 
-export async function advanceAfterFloralHealD4(arenaId: string): Promise<void> {
-  return PersephoneService.advanceAfterFloralHealD4(arenaId, {
+export async function advanceAfterBlossomScentraHealD4(arenaId: string): Promise<void> {
+  return PersephoneService.advanceAfterBlossomScentraHealD4(arenaId, {
     roomRef,
     findFighter,
     findFighterPath,

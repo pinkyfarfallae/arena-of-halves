@@ -1,10 +1,10 @@
 /**
- * Persephone battleRoom functions: Seasons, Floral Fragrance, Pomegranate's Oath.
+ * Persephone battleRoom functions: Seasons, Blossom Scentra, Pomegranate's Oath.
  */
 
 export { selectSeason, cancelSeasonSelection, confirmSeason } from './seasons';
 
-export { advanceAfterFloralHealSkippedAck, advanceAfterFloralHealD4 } from './floral-fragrance';
+export { advanceAfterBlossomScentraHealSkippedAck, advanceAfterBlossomScentraHealD4 } from './blossom-scentra';
 
 export {
   appendPomegranateCoAttackLog,

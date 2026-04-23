@@ -36,7 +36,7 @@ export { } from './hades/hades';
 export {
   applySecretOfDryadPassive,
   onEfflorescenceMuseTurnStart,
-  applyFloralFragranced,
+  applyBlossomScentra,
   applySeasonEffects,
   applyPomegranateOath,
 } from './persephone/persephone';

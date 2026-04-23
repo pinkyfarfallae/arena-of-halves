@@ -6,8 +6,8 @@
 // Secret of Dryad (Passive) - Efflorescence Muse
 export * from './secret-of-dryad';
 
-// Floral Fragrance (1st Skill)
-export * from './floral-fragrance';
+// Blossom Scentra (1st Skill)
+export * from './blossom-scentra';
 
 // Ephemeral Season (2nd Skill)
 export * from './ephemeral-season';

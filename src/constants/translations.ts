@@ -82,8 +82,8 @@ export const BLESSING_NAMES = {
     en: 'Efflorescence Muse',
     th: 'เกราะพฤกษชาติแห่งนางบุปผา',
   },
-  [EFFECT_TAGS.FLORAL_FRAGRANCE]: {
-    en: 'Floral Fragrance',
+  [EFFECT_TAGS.BLOSSOM_SCENTRA]: {
+    en: 'Blossom Scentra',
     th: 'สุคนธ์บุษบาแห่งการเยียวยา',
   },
   [EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT]: {

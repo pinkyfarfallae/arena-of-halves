@@ -44,8 +44,8 @@ interface Props {
   clientVisualPowerName?: string | null;
   /** True briefly when user clicks Back from target modal — prevents opposite mchip__frame shake */
   suppressHitAfterBack?: boolean;
-  /** True when Floral Heal D4 result card is visible (so healing VFX shows in sync with "Normal Heal" / "Heal x2") */
-  floralHealResultCardVisible?: boolean;
+  /** True when Blossom Scentra Heal D4 result card is visible (so healing VFX shows in sync with "Normal Heal" / "Heal x2") */
+  blossomScentraHealResultCardVisible?: boolean;
   /** True while Volley Arrow hit VFX (arrow + impact) is active. */
   volleyArrowHitActive?: boolean;
   /** CharacterId of the Volley Arrow hit defender (target). When set, TeamPanel passes isVolleyArrowHitDefender to the matching chip. */
@@ -75,7 +75,7 @@ function buildPanelBg(members: FighterState[]): React.CSSProperties | undefined 
   };
 }
 
-export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, floralHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive, nemesisReattackActive }: Props) {
+export default function TeamPanel({ isPracticeRoom, members, allMembers, side, battle, myId, teamMinions, resolveShown, transientEffectsActive, soulDevourerHealReady, casterFrameRef, defenderFrameRef, minionPulseMap, currentSkeletonHitTargetId, currentSkeletonPulseKey, onSelectTarget, clientVisualDefenderId, clientVisualPowerName, suppressHitAfterBack, blossomScentraHealResultCardVisible, volleyArrowHitActive, volleyArrowHitDefenderId, volleyArrowHitAttackerId, pomegranateCoResolveActive, nemesisReattackActive }: Props) {
   const turn = battle?.turn;
   const activeEffects = useMemo(() => battle?.activeEffects || [], [battle?.activeEffects]);
   const suppressPracticeVfx = !!isPracticeRoom;
@@ -423,15 +423,15 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           ) || !!tagBasedProps.isResurrecting
         );
 
-        // Floral Fragrance: brief trigger when just applied (real battle + demo)
+        // Blossom Scentra: brief trigger when just applied (real battle + demo)
         // Trigger from: (1) turn state when this member is the ally target, or (2) recent log entry.
         const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-24) : [];
-        const floralSearchLog = rawRecent;
-        const floralLogIndex = (() => {
-          const powerName = (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
+        const blossomScentraSearchLog = rawRecent;
+        const blossomScentraLogIndex = (() => {
+          const powerName = (POWER_NAMES.BLOSSOM_SCENTRA as string).trim();
           const charId = String(m.characterId);
-          for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx];
+          for (let idx = blossomScentraSearchLog.length - 1; idx >= 0; idx--) {
+            const le = blossomScentraSearchLog[idx];
             const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
             if (pu !== powerName) continue;
             if (String(le.defenderId) !== charId) continue;
@@ -439,15 +439,15 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           }
           return -1;
         })();
-        const floralHealFromLog = floralLogIndex >= 0 ? (floralSearchLog[floralLogIndex] as { heal?: number })?.heal ?? 0 : 0;
-        /** Floral Fragrance: show VFX if entry is within the last 5 log entries to handle NPC auto-select + other logs */
-        const floralIsRecentEntry = floralLogIndex >= 0 && floralLogIndex >= floralSearchLog.length - 5;
+        const blossomScentraHealFromLog = blossomScentraLogIndex >= 0 ? (blossomScentraSearchLog[blossomScentraLogIndex] as { heal?: number })?.heal ?? 0 : 0;
+        /** Blossom Scentra: show VFX if entry is within the last 5 log entries to handle NPC auto-select + other logs */
+        const blossomScentraIsRecentEntry = blossomScentraLogIndex >= 0 && blossomScentraLogIndex >= blossomScentraSearchLog.length - 5;
 
-        // Ephemeral Season Spring: heal — same VFX as Floral Fragrance. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
+        // Ephemeral Season Spring: heal — same VFX as Blossom Scentra. Trigger from (1) log entry or (2) turn phase (caster in ROLLING_SPRING_HEAL just got heal1).
         const springLogIndex = (() => {
           const charId = String(m.characterId);
-          for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx] as { defenderId?: string; springHeal?: number; heal?: number; powerUsed?: string };
+          for (let idx = blossomScentraSearchLog.length - 1; idx >= 0; idx--) {
+            const le = blossomScentraSearchLog[idx] as { defenderId?: string; springHeal?: number; heal?: number; powerUsed?: string };
             if (String(le.defenderId) !== charId) continue;
             const isSpringEntry = le.springHeal != null || (typeof le.powerUsed === 'string' && le.powerUsed.includes('Spring') && (le.heal != null || le.springHeal != null));
             if (!isSpringEntry && le.springHeal == null && (le.heal == null || !String(le.powerUsed || '').includes('Spring'))) continue;
@@ -455,7 +455,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           }
           return -1;
         })();
-        const springHealFromLog = springLogIndex >= 0 ? (floralSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (floralSearchLog[springLogIndex] as { heal?: number })?.heal ?? 0 : 0;
+        const springHealFromLog = springLogIndex >= 0 ? (blossomScentraSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (blossomScentraSearchLog[springLogIndex] as { heal?: number })?.heal ?? 0 : 0;
         const logHasSpring = springLogIndex >= 0 && springHealFromLog > 0;
         const battleSpringHeal1 = battle != null ? (battle as { springHeal1?: number }).springHeal1 : undefined;
         const isSpringCasterInPhase = turn?.phase === PHASE.ROLLING_SPRING_HEAL && String(turn.attackerId) === String(m.characterId);
@@ -471,17 +471,17 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
         const isSpringHealSkipModalCaster = turn?.phase === PHASE.ROLLING_SPRING_HEAL && springHealSkipAwaitsAck && String(m.characterId) === String(springCasterId);
         const springFromPhase = isSpringCasterInPhase && battleSpringHeal1 != null && springRound !== 2 && !springHealSkipAwaitsAck;
         // Spring: show only when heal is the latest entry in log or in D4 phase — don't show again when starting next turn (last turn before Spring expires)
-        const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === floralSearchLog.length - 1;
-        const useSpringForThisMember = !suppressPracticeVfx && logHasSpring && (springFromPhase || springHealIsLatestEntry) && (floralLogIndex < 0 || springLogIndex > floralLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
-        // Floral Fragrance: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
-        const useFloralForThisMember = !suppressPracticeVfx && floralIsRecentEntry && floralHealFromLog > 0 && (springLogIndex < 0 || floralLogIndex > springLogIndex);
+        const springHealIsLatestEntry = springLogIndex >= 0 && springLogIndex === blossomScentraSearchLog.length - 1;
+        const useSpringForThisMember = !suppressPracticeVfx && logHasSpring && (springFromPhase || springHealIsLatestEntry) && (blossomScentraLogIndex < 0 || springLogIndex > blossomScentraLogIndex) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster;
+        // Blossom Scentra: show VFX when entry is within last 3 logs (handles NPC auto-select) AND heal > 0
+        const useBlossomScentraForThisMember = !suppressPracticeVfx && blossomScentraIsRecentEntry && blossomScentraHealFromLog > 0 && (springLogIndex < 0 || blossomScentraLogIndex > springLogIndex);
 
         // Apollo's Hymn: heal VFX on the healed target only (log defenderId); crit buff applies to caster too but no second heal VFX
         const hymnLogIndex = (() => {
           const powerName = (POWER_NAMES.APOLLO_S_HYMN as string).trim();
           const charId = String(m.characterId);
-          for (let idx = floralSearchLog.length - 1; idx >= 0; idx--) {
-            const le = floralSearchLog[idx] as { powerUsed?: string; defenderId?: string };
+          for (let idx = blossomScentraSearchLog.length - 1; idx >= 0; idx--) {
+            const le = blossomScentraSearchLog[idx] as { powerUsed?: string; defenderId?: string };
             const pu = typeof le.powerUsed === 'string' ? le.powerUsed.trim() : '';
             const isApolloHymn = pu === powerName || (pu.includes('Apollo') && pu.includes('Hymn'));
             if (!isApolloHymn) continue;
@@ -491,7 +491,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           return -1;
         })();
         // Only show hymn VFX when this entry is the most recent log entry (hymn just happened)
-        const hymnIsLatestEntry = hymnLogIndex >= 0 && hymnLogIndex === floralSearchLog.length - 1;
+        const hymnIsLatestEntry = hymnLogIndex >= 0 && hymnLogIndex === blossomScentraSearchLog.length - 1;
         const logHasHymn = !suppressPracticeVfx && hymnIsLatestEntry;
 
         // Soul Devourer lifesteal: show +{n} HP on caster once after master damage card (soulDevourerHealReady), before skeleton hits.
@@ -510,19 +510,19 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           return { amount, key: `soul_devourer_heal_turn_${r}_${ti}_${m.characterId}` };
         })();
 
-        const isFloralPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim();
-        const serverFragranceOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isFloralPowerInUse;
-        // Floral Heal D4: show fragrance only after dice roll result is in (animation ended), not during roll
-        const floralHealRollDone = turn?.phase === PHASE.ROLLING_FLORAL_HEAL && serverFragranceOnTarget && (turn as { floralHealRoll?: number }).floralHealRoll != null;
-        // isFloralHealTarget: only true while still in D4 phase (prevents hiding VFX after phase advances)
-        const isFloralHealTarget = Boolean(serverFragranceOnTarget && turn?.phase === PHASE.ROLLING_FLORAL_HEAL);
+        const isBlossomScentraPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.BLOSSOM_SCENTRA as string).trim();
+        const serverBlossomScentraOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isBlossomScentraPowerInUse;
+        // Blossom Scentra Heal D4: show scent only after dice roll result is in (animation ended), not during roll
+        const blossomHealRollDone = turn?.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL && serverBlossomScentraOnTarget && (turn as { blossomHealRoll?: number }).blossomHealRoll != null;
+        // isBlossomScentraHealTarget: only true while still in D4 phase (prevents hiding VFX after phase advances)
+        const isBlossomScentraHealTarget = Boolean(serverBlossomScentraOnTarget && turn?.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL);
 
-        const isFragranceWaved = !suppressPracticeVfx && !isEliminated && (
-          // Floral Fragrance: log-based (latest entry)
-          (!!useFloralForThisMember && !isImprecatedPoemHealingNullified)
-          // Floral Fragrance: live phase (D4 roll done AND result card visible so VFX shows with card)
-          || (!!floralHealRollDone && floralHealResultCardVisible && !isImprecatedPoemHealingNullified)
-          // Spring heal: same VFX as Floral Fragrance; requires latest entry or phase condition
+        const isBlossomScentraWaved = !suppressPracticeVfx && !isEliminated && (
+          // Blossom Scentra: log-based (latest entry)
+          (!!useBlossomScentraForThisMember && !isImprecatedPoemHealingNullified)
+          // Blossom Scentra: live phase (D4 roll done AND result card visible so VFX shows with card)
+          || (!!blossomHealRollDone && blossomScentraHealResultCardVisible && !isImprecatedPoemHealingNullified)
+          // Spring heal: same VFX as Blossom Scentra; requires latest entry or phase condition
           || (!!(springHealIsLatestEntry || springFromPhase) && !isSpringRound2Caster && !isSpringHeal2PendingCaster && !isSpringHealSkipModalCaster && !isImprecatedPoemHealingNullified && (springHealFromLog > 0 || (battleSpringHeal1 ?? 0) > 0))
         );
 
@@ -573,7 +573,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
             hasSunbornSovereign={hasSunbornSovereign}
             isResurrected={isResurrected}
             isResurrecting={isResurrecting}
-            isFragranceWaved={isFragranceWaved}
+            isBlossomScentraWaved={isBlossomScentraWaved}
             isHymnWaved={isHymnWaved}
             isImprecatedPoemHealingNullified={isImprecatedPoemHealingNullified}
             isImprecatedPoemCursed={isImprecatedPoemCursed}
@@ -640,64 +640,64 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
             }
             minionHitPulseDurationMs={isSkeletonCardHitTarget ? 2500 : 1500}
             minionPulseMap={minionPulseMap}
-            floralLogKey={
+            blossomScentraLogKey={
               battle != null && battle.roundNumber != null && battle.log != null
-                ? (useFloralForThisMember && floralLogIndex >= 0)
-                  ? `floral_shown_${battle.roundNumber}_${battle.log.length - rawRecent.length + floralLogIndex}_${m.characterId}`
-                  : (floralHealRollDone && battle.currentTurnIndex != null)
-                    ? `floral_live_${battle.roundNumber}_${battle.currentTurnIndex}_${m.characterId}`
+                ? (useBlossomScentraForThisMember && blossomScentraLogIndex >= 0)
+                  ? `blossom_scentra_shown_${battle.roundNumber}_${battle.log.length - rawRecent.length + blossomScentraLogIndex}_${m.characterId}`
+                  : (blossomHealRollDone && battle.currentTurnIndex != null)
+                    ? `blossom_scentra_live_${battle.roundNumber}_${battle.currentTurnIndex}_${m.characterId}`
                   : (useSpringForThisMember && springLogIndex >= 0)
                     ? `spring_shown_${battle.roundNumber}_${springLogIndex}_${m.characterId}`
                     : (springFromPhase ? `spring_phase_${battle.roundNumber}_caster_${m.characterId}` : undefined)
                 : undefined
             }
-            floralFragranceDelayMs={0}
-            floralHealResultCardVisible={floralHealResultCardVisible}
-            isFloralHealTarget={isFloralHealTarget}
-            floralFragranceCasterIsRosabella={
-              (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.FLORAL_FRAGRANCE as string).trim() &&
+            blossomScentraDelayMs={0}
+            blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
+            isBlossomScentraHealTarget={isBlossomScentraHealTarget}
+            blossomScentraCasterIsRosabella={
+              (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.BLOSSOM_SCENTRA as string).trim() &&
                 turn?.attackerId
                 ? (fighterMap.get(turn.attackerId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
-                : (useSpringForThisMember && springLogIndex >= 0) || (useFloralForThisMember && floralLogIndex >= 0)
+                : (useSpringForThisMember && springLogIndex >= 0) || (useBlossomScentraForThisMember && blossomScentraLogIndex >= 0)
                   ? (() => {
-                    const useSpring = springLogIndex > floralLogIndex;
-                    const entry = floralSearchLog[useSpring ? springLogIndex : floralLogIndex] as { attackerId?: string };
+                    const useSpring = springLogIndex > blossomScentraLogIndex;
+                    const entry = blossomScentraSearchLog[useSpring ? springLogIndex : blossomScentraLogIndex] as { attackerId?: string };
                     const casterId = entry?.attackerId;
                     return casterId
                       ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
                       : undefined;
                   })()
-                  : isDemo && isFragranceWaved
+                  : isDemo && isBlossomScentraWaved
                     ? (() => {
-                      const floralEffect = activeEffects.find(
-                        (e) => (e as { tag?: string }).tag === EFFECT_TAGS.FLORAL_FRAGRANCE && e.targetId === m.characterId
+                      const blossomScentraEffect = activeEffects.find(
+                        (e) => (e as { tag?: string }).tag === EFFECT_TAGS.BLOSSOM_SCENTRA && e.targetId === m.characterId
                       );
-                      const casterId = floralEffect?.sourceId;
+                      const casterId = blossomScentraEffect?.sourceId;
                       return casterId
                         ? (fighterMap.get(casterId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
                         : undefined;
                     })()
                     : undefined)
             }
-            demoFragranceSessionKey={isDemo ? (battle as { _demoVfxKey?: string })?._demoVfxKey ?? '' : undefined}
-            floralFragranceHeal={
+            demoBlossomScentraSessionKey={isDemo ? (battle as { _demoVfxKey?: string })?._demoVfxKey ?? '' : undefined}
+            blossomScentraHeal={
               springFromPhase
                 ? battleSpringHeal1
                 : useSpringForThisMember && springLogIndex >= 0
-                  ? (floralSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (floralSearchLog[springLogIndex] as { heal?: number })?.heal
-                  : useFloralForThisMember && floralLogIndex >= 0
-                    ? floralHealFromLog || (floralSearchLog[floralLogIndex] as { heal?: number })?.heal
-                    : isDemo && isFragranceWaved
+                  ? (blossomScentraSearchLog[springLogIndex] as { springHeal?: number; heal?: number })?.springHeal ?? (blossomScentraSearchLog[springLogIndex] as { heal?: number })?.heal
+                  : useBlossomScentraForThisMember && blossomScentraLogIndex >= 0
+                    ? blossomScentraHealFromLog || (blossomScentraSearchLog[blossomScentraLogIndex] as { heal?: number })?.heal
+                    : isDemo && isBlossomScentraWaved
                       ? 2
-                      : floralHealRollDone && turn?.attackerId && allMembers?.length
+                      : blossomHealRollDone && turn?.attackerId && allMembers?.length
                         ? (() => {
                           const caster = allMembers.find((a) => a.characterId === turn.attackerId);
                           if (!caster) return undefined;
                           const baseHeal = Math.ceil(0.2 * caster.maxHp);
-                          if (floralHealRollDone) {
-                            const t = turn as { floralHealRoll?: number; floralHealWinFaces?: number[] };
-                            const roll = t.floralHealRoll;
-                            const winFaces = t.floralHealWinFaces ?? [];
+                          if (blossomHealRollDone) {
+                            const t = turn as { blossomHealRoll?: number; blossomHealWinFaces?: number[] };
+                            const roll = t.blossomHealRoll;
+                            const winFaces = t.blossomHealWinFaces ?? [];
                             const isCrit = typeof roll === 'number' && winFaces.includes(roll);
                             return isCrit ? baseHeal * 2 : baseHeal;
                           }

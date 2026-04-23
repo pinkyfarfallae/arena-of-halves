@@ -73,10 +73,14 @@ export default function PowerCard({ power, index, unlocked }: { power: Power; in
         <>
           <div className="pcard__accent pcard__locked" />
           <div className="pcard__orb pcard__locked">
-            <span className="pcard__orb-icon"><LockClosed  /></span>
+            <span className="pcard__orb-icon"><LockClosed /></span>
           </div>
-          <div className="pcard__body--locked">
-            {power.type} - Locked
+          <div className="pcard__body pcard__body--locked">
+            <span className="pcard__tag">{meta.tag}</span>
+            <h4 className="pcard__name">{power.name}</h4>
+            <div className="pcard__desc">
+              <FormatDesc text={power.description} />
+            </div>
           </div>
         </>
 

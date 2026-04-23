@@ -7,13 +7,14 @@ import {
 } from 'firebase/firestore';
 import { firestore, db } from '../../firebase';
 import { ref, set } from 'firebase/database';
-import { APPS_SCRIPT_URL } from '../../constants/sheets';
+import { APPS_SCRIPT_URL, csvUrl, GID } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../../constants/practice';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import { getTodayDate } from '../../utils/date';
+import { splitCSVRows, parseCSVLine } from '../../utils/csv';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -449,29 +450,65 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   }
 };
 
-// Fetch all training tasks from Google Sheets
+// Fetch all training tasks from Google Sheets using CSV export (no CORS issues)
 export const fetchAllTrainingTasks = async (params?: {
   userId?: string;
   verified?: TrainingPointRequestStatus;
   mode?: PracticeMode;
 }): Promise<TrainingTask[]> => {
-  const queryParams = new URLSearchParams({ action: ACTIONS.FETCH_TRAININGS });
-  if (params?.userId) queryParams.append('userId', params.userId);
-  if (params?.verified) queryParams.append('verified', params.verified);
-  if (params?.mode) queryParams.append('mode', params.mode);
+  try {
+    // Fetch directly from Google Sheets CSV export
+    const res = await fetch(csvUrl(GID.DAILY_TRAINING_DICE));
+    const text = await res.text();
+    const lines = splitCSVRows(text);
+    
+    if (lines.length < 2) {
+      return [];
+    }
 
-  const response = await fetch(`${APPS_SCRIPT_URL}?${queryParams.toString()}`);
+    const trainings: TrainingTask[] = [];
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      
+      // Apply filters
+      if (params?.userId && row[2] !== params.userId) continue;
+      if (params?.verified && row[9]?.toLowerCase() !== params.verified.toLowerCase()) continue;
+      if (params?.mode && row[5] !== params.mode) continue;
+
+      let rolls: number[] = [];
+      try {
+        rolls = JSON.parse(row[4] || '[]');
+      } catch (e) {
+        rolls = [];
+      }
+
+      trainings.push({
+        id: row[0] || '',
+        date: row[1] || '',
+        userId: row[2] || '',
+        attempt: Number(row[3]) || 0,
+        rolls: rolls,
+        mode: (row[5] || 'admin') as PracticeMode,
+        success: row[6] === 'TRUE' || row[6] === 'true',
+        roleplay: row[7] || '',
+        tickets: Number(row[8]) || 0,
+        verified: (row[9] || 'pending') as TrainingPointRequestStatus,
+        verifiedBy: row[10] || '',
+        verifiedAt: row[11] || '',
+        rejectReason: row[12] || '',
+        arenaId: row[13] || '',
+        opponentId: row[14] || '',
+        opponentName: row[15] || '',
+        battleRounds: Number(row[16]) || 0,
+      });
+    }
+
+    return trainings;
+  } catch (error) {
+    console.error('Error fetching training tasks from CSV:', error);
+    return [];
   }
-
-  const result = await response.json();
-  if (result.error) {
-    throw new Error(result.error);
-  }
-
-  return result.trainings || [];
 };
 
 // Fetch user's training tasks

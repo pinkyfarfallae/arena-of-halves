@@ -127,17 +127,7 @@
   }
 
   &--locked {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: color-mix(in srgb, var(--ci-fg) 60%, transparent);
-    font-weight: 600;
-    font-size: 0.75rem;
-    margin-left: 10px;
-
-    @media (max-width: $bp-mobile) {
-      font-size: 0.6rem;
-    }
+    opacity: 0.5;
   }
 }
 

@@ -180,7 +180,7 @@ See `src/constants/translations.ts` for the complete list of available keys incl
 
 ## What NOT to Translate
 
-- Power names (e.g., "Beyond the Nimbus", "Floral Fragrance")
+- Power names (e.g., "Beyond the Nimbus", "Blossom Scentra")
 - Character names (e.g., "Percy", "Annabeth")
 - Character IDs and technical identifiers
 - Firebase paths and database keys

@@ -799,7 +799,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.PERSEPHONE,
       type: POWER_TYPES.FIRST_SKILL,
-      name: DEITY_POWER_NAMES.FLORAL_FRAGRANCE,
+      name: DEITY_POWER_NAMES.BLOSSOM_SCENTRA,
       description:
         'ทายาทแห่งเพอร์เซโฟนีเลือกชโลมสุคนธ์บุษบาแห่งการเยียวยาให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อทำการฟื้นฟู HP จำนวนทั้งสิ้น 20% ของ HP สูงสุดของตนให้ผู้รับการฟื้นฟูคนดังกล่าว จากนั้นทำการโจมตีตามปกติ',
       available: true,

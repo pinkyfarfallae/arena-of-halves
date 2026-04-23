@@ -198,14 +198,14 @@ export interface TurnState {
   /** True when the current Nemesis retaliation came from the Pomegranate co-attack branch. */
   nemesisReattackFromCoAttack?: boolean;
 
-  /* Ally-targeting power (e.g. Floral Fragrance) */
+  /* Ally-targeting power (e.g. Blossom Scentra) */
   allyTargetId?: string;
 
-  /* Floral Fragrance + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterFloralHealD4) */
-  floralHealWinFaces?: number[];
-  floralHealRoll?: number;
-  /** Floral Fragrance: heal skipped (e.g. target has Healing Nullified) — show modal, caster acks, then advanceAfterFloralHealSkippedAck */
-  floralHealSkipped?: boolean;
+  /* Blossom Scentra + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterBlossomScentraHealD4) */
+  blossomHealWinFaces?: number[];
+  blossomHealRoll?: number;
+  /** Blossom Scentra: heal skipped (e.g. target has Healing Nullified) — show modal, caster acks, then advanceAfterBlossomScentraHealSkippedAck */
+  blossomHealSkipped?: boolean;
   /** Reason tag for heal skip (e.g. HEALING_NULLIFIED) for modal text */
   healSkipReason?: string;
 
@@ -215,7 +215,7 @@ export interface TurnState {
   /* Apollo's Imprecated Poem: chosen verse (effect tag) before selecting enemy */
   selectedPoem?: string;
 
-  /* Spring (Ephemeral Season): D4 roll for heal amount (crit = 2, else 1); same flow as Floral Fragrance */
+  /* Spring (Ephemeral Season): D4 roll for heal amount (crit = 2, else 1); same flow as Blossom Scentra */
   springHealWinFaces?: number[];
   springHealRoll?: number;
   /** 1 = from confirm (store and advance), 2 = from after resolve (store second amount and advance) */
@@ -309,12 +309,12 @@ export interface BattleLogEntry {
   pendingTarget?: boolean;
   /** Caster has Beyond the Nimbus this turn; show "Caster Beyond the nimbus" before the attack result line */
   beyondTheNimbus?: boolean;
-  /** Floral Fragrance (and similar) heal amount */
+  /** Blossom Scentra (and similar) heal amount */
   heal?: number;
   /** When heal was skipped (e.g. Healing Nullified); effect tag for display */
   healSkipReason?: string;
-  /** Floral Fragrance + Efflorescence Muse: D4 heal crit (2× heal) */
-  floralHealCrit?: boolean;
+  /** Blossom Scentra + Efflorescence Muse: D4 heal crit (2× heal) */
+  blossomScentraHealCrit?: boolean;
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;

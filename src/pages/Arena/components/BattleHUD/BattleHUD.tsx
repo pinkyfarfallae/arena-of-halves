@@ -7,7 +7,7 @@ import { db } from '../../../../firebase';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import type { BattleLogEntry, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterFloralHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterBlossomScentraHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -171,7 +171,7 @@ interface Props {
   onSelectTargetDisoriented?: () => void;
   /** Only way to advance when Disoriented + player's turn: called when player clicks Confirm in Disoriented modal. Passed only to attacker's client. */
   onConfirmDisorientedTarget?: (defenderId: string) => void;
-  /** When Floral Fragrance heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
+  /** When Blossom Scentra heal was skipped (e.g. target has Healing Nullified), caster clicks Roger → call this to advance */
   onHealSkippedAck?: () => void;
   /** When Soul Devourer heal was skipped (e.g. caster has Healing Nullified), caster clicks Roger → clear ack flag so skeleton resolve can start */
   onSoulDevourerHealSkippedAck?: () => void;
@@ -183,11 +183,11 @@ interface Props {
   onSpringHealSkippedAck?: () => void;
   /** After immediate resurrection modal dismisses, advance from RESURRECTING phase to next turn */
   onResurrectionComplete?: () => void;
-  /** Called when Floral Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
-  onFloralHealResultCardVisible?: () => void;
-  /** Called when Floral Heal advance is about to run — hide result card + fragrance wave immediately (don't wait for phase update) */
-  onFloralHealResultCardHidden?: () => void;
-  /** When target modal is used to pick an ally (e.g. Floral Fragrance, Apollo's Hymn), call with selected ally id instead of onSelectTarget. */
+  /** Called when Blossom Scentra Heal D4 result card (Normal Heal / Heal x2) is shown — so healing VFX can sync */
+  onBlossomScentraHealResultCardVisible?: () => void;
+  /** Called when Blossom Scentra Heal advance is about to run — hide result card + Blossom Scentra wave immediately (don't wait for phase update) */
+  onBlossomScentraHealResultCardHidden?: () => void;
+  /** When target modal is used to pick an ally (e.g. Blossom Scentra, Apollo's Hymn), call with selected ally id instead of onSelectTarget. */
   onSelectAllyTarget?: (allyId: string) => void;
   /** True while Volley Arrow hit VFX is active. When false, Rapid Fire extra-shot damage card is hidden. */
   volleyArrowHitActive?: boolean;
@@ -307,8 +307,8 @@ export default function BattleHUD({
   onRapidFireSkippedAck,
   onSpringHealSkippedAck,
   onResurrectionComplete,
-  onFloralHealResultCardVisible,
-  onFloralHealResultCardHidden,
+  onBlossomScentraHealResultCardVisible,
+  onBlossomScentraHealResultCardHidden,
   volleyArrowHitActive,
   onPomegranateCoResolveActive,
   isPomCoCasterNpc = false,
@@ -376,8 +376,8 @@ export default function BattleHUD({
   const hideResolvingDefenseDiceForShockApply =
     battleBeyondNimbusShockPending || lrNormalAttackResolvingHit;
 
-  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back; Floral Fragrance follow-up after heal must pick enemy). */
-  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || (turn?.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE && !!turn?.allyTargetId)) ?? false;
+  /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back; Blossom Scentra follow-up after heal must pick enemy). */
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || (turn?.usedPowerName === POWER_NAMES.BLOSSOM_SCENTRA && !!turn?.allyTargetId)) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -388,7 +388,7 @@ export default function BattleHUD({
         const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp <= 0);
       }
-      // Ally-heal (Floral Fragrance, Apollo's Hymn, etc.): show alive teammates so target modal is used
+      // Ally-heal (Blossom Scentra, Apollo's Hymn, etc.): show alive teammates so target modal is used
       if (power?.target === TARGET_TYPES.ALLY && !turn?.allyTargetId) {
         const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
         return (myTeam ?? []).filter((f) => f.currentHp > 0);
@@ -1670,14 +1670,14 @@ export default function BattleHUD({
     }, ms);
   }, []);
 
-  /* ── Heal crit (Floral / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
-  const [floralHealRollLocal, setFloralHealRollLocal] = useState<number | null>(null);
+  /* ── Heal crit (Blossom Scentra / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
+  const [blossomHealRollLocal, setBlossomHealRollLocal] = useState<number | null>(null);
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
   const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
   const [disorientedRollLocal, setDisorientedRollLocal] = useState<number | null>(null);
   const [rapidFireD4RollLocal, setRapidFireD4RollLocal] = useState<number | null>(null);
   useEffect(() => {
-    if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) setFloralHealRollLocal(null);
+    if (turn?.phase !== PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL) setBlossomHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
     if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) setDisorientedRollLocal(null);
@@ -1795,7 +1795,7 @@ export default function BattleHUD({
     onResolve();
   }, [isPlaybackDriver, turn, battle.roundNumber, battle.currentTurnIndex, onResolve, onAdvancePomegranateCoAttackPhase, showResurrecting]);
 
-  /* ── Floral Fragrance: target modal shows immediately for ally pick. A previous 3s hide (floralDelay) caused jitter: first paint had delay=false → modal flashed, then effect hid it. VFX still runs from TeamPanel / client visual. ── */
+  /* ── Blossom Scentra: target modal shows immediately for ally pick. A previous 3s hide (blossomScentraDelay) caused jitter: first paint had delay=false → modal flashed, then effect hid it. VFX still runs from TeamPanel / client visual. ── */
 
   /* ── Soul Devourer heal skipped: server sets soulDevourerHealSkipAwaitsAck so skeleton resolve does not start until Roger ── */
   const soulDevourerHealSkipAwaitsAck = !!(turn?.phase === PHASE.RESOLVING && (turn as any).soulDevourerHealSkipAwaitsAck);
@@ -2097,7 +2097,7 @@ export default function BattleHUD({
       ph === PHASE.SELECT_TARGET ||
       ph === PHASE.SELECT_SEASON ||
       ph === PHASE.ROLLING_RAPID_FIRE_EXTRA_SHOT ||
-      ph === PHASE.ROLLING_FLORAL_HEAL ||
+      ph === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL ||
       ph === PHASE.ROLLING_SPRING_HEAL ||
       ph === PHASE.ROLLING_DISORIENTED_NO_EFFECT;
     if (turnMovedToSomeoneElse && diceOrPickPhase) {
@@ -3517,7 +3517,7 @@ export default function BattleHUD({
                 {pomCoShowCoAsActiveAttacker && pomCoCasterFighter ? pomCoCasterFighter.nicknameEng : attacker.nicknameEng}
               </span>
               <span
-                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_FLORAL_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
+                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
                 data-phase={turn.phase ?? undefined}
               >
                 {turn.phase &&
@@ -3881,7 +3881,7 @@ export default function BattleHUD({
         })();
       })()}
 
-      {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Floral: click → write roll → dice → result card → advance. */}
+      {/* Shadow Camouflaging: D4 roll for 25% refill SP (quota). Same flow as crit/Blossom Scentra: click → write roll → dice → result card → advance. */}
       {!winner && turn?.phase === PHASE.RESOLVING && shadowCamouflageD4 && (
         <RefillSPDiceModal
           attacker={attacker}
@@ -3910,11 +3910,11 @@ export default function BattleHUD({
         />
       )}
 
-      {/* Floral Fragrance: heal skipped (e.g. Healing Nullified) — only heal receiver (ally target) sees "Roger that"; others see waiting. */}
-      {!winner && turn?.phase === PHASE.ROLLING_FLORAL_HEAL && (turn as any).floralHealSkipped && (() => {
-        const floralHealReceiverId = (turn as any).allyTargetId;
-        const floralHealReceiver = floralHealReceiverId ? find(teamA, teamB, floralHealReceiverId) : undefined;
-        const isFloralHealReceiver = myId === floralHealReceiverId;
+      {/* Blossom Scentra: heal skipped (e.g. Healing Nullified) — only heal receiver (ally target) sees "Roger that"; others see waiting. */}
+      {!winner && turn?.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL && (turn as any).blossomHealSkipped && (() => {
+        const blossomScentraHealReceiverId = (turn as any).allyTargetId;
+        const blossomScentraHealReceiver = blossomScentraHealReceiverId ? find(teamA, teamB, blossomScentraHealReceiverId) : undefined;
+        const isBlossomScentraHealReceiver = myId === blossomScentraHealReceiverId;
         return (
           <div className={`bhud__dice-zone bhud__dice-zone--${atkSide}`}>
             <div className="bhud__targets-modal bhud__targets-modal--no-target" style={{ '--modal-primary': attacker?.theme?.[0], '--modal-dark': attacker?.theme?.[18] } as React.CSSProperties}>
@@ -3928,7 +3928,7 @@ export default function BattleHUD({
                   </>
                 ) : t(TRANSLATION_KEYS.HP_RECOVERY_NO_EFFECT)}
               </p>
-              {isFloralHealReceiver && onHealSkippedAck ? (
+              {isBlossomScentraHealReceiver && onHealSkippedAck ? (
                 <div className="bhud__target-actions">
                   <button
                     type="button"
@@ -3939,7 +3939,7 @@ export default function BattleHUD({
                   </button>
                 </div>
               ) : (
-                <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {floralHealReceiver?.nicknameEng ?? t(TRANSLATION_KEYS.HEAL_RECEIVER)}...</p>
+                <p className="bhud__no-target-waiting">{t(TRANSLATION_KEYS.WAITING_FOR)} {blossomScentraHealReceiver?.nicknameEng ?? t(TRANSLATION_KEYS.HEAL_RECEIVER)}...</p>
               )}
             </div>
           </div>
@@ -4075,18 +4075,18 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Floral Fragrance + Efflorescence Muse: D4 roll for heal crit. Only show when not heal-skipped AND server set winFaces (so everyone sees heal-skip modal when applicable). */}
-      {!winner && turn?.phase === PHASE.ROLLING_FLORAL_HEAL && !(turn as any).floralHealSkipped && (turn as any).floralHealWinFaces?.length > 0 && (() => {
-        const floralWinFaces = (turn as any).floralHealWinFaces ?? [];
-        const floralRoll = (turn as any).floralHealRoll;
-        const floralRollDisplay = floralRoll ?? floralHealRollLocal;
-        const critPct = floralWinFaces.length * 25;
+      {/* Blossom Scentra + Efflorescence Muse: D4 roll for heal crit. Only show when not heal-skipped AND server set winFaces (so everyone sees heal-skip modal when applicable). */}
+      {!winner && turn?.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL && !(turn as any).blossomHealSkipped && (turn as any).blossomHealWinFaces?.length > 0 && (() => {
+        const blossomHealWinFaces = (turn as any).blossomHealWinFaces ?? [];
+        const blossomHealRoll = (turn as any).blossomHealRoll;
+        const blossomHealRollDisplay = blossomHealRoll ?? blossomHealRollLocal;
+        const critPct = blossomHealWinFaces.length * 25;
         return (
           <RefillSPDiceModal
             attacker={attacker}
             isMyTurn={!!isMyTurn}
-            winFaces={floralWinFaces}
-            roll={floralRollDisplay}
+            winFaces={blossomHealWinFaces}
+            roll={blossomHealRollDisplay}
             atkSide={atkSide}
             diceViewMs={REFILL_DICE_VIEW_MS}
             resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
@@ -4094,28 +4094,28 @@ export default function BattleHUD({
             subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
             wonText="HEAL x2!"
             lostText="Normal Heal"
-            bonusLabel={`crit: ${[...floralWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            bonusLabel={`crit: ${[...blossomHealWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
             onRollStart={arenaId && isMyTurn ? () => {
               const roll = Math.ceil(Math.random() * 4);
-              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll }).catch(() => { });
-              setFloralHealRollLocal(roll);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { blossomHealRoll: roll }).catch(() => { });
+              setBlossomHealRollLocal(roll);
             } : undefined}
             onRoll={async (roll: number) => {
               if (!arenaId) return;
               try {
-                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { floralHealRoll: roll });
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { blossomHealRoll: roll });
                 await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
-                onFloralHealResultCardHidden?.();
-                await advanceAfterFloralHealD4(arenaId);
+                onBlossomScentraHealResultCardHidden?.();
+                await advanceAfterBlossomScentraHealD4(arenaId);
               } catch (e) { }
             }}
             onResultCardVisible={arenaId ? () => {
-              onFloralHealResultCardVisible?.();
+              onBlossomScentraHealResultCardVisible?.();
               window.setTimeout(() => {
-                onFloralHealResultCardHidden?.();
-                advanceAfterFloralHealD4(arenaId).catch(() => { });
+                onBlossomScentraHealResultCardHidden?.();
+                advanceAfterBlossomScentraHealD4(arenaId).catch(() => { });
               }, REFILL_CARD_VIEW_MS);
-            } : onFloralHealResultCardVisible}
+            } : onBlossomScentraHealResultCardVisible}
           />
         );
       })()}
@@ -4755,7 +4755,7 @@ export default function BattleHUD({
             );
           }
 
-          if (entry.powerUsed === POWER_NAMES.FLORAL_FRAGRANCE && entry.heal === 0 && (entry as any).healSkipReason) {
+          if (entry.powerUsed === POWER_NAMES.BLOSSOM_SCENTRA && entry.heal === 0 && (entry as any).healSkipReason) {
             const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
             return (
               <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
@@ -4831,7 +4831,7 @@ export default function BattleHUD({
                   <>
                     <span className="bhud__log-sep">—</span>
                     <span className="bhud__log-heal">
-                      +{entry.heal} heal{entry.floralHealCrit ? ' · CRIT' : ''}
+                      +{entry.heal} heal{entry.blossomScentraHealCrit ? ' · CRIT' : ''}
                     </span>
                   </>
                 ) : entry.damage > 0 ? (

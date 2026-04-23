@@ -30,7 +30,7 @@ export interface PowerVfxChipProps {
   hasDeathKeeper?: boolean;
   isResurrected?: boolean;
   isResurrecting?: boolean;
-  isFragranceWaved?: boolean;
+  isBlossomScentraWaved?: boolean;
   isHymnWaved?: boolean;
   /** Imprecated Poem: Healing Nullified verse — dedicated frame VFX. */
   isImprecatedPoemHealingNullified?: boolean;
@@ -179,13 +179,13 @@ export const POWER_VFX_EFFECTS: PowerVfxEntry[] = [
     props: { isSpiritForm: true },
   },
   {
-    id: EFFECT_TAGS.FLORAL_FRAGRANCE,
-    label: 'Floral Fragrance (affected)',
+    id: EFFECT_TAGS.BLOSSOM_SCENTRA,
+    label: 'Blossom Scentra (affected)',
     side: EFFECT_SIDE_LABEL.TARGET,
     group: DEITY.PERSEPHONE,
-    tag: EFFECT_TAGS.FLORAL_FRAGRANCE,
+    tag: EFFECT_TAGS.BLOSSOM_SCENTRA,
     applyTo: 'both',
-    props: { isFragranceWaved: true }
+    props: { isBlossomScentraWaved: true }
   },
   // —— Apollo ——
   {

@@ -434,14 +434,15 @@ $big-house-turquoise: #2f5f86;
       }
 
       h3 {
-        margin: 0;
+        margin-top: 0.25rem;
         font-size: 1rem;
         font-weight: 600;
         color: $big-house-blue;
-        font-family: "Playfair Display", 'Noto Sans Thai', sans-serif;
+        font-family: "Cinzel", 'Noto Sans Thai', sans-serif;
         text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
         text-align: start;
         opacity: 0.65;
+        text-transform: uppercase;
       }
     }
   }

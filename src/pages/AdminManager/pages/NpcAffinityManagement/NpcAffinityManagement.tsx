@@ -434,7 +434,7 @@ export default function NpcAffinityManagement() {
                         >
                           <div
                             className="npc-affinity-management__sidebar__group-title"
-                            style={{ '--cabin-color': DEITY_THEMES[CABIN_DEITY[cabin].toLowerCase()]?.[0] || '#fff' } as React.CSSProperties}
+                            style={{ '--cabin-color': DEITY_THEMES[CABIN_DEITY[cabin]?.toLowerCase()]?.[0] || '#fff' } as React.CSSProperties}
                           >
                             Heirs of {CABIN_DEITY[cabin]}
                           </div>

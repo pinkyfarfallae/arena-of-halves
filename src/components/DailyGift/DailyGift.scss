@@ -219,10 +219,10 @@
   filter: blur(28px) saturate(1.1);
   z-index: 0;
   pointer-events: none;
-  animation: spotlight-pulse 1800ms ease-in-out infinite;
+  animation: gift-spotlight-pulse 1800ms ease-in-out infinite;
 }
 
-@keyframes spotlight-pulse {
+@keyframes gift-spotlight-pulse {
   0% {
     transform: translateX(-50%) scale(0.96);
     opacity: 0.9;
