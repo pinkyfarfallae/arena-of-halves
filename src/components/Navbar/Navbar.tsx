@@ -20,6 +20,7 @@ import { ROLE } from '../../constants/role';
 import SettingsModal from '../SettingsModal/SettingsModal';
 import './Navbar.scss';
 import { isLifeSubPage } from '../../data/lifeSubPage';
+import Dice from './icons/Dice';
 
 /* ── Theme Picker Panel ── */
 function ThemePicker({ colors, deityBlood, onClose, onSave }: {
@@ -148,7 +149,7 @@ function ThemePicker({ colors, deityBlood, onClose, onSave }: {
                   type="button"
                   className="tp__undo"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUndo(i); }}
-                  data-tooltip={t(T.UNDO)} 
+                  data-tooltip={t(T.UNDO)}
                   data-tooltip-pos="top"
                 >
                   <Undo width={10} height={10} />
@@ -254,6 +255,10 @@ function Navbar() {
 
         <NavLink to="/life" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPageActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.LIFE_IN_CAMP)} data-tooltip-pos="right">
           <MapIcon />
+        </NavLink>
+
+        <NavLink to="/dice" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPageActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.DICE)} data-tooltip-pos="right">
+          <Dice />
         </NavLink>
 
         <div className="sidebar__spacer" />

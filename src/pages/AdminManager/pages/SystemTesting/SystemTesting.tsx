@@ -2,33 +2,20 @@ import { useNavigate } from 'react-router-dom';
 import IrisMessage from '../../../IrisMessage/IrisMessage';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import Close from '../../../../icons/Close';
+import Dice from '../../../../components/Navbar/icons/Dice';
 import './SystemTesting.scss';
+import IrisFountain from './icons/IrisFountain';
 
 const SYSTEMS = [
   {
     path: 'dice',
     label: 'Dice Roller',
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" className="st__icon">
-        <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="2.5" />
-        <circle cx="16.5" cy="16.5" r="2.5" fill="currentColor" />
-        <circle cx="31.5" cy="16.5" r="2.5" fill="currentColor" />
-        <circle cx="24" cy="24" r="2.5" fill="currentColor" />
-        <circle cx="16.5" cy="31.5" r="2.5" fill="currentColor" />
-        <circle cx="31.5" cy="31.5" r="2.5" fill="currentColor" />
-      </svg>
-    ),
+    icon: <Dice />,
   },
   {
     path: 'iris-message',
     label: 'Iris Wish',
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" className="st__icon">
-        <circle cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="2.5" />
-        <circle cx="24" cy="24" r="11" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-        <path d="M24 10v28M16 14l16 20M32 14L16 34" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
+    icon: <IrisFountain />,
   },
 ];
 

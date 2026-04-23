@@ -18,10 +18,10 @@ import BigHouse from './pages/BigHouse/BigHouse';
 import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
 import { hexToRgb } from './utils/color';
 import DailyGift from './components/DailyGift/DailyGift';
-import { getTodayDate } from './utils/date';
 import { updateCharacterDrachma } from './services/character/currencyService';
 // Using server-side persistence for daily claims; no localStorage fallback
 import { getUserDailyClaim, tryClaimToday, unmarkUserClaimedToday } from './services/daily/dailyClaimService';
+import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -81,6 +81,7 @@ function AppRoutes() {
           <Route path="/" element={<CharacterInfo />} />
           <Route path="/camp" element={<CampMembers />} />
           <Route path="/life" element={<LifeInCamp />} />
+          <Route path="/dice" element={<DiceRollerSimulator />} />
           <Route path="/iris-message" element={<IrisMessage />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/forge" element={<Forge />} />

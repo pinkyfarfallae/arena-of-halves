@@ -130,6 +130,10 @@ export const UI_TEXT = {
     en: 'Camp Members',
     th: 'สมาชิกแคมป์'
   },
+  DICE: {
+    en: 'Dice Roller',
+    th: 'ทอยลูกเต๋า'
+  },
   REPORT_HARVEST: {
     en: 'Report Harvest',
     th: 'รายงานการเก็บเกี่ยว'
