@@ -38,7 +38,7 @@ import {
   type BattleTeamKey,
 } from '../../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
-import { DEFAULT_NAMES } from '../../constants/character';
+import { DEFAULT_NAMES, SKILL_UNLOCKED } from '../../constants/character';
 import { FIREBASE_PATHS, FIREBASE_EVENTS } from '../../constants/firebase';
 import { SEASON_KEYS, SeasonKey } from '../../data/seasons';
 import * as HadesService from './hades/hades';
@@ -1278,7 +1278,7 @@ function buildMasterPlaybackStep(
   if (isCrit) damage *= 2;
   let shockBonus = 0;
   if (at > dt && turn.action !== TURN_ACTION.POWER) {
-    const hasLR = attacker.passiveSkillPoint === 'unlocked' &&
+    const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCKED &&
       attacker.powers?.some(p => p.name === POWER_NAMES.LIGHTNING_SPARK);
     const defShocks = hasLR && activeEffects.some(
       e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,

@@ -7,6 +7,7 @@ import { POWER_NAMES, POWER_TYPES } from '../../../constants/powers';
 import { ARENA_PATH } from '../../../constants/battle';
 import { findFighter } from '../powerEngine';
 import { applyShockedEffectToTarget } from './shock';
+import { SKILL_UNLOCKED } from '../../../constants/character';
 
 /**
  * Apply Lightning Reflex shock on successful attack.
@@ -22,7 +23,7 @@ export function applyLightningSparkPassive(
   if (room.practiceMode) return { updates: {}, bonusDamage: 0 };
   const updates: Record<string, unknown> = {};
   const attacker = findFighter(room, attackerId);
-  if (!attacker || attacker.passiveSkillPoint !== 'unlocked') return { updates, bonusDamage: 0 };
+  if (!attacker || attacker.passiveSkillPoint !== SKILL_UNLOCKED) return { updates, bonusDamage: 0 };
 
   const passive = (attacker.powers ?? []).find(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
   if (!passive) return { updates, bonusDamage: 0 };

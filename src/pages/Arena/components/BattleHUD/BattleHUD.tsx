@@ -43,6 +43,7 @@ import {
 } from '../../../../constants/battle';
 import { NEMESIS_RETALIATION } from '../../../../constants/iris';
 import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
+import { SKILL_UNLOCKED } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
 import { DEITY } from '../../../../constants/deities';
 import { CHARACTER } from '../../../../constants/characters';
@@ -349,7 +350,7 @@ export default function BattleHUD({
   const battleBeyondNimbusShockPending = !!battle.beyondNimbusShockApplied;
   const attackerHasLightningReflex = !!(
     attacker &&
-    attacker.passiveSkillPoint === 'unlocked' &&
+    attacker.passiveSkillPoint === SKILL_UNLOCKED &&
     attacker.powers?.some((p) => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK)
   );
   /** RESOLVING defense *replay* only — DiceModal hides; ROLLING_DEFEND unchanged. LR: only when hit (shock may apply). */
@@ -2997,7 +2998,7 @@ export default function BattleHUD({
       // Lightning Reflex passive: if attacker has it + defender has shock DOTs → bonus = baseDmg
       let shockBonus = 0;
       if (at > dt && turn.action !== TURN_ACTION.POWER) {
-        const hasLR = attacker.passiveSkillPoint === 'unlocked' &&
+        const hasLR = attacker.passiveSkillPoint === SKILL_UNLOCKED &&
           attacker.powers?.some(p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.LIGHTNING_SPARK);
         const defShocks = hasLR && activeEffects.some(
           e => e.targetId === turn.defenderId && e.tag === EFFECT_TAGS.SHOCK,

@@ -4,6 +4,7 @@ import type { ActiveEffect, PowerDefinition, ModStat } from '../../types/power';
 import { getQuotaCost } from '../../types/power';
 import { EFFECT_TAGS } from '../../constants/effectTags';
 import { POWER_NAMES, POWER_TYPES } from '../../constants/powers';
+import { SKILL_UNLOCKED } from '../../constants/character';
 import { ARENA_PATH, BATTLE_TEAM, type BattleTeamKey } from '../../constants/battle';
 import { EFFECT_TYPES, TARGET_TYPES, MOD_STAT } from '../../constants/effectTypes';
 import { isHealingNullified, addSunbornSovereignRecoveryStack } from './apollo/helpers';
@@ -124,7 +125,7 @@ export function getAffordablePowers(fighter: FighterState): { power: PowerDefini
     if (p.type === POWER_TYPES.PASSIVE) continue;
 
     // Check unlock
-    if (p.type === POWER_TYPES.ULTIMATE && fighter.ultimateSkillPoint !== 'unlocked') continue;
+    if (p.type === POWER_TYPES.ULTIMATE && fighter.ultimateSkillPoint !== SKILL_UNLOCKED) continue;
     if (p.type === POWER_TYPES.FIRST_SKILL && fighter.skillPoint !== '1' && fighter.skillPoint !== '2') continue;
     if (p.type === POWER_TYPES.SECOND_SKILL && fighter.skillPoint !== '2') continue;
 
@@ -465,7 +466,7 @@ export function buildPassiveEffects(room: BattleRoom): ActiveEffect[] {
   const allMembers = [...(room.teamA?.members || []), ...(room.teamB?.members || [])];
 
   for (const fighter of allMembers) {
-    if (fighter.passiveSkillPoint !== 'unlocked') continue;
+    if (fighter.passiveSkillPoint !== SKILL_UNLOCKED) continue;
     const powers = fighter.powers ?? [];
     if (powers.length === 0) continue;
     const passive = powers.find(p => p.type === POWER_TYPES.PASSIVE);

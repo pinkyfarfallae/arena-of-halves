@@ -9,6 +9,7 @@ import { POWER_NAMES, POWER_TYPES } from '../../../constants/powers';
 import { ARENA_PATH } from '../../../constants/battle';
 import { EFFECT_TYPES, MOD_STAT } from '../../../constants/effectTypes';
 import { findFighter, makeEffectId } from '../powerEngine';
+import { SKILL_UNLOCKED } from '../../../constants/character';
 
 /**
  * When advancing to a fighter's turn (before select action): grant Efflorescence Muse (status immunity + 25% crit)
@@ -26,7 +27,7 @@ export function applySecretOfDryadPassive(
   if (!attacker) return {};
 
   // Do not apply unless passive skill is unlocked
-  if (attacker.passiveSkillPoint !== 'unlocked') return {};
+  if (attacker.passiveSkillPoint !== SKILL_UNLOCKED) return {};
 
   // Only if fighter has Secret of Dryad in their powers list (members from Firebase may omit `powers`)
   const passive = (attacker.powers ?? []).find(

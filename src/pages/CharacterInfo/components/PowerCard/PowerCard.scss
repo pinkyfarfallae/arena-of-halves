@@ -86,6 +86,10 @@
   }
 }
 
+.pcard__locked {
+  filter: grayscale(1) saturate(0);
+}
+
 /* ── Left accent strip ── */
 .pcard__accent {
   flex-shrink: 0;
@@ -120,6 +124,20 @@
 
   @media (max-width: $bp-mobile) {
     padding: 0.4rem 0.5rem;
+  }
+
+  &--locked {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: color-mix(in srgb, var(--ci-fg) 60%, transparent);
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin-left: 10px;
+
+    @media (max-width: $bp-mobile) {
+      font-size: 0.6rem;
+    }
   }
 }
 
@@ -265,6 +283,13 @@
 
   @media (max-width: $bp-mobile) {
     font-size: 0.95rem;
+  }
+
+  svg {
+    width: 1.2em;
+    height: 1.2em;
+    display: block;
+    margin: auto;
   }
 }
 
