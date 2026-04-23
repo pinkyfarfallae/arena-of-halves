@@ -104,6 +104,22 @@
     width: 14px;
     height: 14px;
   }
+
+  &--tags {
+    flex-wrap: wrap;
+  }
+}
+
+.modal-tag {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+
+  &--fortune  { background: #fff3cd; color: #856404; }
+  &--athena   { background: #cfe2ff; color: #084298; }
+  &--combo    { background: #d1e7dd; color: #0a3622; }
 }
 
 .modal-note {

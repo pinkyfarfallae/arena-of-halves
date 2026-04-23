@@ -17,7 +17,7 @@ import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
 import { fetchAllTrainingTasks, TrainingTask, verifyTrainingTask } from '../../../../services/training/dailyTrainingDice';
-import { hexToRgb } from '../../../../utils/color';
+import { darken, hexToRgb, rgbToHex } from '../../../../utils/color';
 import { BG_ELEMENTS } from '../../../TrainingGrounds/components/Background/Background';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
 import { useTranslation } from '../../../../hooks/useTranslation';
@@ -26,8 +26,11 @@ import { PRACTICE_MODE } from '../../../../constants/practice';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 import Athena from '../../../../data/icons/deities/Athena';
+import Tyche from '../../../../data/icons/deities/Tyche';
 import { updateTrainingPoints } from '../../../../services/training/trainingPoints';
 import './TrainingApproval.scss';
+import Crown from '../../../../icons/Crown';
+import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -68,6 +71,8 @@ function TrainingApproval() {
     reward: number;
     roleplayers: string[];
     isSolo: boolean;
+    withFullLevelFortune: boolean;
+    isTraineeBlessedByAthena: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -204,8 +209,15 @@ function TrainingApproval() {
       return;
     }
 
-    const reward = (reviewingTask.mode === PRACTICE_MODE.PVP
-      ? 1 : reviewingTask.success ? 1 : 0) * (isTraineeBlessedByAthena ? 2 : 1); // Always 1 TP for PVP, 1 TP for successful PVE, 0 TP for failed PVE
+    let reward = 0;
+
+    if (reviewingTask.mode === PRACTICE_MODE.NORMAL) {
+      if (reviewingTask.success) {
+        reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1; // Base 1 point for passing normal training
+      }
+    } else {
+      reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1; // Base 2 points for passing PvP training
+    }
 
     setApproveData({
       charCount,
@@ -213,6 +225,8 @@ function TrainingApproval() {
       reward,
       roleplayers: [reviewingTask.userId], // Only the submitter
       isSolo: true,
+      withFullLevelFortune: !!reviewingTask.withFullLevelFortune,
+      isTraineeBlessedByAthena,
     });
     setShowApproveModal(true);
   };
@@ -235,9 +249,27 @@ function TrainingApproval() {
         TRAINING_POINT_REQUEST_STATUS.APPROVED,
         user?.characterId || 'admin'
       );
-      if (isTraineeBlessedByAthena && approveData.reward > 0) {
-        updateTrainingPoints(reviewingTask.userId, 1);
+
+      // Apps Script verifyTraining already awards base TP + fortune bonus (withFullLevelFortune ? 2 : 1).
+      // Only award extra TPs here for Athena blessing and the Athena+Fortune combo.
+
+      let pointsAwarded = 0;
+      if (approveData.isTraineeBlessedByAthena && approveData.reward > 0) {
+        pointsAwarded += 1;
       }
+
+      if (approveData.withFullLevelFortune && approveData.reward > 0) {
+        pointsAwarded += 1;
+      }
+
+      if (approveData.isTraineeBlessedByAthena && approveData.withFullLevelFortune && approveData.reward > 0) {
+        pointsAwarded += 1;
+      }
+
+      if (pointsAwarded > 0) {
+        updateTrainingPoints(reviewingTask.userId, pointsAwarded);
+      }
+
     } catch (error) {
       // console.error('Failed to approve training task:', error);
       return;
@@ -675,6 +707,29 @@ function TrainingApproval() {
                             </div>
                           </div>
 
+                          {/* If trainee had full Fortune */}
+                          {reviewingTask.withFullLevelFortune && (
+                            <div
+                              className="training-approval__fortune-blessing"
+                              style={{
+                                '--fortune-primary-color': PRACTICE_STATES_DETAIL[5].color,
+                                '--fortune-primary-color-rgb': hexToRgb(PRACTICE_STATES_DETAIL[5].color),
+                                '--fortune-dark-color': rgbToHex(darken(PRACTICE_STATES_DETAIL[5].color, 0.5)),
+                                '--fortune-dark-color-rgb': hexToRgb(darken(PRACTICE_STATES_DETAIL[5].color, 0.5))
+                              } as CSSProperties}
+                            >
+                              <div className="training-approval__fortune-blessing-header">
+                                <div className="training-approval__fortune-blessing-icon">
+                                  <Crown />
+                                </div>
+                                <span>This trainee had max Fortune (level 5) on the training day!</span>
+                              </div>
+                              <div className="training-approval__fortune-blessing-content">
+                                Full Fortune grants an extra training point for this submission.
+                              </div>
+                            </div>
+                          )}
+
                           {/* If trainee have blessed by Athena */}
                           {isTraineeBlessedByAthena && (
                             <div
@@ -694,7 +749,7 @@ function TrainingApproval() {
                                 <span>Goddess Athena has blessed this trainee on the training day!</span>
                               </div>
                               <div className="training-approval__athena-blessing-content">
-                                As a blessing from Athena, this trainee's will recive a double training point reward for this submission.
+                                As a blessing from Athena, this trainee's will receive 2 training point reward for this submission.
                               </div>
                             </div>
                           )}

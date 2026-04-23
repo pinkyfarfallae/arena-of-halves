@@ -138,6 +138,8 @@ function TrainingRoleplaySubmission() {
     }
   };
 
+  console.log(_error)
+
   const handleSubmit = async () => {
     if (!user?.characterId) {
       setError('You must be logged in');
@@ -222,6 +224,7 @@ function TrainingRoleplaySubmission() {
       // Don't reset ticketsToApply - it stays as the committed amount
       setIsChangeRoleplayUrl(false);
     } catch (err) {
+      console.error('Error submitting training roleplay:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
     } finally {
       setIsSubmitting(false);

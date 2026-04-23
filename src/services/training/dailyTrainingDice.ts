@@ -56,6 +56,8 @@ export interface TrainingTask {
   opponentId?: string;
   opponentName?: string;
   battleRounds?: number;
+  // Fortune specific field
+  withFullLevelFortune?: boolean;
 }
 
 export interface PracticeProgressInput {
@@ -70,6 +72,7 @@ export interface PracticeProgressInput {
   state: PracticeState;
   rounds?: number;
   winner?: boolean;
+  withFullLevelFortune?: boolean;
 }
 
 // Admin: Set today's target (legacy - for single target)
@@ -241,6 +244,7 @@ export const submitTrainingResult = async (params: {
   opponentId?: string;
   opponentName?: string;
   battleRounds?: number;
+  withFullLevelFortune?: boolean;
 }): Promise<void> => {
   const date = getTodayDate();
   const attempt = params.rolls.filter(r => r > 0).length;
@@ -259,6 +263,7 @@ export const submitTrainingResult = async (params: {
     opponentId: params.opponentId || '',
     opponentName: params.opponentName || '',
     battleRounds: params.battleRounds || 0,
+    withFullLevelFortune: params.withFullLevelFortune || false,
   };
 
   const response = await fetch(APPS_SCRIPT_URL, {
@@ -289,6 +294,7 @@ export const submitTrainingResult = async (params: {
     mode: params.mode,
     state: PRACTICE_STATES.FINISHED,
     arenaId: params.arenaId || null,
+    withFullLevelFortune: params.withFullLevelFortune || false,
     createdAt: serverTimestamp(),
   }, { merge: true });
 };
@@ -351,7 +357,8 @@ export const completeTraining = async (
   rolls: number[],
   target: number,
   success: boolean,
-  earlyFailed: boolean = false
+  earlyFailed: boolean = false,
+  withFullLevelFortune: boolean = false
 ): Promise<void> => {
   if (rolls.length !== 5) {
     throw new Error('Must have exactly 5 dice rolls');
@@ -369,6 +376,7 @@ export const completeTraining = async (
     rolls,
     mode: PRACTICE_MODE.NORMAL,
     success,
+    withFullLevelFortune,
   });
 };
 
@@ -379,7 +387,7 @@ export const saveTrainingResult = async (
   target: number,
   success: boolean
 ): Promise<void> => {
-  await completeTraining(userId, rolls, target, success, false);
+  await completeTraining(userId, rolls, target, success, false, false);
 };
 
 export const savePracticeProgress = async (progress: PracticeProgressInput): Promise<void> => {
@@ -442,6 +450,7 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
         opponentId: progress.opponentId,
         opponentName: progress.opponentName,
         battleRounds: progress.rounds ?? 0,
+        withFullLevelFortune: progress.withFullLevelFortune || false,
       });
     } catch (err) {
       // console.error('[Training] Failed to submit PVP result to Sheets:', err);
@@ -466,41 +475,71 @@ export const fetchAllTrainingTasks = async (params?: {
       return [];
     }
 
+    // Parse header row to find columns by name — resilient to column reordering
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+    const col = (name: string) => {
+      const idx = headers.indexOf(name.toLowerCase());
+      return idx;
+    };
+
+    // Resolve indices once; fall back to legacy positional indices for sheets
+    // that haven't had withFullLevelFortune inserted yet.
+    const hasWff = col('withfulllevelfortune') !== -1;
+    const iWff      = hasWff ? col('withfulllevelfortune') : -1;
+    const iId       = col('id')          !== -1 ? col('id')          : 0;
+    const iDate     = col('date')        !== -1 ? col('date')        : 1;
+    const iUser     = col('user')        !== -1 ? col('user')        : (hasWff ? 3 : 2);
+    const iAttempt  = col('attempt')     !== -1 ? col('attempt')     : (hasWff ? 4 : 3);
+    const iRolls    = col('rolls')       !== -1 ? col('rolls')       : (hasWff ? 5 : 4);
+    const iMode     = col('mode')        !== -1 ? col('mode')        : (hasWff ? 6 : 5);
+    const iSuccess  = col('success')     !== -1 ? col('success')     : (hasWff ? 7 : 6);
+    const iRoleplay = col('roleplay')    !== -1 ? col('roleplay')    : (hasWff ? 8 : 7);
+    const iTickets  = col('tickets')     !== -1 ? col('tickets')     : (hasWff ? 9 : 8);
+    const iVerified = col('verified')    !== -1 ? col('verified')    : (hasWff ? 10 : 9);
+    const iVerifiedBy  = col('verifiedby')   !== -1 ? col('verifiedby')   : (hasWff ? 11 : 10);
+    const iVerifiedAt  = col('verifiedat')   !== -1 ? col('verifiedat')   : (hasWff ? 12 : 11);
+    const iRejectReason = col('rejectreason') !== -1 ? col('rejectreason') : (hasWff ? 13 : 12);
+    const iArenaId     = col('arenaid')      !== -1 ? col('arenaid')      : (hasWff ? 14 : 13);
+    const iOpponentId  = col('opponentid')   !== -1 ? col('opponentid')   : (hasWff ? 15 : 14);
+    const iOpponentName = col('opponentname') !== -1 ? col('opponentname') : (hasWff ? 16 : 15);
+    const iBattleRounds = col('battlerounds') !== -1 ? col('battlerounds') : (hasWff ? 17 : 16);
+
     const trainings: TrainingTask[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVLine(lines[i]);
-      
+
       // Apply filters
-      if (params?.userId && row[2] !== params.userId) continue;
-      if (params?.verified && row[9]?.toLowerCase() !== params.verified.toLowerCase()) continue;
-      if (params?.mode && row[5] !== params.mode) continue;
+      if (params?.userId && row[iUser] !== params.userId) continue;
+      if (params?.verified && row[iVerified]?.toLowerCase() !== params.verified.toLowerCase()) continue;
+      if (params?.mode && row[iMode] !== params.mode) continue;
 
       let rolls: number[] = [];
       try {
-        rolls = JSON.parse(row[4] || '[]');
+        rolls = JSON.parse(row[iRolls] || '[]');
       } catch (e) {
         rolls = [];
       }
 
       trainings.push({
-        id: row[0] || '',
-        date: row[1] || '',
-        userId: row[2] || '',
-        attempt: Number(row[3]) || 0,
-        rolls: rolls,
-        mode: (row[5] || 'admin') as PracticeMode,
-        success: row[6] === 'TRUE' || row[6] === 'true',
-        roleplay: row[7] || '',
-        tickets: Number(row[8]) || 0,
-        verified: (row[9] || 'pending') as TrainingPointRequestStatus,
-        verifiedBy: row[10] || '',
-        verifiedAt: row[11] || '',
-        rejectReason: row[12] || '',
-        arenaId: row[13] || '',
-        opponentId: row[14] || '',
-        opponentName: row[15] || '',
-        battleRounds: Number(row[16]) || 0,
+        id: row[iId] || '',
+        date: row[iDate] || '',
+        userId: row[iUser] || '',
+        attempt: Number(row[iAttempt]) || 0,
+        rolls,
+        mode: (row[iMode] || 'admin') as PracticeMode,
+        success: row[iSuccess] === 'TRUE' || row[iSuccess] === 'true',
+        roleplay: row[iRoleplay] || '',
+        tickets: Number(row[iTickets]) || 0,
+        verified: (row[iVerified] || 'pending') as TrainingPointRequestStatus,
+        verifiedBy: row[iVerifiedBy] || '',
+        verifiedAt: row[iVerifiedAt] || '',
+        rejectReason: row[iRejectReason] || '',
+        arenaId: row[iArenaId] || '',
+        opponentId: row[iOpponentId] || '',
+        opponentName: row[iOpponentName] || '',
+        battleRounds: Number(row[iBattleRounds]) || 0,
+        withFullLevelFortune: iWff !== -1 ? (row[iWff] === 'TRUE' || row[iWff] === 'true') : false,
       });
     }
 

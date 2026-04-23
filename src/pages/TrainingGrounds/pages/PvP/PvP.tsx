@@ -197,7 +197,6 @@ export default function PvP() {
       </div>
     );
   }
-
   return (
     <div className="train-with-admin" style={colorStyle}>
       {BG_ELEMENTS}

@@ -1241,6 +1241,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.WAITING,
       rounds: 0,
       winner: false,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP WAITING state:', err);
     });
@@ -1281,6 +1282,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.LIVE,
       rounds: 0,
       winner: false,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP LIVE state:', err);
     });
@@ -1342,6 +1344,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.FINISHED,
       rounds: room.battle?.roundNumber ?? 0,
       winner: room.battle?.winner === role,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP practice result:', err);
       // Still save local state even if sheet submission fails

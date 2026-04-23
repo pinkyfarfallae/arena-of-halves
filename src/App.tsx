@@ -122,6 +122,8 @@ function AppShell() {
     // Only check once per login session, not on every user refresh
     if (checkedDailyGiftForSession === user.characterId) return;
 
+    let cancelled = false;
+
     (async () => {
       try {
         // Mark as checked for this session before async operation
@@ -129,6 +131,7 @@ function AppShell() {
         
         // Prefer server-side claim API which also assigns a stable amount
         const serverEntry = await getUserDailyClaim(user.characterId).catch(() => ({ accepted: false, amount: (Math.floor(Math.random() * 5) + 1) * 10 }));
+        if (cancelled) return; // user logged out while awaiting
         if (serverEntry.accepted) return;
 
         // show modal with server-assigned amount
@@ -138,6 +141,8 @@ function AppShell() {
         // ignore
       }
     })();
+
+    return () => { cancelled = true; };
   }, [user?.characterId, checkedDailyGiftForSession]);
 
   if (user) {

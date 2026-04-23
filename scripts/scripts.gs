@@ -1016,29 +1016,30 @@ function upgradeStat(characterId, statId, pointsToSpend) {
             case 4:
               handleEditUser(characterId, { 'speed': currentSpeed + 2 });
               break;
+            case 5:
+              handleEditUser(characterId, { 'reroll': 3 });
+              break;
             default:
               break;
           };
           break;
 
         case 'intelligence':
-          const currentDefDiceUpRaw = getCharacterInfo(characterId, 'defend dice up');
-          const currentAtkDiceUpRaw = getCharacterInfo(characterId, 'attack dice up');
+          let def = Number(getCharacterInfo(characterId, 'defend dice up')) || 0;
+          let atk = Number(getCharacterInfo(characterId, 'attack dice up')) || 0;
 
-          const currentDefDiceUp = Number(currentDefDiceUpRaw) || 0;
-          const currentAtkDiceUp = Number(currentAtkDiceUpRaw) || 0;
-
-          switch (newStatValue) {
-            case (newStatValue % 2 == 0):
-              handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
-              break;
-            case (newStatValue % 2 == 1):
-              handleEditUser(characterId, { 'attack dice up': currentAtkDiceUp + 1 });
-              if (newStatValue === 5) {
-                handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
-              }
-              break;
+          if (newStatValue % 2 === 0) {
+            def += 1;
+          } else {
+            atk += 1;
+            if (newStatValue === 5) def += 1;
           }
+
+          handleEditUser(characterId, {
+            'defend dice up': def,
+            'attack dice up': atk
+          });
+          break;
           break;
 
         case 'technique':
@@ -1048,9 +1049,6 @@ function upgradeStat(characterId, statId, pointsToSpend) {
               break;
             case 2:
               handleEditUser(characterId, { 'skill point': '1' });
-              break;
-            case 3:
-              updateTrainingPoints(characterId, 1);
               break;
             case 4:
               handleEditUser(characterId, { 'skill point': '2' });
@@ -1116,7 +1114,7 @@ function revertDerivedStatsForRefund(characterId, statId, oldValue, newValue) {
       // Even levels: +1 defend dice up, Odd levels: +1 attack dice up (plus def at 5)
       var currentDefDiceUp = Number(getCharacterInfo(characterId, 'defend dice up')) || 0;
       var currentAtkDiceUp = Number(getCharacterInfo(characterId, 'attack dice up')) || 0;
-      
+
       if (oldValue % 2 === 0) {
         // Was even level, revert defend dice up
         handleEditUser(characterId, { 'defend dice up': Math.max(0, currentDefDiceUp - 1) });
@@ -1559,10 +1557,10 @@ function handleFetchTopHarvesters(limit) {
 
 /* ══════════════════════════════════════
    TRAINING SYSTEM (Google Sheets as Primary Source)
-   Sheet: Training Tasks
-   Columns: Id | Date | User | Attempt | Rolls | Mode | Success | Roleplay | 
-            Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason | 
-            ArenaId | OpponentId | OpponentName | BattleRounds
+    Sheet: Training Tasks
+    Columns: Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay |
+      Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason |
+      ArenaId | OpponentId | OpponentName | BattleRounds
    ══════════════════════════════════════ */
 
 // Get the existing training sheet
@@ -1596,6 +1594,7 @@ function findTaskRow(sheet, id) {
 function handleSubmitTraining(params) {
   var userId = (params.userId || '').toString().trim();
   var date = (params.date || '').toString().trim();
+  var withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
   var attempt = parseInt(params.attempt || '5', 10);
   var rolls = params.rolls || [];
   var mode = (params.mode || 'admin').toString().trim();
@@ -1621,10 +1620,20 @@ function handleSubmitTraining(params) {
     return jsonResponse({ error: 'Training task already exists for this date' });
   }
 
+  // Build row in the requested sequence:
+  // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
   var newRow = [
-    id, date, userId, attempt, JSON.stringify(rolls), mode,
-    success ? 'TRUE' : 'FALSE', '', 0, 'pending', '', '', '',
-    arenaId, opponentId, opponentName, battleRounds
+    id,                           // 1: Id
+    date,                         // 2: Date
+    withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
+    userId,                       // 4: User
+    attempt,                      // 5: Attempt
+    JSON.stringify(rolls),        // 6: Rolls
+    mode,                         // 7: Mode
+    success ? 'TRUE' : 'FALSE',   // 8: Success
+    '',                           // 9: Roleplay
+    0,                            // 10: Tickets
+    'pending',                    // 11: Verified
   ];
 
   sheet.appendRow(newRow);
@@ -1658,13 +1667,14 @@ function handleSubmitTrainingRoleplay(params) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  sheet.getRange(row, 8).setValue(roleplayUrl);
-  sheet.getRange(row, 9).setValue(tickets);
+  // Roleplay is column 9, tickets column 10, verified column 11
+  sheet.getRange(row, 9).setValue(roleplayUrl);
+  sheet.getRange(row, 10).setValue(tickets);
 
-  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  var currentVerified = sheet.getRange(row, 11).getValue().toString().toLowerCase();
   if (currentVerified === 'rejected') {
-    sheet.getRange(row, 10).setValue('pending');
-    sheet.getRange(row, 13).setValue('');
+    sheet.getRange(row, 11).setValue('pending');
+    sheet.getRange(row, 14).setValue('');
   }
 
   return jsonResponse({ success: true });
@@ -1702,11 +1712,20 @@ function handleVerifyTraining(params) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  // Get mode and success status from the task
-  var mode = sheet.getRange(row, 6).getValue().toString().toLowerCase();
-  var success = sheet.getRange(row, 7).getValue().toString().toUpperCase() === 'TRUE';
+  // Read fields according to the new column order:
+  // Mode is column 7, Success is column 8, withFullLevelFortune is column 3
+  var mode = sheet.getRange(row, 7).getValue().toString().toLowerCase();
+  var success = sheet.getRange(row, 8).getValue().toString().toUpperCase() === 'TRUE';
 
-  sheet.getRange(row, 10).setValue(verified);
+  var withFullLevelFortune = false;
+  try {
+    var wffCell = sheet.getRange(row, 3).getValue();
+    withFullLevelFortune = (wffCell === true || wffCell === 'TRUE' || wffCell === 'true' || wffCell === '1' || wffCell === 1);
+  } catch (e) {
+    withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
+  }
+
+  sheet.getRange(row, 11).setValue(verified);
 
   // Award training point if approved
   if (verified === 'approved') {
@@ -1722,7 +1741,7 @@ function handleVerifyTraining(params) {
     }
 
     if (shouldAwardPoint) {
-      var trainingPointResult = updateTrainingPoints(userId, 1);
+      var trainingPointResult = updateTrainingPoints(userId, withFullLevelFortune ? 2 : 1);
       var trainingPointData = JSON.parse(trainingPointResult.getContent());
 
       if (!trainingPointData.success) {
@@ -1772,13 +1791,13 @@ function handleRecheckTraining(params) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  var currentVerified = sheet.getRange(row, 11).getValue().toString().toLowerCase();
   if (currentVerified !== 'rejected') {
     return jsonResponse({ error: 'Can only recheck rejected trainings. Current status: ' + currentVerified });
   }
 
-  sheet.getRange(row, 10).setValue('pending');
-  sheet.getRange(row, 13).setValue('');
+  sheet.getRange(row, 11).setValue('pending');
+  sheet.getRange(row, 14).setValue('');
 
   return jsonResponse({ success: true, verified: 'pending' });
 }

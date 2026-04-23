@@ -9,6 +9,8 @@ interface ApproveModalProps {
     reward: number;
     roleplayers: string[];
     isSolo: boolean;
+    withFullLevelFortune: boolean;
+    isTraineeBlessedByAthena: boolean;
   } | null;
   onClose: () => void;
   onConfirm: () => void;

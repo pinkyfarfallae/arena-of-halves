@@ -244,7 +244,7 @@ export default function TrainWithAdmin() {
         // Use first target for legacy storage
         const target = newPapers[0].target;
 
-        await completeTraining(user!.characterId!, rolls, target, success, false);
+        await completeTraining(user!.characterId!, rolls, target, success, false, user?.fortune === 5);
 
         setAlreadyTrained(true);
         setFinalResult({ success, rolls });
@@ -274,7 +274,7 @@ export default function TrainWithAdmin() {
     const target = completedPapers[0].target;
 
     try {
-      await completeTraining(user!.characterId!, rolls, target, false, true);
+      await completeTraining(user!.characterId!, rolls, target, false, true, user?.fortune === 5);
 
       setPapers(completedPapers);
       setCurrentRollIndex(5);
@@ -302,7 +302,7 @@ export default function TrainWithAdmin() {
     const target = completedPapers[0].target;
 
     try {
-      await completeTraining(user!.characterId!, rolls, target, true, false);
+      await completeTraining(user!.characterId!, rolls, target, true, false, user?.fortune === 5);
 
       setPapers(completedPapers);
       setCurrentRollIndex(5);
