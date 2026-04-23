@@ -689,8 +689,8 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
     return () => clearTimeout(t);
   }, [isHymnWaved, hymnLogKey ?? '', fighter.characterId]);
 
-  // Target has Efflorescence Muse in effect pips (Secret of Dryad) — used to hide petal-emission splash when they already have that status at heal time
-  const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.SECRET_OF_DRYAD);
+  // Target has Efflorescence Muse in effect pips (The Aporrēta of Nymphaion) — used to hide petal-emission splash when they already have that status at heal time
+  const hasEfflorescenceMuseInPips = (effectPips ?? []).some((p) => p.powerName === POWER_NAMES.THE_APORRETA_OF_NYMPHAION);
 
   // If the fighter's HP increases (heal applied), clear the Blossom Scentra wave wave visual
   // immediately to avoid leaving the +HP text stuck — unless the increase is the
@@ -1385,9 +1385,9 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
       {/* Falling white (20) + yellow (15) + green (5) + pink (5) motes */}
       {isEfflorescenceMuse && battleLive && (
         <>
-          <div className="mchip__dryad-lights" aria-hidden="true">
+          <div className="mchip__aporreta-lights" aria-hidden="true">
             {Array.from({ length: 20 }, (_, i) => (
-              <span key={i} className="mchip__dryad-light" />
+              <span key={i} className="mchip__aporreta-light" />
             ))}
           </div>
           <div className="mchip__petal-yellow-sparks" aria-hidden="true">

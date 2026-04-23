@@ -3,8 +3,8 @@
  * Organized by power type
  */
 
-// Secret of Dryad (Passive) - Efflorescence Muse
-export * from './secret-of-dryad';
+// The Aporrēta of Nymphaion (Passive) - Efflorescence Muse
+export * from './aporreta-of-nymphaion';
 
 // Blossom Scentra (1st Skill)
 export * from './blossom-scentra';

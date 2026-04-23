@@ -1,5 +1,5 @@
 /**
- * Secret of Dryad (Passive) - Efflorescence Muse
+ * The Aporrēta of Nymphaion (Passive) - Efflorescence Muse
  * Grants status immunity + 25% crit chance for one round when turn starts
  */
 
@@ -13,10 +13,10 @@ import { SKILL_UNLOCKED } from '../../../constants/character';
 
 /**
  * When advancing to a fighter's turn (before select action): grant Efflorescence Muse (status immunity + 25% crit)
- * only if Secret of Dryad is unlocked and the fighter has Secret of Dryad in their powers list.
+ * only if The Aporrēta of Nymphaion is unlocked and the fighter has The Aporrēta of Nymphaion in their powers list.
  * Lasts one full round. Does not stack; re-applied on turn start when still active (see onEfflorescenceMuseTurnStart).
  */
-export function applySecretOfDryadPassive(
+export function applyAporretaOfNymphaionPassive(
   room: BattleRoom,
   attackerId: string,
   battle: BattleState,
@@ -29,9 +29,9 @@ export function applySecretOfDryadPassive(
   // Do not apply unless passive skill is unlocked
   if (attacker.passiveSkillPoint !== SKILL_UNLOCKED) return {};
 
-  // Only if fighter has Secret of Dryad in their powers list (members from Firebase may omit `powers`)
+  // Only if fighter has The Aporrēta of Nymphaion in their powers list (members from Firebase may omit `powers`)
   const passive = (attacker.powers ?? []).find(
-    p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.SECRET_OF_DRYAD,
+    p => p.type === POWER_TYPES.PASSIVE && p.name === POWER_NAMES.THE_APORRETA_OF_NYMPHAION,
   );
   if (!passive) return {};
 
@@ -44,8 +44,8 @@ export function applySecretOfDryadPassive(
   const queueLen = battle.turnQueue?.length || 1;
   const duration = queueLen;
   effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.SECRET_OF_DRYAD),
-    powerName: POWER_NAMES.SECRET_OF_DRYAD,
+    id: makeEffectId(attackerId, POWER_NAMES.THE_APORRETA_OF_NYMPHAION),
+    powerName: POWER_NAMES.THE_APORRETA_OF_NYMPHAION,
     effectType: EFFECT_TYPES.SHIELD,
     sourceId: attackerId,
     targetId: attackerId,
@@ -55,8 +55,8 @@ export function applySecretOfDryadPassive(
   });
   // +25% critical hit chance while in Efflorescence Muse (same duration; removed when Efflorescence Muse is consumed)
   effects.push({
-    id: makeEffectId(attackerId, `${POWER_NAMES.SECRET_OF_DRYAD}_crit`),
-    powerName: POWER_NAMES.SECRET_OF_DRYAD,
+    id: makeEffectId(attackerId, `${POWER_NAMES.THE_APORRETA_OF_NYMPHAION}_crit`),
+    powerName: POWER_NAMES.THE_APORRETA_OF_NYMPHAION,
     effectType: EFFECT_TYPES.BUFF,
     sourceId: attackerId,
     targetId: attackerId,

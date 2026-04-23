@@ -4,7 +4,7 @@ import type { ActiveEffect } from '../../../types/power';
 import { PHASE, ARENA_PATH, TURN_ACTION, BATTLE_TEAM, ROOM_STATUS } from '../../../constants/battle';
 import { POWER_NAMES } from '../../../constants/powers';
 import { DEFAULT_NAMES } from '../../../constants/character';
-import { isStunned, applySecretOfDryadPassive, onEfflorescenceMuseTurnStart } from '../../powerEngine/powerEngine';
+import { isStunned, applyAporretaOfNymphaionPassive, onEfflorescenceMuseTurnStart } from '../../powerEngine/powerEngine';
 import { nikeAwardedAfterWinTheFight } from '../../irisWish/applyWishesEffect';
 
 /**
@@ -113,8 +113,8 @@ export async function advanceAfterDisorientedD4(
       updates[ARENA_PATH.BATTLE_CURRENT_TURN_INDEX] = skipIdx;
       updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = skipWrapped ? battle.roundNumber + 1 : battle.roundNumber;
       const battleForSkip = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
-      const dryadSkip = applySecretOfDryadPassive(room, skipEntry.characterId, battleForSkip, 0);
-      if (dryadSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadSkip);
+      const nymphSkip = applyAporretaOfNymphaionPassive(room, skipEntry.characterId, battleForSkip, 0);
+      if (nymphSkip[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, nymphSkip);
       const efflorescenceMuseSkip = onEfflorescenceMuseTurnStart(room, { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects }, skipEntry.characterId);
       if (efflorescenceMuseSkip) Object.assign(updates, efflorescenceMuseSkip);
       updates[ARENA_PATH.BATTLE_TURN] = { attackerId: skipEntry.characterId, attackerTeam: skipEntry.team, phase: PHASE.SELECT_ACTION };
@@ -123,10 +123,10 @@ export async function advanceAfterDisorientedD4(
       updates[ARENA_PATH.BATTLE_ROUND_NUMBER] = wrapped ? battle.roundNumber + 1 : battle.roundNumber;
       const turnData: Record<string, unknown> = { attackerId: nextEntry.characterId, attackerTeam: nextEntry.team, phase: PHASE.SELECT_ACTION };
       if (selfRes) (turnData as Record<string, unknown>).resurrectTargetId = nextEntry.characterId;
-      const battleForDryad = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
-      const dryadNext = applySecretOfDryadPassive(room, nextEntry.characterId, battleForDryad, 0);
-      if (dryadNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, dryadNext);
-      const efflorescenceMuseNext = onEfflorescenceMuseTurnStart(room, battleForDryad, nextEntry.characterId);
+      const battleForNymph = { ...battle, activeEffects: (updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] as ActiveEffect[]) ?? latestEffects };
+      const nymphNext = applyAporretaOfNymphaionPassive(room, nextEntry.characterId, battleForNymph, 0);
+      if (nymphNext[ARENA_PATH.BATTLE_ACTIVE_EFFECTS]) Object.assign(updates, nymphNext);
+      const efflorescenceMuseNext = onEfflorescenceMuseTurnStart(room, battleForNymph, nextEntry.characterId);
       if (efflorescenceMuseNext) Object.assign(updates, efflorescenceMuseNext);
       updates[ARENA_PATH.BATTLE_TURN] = turnData;
     }

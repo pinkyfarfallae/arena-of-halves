@@ -34,7 +34,7 @@ export { } from './hades/hades';
 
 // Persephone deity services
 export {
-  applySecretOfDryadPassive,
+  applyAporretaOfNymphaionPassive,
   onEfflorescenceMuseTurnStart,
   applyBlossomScentra,
   applySeasonEffects,

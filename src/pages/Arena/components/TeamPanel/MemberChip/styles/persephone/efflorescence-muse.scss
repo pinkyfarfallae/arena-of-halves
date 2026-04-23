@@ -1010,7 +1010,7 @@
 }
 
 /* ── White falling lights (Efflorescence Muse — sunlight through leaves); white shine ── */
-.mchip__dryad-lights {
+.mchip__aporreta-lights {
   position: absolute;
   inset: 0;
   z-index: 4;
@@ -1018,11 +1018,11 @@
   overflow: hidden;
 }
 
-.mchip__dryad-light {
+.mchip__aporreta-light {
   position: absolute;
   border-radius: 50%;
   opacity: 0;
-  animation: dryad-fall linear infinite;
+  animation: nymph-fall linear infinite;
   /* White shine: bright core + strong glow */
   background: #ffffff;
   box-shadow:
@@ -1220,7 +1220,7 @@
   }
 }
 
-@keyframes dryad-fall {
+@keyframes nymph-fall {
   0% {
     opacity: 0;
     transform: translateY(0) translateX(0) scale(1);
