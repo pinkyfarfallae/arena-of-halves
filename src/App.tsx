@@ -103,6 +103,7 @@ function AppShell() {
 
   const [showDailyGift, setShowDailyGift] = useState(false);
   const [giftAmount, setGiftAmount] = useState(0);
+  const [checkedDailyGiftForSession, setCheckedDailyGiftForSession] = useState<string | null>(null);
 
   let themeVars: React.CSSProperties | undefined;
 
@@ -111,15 +112,21 @@ function AppShell() {
     if (!user) {
       setShowDailyGift(false);
       setGiftAmount(0);
+      setCheckedDailyGiftForSession(null);
     }
   }, [user]);
 
-  // Check for unclaimed daily gift when user logs in
+  // Check for unclaimed daily gift when user logs in (only once per session)
   useEffect(() => {
     if (!user) return;
+    // Only check once per login session, not on every user refresh
+    if (checkedDailyGiftForSession === user.characterId) return;
 
     (async () => {
       try {
+        // Mark as checked for this session before async operation
+        setCheckedDailyGiftForSession(user.characterId);
+        
         // Prefer server-side claim API which also assigns a stable amount
         const serverEntry = await getUserDailyClaim(user.characterId).catch(() => ({ accepted: false, amount: (Math.floor(Math.random() * 5) + 1) * 10 }));
         if (serverEntry.accepted) return;
@@ -131,7 +138,7 @@ function AppShell() {
         // ignore
       }
     })();
-  }, [user?.characterId]);
+  }, [user?.characterId, checkedDailyGiftForSession]);
 
   if (user) {
     themeVars = applyTheme(user.theme);

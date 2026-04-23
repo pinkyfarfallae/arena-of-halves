@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const interval = setInterval(() => {
       refreshUser();
-    }, 1000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [user, refreshUser]);
