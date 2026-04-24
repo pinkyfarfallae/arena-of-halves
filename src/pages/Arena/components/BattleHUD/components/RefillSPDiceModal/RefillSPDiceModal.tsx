@@ -26,7 +26,7 @@ export interface RefillSPDiceModalProps {
   diceViewMs?: number;
   /** Ms after roll animation ends before showing result card (same flow as attack/defend when e.g. 2000). */
   resultViewMs?: number;
-  /** Override labels for non-refill D4 (e.g. Floral Heal crit). */
+  /** Override labels for non-refill D4 (e.g. Blossom Scentra Heal crit). */
   title?: string;
   subTitle?: string;
   wonText?: string;
@@ -36,7 +36,7 @@ export interface RefillSPDiceModalProps {
   onResultCardVisible?: () => void;
 }
 
-/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Also used for Floral Heal crit (Efflorescence Muse). */
+/** Shadow Camouflaging: D4 roll for 25% refill SP (quota). Also used for Blossom Scentra Heal crit (Efflorescence Muse). */
 export default function RefillSPDiceModal({
   attacker,
   isMyTurn,

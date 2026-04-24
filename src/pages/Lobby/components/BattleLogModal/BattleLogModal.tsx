@@ -195,7 +195,7 @@ export default function BattleLogModal({ room, onClose }: Props) {
                     <>
                       <span className="blm__sep">&mdash;</span>
                       <span className="blm__heal">
-                        +{entry.heal} heal{entry.floralHealCrit ? ' · CRIT' : ''}
+                        +{entry.heal} heal{entry.blossomScentraHealCrit ? ' · CRIT' : ''}
                       </span>
                     </>
                   ) : entry.damage > 0 ? (

@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchWishes, WISHES_FALLBACK, saveIrisWish, fetchTodayIrisWishes, fetchTodayIrisWish } from '../../data/wishes';
+import { fetchWishes, WISHES_FALLBACK, saveIrisWish, fetchTodayIrisWishes, fetchTodayIrisWish, BLESSING_WISHES, NORMAL_WISHES } from '../../data/wishes';
 import { DEITY_SVG, toDeityKey } from '../../data/deities';
 import { useAuth } from '../../hooks/useAuth';
+import { useScreenSize } from '../../hooks/useScreenSize';
 import type { Wish } from '../../types/wish';
 import Drachma from '../../icons/Drachma';
 import FountainIllustration from './components/FountainIllustration/FountainIllustration';
@@ -26,6 +27,7 @@ interface Props {
 
 function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: Props) {
   const { user } = useAuth();
+  const { width } = useScreenSize();
   const { bagEntries } = useBag(user?.characterId || '');
   const [phase, setPhase] = useState<Phase>(IRIS_PHASE.IDLE);
   const [wish, setWish] = useState<Wish | null>(null);
@@ -34,6 +36,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
   const [loading, setLoading] = useState(true);
 
   const [userTodayWish, setUserTodayWish] = useState<Wish | null>(null);
+  const [pendingChoices, setPendingChoices] = useState<Wish[] | null>(null);
 
   useEffect(() => {
 
@@ -96,56 +99,108 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
   const deityOrder = wishes.map(w => w.deity).slice(0, ORB_SCATTER.length);
 
   const toss = useCallback(() => {
-    if (phase === IRIS_PHASE.TOSSING) return;
-
+    if (phase === IRIS_PHASE.TOSSING || phase === IRIS_PHASE.CHOOSING) return;
     if (!isAdmin && userTodayWish) return;
 
-    // No toss to get Hephaetus in advance, until we got equipment system in place
-    const pick = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS)[Math.floor(Math.random() * wishes.length)];
-
-    setWish(pick);
+    const pool = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS);
     setPhase(IRIS_PHASE.TOSSING);
 
-    if (!isAdmin && user?.characterId) {
-      saveIrisWish(user.characterId, pick.deity).catch(() => { });
-      const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
-      if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
-    }
+    if (!isAdmin && user?.fortune === 5) {
+      // Fortune level 5: save a random default immediately, then let user swap to the other
+      const first = pool[Math.floor(Math.random() * pool.length)];
+      const rest = pool.filter(w => w.deity !== first.deity);
+      const second = (rest.length > 0 ? rest : pool)[Math.floor(Math.random() * (rest.length > 0 ? rest.length : pool.length))];
+      const choices: Wish[] = [first, second];
 
-    setTimeout(() => {
-      setPhase(IRIS_PHASE.REVEAL);
-
-      if (!isAdmin) {
-        setDiscovered(prev => new Set(prev).add(pick.deity));
-        applyWishEffect(pick, user?.characterId || '');
-
-        // Subscribe to rooms list and update wishes for rooms where user is a fighter
-        const unsubscribe = onRoomsList((rooms) => {
-          rooms.forEach(room => {
-            const isFighter =
-              room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
-              room.teamB?.members?.some(p => p.characterId === user?.characterId);
-
-            const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
-
-            if (isFighter || isInvited) {
-              updateTodayWishesForRoom(room.arenaId).catch(err => {
-                // console.error(`Failed to update today's wishes for room ${room.arenaId}:`, err);
-              });
-            }
-          });
-
-          // Unsubscribe after first snapshot (we only need to update once)
-          unsubscribe();
-        });
+      if (user.characterId) {
+        // Save the first pick as the default now — user can change it during CHOOSING
+        saveIrisWish(user.characterId, first.deity).catch(() => { });
+        const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
+        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
       }
-    }, 2200);
-  }, [phase, wishes, user?.characterId, isAdmin, userTodayWish, bagEntries]);
+
+      setTimeout(() => {
+        setPendingChoices(choices);
+        setPhase(IRIS_PHASE.CHOOSING);
+      }, 2200);
+    } else {
+      // Normal: pick 1 and save immediately
+      let pick = pool[Math.floor(Math.random() * pool.length)];
+
+      const firstPickPriority = BLESSING_WISHES.find(w => w === pool[0].deity) ? 2 : NORMAL_WISHES.find(w => w === pool[0].deity) ? 1 : 0;
+      const secondPickPriority = BLESSING_WISHES.find(w => w === pool[1].deity) ? 2 : NORMAL_WISHES.find(w => w === pool[1].deity) ? 1 : 0;
+
+      if (firstPickPriority < secondPickPriority) {
+        pick = pool[1];
+      } else if (firstPickPriority > secondPickPriority) {
+        pick = pool[0];
+      }
+
+      setWish(pick);
+
+      if (!isAdmin && user?.characterId) {
+        saveIrisWish(user.characterId, pick.deity).catch(() => { });
+        const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
+        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
+      }
+
+      setTimeout(() => {
+        setPhase(IRIS_PHASE.REVEAL);
+
+        if (!isAdmin) {
+          setDiscovered(prev => new Set(prev).add(pick.deity));
+          applyWishEffect(pick, user?.characterId || '');
+
+          const unsubscribe = onRoomsList((rooms) => {
+            rooms.forEach(room => {
+              const isFighter =
+                room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+                room.teamB?.members?.some(p => p.characterId === user?.characterId);
+              const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+              if (isFighter || isInvited) {
+                updateTodayWishesForRoom(room.arenaId).catch(() => { });
+              }
+            });
+            unsubscribe();
+          });
+        }
+      }, 2200);
+    }
+  }, [phase, wishes, user?.characterId, user?.fortune, isAdmin, userTodayWish, bagEntries]);
 
   const reset = useCallback(() => {
     setPhase(IRIS_PHASE.IDLE);
     setWish(null);
   }, []);
+
+  const confirmChoice = useCallback((picked: Wish) => {
+    if (!user?.characterId) return;
+    const choices = pendingChoices;
+    setPendingChoices(null);
+    setWish(picked);
+    setPhase(IRIS_PHASE.REVEAL);
+    setDiscovered(prev => new Set(prev).add(picked.deity));
+
+    // Only overwrite Firestore if the user picked the non-default card
+    const defaultPick = choices?.[0];
+    if (defaultPick && picked.deity !== defaultPick.deity) {
+      saveIrisWish(user.characterId, picked.deity).catch(() => { });
+    }
+    applyWishEffect(picked, user.characterId);
+
+    const unsubscribe = onRoomsList((rooms) => {
+      rooms.forEach(room => {
+        const isFighter =
+          room.teamA?.members?.some(p => p.characterId === user?.characterId) ||
+          room.teamB?.members?.some(p => p.characterId === user?.characterId);
+        const isInvited = room.inviteReservations?.some(p => p.characterId === user?.characterId);
+        if (isFighter || isInvited) {
+          updateTodayWishesForRoom(room.arenaId).catch(() => { });
+        }
+      });
+      unsubscribe();
+    });
+  }, [user?.characterId, pendingChoices]);
 
   const deityLabel = useMemo(() => wish?.deity ?? '', [wish]);
 
@@ -191,7 +246,9 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
           {deityOrder.map((deity, i) => {
             const [t, l] = ORB_SCATTER[i] ?? [50, 50];
             const found = discovered.has(deity);
-            const isActive = wish?.deity === deity && phase === IRIS_PHASE.REVEAL;
+            const isActive =
+              (wish?.deity === deity && phase === IRIS_PHASE.REVEAL) ||
+              (pendingChoices?.some(w => w.deity === deity) && phase === IRIS_PHASE.CHOOSING);
             return (
               <div
                 key={deity}
@@ -228,7 +285,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
             {/* Fountain */}
             <div className="iris__center">
               {/* Coin (above fountain) */}
-              {phase !== IRIS_PHASE.REVEAL && (
+              {phase !== IRIS_PHASE.REVEAL && phase !== IRIS_PHASE.CHOOSING && (
                 <div className={`iris__coin ${phase === IRIS_PHASE.TOSSING ? 'iris__coin--drop' : ''}`}>
                   <div className="iris__coin-inner">
                     <Drachma />
@@ -250,7 +307,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
             </div>
 
             {/* Idle + Tossing — prompt fades out via CSS, keeps layout stable */}
-            {phase !== IRIS_PHASE.REVEAL && (
+            {phase !== IRIS_PHASE.REVEAL && phase !== IRIS_PHASE.CHOOSING && (
               <div className="iris__prompt">
                 <span className="iris__label">Fountain of Iris</span>
                 <h1 className="iris__title">Make a Wish</h1>
@@ -267,6 +324,43 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
                   </span>
                   {loading ? 'Recognizing You...' : 'Toss a Drachma'}
                 </button>
+              </div>
+            )}
+
+            {/* Fortune Choice — two candidate cards to pick one from */}
+            {phase === IRIS_PHASE.CHOOSING && pendingChoices && (
+              <div className="iris__choice">
+                <div className="iris__choice-header">
+                  <p className="iris__choice-title">☽ Fortune smiles upon you — choose your blessing ☾</p>
+                </div>
+                <div className="iris__choice-cards">
+                  {pendingChoices.map((w) => (
+                    <button
+                      key={w.deity}
+                      type="button"
+                      className="iris__card iris__card--choosable"
+                      data-deity={w.deity.toLowerCase()}
+                      onClick={() => confirmChoice(w)}
+                    >
+                      <div className="iris__card-glow" />
+                      <div className="iris__card-frame">
+                        <div className="iris__card-inner">
+                          <div className="iris__card-icon">
+                            {(() => { const k = toDeityKey(w.deity); return k ? DEITY_SVG[k] : null; })()}
+                          </div>
+                          <div className="iris__card-deity">
+                            <span className="iris__card-diamond">◆</span>
+                            {w.deity}
+                            <span className="iris__card-diamond">◆</span>
+                          </div>
+                          <h2 className="iris__card-name">{w.name}</h2>
+                          <div className="iris__card-divider" />
+                          <p className="iris__card-desc">{w.description.replace(/\\n/g, '\n')}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -300,9 +394,22 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
           </div>
 
           {/* Flavor footer */}
-          <p className="iris__flavor">
-            The fountain shimmers with every color of the rainbow. Each drachma carries a prayer — and the gods always answer, though not always as you'd expect.
-          </p>
+          {phase === IRIS_PHASE.CHOOSING ? (
+            <p
+              className="iris__flavor"
+              style={{
+                color: '#230075',
+                whiteSpace: width > 600 ? 'nowrap' : "normal",
+                marginTop: width > 900 ? '1rem' : undefined,
+              }}
+            >
+              The mist swirls, revealing glimpses of possible futures. Which blessing will you seize?
+            </p>
+          ) : (
+            <p className="iris__flavor">
+              The fountain shimmers with every color of the rainbow. Each drachma carries a prayer — and the gods always answer, though not always as you'd expect.
+            </p>
+          )}
         </div>
 
         {/* Back button */}

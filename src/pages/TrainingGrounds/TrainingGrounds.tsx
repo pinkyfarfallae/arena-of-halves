@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Stats from './pages/Stats/Stats';
 import PvP from './pages/PvP/PvP';
 import TrainWithAdmin from './pages/TrainWithAdmin/TrainWithAdmin';
@@ -276,6 +276,7 @@ export default function TrainingGrounds() {
         state: PRACTICE_STATES.WAITING,
         rounds: 0,
         winner: false,
+        withFullLevelFortune: user.fortune === 5,
       });
     } catch (err: any) {
       // If quota already used or other error, throw to prevent room finalization

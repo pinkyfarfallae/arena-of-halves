@@ -82,8 +82,8 @@ export const BLESSING_NAMES = {
     en: 'Efflorescence Muse',
     th: 'เกราะพฤกษชาติแห่งนางบุปผา',
   },
-  [EFFECT_TAGS.FLORAL_FRAGRANCE]: {
-    en: 'Floral Fragrance',
+  [EFFECT_TAGS.BLOSSOM_SCENTRA]: {
+    en: 'Blossom Scentra',
     th: 'สุคนธ์บุษบาแห่งการเยียวยา',
   },
   [EFFECT_TAGS.POMEGRANATE_OATH_SPIRIT]: {
@@ -129,6 +129,10 @@ export const UI_TEXT = {
   CAMP_MEMBERS: {
     en: 'Camp Members',
     th: 'สมาชิกแคมป์'
+  },
+  DICE: {
+    en: 'Dice Roller',
+    th: 'ทอยลูกเต๋า'
   },
   REPORT_HARVEST: {
     en: 'Report Harvest',
@@ -914,9 +918,21 @@ export const UI_TEXT = {
     en: 'Rules for Reporting Missions',
     th: 'กฎการรายงานภารกิจ'
   },
+  BIG_HOUSE_FOOTER_RATE: {
+    en: 'Valuation Rate',
+    th: 'อัตราการประเมิน'
+  },
   BIG_HOUSE_SIDEBAR_TITLE: {
     en: 'Reported Missions',
     th: 'ภารกิจที่รายงานแล้ว'
+  },
+  BIG_HOUSE_NO_SUBMISSIONS: {
+    en: 'No missions reported yet',
+    th: 'คุณไม่มีการรายงานภารกิจ'
+  },
+  BIG_HOUSE_SUBMISSION_ON: {
+    en: 'Submission on',
+    th: 'รายงานเมื่อ',
   }
 } as const;
 

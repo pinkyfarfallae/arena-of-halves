@@ -1,0 +1,15 @@
+@import '../../styles/variables';
+
+.dice-roller-simulator {
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+
+  @media (max-width: $bp-medium) {
+    height: calc(100vh - #{$topbar-height});
+  }
+}

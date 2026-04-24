@@ -1,5 +1,6 @@
 import { Power } from '../../../../data/characters';
 import { POWER_META } from '../../constants/powerMeta';
+import LockClosed from '../../icons/LockClosed';
 import './PowerCard.scss';
 
 function FormatLine({ text, bullet }: { text: string; bullet?: boolean }) {
@@ -49,22 +50,41 @@ function FormatDesc({ text }: { text: string }) {
   );
 }
 
-export default function PowerCard({ power, index }: { power: Power; index: number }) {
+export default function PowerCard({ power, index, unlocked }: { power: Power; index: number; unlocked: boolean }) {
   const meta = POWER_META[power.type] || { icon: '◇', tag: power.type.toUpperCase(), cls: '' };
 
   return (
-    <div className={`pcard ${meta.cls}`} style={{ animationDelay: `${index * 0.1}s` }}>
-      <div className="pcard__accent" />
-      <div className="pcard__orb">
-        <span className="pcard__orb-icon">{meta.icon}</span>
-      </div>
-      <div className="pcard__body">
-        <span className="pcard__tag">{meta.tag}</span>
-        <h4 className="pcard__name">{power.name}</h4>
-        <div className="pcard__desc">
-          <FormatDesc text={power.description} />
-        </div>
-      </div>
+    <div className={`pcard ${meta.cls}`} style={{ animationDelay: `${index * 0.1}s`, filter: unlocked ? 'none' : 'grayscale(100%) saturate(0)' }}>
+      {unlocked ? (
+        <>
+          <div className="pcard__accent" />
+          <div className="pcard__orb">
+            <span className="pcard__orb-icon">{meta.icon}</span>
+          </div>
+          <div className="pcard__body">
+            <span className="pcard__tag">{meta.tag}</span>
+            <h4 className="pcard__name">{power.name}</h4>
+            <div className="pcard__desc">
+              <FormatDesc text={power.description} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="pcard__accent pcard__locked" />
+          <div className="pcard__orb pcard__locked">
+            <span className="pcard__orb-icon"><LockClosed /></span>
+          </div>
+          <div className="pcard__body pcard__body--locked">
+            <span className="pcard__tag">{meta.tag}</span>
+            <h4 className="pcard__name">{power.name}</h4>
+            <div className="pcard__desc">
+              <FormatDesc text={power.description} />
+            </div>
+          </div>
+        </>
+
+      )}
     </div>
   );
 }

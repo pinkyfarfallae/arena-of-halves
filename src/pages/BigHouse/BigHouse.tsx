@@ -4,38 +4,32 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { T } from '../../constants/translationKeys';
 import ChevronLeft from '../../icons/ChevronLeft';
-import QuestionMark from '../../icons/QuestionMark';
 import Drachma from '../../icons/Drachma';
-import { submitHarvest, fetchHarvests } from '../../services/harvest/fetchHarvest';
-import { HarvestSubmission, HarvestSubmissionStatus } from '../../types/harvest';
 import BigHouseIcon from '../LifeInCamp/components/LocationIcon/icons/BigHouse';
-import Strawberry from '../LifeInCamp/components/LocationIcon/icons/Strawberry';
-import HarvestRulesModal from '../StrawberryFields/components/HarvestRulesModal/HarvestRulesModal';
-import { HARVEST_SUBMISSION_STATUS } from '../../constants/harvest';
-import SubmissionSuccessCard from '../StrawberryFields/components/SubmissionSuccessCard/SubmissionSuccessCard';
-import SubmissionCard from '../StrawberryFields/components/SubmissionCard/SubmissionCard';
 import { LANGUAGE } from '../../constants/language';
 import { Character, fetchAllCharacters } from '../../data/characters';
 import InfoCircle from '../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../hooks/useScreenSize';
-import { fetchActiveTodayIrisWish } from '../../data/wishes';
-import { DEITY } from '../../constants/deities';
 import Background from './images/background.jpg'
-import './BigHouse.scss';
 import Close from '../../icons/Close';
+import { fetchBigHouseRoleplays, submitBigHouseRoleplay } from '../../services/bigHouse/fetchBigHouseRoleplay';
+import { BigHouseSubmission } from '../../types/bigHouse';
+import { isValidTwitterUrl } from '../../utils/twitterUrlValidation';
+import SubmissionCard from './components/SubmissionCard/SubmissionCard';
+import './BigHouse.scss';
 
 function BigHouse() {
   const { user } = useAuth();
   const { width } = useScreenSize();
   const { t, lang } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [submissions, setSubmissions] = useState<HarvestSubmission[]>([]);
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [submissions, setSubmissions] = useState<BigHouseSubmission[]>([]);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
   const [allCampData, setAllCampData] = useState<Character[]>([]);
-  const [filterStatus, setFilterStatus] = useState<HarvestSubmissionStatus | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
   const [hasDemeterBonus, setHasDemeterBonus] = useState(false);
@@ -47,52 +41,26 @@ function BigHouse() {
 
     if (!user) return;
 
-    fetchAllCharacters(user)
-      .then((data) => {
-        if (mounted) setAllCampData(data || []);
-      })
-      .catch(() => { });
-
-    return () => {
-      mounted = false;
-    };
-  }, [user?.characterId]);
-
-  useEffect(() => {
-    if (!user?.characterId) return;
-
-    let mounted = true;
-
     const loadSubmissions = async () => {
       setIsLoadingSubmissions(true);
-
       try {
-        const result = await fetchHarvests(user.characterId);
+        const [data, characters] = await Promise.all([
+          fetchBigHouseRoleplays(user.characterId),
+          fetchAllCharacters(user),
+        ]);
 
-        if (!mounted) return;
-
-        if (result.error) {
-          return;
+        if (mounted) {
+          setSubmissions(data.submissions);
+          setAllCampData(characters);
         }
-
-        const sorted = [...result.harvests].sort(
-          (a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt)
-        );
-
-        setSubmissions(sorted);
-      } catch (err) {
+      } catch (error) {
+        console.error('Failed to load submissions', error);
       } finally {
-        if (mounted) setIsLoadingSubmissions(false);
+        if (mounted) {
+          setIsLoadingSubmissions(false);
+        }
       }
     };
-
-    fetchActiveTodayIrisWish(user?.characterId || '').then(wish => {
-      if (!mounted) return;
-      setHasDemeterBonus(wish?.deity === DEITY.DEMETER);
-    }).catch(() => {
-      if (!mounted) return;
-      setHasDemeterBonus(false);
-    });
 
     loadSubmissions();
 
@@ -101,19 +69,7 @@ function BigHouse() {
     };
   }, [user?.characterId]);
 
-  const characterMap = useMemo(() => {
-    const map: Record<string, Character> = {};
-    allCampData.forEach((c) => {
-      map[c.characterId.toLowerCase()] = c;
-    });
-    return map;
-  }, [allCampData]);
-
-  const isValidTwitterUrl = useMemo(() => {
-    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
-    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^\/]+\/status\/\d+/i;
-    return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
-  }, [firstTweetUrl]);
+  const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -126,7 +82,7 @@ function BigHouse() {
       return;
     }
 
-    if (!isValidTwitterUrl) {
+    if (!_isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
       return;
     }
@@ -136,9 +92,7 @@ function BigHouse() {
     setSubmitSuccess(false);
 
     try {
-      const submittedAt = new Date().toISOString();
-
-      const result = await submitHarvest(
+      const result = await submitBigHouseRoleplay(
         user.characterId,
         firstTweetUrl.trim(),
       );
@@ -147,12 +101,13 @@ function BigHouse() {
         throw new Error(result.error);
       }
 
+      const submittedAt = new Date().toISOString();
       setSubmissions((prev) => [
         {
-          id: result.id || Date.now().toString(),
+          id: result.id || submittedAt,
           characterId: user.characterId,
-          firstTweetUrl,
-          status: HARVEST_SUBMISSION_STATUS.PENDING,
+          roleplayUrl: firstTweetUrl.trim(),
+          status: 'pending',
           submittedAt,
         },
         ...prev,
@@ -206,11 +161,11 @@ function BigHouse() {
                   ref={inputRef}
                   className="big-house__form-input"
                   placeholder="Paste thread URL (first tweet)"
-                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                  style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
-                {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
                   <div
                     className="big-house__form-error-icon"
                     data-tooltip={t(T.INVALID_TWITTER_URL)}
@@ -222,7 +177,7 @@ function BigHouse() {
                 <button
                   className={`big-house__form-button ${isSubmitting ? 'big-house__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim() || !isValidTwitterUrl}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >
@@ -231,7 +186,48 @@ function BigHouse() {
                 </button>
               </div>
               <div className="big-house__form-footer">
-                <h3>{t(T.BIG_HOUSE_FOOTER_TITLE)}</h3>
+                <div className="big-house__form-footer-content">
+                  <h3>{t(T.BIG_HOUSE_FOOTER_TITLE)}</h3>
+                  <div className="big-house__form-footer-list">
+                    <span>
+                      <b>ณ ที่แห่งนี้</b> เปิดโอกาสให้เหล่าสมาชิกสามารถนำผลงานการเขียนของตนมาขึ้นทะเบียนเพื่อแลกเปลี่ยนเป็นรายได้
+                      ยิ่งสร้างสรรค์และมีจำนวนมากเท่าใด ผลตอบแทนก็ยิ่งเพิ่มพูนตามไปด้วย
+                    </span>
+
+                    <ul className="big-house__form-footer-bullets">
+                      <li className="big-house__form-footer-bullets-item">
+                        โรลเพลย์ที่จะนำมาขึ้นจำนำจะเป็นการโรลเพลย์ประเภทไหนก็ได้ ทั้งโรลเพลย์อิสระ โรลเพลย์ในเนื้อเรื่องอีเวนท์หลัก
+                        โรลเพลย์การฝึกฝนประจำวัน เควสบอร์ด หรืออื่น ๆ ก็สามารถนำมาประเมินราคาได้ทั้งหมด
+                      </li>
+                      <li className="big-house__form-footer-bullets-item big-house__form-footer-bullets-item--strawberry">
+                        โรลเพลย์ในระบบ <b>ไร่สตรอเบอร์รี่</b> จะ<b>ไม่</b>สามารถนำมาประเมินราคาที่บ้านใหญ่ได้
+                      </li>
+                      <li className="big-house__form-footer-bullets-item">
+                        หากเป็นโรลเพลย์ที่มีผู้เขียนมากกว่า 1 คนการประเมินราคาจะนับจำนวนอักษรและคำนวณราคาแยกกันตามแต่ละบุคคลเสมอ
+                      </li>
+                      <li className="big-house__form-footer-bullets-item">
+                        หากเป็นโรลเพลย์ที่มีผู้เขียนมากกว่า 1 คน สามารถให้ตัวแทนหนึ่งคนส่งเพื่อประเมินราคาได้ ผู้ร่วมเขียนทุกคนจะได้รับรายได้ตามสัดส่วนที่ตกลงกันไว้
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="big-house__form-footer-divider" />
+
+                  <h3>{t(T.BIG_HOUSE_FOOTER_RATE)}</h3>
+                  <div className="big-house__form-footer-rate">
+                    <ul className="big-house__form-footer-list">
+                      <li className="big-house__form-footer-rate-list-item">
+                        <b>อัตราพื้นฐาน</b> <span>200 อักษรต่อ <b>7</b> <Drachma /></span>
+                      </li>
+                      <li className="big-house__form-footer-rate-list-item big-house__form-footer-rate-list-item--highlight">
+                        <b>อัตราพิเศษ</b> <span>ถ้ามีความยาวตั้งแต่ 1,000 อักษรขึ้นไปแต่ไม่เกิน 2,400 อักษร — ได้รับเพิ่มเติมจากอัตราปกติ <b>35</b> <Drachma /></span>
+                      </li>
+                      <li className="big-house__form-footer-rate-list-item big-house__form-footer-rate-list-item--bonus">
+                        <b>โบนัส</b> <span>ถ้ามีความยาวตั้งแต่ 2,400 อักษรขึ้นไป — ได้รับเพิ่มเติมจากอัตราปกติเป็น <b>2</b> เท่า</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -248,7 +244,20 @@ function BigHouse() {
             </button>
           </div>
           <div className="big-house__sidebar__content">
-
+            {isLoadingSubmissions ? (
+              <div className="big-house__sidebar-loading">{t(T.LOADING)}...</div>
+            ) : submissions.length === 0 ? (
+              <div className="big-house__sidebar-empty">{t(T.BIG_HOUSE_NO_SUBMISSIONS)}</div>
+            ) : (
+              submissions.map((submission) => (
+                <SubmissionCard
+                  key={submission.id}
+                  submission={submission}
+                  characters={allCampData}
+                  forcedCompact
+                />
+              ))
+            )}
           </div>
         </aside>
       </div>

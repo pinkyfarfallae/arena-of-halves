@@ -12,8 +12,8 @@ export const PHASE = {
   ROLLING_ATTACK: 'rolling-attack',
   /** Rolling defend roll */
   ROLLING_DEFEND: 'rolling-defend',
-  /** Floral Fragrance on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
-  ROLLING_FLORAL_HEAL: 'rolling-floral-heal',
+  /** Blossom Scentra on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
+  ROLLING_BLOSSOM_SCENTRA_HEAL: 'rolling-scentra-heal',
   /** Spring (Ephemeral Season): roll D4 for heal crit (1 or 2 HP until next caster turn) */
   ROLLING_SPRING_HEAL: 'rolling-spring-heal',
   /** Disoriented (Imprecated Poem): D4 roll for 25% no effect — client rolls on all screens, then advance */
@@ -218,7 +218,7 @@ export function getPhaseLabel(
       return context?.defenderName ? `→ ${context.defenderName}` : 'resolving...';
     case PHASE.NEMESIS_WISH_BLESSING_REATTACK:
       return 'Nemesis retaliation...';
-    case PHASE.ROLLING_FLORAL_HEAL:
+    case PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL:
       return 'Heal Crit';
     case PHASE.ROLLING_SPRING_HEAL:
       return 'Spring Heal';

@@ -53,7 +53,7 @@ import {
   teamMembersFromFirebase,
   skipTurnNoValidTarget,
   selectTargetDisoriented,
-  advanceAfterFloralHealSkippedAck,
+  advanceAfterBlossomScentraHealSkippedAck,
   advanceAfterSoulDevourerHealSkippedAck,
   advanceAfterNemesisReattack,
   advanceAfterPomegranateCoSkippedAck,
@@ -214,10 +214,10 @@ function Arena(props?: ArenaDemoProps) {
   /** True while pomegranate co-resolve card is showing (from BattleHUD) — allows transient hit effects even after phase changes */
   const [pomegranateCoResolveActive, setPomegranateCoResolveActive] = useState(false);
 
-  // Local visual override: NPC schedules a target, or human selects ally for Floral Fragrance (show heal effect immediately)
+  // Local visual override: NPC schedules a target, or human selects ally for Blossom Scentra (show heal effect immediately)
   const [npcVisualTarget, setNpcVisualTarget] = useState<string | null>(null);
   const [npcVisualPowerName, setNpcVisualPowerName] = useState<string | null>(null);
-  const floralVisualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blossomScentraVisualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track active season from Ephemeral Season power (displayed for 2 turns)
   const [activeSeason, setActiveSeason] = useState<SeasonKey | null>(null);
@@ -228,8 +228,8 @@ function Arena(props?: ArenaDemoProps) {
 
   /** Set when user confirms a power in the action modal (action === POWER). Cleared when turn/phase changes. */
   const [lastConfirmedPowerName, setLastConfirmedPowerName] = useState<string | null>(null);
-  /** Set when Floral Heal D4 result card is shown (so TeamPanel can show healing VFX in sync). Cleared when leaving ROLLING_FLORAL_HEAL. */
-  const [floralHealResultCardVisible, setFloralHealResultCardVisible] = useState(false);
+  /** Set when Blossom Scentra Heal D4 result card is shown (so TeamPanel can show healing VFX in sync). Cleared when leaving ROLLING_BLOSSOM_SCENTRA_HEAL. */
+  const [blossomScentraHealResultCardVisible, setBlossomScentraHealResultCardVisible] = useState(false);
 
   /** Ref to track if volley main attack arrow has been shown, so we can show extra arrow for co-attack if needed. Resets on turn change. */
   const volleyMainArrowShownRef = useRef(false);
@@ -544,14 +544,14 @@ function Arena(props?: ArenaDemoProps) {
       if (found >= 0) powerIdx = found;
     }
     if (powerIdx == null) return;
-    if (turn.usedPowerName === POWER_NAMES.FLORAL_FRAGRANCE) {
-      if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+    if (turn.usedPowerName === POWER_NAMES.BLOSSOM_SCENTRA) {
+      if (blossomScentraVisualTimerRef.current) clearTimeout(blossomScentraVisualTimerRef.current);
       setNpcVisualTarget(allyId);
-      setNpcVisualPowerName(POWER_NAMES.FLORAL_FRAGRANCE);
-      floralVisualTimerRef.current = setTimeout(() => {
+      setNpcVisualPowerName(POWER_NAMES.BLOSSOM_SCENTRA);
+      blossomScentraVisualTimerRef.current = setTimeout(() => {
         setNpcVisualTarget(null);
         setNpcVisualPowerName(null);
-        floralVisualTimerRef.current = null;
+        blossomScentraVisualTimerRef.current = null;
       }, 4000);
     }
     runAsync(() => selectAction(arenaId, TURN_ACTION.POWER, powerIdx as number, allyId));
@@ -575,15 +575,15 @@ function Arena(props?: ArenaDemoProps) {
   const onSelectActionDeferred = useCallback((action: TurnAction, powerName?: string, allyTargetId?: string) => {
     if (action === TURN_ACTION.POWER && powerName) {
       setLastConfirmedPowerName(powerName);
-      // Show Floral Fragrance healing effect immediately when human selects ally (choose → select target → show)
-      if (powerName === POWER_NAMES.FLORAL_FRAGRANCE && allyTargetId) {
-        if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+      // Show Blossom Scentra healing effect immediately when human selects ally (choose → select target → show)
+      if (powerName === POWER_NAMES.BLOSSOM_SCENTRA && allyTargetId) {
+        if (blossomScentraVisualTimerRef.current) clearTimeout(blossomScentraVisualTimerRef.current);
         setNpcVisualTarget(allyTargetId);
-        setNpcVisualPowerName(POWER_NAMES.FLORAL_FRAGRANCE);
-        floralVisualTimerRef.current = setTimeout(() => {
+        setNpcVisualPowerName(POWER_NAMES.BLOSSOM_SCENTRA);
+        blossomScentraVisualTimerRef.current = setTimeout(() => {
           setNpcVisualTarget(null);
           setNpcVisualPowerName(null);
-          floralVisualTimerRef.current = null;
+          blossomScentraVisualTimerRef.current = null;
         }, 3000);
       }
     } else {
@@ -598,7 +598,7 @@ function Arena(props?: ArenaDemoProps) {
 
   useEffect(() => {
     return () => {
-      if (floralVisualTimerRef.current) clearTimeout(floralVisualTimerRef.current);
+      if (blossomScentraVisualTimerRef.current) clearTimeout(blossomScentraVisualTimerRef.current);
     };
   }, []);
 
@@ -638,10 +638,10 @@ function Arena(props?: ArenaDemoProps) {
     prevSelectActionAttackerIdRef.current = id;
   }, [room?.battle?.turn?.phase, room?.battle?.turn?.attackerId]);
 
-  /* ── Clear floral heal result card flag when leaving D4 phase ── */
+  /* ── Clear blossom scentra heal result card flag when leaving D4 phase ── */
   useEffect(() => {
-    if (room?.battle?.turn?.phase !== PHASE.ROLLING_FLORAL_HEAL) {
-      setFloralHealResultCardVisible(false);
+    if (room?.battle?.turn?.phase !== PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL) {
+      setBlossomScentraHealResultCardVisible(false);
     }
   }, [room?.battle?.turn?.phase]);
 
@@ -998,7 +998,7 @@ function Arena(props?: ArenaDemoProps) {
   }, [arenaId]);
 
   const handleHealSkippedAck = useCallback(async () => {
-    if (arenaId) await advanceAfterFloralHealSkippedAck(arenaId);
+    if (arenaId) await advanceAfterBlossomScentraHealSkippedAck(arenaId);
   }, [arenaId]);
 
   const handleSoulDevourerHealSkippedAck = useCallback(async () => {
@@ -1241,6 +1241,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.WAITING,
       rounds: 0,
       winner: false,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP WAITING state:', err);
     });
@@ -1281,6 +1282,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.LIVE,
       rounds: 0,
       winner: false,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP LIVE state:', err);
     });
@@ -1342,6 +1344,7 @@ function Arena(props?: ArenaDemoProps) {
       state: PRACTICE_STATES.FINISHED,
       rounds: room.battle?.roundNumber ?? 0,
       winner: room.battle?.winner === role,
+      withFullLevelFortune: user.fortune === 5,
     }).catch((err) => {
       // console.error('[Arena] Failed to save PVP practice result:', err);
       // Still save local state even if sheet submission fails
@@ -1567,7 +1570,7 @@ function Arena(props?: ArenaDemoProps) {
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
-              floralHealResultCardVisible={floralHealResultCardVisible}
+              blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
               volleyArrowHitActive={volleyArrowHitActive}
               volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
               volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
@@ -1605,7 +1608,7 @@ function Arena(props?: ArenaDemoProps) {
                 clientVisualDefenderId={npcVisualTarget}
                 clientVisualPowerName={npcVisualPowerName}
                 suppressHitAfterBack={suppressHitAfterBack}
-                floralHealResultCardVisible={floralHealResultCardVisible}
+                blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
                 volleyArrowHitActive={volleyArrowHitActive}
                 volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
                 volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
@@ -1746,7 +1749,7 @@ function Arena(props?: ArenaDemoProps) {
             clientVisualDefenderId={npcVisualTarget}
             clientVisualPowerName={npcVisualPowerName}
             suppressHitAfterBack={suppressHitAfterBack}
-            floralHealResultCardVisible={floralHealResultCardVisible}
+            blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
             volleyArrowHitActive={volleyArrowHitActive}
             volleyArrowHitDefenderId={showVolleyArrowChipVfx ? battle?.turn?.defenderId : undefined}
             volleyArrowHitAttackerId={showVolleyArrowChipVfx ? battle?.turn?.attackerId : undefined}
@@ -1786,7 +1789,7 @@ function Arena(props?: ArenaDemoProps) {
               currentSkeletonHitTargetId={currentSkeletonHitTargetId}
               currentSkeletonPulseKey={currentSkeletonPulseKey}
               onSelectTarget={playAllNonHostViewer || isDisorientedPlayerTurn ? undefined : onSelectTargetDeferred}
-              floralHealResultCardVisible={floralHealResultCardVisible}
+              blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
               clientVisualDefenderId={npcVisualTarget}
               clientVisualPowerName={npcVisualPowerName}
               suppressHitAfterBack={suppressHitAfterBack}
@@ -1944,8 +1947,8 @@ function Arena(props?: ArenaDemoProps) {
             }}
             volleyArrowHitActive={volleyArrowHitActive}
             onPomegranateCoResolveActive={setPomegranateCoResolveActive}
-            onFloralHealResultCardVisible={() => setFloralHealResultCardVisible(true)}
-            onFloralHealResultCardHidden={() => setFloralHealResultCardVisible(false)}
+            onBlossomScentraHealResultCardVisible={() => setBlossomScentraHealResultCardVisible(true)}
+            onBlossomScentraHealResultCardHidden={() => setBlossomScentraHealResultCardVisible(false)}
             originalAttackRollBeforeBuff={originalAttackRollBeforeBuff}
             originalDefendRollBeforeBuff={originalDefendRollBeforeBuff}
             originalCoAttackRollBeforeBuff={originalCoAttackRollBeforeBuff}

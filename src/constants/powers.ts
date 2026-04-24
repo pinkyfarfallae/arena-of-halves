@@ -100,8 +100,8 @@ export const POWER_NAMES = {
   THE_MIST: 'The Mist',
 
   // Persephone
-  SECRET_OF_DRYAD: 'Secret of Dryad',
-  FLORAL_FRAGRANCE: 'Floral Fragrance',
+  THE_APORRETA_OF_NYMPHAION: 'The Aporrēta of Nymphaion',
+  BLOSSOM_SCENTRA: 'Blossom Scentra',
   EPHEMERAL_SEASON: 'Ephemeral Season',
   POMEGRANATES_OATH: "Pomegranate's Oath",
 

@@ -30,7 +30,7 @@ export const EFFECT_TAGS = {
 
   // Persephone
   EFFLORESCENCE_MUSE: 'efflorescence-muse',
-  FLORAL_FRAGRANCE: 'floral-fragrance',
+  BLOSSOM_SCENTRA: 'blossom-scentra',
   SEASON_SPRING: 'season-spring',
   SEASON_AUTUMN: 'season-autumn',
   SEASON_WINTER: 'season-winter',

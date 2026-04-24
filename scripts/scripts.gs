@@ -21,6 +21,7 @@ var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
 var TRAINING_SHEET_NAME = 'Daily Training Dice';
 var CUSTOM_EQUIPMENT = 'Custom Equipment';
+var BIG_HOUSE_ROLEPLAY_SHEET_NAME = 'Big House Roleplay Submission';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -198,6 +199,18 @@ function doPost(e) {
 
     if (data.action === 'deleteEquipment') {
       return handleDeleteEquipment(data.itemId);
+    }
+
+    if (data.action === 'submitBigHouseRoleplay') {
+      return handleSubmitBigHouseRoleplay(data);
+    }
+
+    if (data.action === 'approveBigHouseRoleplay') {
+      return handleApproveBigHouseRoleplay(data);
+    }
+
+    if (data.action === 'rejectBigHouseRoleplay') {
+      return handleRejectBigHouseRoleplay(data);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -1016,29 +1029,30 @@ function upgradeStat(characterId, statId, pointsToSpend) {
             case 4:
               handleEditUser(characterId, { 'speed': currentSpeed + 2 });
               break;
+            case 5:
+              handleEditUser(characterId, { 'reroll': 3 });
+              break;
             default:
               break;
           };
           break;
 
         case 'intelligence':
-          const currentDefDiceUpRaw = getCharacterInfo(characterId, 'defend dice up');
-          const currentAtkDiceUpRaw = getCharacterInfo(characterId, 'attack dice up');
+          let def = Number(getCharacterInfo(characterId, 'defend dice up')) || 0;
+          let atk = Number(getCharacterInfo(characterId, 'attack dice up')) || 0;
 
-          const currentDefDiceUp = Number(currentDefDiceUpRaw) || 0;
-          const currentAtkDiceUp = Number(currentAtkDiceUpRaw) || 0;
-
-          switch (newStatValue) {
-            case (newStatValue % 2 == 0):
-              handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
-              break;
-            case (newStatValue % 2 == 1):
-              handleEditUser(characterId, { 'attack dice up': currentAtkDiceUp + 1 });
-              if (newStatValue === 5) {
-                handleEditUser(characterId, { 'defend dice up': currentDefDiceUp + 1 });
-              }
-              break;
+          if (newStatValue % 2 === 0) {
+            def += 1;
+          } else {
+            atk += 1;
+            if (newStatValue === 5) def += 1;
           }
+
+          handleEditUser(characterId, {
+            'defend dice up': def,
+            'attack dice up': atk
+          });
+          break;
           break;
 
         case 'technique':
@@ -1048,9 +1062,6 @@ function upgradeStat(characterId, statId, pointsToSpend) {
               break;
             case 2:
               handleEditUser(characterId, { 'skill point': '1' });
-              break;
-            case 3:
-              updateTrainingPoints(characterId, 1);
               break;
             case 4:
               handleEditUser(characterId, { 'skill point': '2' });
@@ -1116,7 +1127,7 @@ function revertDerivedStatsForRefund(characterId, statId, oldValue, newValue) {
       // Even levels: +1 defend dice up, Odd levels: +1 attack dice up (plus def at 5)
       var currentDefDiceUp = Number(getCharacterInfo(characterId, 'defend dice up')) || 0;
       var currentAtkDiceUp = Number(getCharacterInfo(characterId, 'attack dice up')) || 0;
-      
+
       if (oldValue % 2 === 0) {
         // Was even level, revert defend dice up
         handleEditUser(characterId, { 'defend dice up': Math.max(0, currentDefDiceUp - 1) });
@@ -1559,10 +1570,10 @@ function handleFetchTopHarvesters(limit) {
 
 /* ══════════════════════════════════════
    TRAINING SYSTEM (Google Sheets as Primary Source)
-   Sheet: Training Tasks
-   Columns: Id | Date | User | Attempt | Rolls | Mode | Success | Roleplay | 
-            Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason | 
-            ArenaId | OpponentId | OpponentName | BattleRounds
+    Sheet: Training Tasks
+    Columns: Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay |
+      Tickets | Verified | VerifiedBy | VerifiedAt | RejectReason |
+      ArenaId | OpponentId | OpponentName | BattleRounds
    ══════════════════════════════════════ */
 
 // Get the existing training sheet
@@ -1588,6 +1599,19 @@ function findTaskRow(sheet, id) {
   return -1;
 }
 
+// Find a training row by userId + date prefix (id may include time suffix)
+function findTaskRowByPrefix(sheet, userId, date) {
+  var prefix = userId + '_' + date;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var cellId = data[i][0].toString();
+    if (cellId.indexOf(prefix) === 0) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
 /* ══════════════════════════════════════
    SUBMIT TRAINING
    - Create new training task record
@@ -1596,6 +1620,8 @@ function findTaskRow(sheet, id) {
 function handleSubmitTraining(params) {
   var userId = (params.userId || '').toString().trim();
   var date = (params.date || '').toString().trim();
+  var withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
+  var submittedAt = new Date().toISOString();
   var attempt = parseInt(params.attempt || '5', 10);
   var rolls = params.rolls || [];
   var mode = (params.mode || 'admin').toString().trim();
@@ -1615,16 +1641,26 @@ function handleSubmitTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var id = userId + '_' + date;
+  var id = userId + '_' + submittedAt;
 
-  if (findTaskRow(sheet, id) > 0) {
+  if (findTaskRowByPrefix(sheet, userId, date) > 0) {
     return jsonResponse({ error: 'Training task already exists for this date' });
   }
 
+  // Build row in the requested sequence:
+  // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
   var newRow = [
-    id, date, userId, attempt, JSON.stringify(rolls), mode,
-    success ? 'TRUE' : 'FALSE', '', 0, 'pending', '', '', '',
-    arenaId, opponentId, opponentName, battleRounds
+    id,                           // 1: Id
+    date,                         // 2: Date
+    withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
+    userId,                       // 4: User
+    attempt,                      // 5: Attempt
+    JSON.stringify(rolls),        // 6: Rolls
+    mode,                         // 7: Mode
+    success ? 'TRUE' : 'FALSE',   // 8: Success
+    '',                           // 9: Roleplay
+    0,                            // 10: Tickets
+    'pending',                    // 11: Verified
   ];
 
   sheet.appendRow(newRow);
@@ -1652,19 +1688,20 @@ function handleSubmitTrainingRoleplay(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  sheet.getRange(row, 8).setValue(roleplayUrl);
-  sheet.getRange(row, 9).setValue(tickets);
+  // Roleplay is column 9, tickets column 10, verified column 11
+  sheet.getRange(row, 9).setValue(roleplayUrl);
+  sheet.getRange(row, 10).setValue(tickets);
 
-  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  var currentVerified = sheet.getRange(row, 11).getValue().toString().toLowerCase();
   if (currentVerified === 'rejected') {
-    sheet.getRange(row, 10).setValue('pending');
-    sheet.getRange(row, 13).setValue('');
+    sheet.getRange(row, 11).setValue('pending');
+    sheet.getRange(row, 14).setValue('');
   }
 
   return jsonResponse({ success: true });
@@ -1696,17 +1733,26 @@ function handleVerifyTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  // Get mode and success status from the task
-  var mode = sheet.getRange(row, 6).getValue().toString().toLowerCase();
-  var success = sheet.getRange(row, 7).getValue().toString().toUpperCase() === 'TRUE';
+  // Read fields according to the new column order:
+  // Mode is column 7, Success is column 8, withFullLevelFortune is column 3
+  var mode = sheet.getRange(row, 7).getValue().toString().toLowerCase();
+  var success = sheet.getRange(row, 8).getValue().toString().toUpperCase() === 'TRUE';
 
-  sheet.getRange(row, 10).setValue(verified);
+  var withFullLevelFortune = false;
+  try {
+    var wffCell = sheet.getRange(row, 3).getValue();
+    withFullLevelFortune = (wffCell === true || wffCell === 'TRUE' || wffCell === 'true' || wffCell === '1' || wffCell === 1);
+  } catch (e) {
+    withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
+  }
+
+  sheet.getRange(row, 11).setValue(verified);
 
   // Award training point if approved
   if (verified === 'approved') {
@@ -1722,7 +1768,7 @@ function handleVerifyTraining(params) {
     }
 
     if (shouldAwardPoint) {
-      var trainingPointResult = updateTrainingPoints(userId, 1);
+      var trainingPointResult = updateTrainingPoints(userId, withFullLevelFortune ? 2 : 1);
       var trainingPointData = JSON.parse(trainingPointResult.getContent());
 
       if (!trainingPointData.success) {
@@ -1766,19 +1812,19 @@ function handleRecheckTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
   }
 
-  var currentVerified = sheet.getRange(row, 10).getValue().toString().toLowerCase();
+  var currentVerified = sheet.getRange(row, 11).getValue().toString().toLowerCase();
   if (currentVerified !== 'rejected') {
     return jsonResponse({ error: 'Can only recheck rejected trainings. Current status: ' + currentVerified });
   }
 
-  sheet.getRange(row, 10).setValue('pending');
-  sheet.getRange(row, 13).setValue('');
+  sheet.getRange(row, 11).setValue('pending');
+  sheet.getRange(row, 14).setValue('');
 
   return jsonResponse({ success: true, verified: 'pending' });
 }
@@ -2187,4 +2233,160 @@ function getCharacterInfo(characterId, field) {
   }
 
   return null; // not found
+}
+
+/* ══════════════════════════════════════
+   BIG HOUSE ROLEPLAY SUBMISSION
+   ══════════════════════════════════════ */
+
+/* ── Submit a new Big House roleplay for review ── */
+function handleSubmitBigHouseRoleplay(params) {
+  var characterId = (params.characterId || '').toString().trim();
+  var roleplayUrl = (params.roleplayUrl || '').toString().trim();
+  var submittedAt = (params.submittedAt || new Date().toISOString()).toString();
+  var id = (params.id || '').toString().trim();
+
+  if (!characterId || !roleplayUrl) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  if (!id) {
+    id = 'BH' + new Date().getTime();
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var row = [];
+  for (var i = 0; i < headers.length; i++) {
+    var h = headers[i];
+    if (h === 'id') row.push(id);
+    else if (h === 'characterid') row.push(characterId);
+    else if (h === 'roleplayurl') row.push(roleplayUrl);
+    else if (h === 'status') row.push('pending');
+    else if (h === 'submittedat') row.push(submittedAt);
+    else row.push('');
+  }
+
+  sheet.appendRow(row);
+  return jsonResponse({ success: true, id: id });
+}
+
+/* ── Approve a Big House roleplay submission ── */
+function handleApproveBigHouseRoleplay(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var charCount = parseInt(params.charCount || '0', 10);
+  var mentionCount = parseInt(params.mentionCount || '0', 10);
+  var drachmaReward = params.drachmaReward || '';
+  var roleplayers = params.roleplayers || [];
+
+  if (!submissionId || !reviewedBy) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('id');
+  var statusCol = headers.indexOf('status');
+  var reviewedAtCol = headers.indexOf('reviewedat');
+  var reviewedByCol = headers.indexOf('reviewedby');
+  var charCountCol = headers.indexOf('charcount');
+  var mentionCountCol = headers.indexOf('mentioncount');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'approved') {
+    return jsonResponse({ error: 'Submission already approved' });
+  }
+
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('approved');
+  if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (charCountCol !== -1 && charCount) sheet.getRange(rowIndex + 1, charCountCol + 1).setValue(charCount);
+  if (mentionCountCol !== -1 && mentionCount) sheet.getRange(rowIndex + 1, mentionCountCol + 1).setValue(mentionCount);
+  if (drachmaRewardCol !== -1 && drachmaReward) sheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward);
+  if (roleplayersCol !== -1 && Array.isArray(roleplayers) && roleplayers.length > 0) sheet.getRange(rowIndex + 1, roleplayersCol + 1).setValue(roleplayers.join(','));
+
+  return jsonResponse({ success: true });
+}
+
+/* ── Reject a Big House roleplay submission ── */
+function handleRejectBigHouseRoleplay(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var rejectReason = (params.rejectReason || '').toString().trim();
+
+  if (!submissionId || !reviewedBy || !rejectReason) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('id');
+  var statusCol = headers.indexOf('status');
+  var reviewedAtCol = headers.indexOf('reviewedat');
+  var reviewedByCol = headers.indexOf('reviewedby');
+  var rejectReasonCol = headers.indexOf('rejectreason');
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'rejected') {
+    return jsonResponse({ error: 'Submission already rejected' });
+  }
+
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('rejected');
+  if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (rejectReasonCol !== -1) sheet.getRange(rowIndex + 1, rejectReasonCol + 1).setValue(rejectReason);
+
+  return jsonResponse({ success: true });
 }

@@ -111,6 +111,8 @@ export default function NpcAffinityManagement() {
     setSelectedPlayer(next || EMPTY_CHARACTER);
     setPendingSelectedPlayer(next || EMPTY_CHARACTER);
     setShowConfirmChangeSelectedPlayer(false);
+    setAffinityChanges({});
+    setOriginalSelectedPlayerAffinities({});
   };
 
   const requestChangeSelectedPlayer = (next: Character | null) => {
@@ -215,7 +217,7 @@ export default function NpcAffinityManagement() {
         },
       }
     ]
-  }, [npcs, affinityChanges, originalSelectedPlayerAffinities]);
+  }, [npcs, affinityChanges, originalSelectedPlayerAffinities, selectedPlayer]);
 
   const hasChanges = useMemo(() => {
     return Object.keys(affinityChanges).some(key => (affinityChanges[key] ?? 0) !== (originalSelectedPlayerAffinities[key] ?? 0));
@@ -434,7 +436,7 @@ export default function NpcAffinityManagement() {
                         >
                           <div
                             className="npc-affinity-management__sidebar__group-title"
-                            style={{ '--cabin-color': DEITY_THEMES[CABIN_DEITY[cabin].toLowerCase()]?.[0] || '#fff' } as React.CSSProperties}
+                            style={{ '--cabin-color': DEITY_THEMES[CABIN_DEITY[cabin]?.toLowerCase()]?.[0] || '#fff' } as React.CSSProperties}
                           >
                             Heirs of {CABIN_DEITY[cabin]}
                           </div>
@@ -485,6 +487,7 @@ export default function NpcAffinityManagement() {
           message={`You have unsaved affinity changes for ${selectedPlayer.nicknameEng}. If you switch to another player, those changes will be lost. Do you want to continue?`}
           onConfirm={() => applySelectedPlayer(pendingSelectedPlayer)}
           onCancel={() => {
+            setAffinityChanges({});
             setShowConfirmChangeSelectedPlayer(false);
             setPendingSelectedPlayer(null);
             setSelectedPlayer(selectedPlayer);

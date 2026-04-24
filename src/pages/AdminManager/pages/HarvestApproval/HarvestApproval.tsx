@@ -266,8 +266,13 @@ function HarvestApproval() {
     const reward = calculateRewards(charCount, isSolo);
     const participantRewards = selectedRoleplayers.map((charId) => {
       const hasDemeterGardeningSet = characterBagData[charId]?.hasGardeningSet || false;
+      const submissionTime = reviewingSubmission?.submittedAt;
       const hasDemeterWish = reviewingTaskDateWishes.some(
-        (w) => w.deity === DEITY.DEMETER && w.userId === charId
+        (w) =>
+          w.deity === DEITY.DEMETER &&
+          w.userId === charId &&
+          !w.canceled &&
+          (!w.tossedAt || !submissionTime || w.tossedAt <= submissionTime)
       );
       const participantReward = calculateParticipantReward(
         charCount,

@@ -1,8 +1,9 @@
 import { ACTIONS } from "../../constants/action";
 import { HARVEST_SUBMISSION_STATUS } from "../../constants/harvest";
-import { APPS_SCRIPT_URL } from "../../constants/sheets";
+import { APPS_SCRIPT_URL, csvUrl, GID } from "../../constants/sheets";
 import { HarvestRecords, HarvestSubmission, HarvestSubmissionStatus, TopHarvester } from "../../types/harvest";
 import { generateUUID } from "../../utils/uuid";
+import { splitCSVRows, parseCSVLine } from "../../utils/csv";
 
 /**
  * Submit a new harvest for review
@@ -93,45 +94,64 @@ export async function rejectHarvest(
 
 /**
  * Fetch harvest submissions (optionally filtered by characterId or status)
+ * Uses CSV export to avoid CORS issues
  */
 export async function fetchHarvests(
   characterId?: string,
   status?: HarvestSubmissionStatus
 ): Promise<{ harvests: HarvestSubmission[]; error?: string }> {
   try {
-    const params = new URLSearchParams();
-    params.append('action', ACTIONS.FETCH_HARVESTS);
-    if (characterId) params.append('characterId', characterId);
-    if (status) params.append('status', status);
+    // Fetch directly from Google Sheets CSV export (no CORS issues)
+    const res = await fetch(csvUrl(GID.HARVEST));
+    const text = await res.text();
+    const lines = splitCSVRows(text);
 
-    const res = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
-    const data = await res.json();
-
-    if (data.error) {
-      return { harvests: [], error: data.error };
+    if (lines.length < 2) {
+      return { harvests: [] };
     }
 
-    // Convert comma-separated roleplayers string to array if needed
-    const harvests = (data.harvests || []).map((h: any) => ({
-      id: h.id || generateUUID(), // Generate UUID if not present (for old records)
-      characterId: h.characterid || '',
-      firstTweetUrl: h.firsttweeturl || '',
-      lastTweetUrl: h.lasttweeturl || '',
-      status: (h.status || HARVEST_SUBMISSION_STATUS.PENDING) as HarvestSubmission['status'],
-      submittedAt: h.submittedat || '',
-      reviewedAt: h.reviewedat || undefined,
-      reviewedBy: h.reviewedby || undefined,
-      charCount: h.charcount ? Number(h.charcount) : undefined,
-      mentionCount: h.mentioncount ? Number(h.mentioncount) : undefined,
-      drachmaReward: h.drachmareward || undefined, // Keep as-is (number or JSON string)
-      roleplayers: h.roleplayers
-        ? h.roleplayers.split(',').map((r: string) => r.trim()).filter(Boolean).join(',')
-        : undefined,
-      rejectReason: h.rejectreason || undefined,
-    }));
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+    const harvests: HarvestSubmission[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      const harvest: any = {};
+
+      for (let j = 0; j < headers.length; j++) {
+        harvest[headers[j]] = cols[j] || '';
+      }
+
+      // Filter by characterId if provided
+      if (characterId && harvest.characterid !== characterId) {
+        continue;
+      }
+
+      // Filter by status if provided
+      if (status && harvest.status !== status) {
+        continue;
+      }
+
+      harvests.push({
+        id: harvest.id || generateUUID(),
+        characterId: harvest.characterid || '',
+        firstTweetUrl: harvest.firsttweeturl || '',
+        status: (harvest.status || HARVEST_SUBMISSION_STATUS.PENDING) as HarvestSubmission['status'],
+        submittedAt: harvest.submittedat || '',
+        reviewedAt: harvest.reviewedat || undefined,
+        reviewedBy: harvest.reviewedby || undefined,
+        charCount: harvest.charcount ? Number(harvest.charcount) : undefined,
+        mentionCount: harvest.mentioncount ? Number(harvest.mentioncount) : undefined,
+        drachmaReward: harvest.drachmareward || undefined,
+        roleplayers: harvest.roleplayers
+          ? harvest.roleplayers.split(',').map((r: string) => r.trim()).filter(Boolean).join(',')
+          : undefined,
+        rejectReason: harvest.rejectreason || undefined,
+      });
+    }
 
     return { harvests };
   } catch (error) {
+    console.error('Error fetching harvests from CSV:', error);
     return { harvests: [], error: 'Failed to fetch harvests' };
   }
 }
@@ -163,21 +183,90 @@ export async function fetchHarvestRecords(): Promise<{ records?: HarvestRecords;
  */
 export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvesters: TopHarvester[]; error?: string }> {
   try {
-    const params = new URLSearchParams();
-    params.append('action', ACTIONS.FETCH_TOP_HARVESTERS);
-    if (limit !== undefined) {
-      params.append('limit', limit.toString());
+    // Fetch approved harvests from CSV
+    const { harvests, error } = await fetchHarvests(undefined, HARVEST_SUBMISSION_STATUS.APPROVED);
+
+    if (error) {
+      return { topHarvesters: [], error };
     }
 
-    const res = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
-    const data = await res.json();
+    // Aggregate drachma by character
+    const drachmaByCharacter = new Map<string, number>();
 
-    if (data.error) {
-      return { topHarvesters: [], error: data.error };
+    for (const harvest of harvests) {
+      if (!harvest.drachmaReward) continue;
+
+      let totalForHarvest = 0;
+
+      // Parse drachmaReward (can be JSON string or number)
+      if (typeof harvest.drachmaReward === 'string' && harvest.drachmaReward.startsWith('{')) {
+        try {
+          const rewardMap = JSON.parse(harvest.drachmaReward);
+          // Sum all values in the reward map
+          totalForHarvest = Object.values(rewardMap).reduce((sum: number, val) => sum + Number(val || 0), 0);
+        } catch (e) {
+          totalForHarvest = Number(harvest.drachmaReward) || 0;
+        }
+      } else {
+        totalForHarvest = Number(harvest.drachmaReward) || 0;
+      }
+
+      // Add to character's total
+      const current = drachmaByCharacter.get(harvest.characterId) || 0;
+      drachmaByCharacter.set(harvest.characterId, current + totalForHarvest);
     }
 
-    return { topHarvesters: data.topHarvesters || [] };
+    // Convert to array and sort by total drachma (descending)
+    let topHarvesters: TopHarvester[] = Array.from(drachmaByCharacter.entries())
+      .map(([characterId, totalDrachma]) => ({ characterId, totalDrachma }))
+      .sort((a, b) => b.totalDrachma - a.totalDrachma);
+
+    // Apply limit if specified
+    if (limit && limit > 0) {
+      topHarvesters = topHarvesters.slice(0, limit);
+    }
+
+    // Fetch character names from character CSV
+    try {
+      const charRes = await fetch(csvUrl(GID.CHARACTER));
+      const charText = await charRes.text();
+      const charLines = splitCSVRows(charText);
+
+      if (charLines.length >= 2) {
+        const charHeaders = parseCSVLine(charLines[0]).map(h => h.toLowerCase());
+        const idIdx = charHeaders.indexOf('characterid');
+        const engIdx = charHeaders.indexOf('nicknameeng');
+        const thaiIdx = charHeaders.indexOf('nicknamethai');
+
+        if (idIdx !== -1) {
+          const charMap = new Map<string, { nicknameEng?: string; nicknameThai?: string }>();
+
+          for (let i = 1; i < charLines.length; i++) {
+            const cols = parseCSVLine(charLines[i]);
+            const cid = cols[idIdx];
+            if (cid) {
+              charMap.set(cid, {
+                nicknameEng: engIdx !== -1 ? cols[engIdx] : undefined,
+                nicknameThai: thaiIdx !== -1 ? cols[thaiIdx] : undefined,
+              });
+            }
+          }
+
+          // Add character names to top harvesters
+          topHarvesters = topHarvesters.map(h => ({
+            ...h,
+            ...charMap.get(h.characterId),
+          }));
+        }
+      }
+    } catch (e) {
+      // Character name fetch failed, but we still have the leaderboard
+      console.error('Failed to fetch character names for top harvesters:', e);
+    }
+
+    return { topHarvesters };
   } catch (error) {
+    console.error('Error fetching top harvesters:', error);
     return { topHarvesters: [], error: 'Failed to fetch top harvesters' };
   }
 }

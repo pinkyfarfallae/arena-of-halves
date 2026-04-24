@@ -1,0 +1,149 @@
+@import '../../../../../../styles/variables';
+@import '../../../../../StrawberryFields/components/variables';
+
+$big-house-red: #c0392b;
+$big-house-blue: #1a2f4f;
+$big-house-cream: #f3e6d2;
+$big-house-beige: #d7c2a5;
+$big-house-green: #7a8c7a;
+$big-house-white: #ffffff;
+$big-house-turquoise: #2f5f86;
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.big-house-reject-modal {
+
+  .modal-title {
+    margin: 0;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: $big-house-red;
+    border-bottom: 2px solid $big-house-cream;
+  }
+
+  .modal-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-note {
+    margin: 0;
+    padding: 0.875rem;
+    background: #fff9f0;
+    border-left: 3px solid $big-house-red;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: $big-house-red;
+    line-height: 1.5;
+  }
+
+  .modal-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 0.75rem;
+    border: 2px solid $big-house-cream;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: $big-house-red;
+    }
+
+    &::placeholder {
+      color: #ccc;
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 2px solid $big-house-cream;
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: 0.5rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &--cancel {
+      background: white;
+      border: 2px solid $big-house-cream;
+      color: $big-house-red;
+
+      &:hover {
+        background: $big-house-cream;
+      }
+    }
+
+    &--danger {
+      background: linear-gradient(135deg, $big-house-red 0%, darken($big-house-red, 5%) 100%);
+      color: white;
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, darken($big-house-red, 5%) 0%, darken($big-house-red, 10%) 100%);
+        box-shadow: 0 4px 12px rgba($big-house-red, 0.4);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}

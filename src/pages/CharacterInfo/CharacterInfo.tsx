@@ -33,9 +33,8 @@ import Document from './icons/Document';
 import EditPencil from './icons/EditPencil';
 import LockOpen from './icons/LockOpen';
 import LockClosed from './icons/LockClosed';
-import { getSkillPointLevel } from '../../constants/character';
+import { getPowerLevel, getMaxPowerLevel, isPowerUnlocked } from '../../constants/character';
 import { DEITY_DISPLAY_OVERRIDES, POWER_OVERRIDES } from './constants/overrides';
-import { isSkillUnlocked } from '../../constants/character';
 import { SEX } from '../../constants/sex';
 import { POWER_TYPES } from '../../constants/powers';
 import Lightning from '../../icons/Lightning';
@@ -456,13 +455,12 @@ function CharacterInfo() {
             [POWER_TYPES.FIRST_SKILL, char.skillPoint, 'SKILL'],
             [POWER_TYPES.ULTIMATE, char.ultimateSkillPoint, 'ULTIMATE'],
           ] as [string, string, string][]).map(([type, val, displayLabel]) => {
-            const isRegularSkill = type === POWER_TYPES.FIRST_SKILL;
-            const unlocked = isSkillUnlocked(val);
-            const level = isRegularSkill ? getSkillPointLevel(val) : (unlocked ? 1 : 0);
-            const maxLevel = isRegularSkill ? 2 : 1;
+            const level = getPowerLevel(type, val);
+            const maxLevel = getMaxPowerLevel(type);
+            const unlocked = isPowerUnlocked(type, char);
             const progress = maxLevel > 0 ? level / maxLevel : 0;
             const dashOffset = (1 - progress) * 2 * Math.PI * 26;
-            
+
             return (
               <div key={type} className={`so so--accent ${unlocked ? 'so--unlocked' : 'so--locked'}`}>
                 <div className="so__orb">
@@ -547,7 +545,16 @@ function CharacterInfo() {
               {loadingPowers ? (
                 <div className="cs__powers-loader"><div className="app-loader__ring" /></div>
               ) : orderedPowers.length > 0 ? (
-                orderedPowers.map((p, i) => <PowerCard key={p.type} power={p} index={i} />)
+                orderedPowers.map((p, i) => {
+                  return (
+                    <PowerCard
+                      key={p.type}
+                      power={p}
+                      index={i}
+                      unlocked={isPowerUnlocked(p.type, char)}
+                    />
+                  );
+                })
               ) : (
                 <p className="cs__ptext cs__ptext--empty">{'\u2014'}</p>
               )}

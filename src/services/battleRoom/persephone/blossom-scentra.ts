@@ -5,8 +5,8 @@ import { POWER_NAMES } from '../../../constants/powers';
 import { getEffectiveHealForReceiver, addSunbornSovereignRecoveryStack } from '../../powerEngine/powerEngine';
 import { EFFECT_TAGS } from '../../../constants/effectTags';
 
-/** Handle Floral Fragrance heal skip acknowledgment. */
-export async function advanceAfterFloralHealSkippedAck(
+/** Handle Blossom Scentra heal skip acknowledgment. */
+export async function advanceAfterBlossomScentraHealSkippedAck(
   arenaId: string,
   {
     roomRef,
@@ -24,7 +24,7 @@ export async function advanceAfterFloralHealSkippedAck(
   const room = snap.val() as BattleRoom;
   const battle = room.battle;
   const turn = battle?.turn;
-  if (turn?.phase !== PHASE.ROLLING_FLORAL_HEAL || !(turn as any).floralHealSkipped) return;
+  if (turn?.phase !== PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL || !(turn as any).blossomHealSkipped) return;
 
   const attackerId = turn.attackerId;
   const allyTargetId = turn.allyTargetId;
@@ -44,7 +44,7 @@ export async function advanceAfterFloralHealSkippedAck(
     defenderHpAfter: ally.currentHp,
     eliminated: false,
     missed: false,
-    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
+    powerUsed: POWER_NAMES.BLOSSOM_SCENTRA,
     healSkipReason: healSkipReason ?? EFFECT_TAGS.HEALING_NULLIFIED,
   };
   const updates: Record<string, unknown> = {
@@ -62,8 +62,8 @@ export async function advanceAfterFloralHealSkippedAck(
   await update(roomRef(arenaId), updates);
 }
 
-/** Process Floral Fragrance D4 heal crit roll and apply healing. */
-export async function advanceAfterFloralHealD4(
+/** Process Blossom Scentra D4 heal crit roll and apply healing. */
+export async function advanceAfterBlossomScentraHealD4(
   arenaId: string,
   {
     roomRef,
@@ -84,9 +84,9 @@ export async function advanceAfterFloralHealD4(
   const battle = room.battle;
   const turn = battle?.turn;
   if (
-    turn?.phase !== PHASE.ROLLING_FLORAL_HEAL ||
-    !turn?.floralHealWinFaces?.length ||
-    turn.floralHealRoll == null
+    turn?.phase !== PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL ||
+    !turn?.blossomHealWinFaces?.length ||
+    turn.blossomHealRoll == null
   )
     return;
 
@@ -97,8 +97,8 @@ export async function advanceAfterFloralHealD4(
   const ally = findFighter(room, allyTargetId);
   if (!attacker || !ally) return;
 
-  const winFaces = (turn.floralHealWinFaces ?? []).map((f: unknown) => Number(f));
-  const roll = Number(turn.floralHealRoll);
+  const winFaces = (turn.blossomHealWinFaces ?? []).map((f: unknown) => Number(f));
+  const roll = Number(turn.blossomHealRoll);
   const isHealCrit = Number.isFinite(roll) && roll >= 1 && roll <= 4 && winFaces.includes(roll);
   const baseHeal = Math.ceil(0.2 * attacker.maxHp);
   const actualHeal = getEffectiveHealForReceiver(
@@ -113,10 +113,10 @@ export async function advanceAfterFloralHealD4(
   if (allyPath) updates[`${allyPath}/currentHp`] = newHp;
 
   // Sunborn Sovereign: on create or receive healing, gain recovery stack (max 2)
-  const effectsFloral = [...(battle.activeEffects || [])];
-  addSunbornSovereignRecoveryStack(room, effectsFloral, attackerId);
-  addSunbornSovereignRecoveryStack(room, effectsFloral, allyTargetId);
-  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effectsFloral;
+  const effectsBlossomScentra = [...(battle.activeEffects || [])];
+  addSunbornSovereignRecoveryStack(room, effectsBlossomScentra, attackerId);
+  addSunbornSovereignRecoveryStack(room, effectsBlossomScentra, allyTargetId);
+  updates[ARENA_PATH.BATTLE_ACTIVE_EFFECTS] = effectsBlossomScentra;
 
   const logEntry = {
     round: battle.roundNumber,
@@ -129,8 +129,8 @@ export async function advanceAfterFloralHealD4(
     defenderHpAfter: newHp,
     eliminated: false,
     missed: false,
-    powerUsed: POWER_NAMES.FLORAL_FRAGRANCE,
-    floralHealCrit: isHealCrit,
+    powerUsed: POWER_NAMES.BLOSSOM_SCENTRA,
+    blossomScentraHealCrit: isHealCrit,
   };
   updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle!.log || []), logEntry]);
   updates[ARENA_PATH.BATTLE_TURN] = {

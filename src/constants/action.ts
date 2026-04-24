@@ -36,4 +36,9 @@ export const ACTIONS = {
   CREATE_EQUIPMENT: 'createEquipment',
   EDIT_EQUIPMENT: 'editEquipment',
   DELETE_EQUIPMENT: 'deleteEquipment',
+
+  // Big House roleplay actions
+  SUBMIT_BIG_HOUSE_ROLEPLAY: 'submitBigHouseRoleplay',
+  APPROVE_BIG_HOUSE_ROLEPLAY: 'approveBigHouseRoleplay',
+  REJECT_BIG_HOUSE_ROLEPLAY: 'rejectBigHouseRoleplay',
 };

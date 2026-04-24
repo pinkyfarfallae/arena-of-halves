@@ -787,7 +787,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.PERSEPHONE,
       type: POWER_TYPES.PASSIVE,
-      name: DEITY_POWER_NAMES.SECRET_OF_DRYAD,
+      name: DEITY_POWER_NAMES.THE_APORRETA_OF_NYMPHAION,
       description:
         'เมื่อเริ่มต้นเทิร์นโจมตีของตนเอง ทายาทแห่งเพอร์เซโฟนีจะเข้าสู่สถานะ "นางบุปผา" ซึ่งมีอภิสิทธิ์ในการปฏิเสธสถานะผิดปกติที่ได้รับมาโดยสิ้นเชิง ทั้งนี้ เมื่อทำการปฏิเสธสถานะผิดปกติใด ๆ แล้วนั้น สถานะความเป็นนางบุปผาจะหายไปทันที อย่างไรก็ตาม การฟื้นฟู HP ของนางบุปผาจะสามารถติดคริติคอลได้ และเมื่อทายาทแห่งเพอร์เซโฟนีอยู่ในสถานะนางบุปผา ทายาทแห่งเพอร์เซโฟนีจะได้รับอัตราคริติคอลเพิ่มเติม 25%',
       available: true,
@@ -799,7 +799,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
     {
       deity: DEITY.PERSEPHONE,
       type: POWER_TYPES.FIRST_SKILL,
-      name: DEITY_POWER_NAMES.FLORAL_FRAGRANCE,
+      name: DEITY_POWER_NAMES.BLOSSOM_SCENTRA,
       description:
         'ทายาทแห่งเพอร์เซโฟนีเลือกชโลมสุคนธ์บุษบาแห่งการเยียวยาให้กับตนเองหรือเพื่อนร่วมทีม 1 คน เพื่อทำการฟื้นฟู HP จำนวนทั้งสิ้น 20% ของ HP สูงสุดของตนให้ผู้รับการฟื้นฟูคนดังกล่าว จากนั้นทำการโจมตีตามปกติ',
       available: true,
@@ -906,7 +906,7 @@ export const NO_STACK_POWER_NAMES: Set<string> = new Set([
   POWER_NAMES.SHADOW_CAMOUFLAGING,
   POWER_NAMES.SOUL_DEVOURER,
   // Persephone
-  POWER_NAMES.SECRET_OF_DRYAD,
+  POWER_NAMES.THE_APORRETA_OF_NYMPHAION,
 ]);
 
 /** Synchronous power lookup by deity name (case-insensitive). */
