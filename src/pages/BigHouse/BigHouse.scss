@@ -1,4 +1,5 @@
 @import '../../styles/variables';
+@import '../StrawberryFields/components/variables';
 
 $big-house-red: #c0392b;
 $big-house-blue: #1a2f4f;
@@ -167,6 +168,7 @@ $big-house-turquoise: #2f5f86;
     flex-direction: column;
     position: relative;
     max-width: 93%;
+    max-height: 100%;
     background:
       radial-gradient(ellipse at top, rgba($big-house-turquoise, 0.12) 0%, transparent 50%),
       radial-gradient(ellipse at bottom, rgba($big-house-beige, 0.4) 0%, transparent 50%),
@@ -179,6 +181,7 @@ $big-house-turquoise: #2f5f86;
       inset 0 0 30px rgba($big-house-turquoise, 0.05);
     height: calc(100% + 48px);
     margin-top: -24px;
+    overflow: hidden;
 
     h2 {
       margin-top: 0;
@@ -199,7 +202,8 @@ $big-house-turquoise: #2f5f86;
       display: flex;
       justify-content: center;
       position: relative;
-      padding: 2rem 0;
+      padding: 2rem 0 0;
+      overflow: hidden;
       flex: 1;
     }
 
@@ -411,14 +415,16 @@ $big-house-turquoise: #2f5f86;
     &-footer {
       flex: 1;
       margin-top: 1.5rem;
-      padding: 1.75rem;
-      text-align: center;
       font-family: 'Inter', 'Noto Sans Thai', sans-serif;
       font-size: 0.75rem;
       color: $big-house-blue;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow: hidden;
       box-shadow:
-        inset 0 1px 3px rgba($big-house-turquoise, 0.2);
+        inset 0 1px 6px rgba($big-house-turquoise, 0.2);
 
       &::before {
         content: "";
@@ -431,6 +437,7 @@ $big-house-turquoise: #2f5f86;
         box-shadow: 0 0 20px rgba($big-house-turquoise, 0.8);
         animation: flame-flicker 2s ease-in-out infinite;
         filter: brightness(1.8);
+        z-index: 2;
       }
 
       h3 {
@@ -443,6 +450,151 @@ $big-house-turquoise: #2f5f86;
         text-align: start;
         opacity: 0.65;
         text-transform: uppercase;
+
+        @media (max-width: $bp-compact) {
+          font-size: 0.9rem;
+        }
+      }
+
+      &-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1.75rem;
+        position: relative;
+        z-index: 1;
+        overflow-y: auto;
+        scrollbar-width: none;
+        /* Firefox */
+
+        /* Hide scrollbar for WebKit browsers */
+        &::-webkit-scrollbar {
+          display: none;
+        }
+
+        @media (max-width: $bp-compact) {
+          padding: 1.75rem 1rem;
+        }
+      }
+
+      &-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        font-size: 0.75rem;
+        line-height: 1.75;
+        color: $big-house-blue;
+
+        span:is(:first-child) {
+          color: rgb(120, 120, 120);
+
+          b {
+            font-weight: 700;
+            color: $big-house-green;
+          }
+        }
+
+        @media (max-width: $bp-compact) {
+          font-size: 0.7rem;
+          gap: 0.5rem;
+        }
+      }
+
+      &-bullets {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin: 0.5rem 0 0.5rem 2rem;
+        color: $big-house-turquoise;
+        list-style: none;
+
+        &-item {
+          position: relative;
+          padding-left: 1rem;
+
+          &::marker {
+            display: none;
+          }
+
+          &::before {
+            content: "";
+            position: absolute;
+            top: 0.5rem;
+            left: -0.5rem;
+            width: 6px;
+            height: 6px;
+            background: $big-house-turquoise;
+            border-radius: 100%;
+            box-shadow:
+              0 0 4px rgba($big-house-turquoise, 0.8),
+              inset 0 0 2px rgba($big-house-turquoise, 0.5);
+          }
+
+          &--strawberry {
+            $--color: color-mix(in srgb, $strawberry-red 80%, $big-house-red);
+
+            &::before {
+              background: $big-house-red;
+              box-shadow:
+                0 0 4px rgba($big-house-red, 0.8),
+                inset 0 0 2px rgba($big-house-red, 0.5);
+              opacity: 0.8;
+            }
+
+            b {
+              font-weight: 700;
+              color: $--color;
+              opacity: 0.7;
+            }
+          }
+        }
+      }
+
+      &-divider {
+        height: 2px;
+        min-height: 2px;
+        background: linear-gradient(90deg, transparent 0%, $big-house-cream 10%, $big-house-beige 25%, $big-house-green 50%, transparent 75%, $big-house-beige 75%, $big-house-cream 100%);
+        position: relative;
+        z-index: 1;
+        opacity: 0.5;
+      }
+
+      &-rate {
+        margin-top: -0.5rem;
+
+        &-list-item {
+          display: flex;
+          justify-content: space-between;
+          flex-direction: column;
+              align-items: flex-start;
+          padding: 0.75rem 1rem;
+          background: linear-gradient(135deg, rgba($big-house-green, 0.1) 0%, rgba($big-house-green, 0.15) 100%);
+          border-radius: 6px;
+          font-size: 0.675rem;
+
+          > b {
+            font-size: 0.75rem;
+          }
+
+          &--highlight {
+            background: linear-gradient(135deg, rgba($big-house-green, 0.2) 0%, rgba($big-house-turquoise, 0.2) 100%);
+          }
+
+          &--bonus {
+            background: linear-gradient(135deg, rgba($big-house-cream, 0.5) 0%, rgba($big-house-turquoise, 0.3) 100%);
+            filter: saturate(2.5);
+          }
+
+          span {
+            display: inline;
+            align-items: center;
+            gap: 0.5rem;
+            
+            b {
+              margin: 0 3px;
+            }
+          }
+        }
       }
     }
   }

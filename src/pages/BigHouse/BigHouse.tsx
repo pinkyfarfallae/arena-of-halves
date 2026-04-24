@@ -231,7 +231,48 @@ function BigHouse() {
                 </button>
               </div>
               <div className="big-house__form-footer">
-                <h3>{t(T.BIG_HOUSE_FOOTER_TITLE)}</h3>
+                <div className="big-house__form-footer-content">
+                  <h3>{t(T.BIG_HOUSE_FOOTER_TITLE)}</h3>
+                  <div className="big-house__form-footer-list">
+                    <span>
+                      <b>ณ ที่แห่งนี้</b> เปิดโอกาสให้เหล่าสมาชิกสามารถนำผลงานการเขียนของตนมาขึ้นทะเบียนเพื่อแลกเปลี่ยนเป็นรายได้
+                      ยิ่งสร้างสรรค์และมีจำนวนมากเท่าใด ผลตอบแทนก็ยิ่งเพิ่มพูนตามไปด้วย
+                    </span>
+
+                    <ul className="big-house__form-footer-bullets">
+                      <li className="big-house__form-footer-bullets-item">
+                        โรลเพลย์ที่จะนำมาขึ้นจำนำจะเป็นการโรลเพลย์ประเภทไหนก็ได้ ทั้งโรลเพลย์อิสระ โรลเพลย์ในเนื้อเรื่องอีเวนท์หลัก
+                        โรลเพลย์การฝึกฝนประจำวัน เควสบอร์ด หรืออื่น ๆ ก็สามารถนำมาประเมินราคาได้ทั้งหมด
+                      </li>
+                      <li className="big-house__form-footer-bullets-item big-house__form-footer-bullets-item--strawberry">
+                        โรลเพลย์ในระบบ <b>ไร่สตรอเบอร์รี่</b> จะ<b>ไม่</b>สามารถนำมาประเมินราคาที่บ้านใหญ่ได้
+                      </li>
+                      <li className="big-house__form-footer-bullets-item">
+                        หากเป็นโรลเพลย์ที่มีผู้เขียนมากกว่า 1 คนการประเมินราคาจะนับจำนวนอักษรและคำนวณราคาแยกกันตามแต่ละบุคคลเสมอ
+                      </li>
+                      <li className="big-house__form-footer-bullets-item">
+                        หากเป็นโรลเพลย์ที่มีผู้เขียนมากกว่า 1 คน สามารถให้ตัวแทนหนึ่งคนส่งเพื่อประเมินราคาได้ ผู้ร่วมเขียนทุกคนจะได้รับรายได้ตามสัดส่วนที่ตกลงกันไว้
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="big-house__form-footer-divider" />
+
+                  <h3>{t(T.BIG_HOUSE_FOOTER_RATE)}</h3>
+                  <div className="big-house__form-footer-rate">
+                    <ul className="big-house__form-footer-list">
+                      <li className="big-house__form-footer-rate-list-item">
+                        <b>อัตราพื้นฐาน</b> <span>200 อักษรต่อ <b>7</b> <Drachma /></span>
+                      </li>
+                      <li className="big-house__form-footer-rate-list-item big-house__form-footer-rate-list-item--highlight">
+                        <b>อัตราพิเศษ</b> <span>ถ้ามีความยาวตั้งแต่ 1,000 อักษรขึ้นไปแต่ไม่เกิน 2,400 อักษร — ได้รับเพิ่มเติมจากอัตราปกติ <b>35</b> <Drachma /></span>
+                      </li>
+                      <li className="big-house__form-footer-rate-list-item big-house__form-footer-rate-list-item--bonus">
+                        <b>โบนัส</b> <span>ถ้ามีความยาวตั้งแต่ 2,400 อักษรขึ้นไป — ได้รับเพิ่มเติมจากอัตราปกติเป็น <b>2</b> เท่า</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

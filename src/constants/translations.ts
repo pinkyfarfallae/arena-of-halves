@@ -918,6 +918,10 @@ export const UI_TEXT = {
     en: 'Rules for Reporting Missions',
     th: 'กฎการรายงานภารกิจ'
   },
+  BIG_HOUSE_FOOTER_RATE: {
+    en: 'Valuation Rate',
+    th: 'อัตราการประเมิน'
+  },
   BIG_HOUSE_SIDEBAR_TITLE: {
     en: 'Reported Missions',
     th: 'ภารกิจที่รายงานแล้ว'
