@@ -7,7 +7,7 @@ import ChevronLeft from '../../icons/ChevronLeft';
 import Drachma from '../../icons/Drachma';
 import BigHouseIcon from '../LifeInCamp/components/LocationIcon/icons/BigHouse';
 import { LANGUAGE } from '../../constants/language';
-import { Character } from '../../data/characters';
+import { Character, fetchAllCharacters } from '../../data/characters';
 import InfoCircle from '../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../hooks/useScreenSize';
 import Background from './images/background.jpg'
@@ -44,9 +44,14 @@ function BigHouse() {
     const loadSubmissions = async () => {
       setIsLoadingSubmissions(true);
       try {
-        const data = await fetchBigHouseRoleplays(user.characterId);
+        const [data, characters] = await Promise.all([
+          fetchBigHouseRoleplays(user.characterId),
+          fetchAllCharacters(user),
+        ]);
+
         if (mounted) {
           setSubmissions(data.submissions);
+          setAllCampData(characters);
         }
       } catch (error) {
         console.error('Failed to load submissions', error);
@@ -248,6 +253,7 @@ function BigHouse() {
                 <SubmissionCard
                   key={submission.id}
                   submission={submission}
+                  characters={allCampData}
                   forcedCompact
                 />
               ))

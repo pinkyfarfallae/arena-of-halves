@@ -12,12 +12,14 @@ import EquipmentManagement from './pages/EquipmentManagement/EquipmentManagement
 import PlayerInventory from './pages/PlayerInventory/PlayerInventory';
 import './AdminManager.scss';
 import NpcAffinityManagement from './pages/NpcAffinityManagement/NpcAffinityManagement';
+import BigHouseSubmissionApproval from './pages/BigHouseSubmissionApproval/BigHouseSubmissionApproval';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
   { label: 'Player Inventory', path: 'player-inventory' },
   { label: 'Item Management', path: 'item-management' },
   { label: 'NPC Affinity', path: 'npc-affinity' },
+  { label: 'Big House Roleplay Approval', path: 'big-house-roleplay-approval' },
   { label: 'Custom Equipment', path: 'equipment-management' },
   { label: 'Harvest Approval', path: 'harvest-approval' },
   { label: 'Daily Training Config', path: 'daily-training-config' },
@@ -59,6 +61,7 @@ function AdminManager() {
           <Route path="users" element={<User />} />
           <Route path="player-inventory" element={<PlayerInventory />} />
           <Route path="harvest-approval" element={<HarvestApproval />} />
+          <Route path="big-house-roleplay-approval" element={<BigHouseSubmissionApproval />} />
           <Route path="testing" element={<SystemTesting />} />
           <Route path="testing/dice" element={<SystemTestDice />} />
           <Route path="testing/iris-message" element={<SystemTestIris />} />

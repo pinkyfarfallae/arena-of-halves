@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { use, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { T } from '../../../../constants/translationKeys';
 import { LANGUAGE } from '../../../../constants/language';
@@ -8,18 +8,20 @@ import Pending from './icons/Pending';
 import OpenLink from './icons/OpenLink';
 import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
-import { TrainingTask } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { useAuth } from '../../../../hooks/useAuth';
 import { hexToRgb } from '../../../../utils/color';
 import RolePlayers from './icons/RolePlayers';
 import Swords from '../../../../icons/Swords';
-import HeartBroken from './icons/HeartBroken';
-import './SubmissionCard.scss';
 import { BigHouseSubmission } from '../../../../types/bigHouse';
 import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS } from '../../../../constants/bigHouse';
+import './SubmissionCard.scss';
+import Characters from './icons/Characters';
+import Drachma from '../../../../icons/Drachma';
+import HarvestorChip from '../../../StrawberryFields/components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
+import { Character } from '../../../../data/characters';
 
-export default function SubmissionCard({ submission, focused, onClick, disabled, forcedCompact }: { submission: BigHouseSubmission, focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
+export default function SubmissionCard({ isAdmin = false, submission, characters, focused, onClick, disabled, forcedCompact }: { isAdmin?: boolean, submission: BigHouseSubmission, characters: Character[], focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
   const { user } = useAuth();
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
@@ -50,6 +52,27 @@ export default function SubmissionCard({ submission, focused, onClick, disabled,
       '--accent-dark-rgb': hexToRgb(user?.theme[19] || '#0f1a2e'),
     } as React.CSSProperties;
   }, [user?.theme, user?.characterId]);
+
+  const reward = useMemo(() => {
+    if (submission.status !== BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.APPROVED) return null;
+    console.log(submission.drachmaReward, typeof submission.drachmaReward);
+    if (isAdmin) {
+      const rewards: Record<string, number> = JSON.parse(
+        submission.drachmaReward as string || '{}'
+      );
+
+      return Object.values(rewards).reduce((sum, val) => sum + val, 0);
+    }
+    const jsonFormat = typeof submission.drachmaReward === 'string' ? (() => {
+      try {
+        return JSON.parse(submission.drachmaReward);
+      } catch {
+        return null;
+      }
+    })() : null;
+
+    return jsonFormat ? jsonFormat[user?.characterId ?? 'default'] : submission.drachmaReward;
+  }, [submission, user?.characterId, isAdmin]);
 
   return (
     <div
@@ -98,29 +121,29 @@ export default function SubmissionCard({ submission, focused, onClick, disabled,
           </span>
         )}
 
-        {/* {submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.APPROVED && (
+        {submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.APPROVED && (
           <div className="big-house__submission-card-details">
             <div className="big-house__submission-card-stats">
               <div className="big-house__submission-card__stat-item">
-                <Swords width={18} height={18} style={{ marginTop: 2 }} />
-                <span className="big-house__submission-card__stat-value"><b>mode</b></span>
-                <span className="big-house__submission-card-stat-label">{submission.mode}</span>
+                <Characters width={18} height={18} style={{ marginTop: 2 }} />
+                <span className="big-house__submission-card__stat-value"><b>count</b></span>
+                <span className="big-house__submission-card-stat-label">{submission.charCount?.toLocaleString() ?? '-'}</span>
               </div>
 
               <div className="big-house__submission-card__stat-item big-house__submission-card__stat-item--compact">
-                {submission.success ? <Trophy width={12} height={12} /> : <HeartBroken width={12} height={12} />}
-                <span className="big-house__submission-card__stat-value"><b>result</b></span>
-                <span className="big-house__submission-card-stat-label">{submission.success ? 'success' : 'failed'}</span>
+                <Drachma />
+                <span className="big-house__submission-card__stat-value"><b>reward</b></span>
+                <span className="big-house__submission-card-stat-label">{reward}</span>
               </div>
 
               <div className="big-house__submission-card__stat-item big-house__submission-card__stat-item--compact">
                 <RolePlayers />
-                <span className="big-house__submission-card__stat-value"><b>trainee</b></span>
-                <span className="big-house__submission-card-stat-label">{submission.characterId}</span>
+                <span className="big-house__submission-card__stat-value"><b>player{submission.roleplayers ? 's' : ''}</b></span>
+                <span className="big-house__submission-card-stat-label">{submission.roleplayers ? submission.roleplayers.split(',').length : '1'}</span>
               </div>
             </div>
           </div>
-        )} */}
+        )}
 
         {submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.REJECTED && (
           <div className="big-house__submission-card-error-wrapper">
@@ -142,7 +165,7 @@ export default function SubmissionCard({ submission, focused, onClick, disabled,
             </div>
             {submission.roleplayUrl && submission.roleplayUrl.trim() !== '' && (
               <div className="big-house__submission-card-submitted-at">
-                {width > 375 && <b>trained </b>}
+                {width > 375 && <b>submitted </b>}
                 <span>{date}</span>
               </div>
             )}
@@ -154,6 +177,22 @@ export default function SubmissionCard({ submission, focused, onClick, disabled,
         <div className="big-house__submission-card-bottom">
           <b>submitted by</b>
           <span>{submission.characterId}</span>
+        </div>
+      )}
+
+      {(submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.REJECTED || submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.PENDING) && submission.rejectReason && (
+        <div className={`big-house__submission-card-reason big-house__submission-card-reason--${submission.status.toLowerCase()}`}>
+          <b>{submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.REJECTED ? 'rejected' : 'pending review'}</b>
+          <span>: {submission.rejectReason}</span>
+        </div>
+      )}
+
+      {(submission.status === BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.APPROVED && submission.roleplayers) && (
+        <div className="big-house__submission-card-roleplayers-wrapper">
+          {submission.roleplayers.split(',').slice(0, 8).map(rp => {
+            const rpCharacter = characters.find(c => c.characterId.toLowerCase() === rp.toLowerCase());
+            return rpCharacter ? <HarvestorChip key={rpCharacter.characterId} character={rpCharacter} /> : null;
+          })}
         </div>
       )}
     </div>

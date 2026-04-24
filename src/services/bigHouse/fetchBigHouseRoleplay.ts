@@ -38,6 +38,10 @@ export async function submitBigHouseRoleplay(
 export async function approveBigHouseRoleplay(
   submissionId: string,
   reviewedBy: string,
+  charCount?: number,
+  mentionCount?: number,
+  drachmaReward?: string | number,
+  roleplayers?: string[],
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
@@ -46,6 +50,10 @@ export async function approveBigHouseRoleplay(
         action: ACTIONS.APPROVE_BIG_HOUSE_ROLEPLAY,
         submissionId,
         reviewedBy,
+        charCount,
+        mentionCount,
+        drachmaReward,
+        roleplayers,
       }),
     });
 
@@ -127,6 +135,10 @@ export async function fetchBigHouseRoleplays(
         reviewedAt: row.reviewedat || undefined,
         reviewedBy: row.reviewedby || undefined,
         rejectReason: row.rejectreason || undefined,
+        charCount: row.charcount ? Number(row.charcount) : undefined,
+        mentionCount: row.mentioncount ? Number(row.mentioncount) : undefined,
+        drachmaReward: row.drachmareward || undefined,
+        roleplayers: row.roleplayers || undefined,
       });
     }
 

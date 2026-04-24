@@ -2282,6 +2282,10 @@ function handleSubmitBigHouseRoleplay(params) {
 function handleApproveBigHouseRoleplay(params) {
   var submissionId = (params.submissionId || '').toString().trim();
   var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var charCount = parseInt(params.charCount || '0', 10);
+  var mentionCount = parseInt(params.mentionCount || '0', 10);
+  var drachmaReward = params.drachmaReward || '';
+  var roleplayers = params.roleplayers || [];
 
   if (!submissionId || !reviewedBy) {
     return jsonResponse({ error: 'Missing required fields' });
@@ -2300,6 +2304,10 @@ function handleApproveBigHouseRoleplay(params) {
   var statusCol = headers.indexOf('status');
   var reviewedAtCol = headers.indexOf('reviewedat');
   var reviewedByCol = headers.indexOf('reviewedby');
+  var charCountCol = headers.indexOf('charcount');
+  var mentionCountCol = headers.indexOf('mentioncount');
+  var drachmaRewardCol = headers.indexOf('drachmareward');
+  var roleplayersCol = headers.indexOf('roleplayers');
 
   var rowIndex = -1;
   for (var i = 1; i < data.length; i++) {
@@ -2323,6 +2331,10 @@ function handleApproveBigHouseRoleplay(params) {
   if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('approved');
   if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
   if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (charCountCol !== -1 && charCount) sheet.getRange(rowIndex + 1, charCountCol + 1).setValue(charCount);
+  if (mentionCountCol !== -1 && mentionCount) sheet.getRange(rowIndex + 1, mentionCountCol + 1).setValue(mentionCount);
+  if (drachmaRewardCol !== -1 && drachmaReward) sheet.getRange(rowIndex + 1, drachmaRewardCol + 1).setValue(drachmaReward);
+  if (roleplayersCol !== -1 && Array.isArray(roleplayers) && roleplayers.length > 0) sheet.getRange(rowIndex + 1, roleplayersCol + 1).setValue(roleplayers.join(','));
 
   return jsonResponse({ success: true });
 }

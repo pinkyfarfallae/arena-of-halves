@@ -9,4 +9,8 @@ export interface BigHouseSubmission {
   reviewedAt?: string;
   reviewedBy?: string;
   rejectReason?: string;
+  charCount?: number;
+  mentionCount?: number;
+  drachmaReward?: number | string;
+  roleplayers?: string;
 }
