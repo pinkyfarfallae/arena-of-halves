@@ -66,30 +66,6 @@ function parseCSV(csv: string): string[][] {
   return rows;
 }
 
-/** Fallback data if fetch fails */
-export const WISHES_FALLBACK: Wish[] = [
-  { deity: DEITY.ZEUS, name: 'ราชันย์เหนือนภา', description: 'การต่อสู้/ฝึกฝนในวันนี้แต้มเต๋าทุกประเภท -2' },
-  { deity: DEITY.HERA, name: 'มาตาแห่งนารี', description: 'ไม่สามารถร่วมกิจกรรมที่มีการต่อสู้ในวันนั้นได้' },
-  { deity: DEITY.POSEIDON, name: 'เขย่าโลกา', description: 'การทอยเต๋าในวันนี้ ถ้าน้อยกว่า 6 จะปัดเป็น 6' },
-  { deity: DEITY.DEMETER, name: 'สตรีสี่ฤดู', description: 'การทำไร่สตรอเบอร์รี่วันนี้จะได้รับเงินตอบแทน x2' },
-  { deity: DEITY.ARES, name: 'อสูรสงคราม', description: 'การต่อสู้ในวันนี้ ดาเมจแรงขึ้น 1 หน่วย' },
-  { deity: DEITY.ATHENA, name: 'เนตรเทาเชาว์ปัญญา', description: 'การฝึกฝนในวันนี้ เมื่อฝึกสำเร็จ 1 ครั้ง จะได้รับ โควตาอัพสเตตัส 2 พอยท์ (แค่การฝึกครั้งแรก)' },
-  { deity: DEITY.APOLLO, name: 'ลำนำพิณสุริยัน', description: 'เงินรางวัลจากเควสบอร์ดเพิ่มเป็น 2 เท่า (มีผลแค่ 3 เควสแรกที่ทำเท่านั้น)' },
-  { deity: DEITY.ARTEMIS, name: 'คันศรจันทรา', description: 'การต่อสู้ภายในวันนี้ ความเร็ว +3 หน่วย' },
-  { deity: DEITY.HEPHAESTUS, name: 'หัตถ์ผู้รังสรรค์', description: 'วันนี้ อุปกรณ์สวมใส่จะนับว่าเป็นขั้นที่สูงกว่า 1 ขั้น' },
-  { deity: DEITY.APHRODITE, name: 'พิราบเลอโฉม', description: 'ได้รับเสน่ห์ ทำให้ NPC จะ Quote พูดถึงคุณแบบสุ่ม' },
-  { deity: DEITY.HERMES, name: 'นาคาเพทุบาย', description: 'ได้รับตั๋วลดราคา 30% ในร้านค้า 1 ใบ' },
-  { deity: DEITY.DIONYSUS, name: 'รัญจวนเมรัย', description: 'ภายในวันนี้จะสามารถรับเควสบอร์ดได้แค่ 1 เควส' },
-  { deity: DEITY.HADES, name: 'เงาพิภพนิฬกาล', description: 'การต่อสู้ภายในวันนั้น หากตาย จะฟื้นคืนชีพขึ้นมาเลือดเต็ม 1 ครั้ง' },
-  { deity: DEITY.IRIS, name: 'สาส์นผ่านสายรุ้ง', description: 'ได้รับข้อความไอริสปริศนาแบบสุ่ม 1 คำ' },
-  { deity: DEITY.HYPNOS, name: 'นิทราเงียบงัน', description: 'แต้มเต๋าหน้าสูงสุดลดลง จาก (d12) เหลือ (d10)' },
-  { deity: DEITY.NEMESIS, name: 'ตราชั่งแห่งกรรม', description: 'การต่อสู้/ฝึกฝนในวันนี้ เมื่อป้องกันการโจมตีได้ จะโจมตีสวนกลับไป ทำดาเมจ 1 หน่วย' },
-  { deity: DEITY.NIKE, name: 'ปีกนำชัยชนะ', description: 'เมื่อต่อสู้ใด ๆ และชนะในวันนี้ จะได้รับเงิน 100$' },
-  { deity: DEITY.HEBE, name: 'ธาราอมฤต', description: 'ได้รับโพชั่นไซส์ S 1 ขวด' },
-  { deity: DEITY.TYCHE, name: 'วงล้อโชคลาภ', description: 'แต้มเต๋าหน้าสูงสุดเพิ่มขึ้น จาก (d12) เป็น (d15)' },
-  { deity: DEITY.HECATE, name: 'ม่านหมอกมนตรา', description: 'ได้รับแต้มอัพ ทักษะ 1 แต้ม' },
-];
-
 export const saveIrisWish = async (userId: string, deity: string) => {
   const date = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok'
@@ -202,6 +178,30 @@ export const fetchIrisWishesByDate = async (date: string) => {
   return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 
+/** Fallback data if fetch fails */
+export const WISHES_FALLBACK: Wish[] = [
+  { deity: DEITY.ZEUS, name: 'ราชันย์เหนือนภา', description: 'การต่อสู้/ฝึกฝนในวันนี้แต้มเต๋าทุกประเภท -2' },
+  { deity: DEITY.HERA, name: 'มาตาแห่งนารี', description: 'ไม่สามารถร่วมกิจกรรมที่มีการต่อสู้ในวันนั้นได้' },
+  { deity: DEITY.POSEIDON, name: 'เขย่าโลกา', description: 'การทอยเต๋าในวันนี้ ถ้าน้อยกว่า 6 จะปัดเป็น 6' },
+  { deity: DEITY.DEMETER, name: 'สตรีสี่ฤดู', description: 'การทำไร่สตรอเบอร์รี่วันนี้จะได้รับเงินตอบแทน x2' },
+  { deity: DEITY.ARES, name: 'อสูรสงคราม', description: 'การต่อสู้ในวันนี้ ดาเมจแรงขึ้น 1 หน่วย' },
+  { deity: DEITY.ATHENA, name: 'เนตรเทาเชาว์ปัญญา', description: 'การฝึกฝนในวันนี้ เมื่อฝึกสำเร็จ 1 ครั้ง จะได้รับ โควตาอัพสเตตัส 2 พอยท์ (แค่การฝึกครั้งแรก)' },
+  { deity: DEITY.APOLLO, name: 'ลำนำพิณสุริยัน', description: 'เงินรางวัลจากเควสบอร์ดเพิ่มเป็น 2 เท่า (มีผลแค่ 3 เควสแรกที่ทำเท่านั้น)' },
+  { deity: DEITY.ARTEMIS, name: 'คันศรจันทรา', description: 'การต่อสู้ภายในวันนี้ ความเร็ว +3 หน่วย' },
+  { deity: DEITY.HEPHAESTUS, name: 'หัตถ์ผู้รังสรรค์', description: 'วันนี้ อุปกรณ์สวมใส่จะนับว่าเป็นขั้นที่สูงกว่า 1 ขั้น' },
+  { deity: DEITY.APHRODITE, name: 'พิราบเลอโฉม', description: 'ได้รับเสน่ห์ ทำให้ NPC จะ Quote พูดถึงคุณแบบสุ่ม' },
+  { deity: DEITY.HERMES, name: 'นาคาเพทุบาย', description: 'ได้รับตั๋วลดราคา 30% ในร้านค้า 1 ใบ' },
+  { deity: DEITY.DIONYSUS, name: 'รัญจวนเมรัย', description: 'ภายในวันนี้จะสามารถรับเควสบอร์ดได้แค่ 1 เควส' },
+  { deity: DEITY.HADES, name: 'เงาพิภพนิฬกาล', description: 'การต่อสู้ภายในวันนั้น หากตาย จะฟื้นคืนชีพขึ้นมาเลือดเต็ม 1 ครั้ง' },
+  { deity: DEITY.IRIS, name: 'สาส์นผ่านสายรุ้ง', description: 'ได้รับข้อความไอริสปริศนาแบบสุ่ม 1 คำ' },
+  { deity: DEITY.HYPNOS, name: 'นิทราเงียบงัน', description: 'แต้มเต๋าหน้าสูงสุดลดลง จาก (d12) เหลือ (d10)' },
+  { deity: DEITY.NEMESIS, name: 'ตราชั่งแห่งกรรม', description: 'การต่อสู้/ฝึกฝนในวันนี้ เมื่อป้องกันการโจมตีได้ จะโจมตีสวนกลับไป ทำดาเมจ 1 หน่วย' },
+  { deity: DEITY.NIKE, name: 'ปีกนำชัยชนะ', description: 'เมื่อต่อสู้ใด ๆ และชนะในวันนี้ จะได้รับเงิน 100$' },
+  { deity: DEITY.HEBE, name: 'ธาราอมฤต', description: 'ได้รับโพชั่นไซส์ S 1 ขวด' },
+  { deity: DEITY.TYCHE, name: 'วงล้อโชคลาภ', description: 'แต้มเต๋าหน้าสูงสุดเพิ่มขึ้น จาก (d12) เป็น (d15)' },
+  { deity: DEITY.HECATE, name: 'ม่านหมอกมนตรา', description: 'ได้รับแต้มอัพ ทักษะ 1 แต้ม' },
+];
+
 /** Wishes associated with battle */
 export const WISHES_ASSOCIATED_WITH_BATTLE: Deity[] = [
   DEITY.ZEUS,
@@ -213,4 +213,34 @@ export const WISHES_ASSOCIATED_WITH_BATTLE: Deity[] = [
   DEITY.NEMESIS,
   DEITY.NIKE,
   DEITY.TYCHE,
+];
+
+/** Wish's Priority */
+export const BLESSING_WISHES = [
+  DEITY.POSEIDON,
+  DEITY.DEMETER,
+  DEITY.ARES,
+  DEITY.ATHENA,
+  DEITY.APOLLO,
+  DEITY.ARTEMIS,
+  DEITY.HEPHAESTUS,
+  DEITY.HERMES,
+  DEITY.HADES,
+  DEITY.NEMESIS,
+  DEITY.HECATE,
+  DEITY.NIKE,
+  DEITY.HEBE,
+  DEITY.TYCHE,
+];
+
+export const NORMAL_WISHES = [
+  DEITY.APHRODITE,
+  DEITY.IRIS,
+];
+
+export const CURSED_WISHES = [
+  DEITY.ZEUS,
+  DEITY.HERA,
+  DEITY.DIONYSUS,
+  DEITY.HYPNOS,
 ];

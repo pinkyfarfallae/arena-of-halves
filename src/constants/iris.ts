@@ -4,6 +4,7 @@
 export const IRIS_PHASE = {
   IDLE: 'idle',
   TOSSING: 'tossing',
+  CHOOSING: 'choosing',
   REVEAL: 'reveal',
 } as const;
 
