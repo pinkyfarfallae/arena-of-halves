@@ -23,6 +23,7 @@ export const DEITY = {
   HEBE: 'Hebe',
   TYCHE: 'Tyche',
   MORPHEUS: 'Morpheus',
+  AMPHITRITE: 'Amphitrite',
 } as const;
 
 /** Deity display name (PascalCase) — use for labels, DEITY_POWERS, and DEITY_SVG keys. */
@@ -53,6 +54,7 @@ export const DEITY_CABIN: Record<string, number> = {
 
   // Addition
   [DEITY.MORPHEUS]: 23,
+  [DEITY.AMPHITRITE]: 24,
 };
 
 /** Cabin map to deity */

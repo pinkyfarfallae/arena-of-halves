@@ -47,6 +47,7 @@ export const DEITY_SVG: Record<Deity, React.ReactNode> = {
   [DEITY.HEBE]: <Hebe />,
   [DEITY.TYCHE]: <Tyche />,
   [DEITY.MORPHEUS]: <Morpheus />,
+  [DEITY.AMPHITRITE]: <Poseidon />,
   [DEITY_HADES_AND_PERSEPHONE]: <Persephone />
 };
 

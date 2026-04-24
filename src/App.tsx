@@ -105,6 +105,7 @@ function AppShell() {
   const [showDailyGift, setShowDailyGift] = useState(false);
   const [giftAmount, setGiftAmount] = useState(0);
   const [checkedDailyGiftForSession, setCheckedDailyGiftForSession] = useState<string | null>(null);
+  const dailyGiftFetchingRef = React.useRef(false);
 
   let themeVars: React.CSSProperties | undefined;
 
@@ -114,37 +115,63 @@ function AppShell() {
       setShowDailyGift(false);
       setGiftAmount(0);
       setCheckedDailyGiftForSession(null);
+      dailyGiftFetchingRef.current = false;
     }
   }, [user?.characterId]);
 
-  // Check for unclaimed daily gift when user logs in (only once per session)
+  // Reset the daily-gift session flag at midnight so it auto-triggers for the new day
   useEffect(() => {
     if (!user) return;
-    // Only check once per login session, not on every user refresh
+
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+
+    const timeout = setTimeout(() => {
+      dailyGiftFetchingRef.current = false;
+      setCheckedDailyGiftForSession(null);
+    }, msUntilMidnight);
+
+    return () => clearTimeout(timeout);
+  }, [user?.characterId, checkedDailyGiftForSession]);
+
+  // Check for unclaimed daily gift. Re-runs when checkedDailyGiftForSession is cleared
+  // (midnight reset or new login). Does NOT mark as checked until the user actually claims,
+  // so dismissing the modal without claiming will show it again on the next trigger.
+  useEffect(() => {
+    if (!user) return;
     if (checkedDailyGiftForSession === user.characterId) return;
+    if (showDailyGift) return; // already showing — don't fetch again
+    if (dailyGiftFetchingRef.current) return; // fetch already in-flight
 
     let cancelled = false;
+    dailyGiftFetchingRef.current = true;
 
     (async () => {
       try {
-        // Mark as checked for this session before async operation
-        setCheckedDailyGiftForSession(user.characterId);
-        
-        // Prefer server-side claim API which also assigns a stable amount
         const serverEntry = await getUserDailyClaim(user.characterId).catch(() => ({ accepted: false, amount: (Math.floor(Math.random() * 5) + 1) * 10 }));
-        if (cancelled) return; // user logged out while awaiting
-        if (serverEntry.accepted) return;
+        if (cancelled) return;
 
-        // show modal with server-assigned amount
+        if (serverEntry.accepted) {
+          // Already claimed today — mark session as done
+          setCheckedDailyGiftForSession(user.characterId);
+          dailyGiftFetchingRef.current = false;
+          return;
+        }
+
+        // Unclaimed — show the modal but do NOT mark session as checked yet.
+        // checkedDailyGiftForSession is only set after the user actually claims (see onClaim).
         setGiftAmount(serverEntry.amount);
         setShowDailyGift(true);
+        dailyGiftFetchingRef.current = false;
       } catch (e) {
-        // ignore
+        dailyGiftFetchingRef.current = false;
       }
     })();
 
     return () => { cancelled = true; };
-  }, [user?.characterId, checkedDailyGiftForSession]);
+  }, [user?.characterId, checkedDailyGiftForSession, showDailyGift]);
 
   if (user) {
     themeVars = applyTheme(user.theme);
@@ -165,6 +192,8 @@ function AppShell() {
           amount={giftAmount}
           onClaim={async () => {
             setShowDailyGift(false);
+            // Mark session as done now that the user has claimed
+            setCheckedDailyGiftForSession(user.characterId);
             try {
               // Reserve the claim atomically to prevent double-claim on refresh
               const reserved = await tryClaimToday(user.characterId);
