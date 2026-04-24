@@ -115,7 +115,7 @@ function AppShell() {
       setGiftAmount(0);
       setCheckedDailyGiftForSession(null);
     }
-  }, [user]);
+  }, [user?.characterId]);
 
   // Check for unclaimed daily gift when user logs in (only once per session)
   useEffect(() => {

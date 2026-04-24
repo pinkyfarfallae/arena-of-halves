@@ -27,6 +27,7 @@ import { useScreenSize } from '../../hooks/useScreenSize';
 import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { DEITY } from '../../constants/deities';
 import './StrawberryFields.scss';
+import { isValidTwitterUrl } from '../../utils/twitterUrlValidation';
 
 function StrawberryFields() {
   const { user } = useAuth();
@@ -183,11 +184,7 @@ function StrawberryFields() {
     return map;
   }, [allCampData]);
 
-  const isValidTwitterUrl = useMemo(() => {
-    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^\/]+\/status\/\d+/i;
-    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^\/]+\/status\/\d+/i;
-    return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
-  }, [firstTweetUrl]);
+  const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
@@ -200,7 +197,7 @@ function StrawberryFields() {
       return;
     }
 
-    if (!isValidTwitterUrl) {
+    if (!_isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
       return;
     }
@@ -362,11 +359,11 @@ function StrawberryFields() {
                   ref={inputRef}
                   className="strawberry-fields__form-input"
                   placeholder="Paste thread URL (first tweet)"
-                  style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                  style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
-                {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
                   <div
                     className="strawberry-fields__form-error-icon"
                     data-tooltip={t(T.INVALID_TWITTER_URL)}
@@ -378,7 +375,7 @@ function StrawberryFields() {
                 <button
                   className={`strawberry-fields__form-button ${isSubmitting ? 'strawberry-fields__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim() || !isValidTwitterUrl}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >

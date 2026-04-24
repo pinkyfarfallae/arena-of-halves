@@ -925,6 +925,14 @@ export const UI_TEXT = {
   BIG_HOUSE_SIDEBAR_TITLE: {
     en: 'Reported Missions',
     th: 'ภารกิจที่รายงานแล้ว'
+  },
+  BIG_HOUSE_NO_SUBMISSIONS: {
+    en: 'No missions reported yet',
+    th: 'คุณไม่มีการรายงานภารกิจ'
+  },
+  BIG_HOUSE_SUBMISSION_ON: {
+    en: 'Submission on',
+    th: 'รายงานเมื่อ',
   }
 } as const;
 

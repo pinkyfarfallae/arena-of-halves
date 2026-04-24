@@ -1,6 +1,6 @@
 export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 
-const DEPLOYMENT_ID = 'AKfycbxWIFW9EMHzxYMfv9sO2uNBiyNj1urAZqu3t10FskVA7oocpbHiFThmDtJZzT_xYmDu2g';
+const DEPLOYMENT_ID = 'AKfycbztvQOf6nrpZlQcnW7kk6TZElNlGecI8rMDY2LurwKa1b1codZz9kDf-l9h0_YtMwVwfg';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export const GID = {
@@ -15,7 +15,7 @@ export const GID = {
   HARVEST: '390673925',
   NPC: '1431163652',
   DAILY_TRAINING_DICE: '383013042',
-  
+  BIG_HOUSE_ROLEPLAY_SUBMISSION: '284757298',
 } as const;
 
 export const csvUrl = (gid: string) =>

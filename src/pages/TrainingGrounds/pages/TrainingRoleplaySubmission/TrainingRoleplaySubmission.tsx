@@ -22,6 +22,7 @@ import './TrainingRoleplaySubmission.scss';
 import { ITEMS } from '../../../../constants/items';
 import { consumeItem, giveItem } from '../../../../services/bag/bagService';
 import { BAG_ITEM_TYPES } from '../../../../constants/bag';
+import { isValidTwitterUrl } from '../../../../utils/twitterUrlValidation';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -73,11 +74,7 @@ function TrainingRoleplaySubmission() {
     };
   }, [user?.characterId]);
 
-  const isValidTwitterUrl = useMemo(() => {
-    const twitterRegex = /^https?:\/\/(www\.)?twitter\.com\/[^/]+\/status\/\d+/i;
-    const xRegex = /^https?:\/\/(www\.)?x\.com\/[^/]+\/status\/\d+/i;
-    return twitterRegex.test(firstTweetUrl.trim()) || xRegex.test(firstTweetUrl.trim());
-  }, [firstTweetUrl]);
+  const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
   const requiredCharacters = useMemo(() => {
     const baseRequirement = 1000;
@@ -453,11 +450,11 @@ function TrainingRoleplaySubmission() {
                         ref={inputRef}
                         className="training-roleplay-submission__form-input"
                         placeholder={canSubmitWithoutTweet ? "Tweet URL (optional - covered by tickets)" : "Paste thread URL (first tweet)"}
-                        style={!isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                        style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                         value={firstTweetUrl}
                         onChange={(e) => setFirstTweetUrl(e.target.value)}
                       />
-                      {!isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                      {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
                         <div
                           className="training-roleplay-submission__form-error-icon"
                           data-tooltip={t(T.INVALID_TWITTER_URL)}
@@ -511,7 +508,7 @@ function TrainingRoleplaySubmission() {
                     <button
                       className={`training-roleplay-submission__form-button ${isSubmitting || isSubmittingRecheck ? 'training-roleplay-submission__form-button--loading' : ''}`}
                       onClick={handleSubmit}
-                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !isValidTwitterUrl))}
+                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
                     >
                       <Swords className="training-roleplay-submission__form-button-icon" />
                       <span>{isSubmitting || isSubmittingRecheck ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>

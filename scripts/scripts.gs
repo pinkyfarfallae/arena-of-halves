@@ -21,6 +21,7 @@ var USER_SHEET_NAME = 'User';
 var HARVEST_SHEET_NAME = 'Strawberry Harvest';
 var TRAINING_SHEET_NAME = 'Daily Training Dice';
 var CUSTOM_EQUIPMENT = 'Custom Equipment';
+var BIG_HOUSE_ROLEPLAY_SHEET_NAME = 'Big House Roleplay Submission';
 
 /* ── GET handler ── */
 function doGet(e) {
@@ -198,6 +199,18 @@ function doPost(e) {
 
     if (data.action === 'deleteEquipment') {
       return handleDeleteEquipment(data.itemId);
+    }
+
+    if (data.action === 'submitBigHouseRoleplay') {
+      return handleSubmitBigHouseRoleplay(data);
+    }
+
+    if (data.action === 'approveBigHouseRoleplay') {
+      return handleApproveBigHouseRoleplay(data);
+    }
+
+    if (data.action === 'rejectBigHouseRoleplay') {
+      return handleRejectBigHouseRoleplay(data);
     }
 
     return jsonResponse({ error: 'Unknown action: ' + data.action });
@@ -2220,4 +2233,148 @@ function getCharacterInfo(characterId, field) {
   }
 
   return null; // not found
+}
+
+/* ══════════════════════════════════════
+   BIG HOUSE ROLEPLAY SUBMISSION
+   ══════════════════════════════════════ */
+
+/* ── Submit a new Big House roleplay for review ── */
+function handleSubmitBigHouseRoleplay(params) {
+  var characterId = (params.characterId || '').toString().trim();
+  var roleplayUrl = (params.roleplayUrl || '').toString().trim();
+  var submittedAt = (params.submittedAt || new Date().toISOString()).toString();
+  var id = (params.id || '').toString().trim();
+
+  if (!characterId || !roleplayUrl) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  if (!id) {
+    id = 'BH' + new Date().getTime();
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var row = [];
+  for (var i = 0; i < headers.length; i++) {
+    var h = headers[i];
+    if (h === 'id') row.push(id);
+    else if (h === 'characterid') row.push(characterId);
+    else if (h === 'roleplayurl') row.push(roleplayUrl);
+    else if (h === 'status') row.push('pending');
+    else if (h === 'submittedat') row.push(submittedAt);
+    else row.push('');
+  }
+
+  sheet.appendRow(row);
+  return jsonResponse({ success: true, id: id });
+}
+
+/* ── Approve a Big House roleplay submission ── */
+function handleApproveBigHouseRoleplay(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+
+  if (!submissionId || !reviewedBy) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('id');
+  var statusCol = headers.indexOf('status');
+  var reviewedAtCol = headers.indexOf('reviewedat');
+  var reviewedByCol = headers.indexOf('reviewedby');
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'approved') {
+    return jsonResponse({ error: 'Submission already approved' });
+  }
+
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('approved');
+  if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+
+  return jsonResponse({ success: true });
+}
+
+/* ── Reject a Big House roleplay submission ── */
+function handleRejectBigHouseRoleplay(params) {
+  var submissionId = (params.submissionId || '').toString().trim();
+  var reviewedBy = (params.reviewedBy || '').toString().trim();
+  var rejectReason = (params.rejectReason || '').toString().trim();
+
+  if (!submissionId || !reviewedBy || !rejectReason) {
+    return jsonResponse({ error: 'Missing required fields' });
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(BIG_HOUSE_ROLEPLAY_SHEET_NAME);
+  if (!sheet) {
+    return jsonResponse({ error: 'Sheet not found: ' + BIG_HOUSE_ROLEPLAY_SHEET_NAME });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function (h) { return h.toString().toLowerCase(); });
+
+  var idCol = headers.indexOf('id');
+  var statusCol = headers.indexOf('status');
+  var reviewedAtCol = headers.indexOf('reviewedat');
+  var reviewedByCol = headers.indexOf('reviewedby');
+  var rejectReasonCol = headers.indexOf('rejectreason');
+
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    var recordId = data[i][idCol] ? data[i][idCol].toString().trim() : '';
+    if (recordId === submissionId) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return jsonResponse({ error: 'Submission not found: ' + submissionId });
+  }
+
+  var currentStatus = data[rowIndex][statusCol] ? data[rowIndex][statusCol].toString().toLowerCase() : '';
+  if (currentStatus === 'rejected') {
+    return jsonResponse({ error: 'Submission already rejected' });
+  }
+
+  var reviewedAt = new Date().toISOString();
+  if (statusCol !== -1) sheet.getRange(rowIndex + 1, statusCol + 1).setValue('rejected');
+  if (reviewedAtCol !== -1) sheet.getRange(rowIndex + 1, reviewedAtCol + 1).setValue(reviewedAt);
+  if (reviewedByCol !== -1) sheet.getRange(rowIndex + 1, reviewedByCol + 1).setValue(reviewedBy);
+  if (rejectReasonCol !== -1) sheet.getRange(rowIndex + 1, rejectReasonCol + 1).setValue(rejectReason);
+
+  return jsonResponse({ success: true });
 }
