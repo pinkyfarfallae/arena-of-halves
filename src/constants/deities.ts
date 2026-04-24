@@ -50,8 +50,9 @@ export const DEITY_CABIN: Record<string, number> = {
   [DEITY.HEBE]: 18,
   [DEITY.TYCHE]: 19,
   [DEITY.HECATE]: 20,
-  [DEITY.PERSEPHONE]: 21,
-  [DEITY.MORPHEUS]: 22,
+
+  // Addition
+  [DEITY.MORPHEUS]: 23,
 };
 
 /** Cabin map to deity */
