@@ -38,7 +38,7 @@ export interface UserDailyProgress {
 
 // Training task structure that matches Google Sheets
 export interface TrainingTask {
-  id: string; // Format: userId_date
+  id: string; // Format: userId_YYYY-MM-DDTHH:mm:ss (time encoded in id)
   date: string;
   userId: string;
   attempt: number;
@@ -58,6 +58,8 @@ export interface TrainingTask {
   battleRounds?: number;
   // Fortune specific field
   withFullLevelFortune?: boolean;
+  // Exact submission datetime (ISO) — set by Apps Script server-side
+  submittedAt?: string;
 }
 
 export interface PracticeProgressInput {
@@ -540,6 +542,14 @@ export const fetchAllTrainingTasks = async (params?: {
         opponentName: row[iOpponentName] || '',
         battleRounds: Number(row[iBattleRounds]) || 0,
         withFullLevelFortune: iWff !== -1 ? (row[iWff] === 'TRUE' || row[iWff] === 'true') : false,
+        // submittedAt is encoded in the id after the date portion
+        submittedAt: (() => {
+          const idStr = row[iId] || '';
+          const dateStr = row[iDate] || '';
+          if (!dateStr) return undefined;
+          const idx = idStr.indexOf('_' + dateStr);
+          return idx !== -1 ? idStr.slice(idx + 1) : undefined;
+        })(),
       });
     }
 

@@ -152,8 +152,13 @@ function TrainingApproval() {
   }, [characters, reviewingTask?.userId]);
 
   const isTraineeBlessedByAthena = useMemo(() => {
+    const submissionTime = reviewingTask?.submittedAt;
     const hasAthena = reviewingTaskDateWishes.some(
-      (wish) => wish.deity === DEITY.ATHENA && wish.userId === reviewingTask?.userId
+      (wish) =>
+        wish.deity === DEITY.ATHENA &&
+        wish.userId === reviewingTask?.userId &&
+        !wish.canceled &&
+        (!wish.tossedAt || !submissionTime || wish.tossedAt <= submissionTime)
     );
     if (reviewingTask?.mode === PRACTICE_MODE.NORMAL) {
       return reviewingTask?.success && hasAthena;
@@ -251,23 +256,16 @@ function TrainingApproval() {
       );
 
       // Apps Script verifyTraining already awards base TP + fortune bonus (withFullLevelFortune ? 2 : 1).
-      // Only award extra TPs here for Athena blessing and the Athena+Fortune combo.
-
+      // Only award extra TPs here for Athena blessing (+1) and Athena+Fortune combo (+1).
       let pointsAwarded = 0;
       if (approveData.isTraineeBlessedByAthena && approveData.reward > 0) {
         pointsAwarded += 1;
       }
-
-      if (approveData.withFullLevelFortune && approveData.reward > 0) {
-        pointsAwarded += 1;
-      }
-
       if (approveData.isTraineeBlessedByAthena && approveData.withFullLevelFortune && approveData.reward > 0) {
         pointsAwarded += 1;
       }
-
       if (pointsAwarded > 0) {
-        updateTrainingPoints(reviewingTask.userId, pointsAwarded);
+        await updateTrainingPoints(reviewingTask.userId, pointsAwarded);
       }
 
     } catch (error) {

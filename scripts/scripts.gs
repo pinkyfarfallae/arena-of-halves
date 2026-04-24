@@ -1586,6 +1586,19 @@ function findTaskRow(sheet, id) {
   return -1;
 }
 
+// Find a training row by userId + date prefix (id may include time suffix)
+function findTaskRowByPrefix(sheet, userId, date) {
+  var prefix = userId + '_' + date;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var cellId = data[i][0].toString();
+    if (cellId.indexOf(prefix) === 0) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
 /* ══════════════════════════════════════
    SUBMIT TRAINING
    - Create new training task record
@@ -1595,6 +1608,7 @@ function handleSubmitTraining(params) {
   var userId = (params.userId || '').toString().trim();
   var date = (params.date || '').toString().trim();
   var withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
+  var submittedAt = new Date().toISOString();
   var attempt = parseInt(params.attempt || '5', 10);
   var rolls = params.rolls || [];
   var mode = (params.mode || 'admin').toString().trim();
@@ -1614,9 +1628,9 @@ function handleSubmitTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var id = userId + '_' + date;
+  var id = userId + '_' + submittedAt;
 
-  if (findTaskRow(sheet, id) > 0) {
+  if (findTaskRowByPrefix(sheet, userId, date) > 0) {
     return jsonResponse({ error: 'Training task already exists for this date' });
   }
 
@@ -1661,7 +1675,7 @@ function handleSubmitTrainingRoleplay(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
@@ -1706,7 +1720,7 @@ function handleVerifyTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });
@@ -1785,7 +1799,7 @@ function handleRecheckTraining(params) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRow(sheet, userId + '_' + date);
+  var row = findTaskRowByPrefix(sheet, userId, date);
 
   if (row === -1) {
     return jsonResponse({ error: 'Training task not found' });

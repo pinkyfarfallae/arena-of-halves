@@ -173,10 +173,16 @@ export default function TrainingPracticeModal({
     setSubmitting(true);
     setError('');
     try {
-      const arenaId = await onJoinPracticeRoom(code);
+      const joinedArenaId = await onJoinPracticeRoom(code);
+
+      // Clean up the previously created-but-unconfigured room left on the Create tab
+      if (arenaId && onDeletePracticeRoom && roomStatus === ROOM_STATUS.CONFIGURING) {
+        try { await onDeletePracticeRoom(arenaId); } catch (_) { /* best-effort */ }
+      }
+
       onClose();
-      updateTodayWishesForRoom(arenaId);
-      navigate(`/training-grounds/pvp/${arenaId}`);
+      updateTodayWishesForRoom(joinedArenaId);
+      navigate(`/training-grounds/pvp/${joinedArenaId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join training room');
     } finally {

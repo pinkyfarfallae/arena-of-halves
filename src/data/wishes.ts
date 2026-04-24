@@ -13,6 +13,7 @@ export interface IrisWishDoc {
   date: string;
   deity: string;
   canceled?: boolean;
+  tossedAt?: string;
 }
 
 function parseCSV(csv: string): string[][] {
@@ -102,6 +103,7 @@ export const saveIrisWish = async (userId: string, deity: string) => {
     date,
     deity,
     canceled: false,
+    tossedAt: new Date().toISOString(),
   });
 };
 

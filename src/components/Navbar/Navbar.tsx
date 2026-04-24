@@ -257,7 +257,7 @@ function Navbar() {
           <MapIcon />
         </NavLink>
 
-        <NavLink to="/dice" className={({ isActive }) => `sidebar__icon ${isActive || isLifeSubPageActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.DICE)} data-tooltip-pos="right">
+        <NavLink to="/dice" className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.DICE)} data-tooltip-pos="right">
           <Dice />
         </NavLink>
 
