@@ -84,6 +84,10 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
     en: 'Training Grounds',
     th: 'สนามฝึกซ้อม',
   },
+  [CAMP_LOCATION.CAMP_TREASURY_TRANSFER]: {
+    en: 'Camp Treasury Transfer',
+    th: 'จุดแลกเปลี่ยนสมบัติของค่าย',
+  },
 };
 
 export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
@@ -158,6 +162,10 @@ export const CAMP_LOCATION_DESCRIPTIONS: Record<string, BilingualText> = {
   [CAMP_LOCATION.CAMP_STORE]: {
     en: "A humble store of necessities and keepsakes, where drachmas are traded for tools of both survival and memory.",
     th: "ร้านค้าที่มีทุกสิ่งของที่จำเป็นจัดเตรียมไว้ให้เลือกสรร ที่ซึ่งดรัคมาถูกแลกเปลี่ยนเป็นทั้งเครื่องมือเอาตัวรอดและความทรงจำ",
+  },
+  [CAMP_LOCATION.CAMP_TREASURY_TRANSFER]: {
+    en: "The treasury where campers exchange drachma and items with one another—a place of trade, generosity, and sometimes bluffing strategy.",
+    th: "คลังสมบัติที่เหล่าสมาชิกค่ายสามารถแลกเปลี่ยนดรัคมาและไอเทมซึ่งกันและกัน นับเป็นสถานที่แห่งการค้า ความเอื้อเฟื้อ และบางครั้งก็อาจเป็นกลยุทธ์ในการบลัฟกันเองด้วย",
   },
 };
 

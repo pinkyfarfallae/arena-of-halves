@@ -20,6 +20,7 @@ export const CAMP_LOCATION = {
   IRIS_FOUNTAIN: 'iris-fountain',
   CAMP_STORE: 'camp-store',
   TRAINING_GROUNDS: 'training-grounds',
+  CAMP_TREASURY_TRANSFER: 'camp-treasury-transfer',
 } as const;
 
 export type CampLocationId = (typeof CAMP_LOCATION)[keyof typeof CAMP_LOCATION];

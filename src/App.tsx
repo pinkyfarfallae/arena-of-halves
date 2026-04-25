@@ -22,6 +22,7 @@ import { updateCharacterDrachma } from './services/character/currencyService';
 // Using server-side persistence for daily claims; no localStorage fallback
 import { getUserDailyClaim, tryClaimToday, unmarkUserClaimedToday } from './services/daily/dailyClaimService';
 import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator';
+import CampTreasury from './pages/CampTreasuryTransfer/CampTreasuryTransfer';
 import './App.scss';
 
 export const applyTheme = (t: string[]): React.CSSProperties => ({
@@ -87,6 +88,7 @@ function AppRoutes() {
           <Route path="/forge" element={<Forge />} />
           <Route path="/big-house" element={<BigHouse />} />
           <Route path="/strawberry-fields" element={<StrawberryFields />} />
+          <Route path="/treasury-transfer" element={<CampTreasury />} />
           <Route path="/training-grounds/*" element={<TrainingGrounds />} />
           <Route path="/arena" element={<Lobby />} />
           <Route path="/arena/:arenaId" element={<Arena />} />

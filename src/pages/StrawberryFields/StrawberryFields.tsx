@@ -28,6 +28,7 @@ import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { DEITY } from '../../constants/deities';
 import './StrawberryFields.scss';
 import { isValidTwitterUrl } from '../../utils/twitterUrlValidation';
+import { HIDDEN_AMPHITRITE_FOR } from '../../constants/characters';
 
 function StrawberryFields() {
   const { user } = useAuth();
@@ -129,7 +130,13 @@ function StrawberryFields() {
 
         const sorted = [...result.harvests].sort(
           (a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt)
-        );
+        ).filter(h => {
+          if((HIDDEN_AMPHITRITE_FOR as readonly string[]).includes(user.characterId || '')) {
+            const harvestor = allCampData.find(c => c.characterId === h.characterId);
+            return harvestor?.deityBlood !== DEITY.AMPHITRITE;
+          }
+          return true;
+        });
 
         setSubmissionsRecord(sorted);
       } catch (err) {
@@ -162,7 +169,15 @@ function StrawberryFields() {
           return;
         }
 
-        setTopHarvestors(result.topHarvesters);
+        const topHarvestors = result.topHarvesters.filter(h => {
+          if((HIDDEN_AMPHITRITE_FOR as readonly string[]).includes(user.characterId || '')) {
+            const harvestor = allCampData.find(c => c.characterId === h.characterId);
+            return harvestor?.deityBlood !== DEITY.AMPHITRITE;
+          }
+          return true;
+        });
+
+        setTopHarvestors(topHarvestors);
       } catch (err) {
       } finally {
         if (mounted) setIsLoadingTopHarvestors(false);

@@ -11,7 +11,7 @@ import Doodle from './components/Doodle/Doodle';
 import { DoodleType, DoodlePos, GENERIC_DOODLES, DEITY_DOODLES, DOODLE_POSITIONS } from './constants/doodles';
 import Laurel from './icons/Laurel';
 import { DEITY } from '../../constants/deities';
-import { CHARACTER } from '../../constants/characters';
+import { CHARACTER, HIDDEN_AMPHITRITE_FOR } from '../../constants/characters';
 import { DECOS } from './constants/decos';
 import './CampMembers.scss';
 
@@ -28,8 +28,6 @@ function CampMembers() {
       .catch(() => setMembers([]))
       .finally(() => setLoading(false));
   }, [user?.characterId]);
-
-  const HIDDEN_AMPHITRITE_FOR = [CHARACTER.ROSABELLA, CHARACTER.SKYLER, CHARACTER.TEST];
 
   /* stable per-card rotation + decoration + deity-based doodles (8–10) */
   const visibleMembers = useMemo(() => {

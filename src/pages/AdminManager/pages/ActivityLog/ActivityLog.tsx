@@ -165,10 +165,11 @@ export default function ActivityLog() {
         data={filtered}
         rowKey={row => row.id ?? row.createdAt}
         loading={loading}
-        actions={[{
-          label: () => <Pencil width={14} height={14} />,
-          onClick: startEdit,
-        }]}
+        actions={
+          isDev ? [{
+            label: () => <Pencil width={14} height={14} />,
+            onClick: startEdit,
+          }] : []}
       />
 
       {/* Edit modal */}
