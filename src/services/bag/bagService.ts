@@ -197,9 +197,8 @@ export async function consumeItem(
     }
 
     const newAmount = currentAmount - amount;
-    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type,
-      clean(currentItem) as Partial<BagItemData>
-    );
+    const { amount: _a, type: _t, ...metadata } = currentItem;
+    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type, metadata);
 
     if (result.success) {
       return { success: true, newAmount };
@@ -273,6 +272,7 @@ export async function transferItem(
 
     // Remove from source
     const removeResult = await consumeItem(fromUserId, itemId, amount);
+    console.log('Remove result:', removeResult);
     if (!removeResult.success) {
       return removeResult;
     }
