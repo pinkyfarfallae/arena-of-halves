@@ -48,7 +48,7 @@ export default function ActivityLog() {
     setLoading(true);
     fetchActivityLogs()
       .then(data => {
-        setLogs(data);
+        setLogs([...data].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
         setLoading(false);
       })
       .catch(() => {

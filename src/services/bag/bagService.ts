@@ -3,6 +3,7 @@ import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import type { BagData, BagItemData } from '../../types/character';
 import { BagItemType } from '../../constants/bag';
+import { logActivity } from '../activityLog/activityLogService';
 
 /** Strip undefined values so Firestore never receives them */
 function clean(obj: object): Record<string, unknown> {
@@ -285,6 +286,14 @@ export async function transferItem(
       return giveResult;
     }
 
+    logActivity({
+      category: 'item',
+      action: 'transfer_item',
+      characterId: toUserId,
+      performedBy: fromUserId,
+      amount,
+      metadata: { itemId },
+    });
     return { success: true };
   } catch (error) {
     // console.error('Error transferring item:', error);

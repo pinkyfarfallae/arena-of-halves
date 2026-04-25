@@ -6,15 +6,32 @@ import { Wish } from "../../types/wish";
 import { giveItem } from "../bag/bagService";
 import { updateCharacterDrachma } from "../character/currencyService";
 import { updateTrainingPoints } from "../training/trainingPoints";
+import { logActivity } from '../activityLog/activityLogService';
 
 export const applyWishEffect = (wish: Wish, characterId: string) => {
   const { deity } = wish;
   switch (deity) {
     case DEITY.HERMES:
       giveItem(characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, BAG_ITEM_TYPES.ITEM);
+      logActivity({
+        category: 'item',
+        action: 'give_item',
+        characterId,
+        performedBy: 'iris_wish',
+        amount: 1,
+        metadata: { source: 'iris_wish', itemId: ITEMS.SHOP_30_DISCOUNT_TICKET, deity: DEITY.HERMES },
+      });
       break;
     case DEITY.HEBE:
       giveItem(characterId, ITEMS.HEALTH_POTION_S, 1, BAG_ITEM_TYPES.ITEM);
+      logActivity({
+        category: 'item',
+        action: 'give_item',
+        characterId,
+        performedBy: 'iris_wish',
+        amount: 1,
+        metadata: { source: 'iris_wish', itemId: ITEMS.HEALTH_POTION_S, deity: DEITY.HEBE },
+      });
       break;
     case DEITY.HECATE:
       updateTrainingPoints(characterId, 1);

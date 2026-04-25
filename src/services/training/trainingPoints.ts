@@ -1,5 +1,6 @@
 import { ACTIONS } from "../../constants/action";
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
+import { logActivity } from '../activityLog/activityLogService';
 
 /**
  * Update character training points (add or subtract)
@@ -29,6 +30,16 @@ export async function updateTrainingPoints(
     });
 
     const data = await res.json();
+    if (data.success) {
+      logActivity({
+        category: 'stat',
+        action: amount >= 0 ? 'add_training_points' : 'deduct_training_points',
+        characterId,
+        performedBy: characterId,
+        amount: Math.abs(amount),
+        metadata: { source: 'training_grounds', previous: data.previous, current: data.current },
+      });
+    }
     return data;
   } catch (error) {
     return { error: 'Failed to update training points' };
