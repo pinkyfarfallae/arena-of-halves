@@ -22,6 +22,7 @@ import Nike from './icons/deities/Nike';
 import Hebe from './icons/deities/Hebe';
 import Tyche from './icons/deities/Tyche';
 import Morpheus from './icons/deities/Morpheus';
+import Amphitrite from './icons/deities/Amphitrite';
 import { DEITY_HADES_AND_PERSEPHONE } from '../pages/AdminManager/pages/PowerVfxDemo/utils/constants';
 
 export const DEITY_SVG: Record<Deity, React.ReactNode> = {
@@ -47,7 +48,7 @@ export const DEITY_SVG: Record<Deity, React.ReactNode> = {
   [DEITY.HEBE]: <Hebe />,
   [DEITY.TYCHE]: <Tyche />,
   [DEITY.MORPHEUS]: <Morpheus />,
-  [DEITY.AMPHITRITE]: <Poseidon />,
+  [DEITY.AMPHITRITE]: <Amphitrite />,
   [DEITY_HADES_AND_PERSEPHONE]: <Persephone />
 };
 
