@@ -25,6 +25,7 @@ import { getItemAmount } from '../../../../services/bag/bagService';
 import { ITEMS } from '../../../../constants/items';
 import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
+import { logActivity } from '../../../../services/activityLog/activityLogService';
 
 type ApproveParticipantReward = {
   characterId: string;
@@ -311,7 +312,10 @@ function HarvestApproval() {
 
     // Award drachma to each participant based on their individual calculated rewards
     const rewardPromises = approveData.participantRewards.map((participant) =>
-      updateCharacterDrachma(participant.characterId, participant.reward)
+      updateCharacterDrachma(participant.characterId, participant.reward, {
+        performedBy: user?.characterId || 'admin',
+        source: 'harvest_approval',
+      })
     );
 
     try {
@@ -356,6 +360,19 @@ function HarvestApproval() {
       setIsApproving(false);
       return;
     }
+
+    // Log overall approval action
+    logActivity({
+      category: 'action',
+      action: 'approve_harvest',
+      characterId: reviewingSubmission?.characterId || submissionId,
+      performedBy: user?.characterId || 'admin',
+      metadata: {
+        submissionId,
+        totalDrachma: totalDrachmaAwarded,
+        roleplayers: approveData.roleplayers,
+      },
+    });
 
     setSubmissions((prev) =>
       prev.map((s) =>
@@ -414,6 +431,16 @@ function HarvestApproval() {
     if (!result.success) {
       return;
     }
+
+    // Log rejection action
+    logActivity({
+      category: 'action',
+      action: 'reject_harvest',
+      characterId: reviewingSubmission?.characterId || submissionId,
+      performedBy: user?.characterId || 'admin',
+      note: tempRejectReason,
+      metadata: { submissionId },
+    });
 
     setSubmissions((prev) =>
       prev.map((s) =>

@@ -1,26 +1,19 @@
-@import '../../../../styles/variables';
+@import '../../styles/variables';
 
-.admin-player-inventory {
+.camp-treasury {
   width: 100%;
-  min-width: calc(100vw - $sidebar-width);
-  height: calc(100% + 2.5rem);
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin: -1.25rem -1.5rem;
-  background-color: #ffffff;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  background-repeat: no-repeat;
 
   @media (max-width: $bp-medium) {
     max-height: calc(100vh - $topbar-height);
     min-width: 100vw;
-  }
-
-  @media (max-width: $bp-compact) {
-    margin: -1.25rem -1.5rem;
-  }
-
-  @media (max-width: $bp-mobile) {
-    margin: -1rem -0.75rem;
   }
 
   &__container {
@@ -278,7 +271,7 @@
         margin-top: 0.75rem;
 
         &-reset,
-        &-apply {
+        &-send {
           flex: 1;
           padding: 0.6rem 0.75rem;
           border-radius: 8px;
@@ -452,6 +445,7 @@
 
     &-item {
       min-height: 38px;
+      max-height: 38px;
     }
 
     &-add-button,
@@ -712,13 +706,185 @@
     }
   }
 
+  &--amount-card {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.8rem;
+    width: 100%;
+    min-width: 0;
+    max-height: 38px;
+    padding: 0.35rem;
+    border-radius: 16px;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--ci-primary) 7%, white 93%) 0%, color-mix(in srgb, var(--ci-accent-dark) 7%, white 93%) 100%);
+    border: 1px solid color-mix(in srgb, var(--ci-primary) 18%, white 82%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      0 4px 14px rgb(from var(--ci-shadow, #000) r g b / 0.08);
+  }
+
+  &--amount-balance,
+  &--amount-give-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &--amount-give-head {
+    display: none;
+
+    @media (max-width: $bp-mobile) {
+      display: flex;
+    }
+  }
+
+  &--amount-balance {
+    flex: 0 0 110px;
+    min-width: 175px;
+    padding: 0.35rem 0.25rem 0.3rem 0.75rem;
+    border-radius: 50px;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--ci-primary) 80%, white 20%) 0%, color-mix(in srgb, var(--ci-accent-dark) 88%, white 12%) 100%);
+    color: white;
+  }
+
+  &--amount-balance-label,
+  &--amount-give-label {
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    &--inline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      @media (max-width: $bp-mobile) {
+        display: none;
+      }
+    }
+  }
+
+  &--amount-balance-value {
+    min-width: 58px;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    text-align: center;
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  &--amount-give {
+    flex: 1;
+    display: flex;
+    gap: 0.75rem;
+    padding: 0 0.15rem 0.1rem;
+    min-width: 200px;
+    width: 100%;
+
+    @media (max-width: $bp-mobile) {
+      max-width: none;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+  }
+
+  &--amount-max-btn {
+    border: none;
+    background: transparent;
+    color: var(--ci-primary, #000);
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 0.15s, transform 0.15s;
+
+    &:not(:disabled):hover {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.35;
+    }
+
+    &--inline {
+      @media (max-width: $bp-mobile) {
+        display: none;
+      }
+    }
+  }
+
+  &--amount-input-wrap {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid color-mix(in srgb, var(--ci-primary) 20%, white 80%);
+    box-shadow: 0 2px 8px rgb(from var(--ci-shadow, #000) r g b / 0.08);
+  }
+
+  &--amount-input-prefix {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: 0 0.55rem;
+    background: color-mix(in srgb, var(--ci-primary) 14%, white 86%);
+    color: color-mix(in srgb, var(--ci-primary) 85%, black 15%);
+    font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  &--amount-input-field {
+    flex: 1;
+    min-width: 0;
+    border-radius: 0;
+    padding: 0;
+
+    .form__input {
+      width: 100%;
+      min-width: 0;
+      max-height: 100%;
+      border: none;
+      background: transparent;
+      color: var(--ci-primary, #000);
+      font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-align: right;
+      padding: 0.45rem 0.7rem;
+      box-shadow: none;
+      text-align: center;
+    }
+  }
+
+  td[data-label="Amount"] {
+    vertical-align: middle;
+  }
+
   // Sidebar
   &__sidebar {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     position: fixed;
-    top: $topbar-height;
+    top: 0;
     right: 0;
     bottom: 0;
     width: 320px;
@@ -727,7 +893,7 @@
     border-left: 1px solid var(--ci-border, #000);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     background: var(--ci-surface, #fff);
-    height: calc(100vh - #{$topbar-height});
+    height: 100vh;
 
     &--open {
       transform: translateX(0);
@@ -735,9 +901,7 @@
     }
 
     @media (max-width: $bp-medium) {
-      top: 0;
       max-width: 85vw;
-      height: 100vh;
     }
 
     &__head {
@@ -1162,7 +1326,108 @@
     }
   }
 
-  td[data-label="Bulk Item Name"] {
+  td[data-label="Item"] {
+    .form__field {
+      display: flex;
+      justify-content: center;
+    }
+
+    .form__dropdown-trigger {
+      width: 100%;
+      max-width: unset;
+    }
+
+    @media (max-width: $bp-mobile) {
+      width: 100% !important;
+      max-width: 100%;
+      min-width: unset;
+      grid-column: 1 / -1;
+
+      &::before {
+        display: none;
+      }
+
+      .form__field {
+        min-width: unset;
+        max-width: calc(100% - 38px);
+      }
+
+      .form__dropdown-trigger {
+        max-width: 100%;
+        width: 100%;
+      }
+    }
+  }
+
+  td[data-label="Amount"] {
+    @media (max-width: calc($bp-mobile)) {
+      .form__field {
+        min-height: 38px;
+        display: flex;
+        justify-content: center;
+      }
+    }
+
+    &::before {
+      display: none;
+    }
+  }
+
+  td[data-label="Remove"] {
+    @media (max-width: $bp-mobile) {
+      position: absolute;
+      top: calc(0.85rem + 16.75px);
+      right: 0.85rem;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      min-width: 28px;
+      max-width: 28px;
+      transform: translateY(-50%);
+
+      &::before {
+        display: none;
+      }
+    }
+  }
+
+  @media (max-width: $bp-mobile) {
+    &--amount-card {
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.5rem 0.3rem;
+      border-radius: 8px;
+      max-height: unset;
+    }
+
+    &--amount-balance {
+      flex: 0 0 auto;
+      min-width: 0;
+      padding: 0.3rem 0.25rem 0.3rem 0.75rem;
+    }
+
+    &--amount-balance-label,
+    &--amount-give-label {
+      font-size: 0.6rem;
+    }
+
+    &--amount-balance-value {
+      min-width: 52px;
+      font-size: 0.75rem;
+    }
+
+    &--amount-input-prefix {
+      min-width: 1.75rem;
+      padding: 0 0.45rem;
+    }
+
+    &--amount-input-field .form__input {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.78rem;
+    }
+  }
+
+  td[data-label="Item"] {
     .form__field {
       min-height: 38px;
       min-width: 268px;
@@ -1196,40 +1461,101 @@
     }
   }
 
-  td[data-label="Bulk Item Action"],
-  td[data-label="Bulk Item Amount"] {
-    min-width: 135px;
-
+  td[data-label="Amount"] {
     @media (max-width: $bp-mobile) {
-      min-width: 0;
-
-      .form__field {
-        min-height: 38px;
-        display: flex;
-        justify-content: center;
-      }
-    }
-
-    &::before {
-      display: none;
-    }
-  }
-
-  td[data-label="Bulk Item Remove Row"] {
-    @media (max-width: $bp-mobile) {
-      position: absolute;
-      top: calc(0.85rem + 16.75px);
-      right: 0.85rem;
-      width: 28px !important;
-      height: 28px;
-      padding: 0;
-      min-width: 28px;
-      max-width: 28px;
-      transform: translateY(-50%);
+      width: 100% !important;
+      max-width: 100%;
+      min-width: unset;
+      grid-column: 1 / -1;
 
       &::before {
         display: none;
       }
     }
+  }
+}
+
+@keyframes camp-treasury-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes camp-treasury-slide-up {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes camp-treasury-scale-in {
+  from {
+    transform: scale(0);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+.camp-treasury {
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: camp-treasury-fade-in 0.2s ease;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+    max-width: 420px;
+    width: calc(100% - 2rem);
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: camp-treasury-slide-up 0.25s ease;
+
+    &--success {
+      text-align: center;
+      padding: 2rem;
+    }
+  }
+
+  .modal-success-icon {
+    width: 60px;
+    height: 60px;
+    background: color-mix(in srgb, var(--ci-primary) 55%, var(--ci-accent-dark) 45%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 1rem;
+    animation: camp-treasury-scale-in 0.35s ease;
+  }
+
+  .modal-success-message {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--ci-primary, #222);
+    font-weight: 600;
+    white-space: pre-line;
+    line-height: 1.5;
   }
 }

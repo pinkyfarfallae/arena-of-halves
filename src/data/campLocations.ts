@@ -205,5 +205,18 @@ export const CAMP_LOCATIONS: CampLocation[] = [
     actionLabels: ['Start Training'],
     actionIcons: ['training'],
     actionPaths: ['/training-grounds'],
-  }
+  },
+  {
+    id: CAMP_LOCATION.CAMP_TREASURY_TRANSFER,
+    name: 'Camp Treasury',
+    description: "The camp's communal vault managed by the Hermes cabin. Send drachma and supplies to your fellow demigods.",
+    icon: 'treasury',
+    color: 'rgb(255, 0, 221)',
+    x: 30, y: 57,
+    size: 'sm',
+    tags: ['trade', 'social'],
+    actionLabels: ['Transfer Funds'],
+    actionIcons: ['transfer'],
+    actionPaths: ['/treasury-transfer'],
+  },
 ];

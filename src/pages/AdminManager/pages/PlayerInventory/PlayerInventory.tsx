@@ -15,6 +15,7 @@ import Table, { Column } from "../../../../components/Table/Table";
 import { getBagData, giveItem, consumeItem, getItemAmount, setBagItemData } from "../../../../services/bag/bagService";
 import { updateCharacterDrachma } from "../../../../services/character/currencyService";
 import { addTrainingPoints, spendTrainingPoints } from "../../../../services/training/trainingPoints";
+import { logActivity } from "../../../../services/activityLog/activityLogService";
 import { BAG_ITEM_TYPES } from "../../../../constants/bag";
 import ConfirmModal from "../../../../components/ConfirmModal/ConfirmModal";
 import { ITEMS } from "../../../../constants/items";
@@ -540,7 +541,10 @@ const PlayerInventory = () => {
                         try {
                           if (itemId === ITEMS.DRACHMA) {
                             const delta = pending.action === ACTION.ADD ? pending.amount : -pending.amount;
-                            const res = await updateCharacterDrachma(userId, delta);
+                            const res = await updateCharacterDrachma(userId, delta, {
+                              performedBy: user?.characterId || 'admin',
+                              source: 'player_inventory',
+                            });
                             // console.log('updateCharacterDrachma result', { userId, itemId, pending, res });
                             if (res.success) {
                               setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, currency: res.current ?? (p.currency ?? 0) } : p));
@@ -549,11 +553,31 @@ const PlayerInventory = () => {
                             if (pending.action === ACTION.ADD) {
                               const res = await addTrainingPoints(userId, pending.amount);
                               // console.log('addTrainingPoints result', { userId, itemId, pending, res });
-                              if (res.success) setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                              if (res.success) {
+                                setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                logActivity({
+                                  category: 'stat',
+                                  action: 'add_training_points',
+                                  characterId: userId,
+                                  performedBy: user?.characterId || 'admin',
+                                  amount: pending.amount,
+                                  metadata: { source: 'player_inventory' },
+                                });
+                              }
                             } else {
                               const res = await spendTrainingPoints(userId, pending.amount);
                               // console.log('spendTrainingPoints result', { userId, itemId, pending, res });
-                              if (res.success) setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                              if (res.success) {
+                                setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                logActivity({
+                                  category: 'stat',
+                                  action: 'deduct_training_points',
+                                  characterId: userId,
+                                  performedBy: user?.characterId || 'admin',
+                                  amount: pending.amount,
+                                  metadata: { source: 'player_inventory' },
+                                });
+                              }
                             }
                           } else {
                             if (pending.action === ACTION.ADD) {
@@ -572,6 +596,14 @@ const PlayerInventory = () => {
                                       available: true,
                                     });
                                   }
+                                  logActivity({
+                                    category: 'item',
+                                    action: 'give_item',
+                                    characterId: userId,
+                                    performedBy: user?.characterId || 'admin',
+                                    amount: pending.amount,
+                                    metadata: { source: 'player_inventory', itemId },
+                                  });
                                 }
                             } else {
                               const res = await consumeItem(userId, itemId, pending.amount);
@@ -583,6 +615,14 @@ const PlayerInventory = () => {
                                   const current = await getItemAmount(userId, itemId).catch(() => undefined);
                                   if (typeof current === 'number') setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: current }));
                                 }
+                                logActivity({
+                                  category: 'item',
+                                  action: 'consume_item',
+                                  characterId: userId,
+                                  performedBy: user?.characterId || 'admin',
+                                  amount: pending.amount,
+                                  metadata: { source: 'player_inventory', itemId },
+                                });
                               }
                             }
                           }
@@ -646,23 +686,66 @@ const PlayerInventory = () => {
                           try {
                             if (row.itemId === ITEMS.DRACHMA) {
                               const delta = row.action === ACTION.ADD ? row.amount : -row.amount;
-                              const res = await updateCharacterDrachma(userId, delta);
+                              const res = await updateCharacterDrachma(userId, delta, {
+                                performedBy: user?.characterId || 'admin',
+                                source: 'player_inventory_bulk',
+                              });
                               if (res.success) {
                                 setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, currency: res.current ?? (p.currency ?? 0) } : p));
                               }
                             } else if (row.itemId === ITEMS.TRAINING_POINTS) {
                               if (row.action === ACTION.ADD) {
                                 const res = await addTrainingPoints(userId, row.amount);
-                                if (res.success) setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                if (res.success) {
+                                  setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                  logActivity({
+                                    category: 'stat',
+                                    action: 'add_training_points',
+                                    characterId: userId,
+                                    performedBy: user?.characterId || 'admin',
+                                    amount: row.amount,
+                                    metadata: { source: 'player_inventory_bulk' },
+                                  });
+                                }
                               } else {
                                 const res = await spendTrainingPoints(userId, row.amount);
-                                if (res.success) setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                if (res.success) {
+                                  setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
+                                  logActivity({
+                                    category: 'stat',
+                                    action: 'deduct_training_points',
+                                    characterId: userId,
+                                    performedBy: user?.characterId || 'admin',
+                                    amount: row.amount,
+                                    metadata: { source: 'player_inventory_bulk' },
+                                  });
+                                }
                               }
                             } else {
                               if (row.action === ACTION.ADD) {
                                 const res = await giveItem(userId, row.itemId, row.amount, BAG_ITEM_TYPES.ITEM);
+                                if (res.success) {
+                                  logActivity({
+                                    category: 'item',
+                                    action: 'give_item',
+                                    characterId: userId,
+                                    performedBy: user?.characterId || 'admin',
+                                    amount: row.amount,
+                                    metadata: { source: 'player_inventory_bulk', itemId: row.itemId },
+                                  });
+                                }
                               } else {
                                 const res = await consumeItem(userId, row.itemId, row.amount);
+                                if (res.success) {
+                                  logActivity({
+                                    category: 'item',
+                                    action: 'consume_item',
+                                    characterId: userId,
+                                    performedBy: user?.characterId || 'admin',
+                                    amount: row.amount,
+                                    metadata: { source: 'player_inventory_bulk', itemId: row.itemId },
+                                  });
+                                }
                               }
                             }
                           } catch (err) {

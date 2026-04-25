@@ -19,15 +19,14 @@ import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
-import { DEITY } from '../../../../constants/deities';
 import { getItemAmount } from '../../../../services/bag/bagService';
 import { ITEMS } from '../../../../constants/items';
-import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
+import { logActivity } from '../../../../services/activityLog/activityLogService';
 import Background from '../../../BigHouse/images/background.jpg';
-import './BigHouseSubmissionApproval.scss';
 import { BigHouseSubmission } from '../../../../types/bigHouse';
 import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS, BigHouseSubmissionStatus } from '../../../../constants/bigHouse';
+import './BigHouseSubmissionApproval.scss';
 
 type ApproveParticipantReward = {
   characterId: string;
@@ -282,7 +281,10 @@ function BigHouseSubmissionApproval() {
 
     // Award drachma to each participant based on their individual calculated rewards
     const rewardPromises = approveData.participantRewards.map((participant) =>
-      updateCharacterDrachma(participant.characterId, participant.reward)
+      updateCharacterDrachma(participant.characterId, participant.reward, {
+        performedBy: user?.characterId || 'admin',
+        source: 'big_house_approval',
+      })
     );
 
     try {
@@ -321,6 +323,19 @@ function BigHouseSubmissionApproval() {
       setIsApproving(false);
       return;
     }
+
+    // Log overall approval action
+    logActivity({
+      category: 'action',
+      action: 'approve_big_house',
+      characterId: reviewingSubmission?.characterId || submissionId,
+      performedBy: user?.characterId || 'admin',
+      metadata: {
+        submissionId,
+        totalDrachma: totalDrachmaAwarded,
+        roleplayers: approveData.roleplayers,
+      },
+    });
 
     setSubmissions((prev) =>
       prev.map((s) =>
@@ -379,6 +394,16 @@ function BigHouseSubmissionApproval() {
     if (!result.success) {
       return;
     }
+
+    // Log rejection action
+    logActivity({
+      category: 'action',
+      action: 'reject_big_house',
+      characterId: reviewingSubmission?.characterId || submissionId,
+      performedBy: user?.characterId || 'admin',
+      note: tempRejectReason,
+      metadata: { submissionId },
+    });
 
     setSubmissions((prev) =>
       prev.map((s) =>

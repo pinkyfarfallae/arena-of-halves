@@ -11,7 +11,7 @@ import Doodle from './components/Doodle/Doodle';
 import { DoodleType, DoodlePos, GENERIC_DOODLES, DEITY_DOODLES, DOODLE_POSITIONS } from './constants/doodles';
 import Laurel from './icons/Laurel';
 import { DEITY } from '../../constants/deities';
-import { CHARACTER } from '../../constants/characters';
+import { CHARACTER, HIDDEN_AMPHITRITE_FOR } from '../../constants/characters';
 import { DECOS } from './constants/decos';
 import './CampMembers.scss';
 
@@ -30,8 +30,16 @@ function CampMembers() {
   }, [user?.characterId]);
 
   /* stable per-card rotation + decoration + deity-based doodles (8–10) */
+  const visibleMembers = useMemo(() => {
+    const myId = user?.characterId?.toLowerCase();
+    if (myId && HIDDEN_AMPHITRITE_FOR.includes(myId as typeof HIDDEN_AMPHITRITE_FOR[number])) {
+      return members.filter(m => m.deityBlood?.toLowerCase() !== DEITY.AMPHITRITE.toLowerCase());
+    }
+    return members;
+  }, [members, user?.characterId]);
+
   const cardMeta = useMemo(() =>
-    members.map((m) => {
+    visibleMembers.map((m) => {
       const h = hash(m.characterId);
       const deityKeys = parseDeityNames(m.deityBlood);
       const isRosabella = m.nicknameEng.toLowerCase() === CHARACTER.ROSABELLA;
@@ -102,14 +110,14 @@ function CampMembers() {
           <Laurel className="camp__laurel-svg" />
         </div>
         <h2 className="camp__title">Camp Half-Blood</h2>
-        <p className="camp__sub">{members.length} Demigod{members.length !== 1 ? 's' : ''} &middot; Arena of Halves</p>
+        <p className="camp__sub">{visibleMembers.length} Demigod{visibleMembers.length !== 1 ? 's' : ''} &middot; Arena of Halves</p>
         <div className="camp__divider" />
       </div>
 
       {/* Corkboard grid */}
       <div className="camp__board">
         <div className="camp__grid">
-          {members.map((m, i) => {
+          {visibleMembers.map((m, i) => {
             const deityKey = parseDeityNames(m.deityBlood)[0];
             const { rotation, deco, doodles } = cardMeta[i];
             const isPin = deco === 'pin';

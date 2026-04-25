@@ -6,6 +6,7 @@ export const lifeSubPages = [
   '/strawberry-fields',
   '/training-grounds',
   '/big-house',
+  '/treasury-transfer',
 ];
 
 export function isLifeSubPage(path: string): boolean {

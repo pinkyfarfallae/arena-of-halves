@@ -116,7 +116,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         // Save the first pick as the default now — user can change it during CHOOSING
         saveIrisWish(user.characterId, first.deity).catch(() => { });
         const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
-        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
+        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30, { source: 'iris_fountain' }).catch(() => { }); }
       }
 
       setTimeout(() => {
@@ -141,7 +141,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
       if (!isAdmin && user?.characterId) {
         saveIrisWish(user.characterId, pick.deity).catch(() => { });
         const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
-        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30).catch(() => { }); }
+        if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30, { source: 'iris_fountain' }).catch(() => { }); }
       }
 
       setTimeout(() => {

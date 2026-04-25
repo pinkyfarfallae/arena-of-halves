@@ -5,4 +5,5 @@ export const FIRESTORE_COLLECTIONS = {
   PLAYER_WISHES_OF_IRIS: 'playerWishesOfIris',
   PLAYER_BAGS: 'playerBags',
   PLAYER_EQUIPMENT: 'playerEquipment',
+  ACTIVITY_LOGS: 'ActivityLogs',
 };

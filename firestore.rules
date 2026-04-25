@@ -204,6 +204,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Activity Logs (audit trail for drachma/item/equipment/stat/action events)
+    // Document ID: auto-generated
+    // Write: any authenticated user (server-side app logic restricts who triggers log calls)
+    // Read: any authenticated user (admin/dev role gate enforced in the UI)
+    // Edit (note field): authenticated users only; role gate enforced in the UI (developer-only)
+    // Delete: never
+    match /ActivityLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                      request.resource.data.keys().hasAll(['category', 'action', 'characterId', 'performedBy', 'createdAt']) &&
+                      request.resource.data.createdAt is string &&
+                      request.resource.data.category is string &&
+                      request.resource.data.action is string;
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
     // NPC Affinity (admin-managed affinity values for each player)
     // Document ID: {characterId}
     // Structure: { npcId: affinityValue, ... }

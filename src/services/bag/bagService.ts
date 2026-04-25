@@ -3,6 +3,14 @@ import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import type { BagData, BagItemData } from '../../types/character';
 import { BagItemType } from '../../constants/bag';
+import { logActivity } from '../activityLog/activityLogService';
+
+/** Strip undefined values so Firestore never receives them */
+function clean(obj: object): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  );
+}
 
 /**
  * Bag Service - Functions for managing player inventory
@@ -38,16 +46,13 @@ export async function setBagItemData(
 
     if (!currentItem) {
       await setDoc(docRef, {
-        [itemId]: data,
+        [itemId]: clean(data),
       }, { merge: true });
       return { success: true };
     }
 
     await setDoc(docRef, {
-      [itemId]: {
-        ...currentItem,
-        ...data,
-      },
+      [itemId]: clean({ ...currentItem, ...data }),
     }, { merge: true });
 
     return { success: true };
@@ -106,12 +111,7 @@ export async function setItemAmount(
       const currentItem = currentBag[itemId];
       // Set or update item
       await setDoc(docRef, {
-        [itemId]: {
-          ...currentItem,
-          amount,
-          type,
-          ...extraData,
-        },
+        [itemId]: clean({ ...currentItem, amount, type, ...extraData }),
       }, { merge: true });
     }
 
@@ -197,10 +197,9 @@ export async function consumeItem(
     }
 
     const newAmount = currentAmount - amount;
-    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type, {
-      income: currentItem.income,
-      available: currentItem.available,
-    });
+    const result = await setItemAmount(userId, itemId, newAmount, currentItem.type,
+      clean(currentItem) as Partial<BagItemData>
+    );
 
     if (result.success) {
       return { success: true, newAmount };
@@ -287,6 +286,14 @@ export async function transferItem(
       return giveResult;
     }
 
+    logActivity({
+      category: 'item',
+      action: 'transfer_item',
+      characterId: toUserId,
+      performedBy: fromUserId,
+      amount,
+      metadata: { itemId },
+    });
     return { success: true };
   } catch (error) {
     // console.error('Error transferring item:', error);

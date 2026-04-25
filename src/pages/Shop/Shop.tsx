@@ -162,7 +162,7 @@ function Shop() {
 
     try {
       // Deduct drachma
-      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice);
+      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice, { source: 'cashier' });
 
       if (!drachmaResult.success) {
         alert('Failed to process payment: ' + (drachmaResult.error || 'Unknown error'));

@@ -20,6 +20,7 @@ export default function Trails(props: SVGProps<SVGSVGElement>) {
       <path d="M220 438 C185 410, 150 380, 120 344" />
       <path d="M220 438 C175 465, 130 500, 80 531" />
       <path d="M750 313 C700 330, 650 350, 550 375" strokeDasharray="5,5" />
+      <path d="M400 338 C370 340, 340 348, 300 356" strokeDasharray="4,4" />
     </svg>
   );
 }

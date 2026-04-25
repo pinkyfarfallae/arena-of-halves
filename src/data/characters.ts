@@ -3,12 +3,13 @@ import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEq
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
-import { Deity } from '../constants/deities';
+import { DEITY, Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { BagData } from '../types/character';
+import { CHARACTER, HIDDEN_AMPHITRITE_FOR } from '../constants/characters';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo };
 export type { PowerDefinition };
@@ -191,6 +192,10 @@ export async function fetchAllCharacters(user?: Character): Promise<Character[]>
     return chars.filter(c => c.characterId.toLowerCase() !== 'test');
   }
 
+  if (HIDDEN_AMPHITRITE_FOR.includes(user?.characterId)) {
+    return chars.filter(c => c.deityBlood.toLowerCase() !== DEITY.AMPHITRITE.toLowerCase());
+  }
+
   return chars;
 }
 
@@ -257,20 +262,20 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, characterId);
     const snapshot = await getDoc(docRef);
-    
+
     if (!snapshot.exists()) {
       return [];
     }
-    
+
     const bagData = snapshot.data() as BagData;
-    
+
     // Convert BagData object to BagEntry array
     const entries: BagEntry[] = Object.entries(bagData).map(([itemId, data]) => ({
       itemId,
       amount: data.amount,
       type: data.type,
     }));
-    
+
     return entries;
   } catch (error) {
     // console.error('Error fetching player bag from Firestore:', error);
