@@ -203,7 +203,7 @@ function AppShell() {
                 return;
               }
 
-              const res = await updateCharacterDrachma(user.characterId, giftAmount);
+              const res = await updateCharacterDrachma(user.characterId, giftAmount, { source: 'daily_gift' });
               if (res.success) {
                 try { await refreshUser(); } catch (e) { /* ignore */ }
               } else {

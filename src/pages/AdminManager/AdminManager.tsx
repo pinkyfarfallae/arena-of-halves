@@ -13,6 +13,7 @@ import PlayerInventory from './pages/PlayerInventory/PlayerInventory';
 import './AdminManager.scss';
 import NpcAffinityManagement from './pages/NpcAffinityManagement/NpcAffinityManagement';
 import BigHouseSubmissionApproval from './pages/BigHouseSubmissionApproval/BigHouseSubmissionApproval';
+import ActivityLog from './pages/ActivityLog/ActivityLog';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
@@ -25,6 +26,7 @@ const TABS = [
   { label: 'Daily Training Config', path: 'daily-training-config' },
   { label: 'Training Approval', path: 'training-approval' },
   { label: 'System Testing', path: 'testing' },
+  { label: 'Activity Log', path: 'activity-log' },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
 
@@ -71,6 +73,7 @@ function AdminManager() {
           <Route path="item-management" element={<ItemManagement />} />
           <Route path="equipment-management" element={<EquipmentManagement />} />
           <Route path="npc-affinity" element={<NpcAffinityManagement />} />
+          <Route path="activity-log" element={<ActivityLog />} />
         </Routes>
       </div>
     </div>

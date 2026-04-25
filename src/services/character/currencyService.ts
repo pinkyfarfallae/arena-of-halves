@@ -2,6 +2,7 @@ import { APPS_SCRIPT_URL } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { getBagData, setBagItemData } from '../bag/bagService';
 import { ITEMS } from '../../constants/items';
+import { logActivity } from '../activityLog/activityLogService';
 
 /**
  * Update character's drachma (currency)
@@ -14,7 +15,7 @@ import { ITEMS } from '../../constants/items';
 export async function updateCharacterDrachma(
   characterId: string,
   amount: number,
-  options?: { skipHermesTracking?: boolean }
+  options?: { skipHermesTracking?: boolean; performedBy?: string; source?: string }
 ): Promise<{ success: boolean; previous?: number; current?: number; error?: string }> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
@@ -28,8 +29,18 @@ export async function updateCharacterDrachma(
 
     const data = await res.json();
 
-    if (data.success && amount > 0 && !options?.skipHermesTracking) {
-      await applyHermesPurseIncome(characterId, amount);
+    if (data.success) {
+      if (amount > 0 && !options?.skipHermesTracking) {
+        await applyHermesPurseIncome(characterId, amount);
+      }
+      logActivity({
+        category: 'drachma',
+        action: amount >= 0 ? 'award' : 'deduct',
+        characterId,
+        performedBy: options?.performedBy ?? characterId,
+        amount: Math.abs(amount),
+        metadata: { source: options?.source ?? 'unknown', delta: amount },
+      });
     }
 
     return data;
@@ -60,6 +71,7 @@ async function applyHermesPurseIncome(characterId: string, amount: number): Prom
   if (nextIncome >= 1000) {
     const bonusResult = await updateCharacterDrachma(characterId, 500, {
       skipHermesTracking: true,
+      source: 'hermes_purse_bonus',
     });
 
     if (bonusResult.success) {

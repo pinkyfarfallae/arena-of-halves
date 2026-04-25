@@ -573,6 +573,8 @@
             max-height: 20px;
             max-width: 60px;
             min-width: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
 
             @media (max-width: $bp-mobile) {
               max-width: 80%;
@@ -675,6 +677,8 @@
           max-height: 20px;
           max-width: 60px;
           min-width: 60px;
+          overflow: hidden;
+          text-overflow: ellipsis;
 
           @media (max-width: $bp-mobile) {
             max-width: 80%;

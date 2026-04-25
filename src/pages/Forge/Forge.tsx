@@ -170,7 +170,7 @@ function Forge() {
 
       const [addCustomResult, updateDrachmaResult] = await Promise.all([
         addCustomEquipment(user?.characterId, equipment.itemId, categories),
-        updateCharacterDrachma(user?.characterId, -equipment.price),
+        updateCharacterDrachma(user?.characterId, -equipment.price, { source: 'forge_receive' }),
       ]);
 
       if (addCustomResult.success && updateDrachmaResult.success) {
@@ -238,7 +238,7 @@ function Forge() {
       }
 
       // Deduct currency (materials consumed regardless of success)
-      const currencyResult = await updateCharacterDrachma(user.characterId, -cost);
+      const currencyResult = await updateCharacterDrachma(user.characterId, -cost, { source: 'forge_upgrade' });
       if (!currencyResult.success) {
         setUpgradingMode(null);
         setShowUpgradeOverlay(false);
@@ -354,7 +354,7 @@ function Forge() {
         <div className="forge__bar-discount">
           <Ticket className="drachma--bar" />
           <span className="forge__bar-amount">{updateGuaranteeTicket || 0}</span>
-          <span className="forge__bar-unit">Upgrade Guarantee Ticket</span>
+          <span className="forge__bar-unit">Chance Up Ticket</span>
         </div>
       </div>
 
