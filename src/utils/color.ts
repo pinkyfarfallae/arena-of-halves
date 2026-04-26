@@ -19,7 +19,6 @@ export function luminance(color: string): number {
 /** Return a readable text color for the given background. */
 export function contrastText(bg: string): string {
   const lum = luminance(bg);
-  if (lum > 0.85) return bg;
   return lum > 0.4 ? '#000000' : '#ffffff';
 }
 
