@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { darken } from '../../../utils/color';
 import { makeFaceTexture } from '../makeFaceTexture';
 import { edgeTransform, makeEdgeCylinder, makeTriangleFaceGeo } from '../dieGeometry';
+import { rollFace } from '../diceRandom';
 
 interface Props {
   rollTrigger: number;
@@ -158,7 +159,7 @@ export default function TrapezohedronDie({
     const fr = fixedResultRef.current;
     targetFaceIdx.current = fr != null
       ? FACE_VALUES.indexOf(fr)
-      : Math.floor(Math.random() * 10);
+      : rollFace(10);
     targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
   }, [rollTrigger]);
 

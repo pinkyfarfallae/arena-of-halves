@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { darken } from '../../../utils/color';
 import { makeFaceTexture } from '../makeFaceTexture';
 import { edgeTransform, makeEdgeCylinder, makeTriangleFaceGeo } from '../dieGeometry';
+import { rollFace } from '../diceRandom';
 
 interface Props {
   rollTrigger: number;
@@ -144,7 +145,7 @@ export default function TetrahedronDie({ rollTrigger, onResult, primary, primary
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResultRef.current ?? (Math.floor(Math.random() * 4) + 1);
+    targetResult.current = fixedResultRef.current ?? (rollFace(4) + 1);
     const faceIndex = FACE_RESULTS.indexOf(targetResult.current);
     targetQuat.current.copy(TARGET_QUATS[faceIndex]);
   }, [rollTrigger]);

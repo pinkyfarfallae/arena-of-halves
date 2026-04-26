@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { darken } from '../../../utils/color';
 import { makeFaceTexture } from '../makeFaceTexture';
 import { edgeTransform, makeEdgeCylinder } from '../dieGeometry';
+import { rollFace } from '../diceRandom';
 
 interface Props {
   rollTrigger: number;
@@ -255,7 +256,7 @@ export default function ZocchihedronDie({ rollTrigger, onResult, primary, fixedR
 
     spinSpeed.current = 14 + Math.random() * 4;
 
-    targetResult.current = fixedResultRef.current ?? (Math.floor(Math.random() * NUM_FACES) + 1);
+    targetResult.current = fixedResultRef.current ?? (rollFace(NUM_FACES) + 1);
     targetQuat.current.copy(TARGET_QUATS[targetResult.current]);
   }, [rollTrigger]);
 

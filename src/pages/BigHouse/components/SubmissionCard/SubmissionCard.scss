@@ -657,11 +657,11 @@ $big-house-turquoise: #2f5f86;
   border: 1.5px solid rgba($big-house-green, 0.2);
   color: $big-house-green;
 
-   svg {
+  svg {
     animation: none;
-   }
+  }
 
-   @media (max-width: 380px) {
+  @media (max-width: 380px) {
     span {
       font-size: 0.55rem;
     }
@@ -670,10 +670,10 @@ $big-house-turquoise: #2f5f86;
       width: 10px;
       height: 10px;
     }
-   }
+  }
 }
 
-.big-house__submission-card-reject-reason {
+.big-house__submission-card-reason {
   margin-top: 0.5rem;
   padding: 0.6rem;
   background: linear-gradient(135deg, rgba(255, 218, 68, 0.15) 0%, rgba(232, 56, 93, 0.08) 100%);
@@ -771,9 +771,17 @@ $big-house-turquoise: #2f5f86;
     }
   }
 
-  .big-house__submission-card-reject-reason {
+  .big-house__submission-card-reason {
     font-size: 0.55rem;
     padding: 0.4rem 0.6rem;
+
+    &--rejected {
+      font-size: 0.55rem;
+      padding: 0.4rem 0.6rem;
+      background: linear-gradient(135deg, rgba(232, 56, 93, 0.08) 0%, rgb(255 218 68 / 15%) 100%);
+      border: 1.5px solid rgba(232, 56, 93, 0.2);
+      color: rgba(232, 56, 93, 0.8);
+    }
   }
 }
 

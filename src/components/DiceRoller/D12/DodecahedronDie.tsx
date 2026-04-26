@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { darken } from '../../../utils/color';
 import { makeFaceTexture } from '../makeFaceTexture';
 import { edgeTransform, makeEdgeCylinder } from '../dieGeometry';
+import { rollFace } from '../diceRandom';
 
 interface Props {
   rollTrigger: number;
@@ -242,7 +243,7 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
     spinSpeed.current = 14 + Math.random() * 4;
 
     // If fixedResult will be set later (e.g. viewer waiting for server), useFrame applies it — do not list fixedResult in deps or prop sync re-triggers a full spin.
-    const raw = fixedResultRef.current ?? (Math.floor(Math.random() * NUM_FACES) + 1);
+    const raw = fixedResultRef.current ?? (rollFace(NUM_FACES) + 1);
     targetResult.current = (typeof raw === 'number' && raw >= 1 && raw <= 12) ? raw : 0;
     if (targetResult.current > 0) {
       const quat = TARGET_QUATS[targetResult.current];
