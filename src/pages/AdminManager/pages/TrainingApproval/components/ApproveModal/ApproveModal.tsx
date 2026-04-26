@@ -14,9 +14,10 @@ interface ApproveModalProps {
   } | null;
   onClose: () => void;
   onConfirm: () => void;
+  approving: boolean;
 }
 
-function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalProps) {
+function ApproveModal({ show, approveData, onClose, onConfirm, approving }: ApproveModalProps) {
   if (!show || !approveData) return null;
 
   return (
@@ -56,8 +57,9 @@ function ApproveModal({ show, approveData, onClose, onConfirm }: ApproveModalPro
           <button
             className="modal-btn modal-btn--confirm"
             onClick={onConfirm}
+            disabled={approving}
           >
-            Approve Training
+            {approving ? 'Approving...' : 'Approve Training'}
           </button>
         </div>
       </div>

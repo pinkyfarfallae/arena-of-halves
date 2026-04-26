@@ -45,6 +45,8 @@ function TrainingApproval() {
 
   const [reviewText, setReviewText] = useState('');
 
+  const [approving, setApproving] = useState(false);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
 
@@ -248,6 +250,8 @@ function TrainingApproval() {
     }
 
     try {
+      setApproving(true);
+
       await verifyTrainingTask(
         reviewingTask.userId,
         reviewingTask.date,
@@ -271,6 +275,8 @@ function TrainingApproval() {
     } catch (error) {
       // console.error('Failed to approve training task:', error);
       return;
+    } finally {
+      setApproving(false);
     }
 
     setTrainingTasks((prev) =>
@@ -855,6 +861,7 @@ function TrainingApproval() {
         approveData={approveData}
         onClose={() => setShowApproveModal(false)}
         onConfirm={() => reviewingTask && handleApprove(reviewingTask.id)}
+        approving={approving}
       />
 
       <RejectModal

@@ -164,7 +164,7 @@
     background: linear-gradient(135deg, $strawberry-green 0%, darken($strawberry-green, 5%) 100%);
     color: white;
 
-    &:hover {
+    &:not(:disabled):hover {
       background: linear-gradient(135deg, darken($strawberry-green, 5%) 0%, darken($strawberry-green, 10%) 100%);
       box-shadow: 0 4px 12px rgba($strawberry-green, 0.4);
     }
