@@ -67,11 +67,9 @@ export const parseScriptOutput = (
       }
     }
 
-    if (!author) continue;
-    allAuthors.push(author);
-
-    // Only include tweets by focusingRoleplayerUsername if specified
-    if (focusingRoleplayerUsername && author !== focusingRoleplayerUsername) continue;
+    // If filtering by username, skip if author is unknown or doesn't match (case-insensitive)
+    if (focusingRoleplayerUsername && (!author || author.toLowerCase() !== focusingRoleplayerUsername.toLowerCase())) continue;
+    if (author) allAuthors.push(author);
 
     if (tweetText.trim()) tweetTexts.push(tweetText.trim());
   }

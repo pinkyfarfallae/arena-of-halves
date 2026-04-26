@@ -9,8 +9,9 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
 
   const clean = (text) =>
     (text || "")
-      .replace(/\\u00a0/g, "")
-      .replace(/\\s+/g, "")
+      .replace(/\\u00a0/g, " ")
+      .replace(/[\\u2800\\u200b\\u200c\\u200d\\u2060\\ufeff]/g, "")
+      .replace(/\\s+/g, " ")
       .trim();
 
   const getTweetId = (article) => {
@@ -24,6 +25,14 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
   };
 
   const getAuthor = (article) => {
+    // Most reliable: extract from the status link href (/@author/status/123)
+    const links = [...article.querySelectorAll('a[href*="/status/"]')];
+    for (const link of links) {
+      const href = link.getAttribute("href") || "";
+      const m = href.match(/^\\/([A-Za-z0-9_]{1,15})\\/status\\//);
+      if (m) return "@" + m[1];
+    }
+    // Fallback: find @handle in spans
     const spans = [...article.querySelectorAll('a[href^="/"][role="link"] span, a[href^="/"] span')];
     const handle = spans
       .map((el) => clean(el.textContent))
@@ -115,6 +124,16 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
 
     window.scrollTo({ top: nextY, behavior: "instant" });
     await sleep(2000);
+
+    // Click all visible "Show more" buttons before scanning
+    const showMoreBtns = [...document.querySelectorAll('[data-testid="tweet-text-show-more-link"]')];
+    if (showMoreBtns.length > 0) {
+      for (const btn of showMoreBtns) {
+        try { btn.click(); } catch (_) {}
+      }
+      await sleep(800);
+    }
+
     return scan();
   };
 
@@ -167,7 +186,11 @@ export const THREAD_EXTRACTOR_SCRIPT = `(async () => {
     console.log(\`⚠️  Found \${afterFinal - beforeFinal} more tweets in final scan!\`);
   }
 
-  const ordered = [...tweets.values()];
+  const ordered = [...tweets.values()].sort((a, b) => {
+    // Snowflake IDs are chronological; sort numerically (same digit count, so lex works)
+    if (a.id.length !== b.id.length) return a.id.length - b.id.length;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
   const combined = ordered
     .map((t, i) =>
       [
