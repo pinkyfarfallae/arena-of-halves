@@ -1599,13 +1599,15 @@ function findTaskRow(sheet, id) {
   return -1;
 }
 
-// Find a training row by userId + date prefix (id may include time suffix)
+// Find a training row by userId (col 4) + date (col 2) from the data columns.
+// Previously matched by ID prefix, but the ID uses UTC time while the Date column
+// uses Bangkok timezone — these can differ across midnight, causing mismatches.
 function findTaskRowByPrefix(sheet, userId, date) {
-  var prefix = userId + '_' + date;
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    var cellId = data[i][0].toString();
-    if (cellId.indexOf(prefix) === 0) {
+    var rowDate = data[i][1].toString().trim();   // col 2: Date
+    var rowUser = data[i][3].toString().trim();   // col 4: User
+    if (rowUser === userId && rowDate === date) {
       return i + 1;
     }
   }
