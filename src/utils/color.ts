@@ -87,3 +87,14 @@ export function colorMix(c1: string, c2: string, weight = 0.5) {
 
   return `rgb(${r}, ${g}, ${b})`;
 }
+
+/** Returns true when a hex colour is white or near-white (all channels > 230). */
+export function isNearWhite(hex?: string | null): boolean {
+  if (!hex) return true;
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return false;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return r > 230 && g > 230 && b > 230;
+}

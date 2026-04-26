@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Character, ItemInfo } from "../../types/character";
+import { isNearWhite } from "../../utils/color";
 import { DEITY_THEMES, fetchAllCharacters, fetchItemInfo } from "../../data/characters";
+import { DEFAULT_THEME } from "../../constants/theme";
 import ChevronLeft from "../../icons/ChevronLeft";
 import Close from "../../icons/Close";
 import { Dropdown, Input } from "../../components/Form";
@@ -366,7 +368,7 @@ const CampTreasuryTransfer = () => {
               <div
                 className="camp-treasury__content--player"
                 style={{
-                  '--player-primary': recipientPlayer?.theme[0] || DEITY_THEMES[recipientPlayer?.deityBlood as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer] as Deity]?.[0],
+                  '--player-primary': (!isNearWhite(recipientPlayer?.theme[0]) ? recipientPlayer?.theme[0] : undefined) || DEITY_THEMES[(recipientPlayer?.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer] as Deity]?.[0] || DEFAULT_THEME[0],
                   '--player-accent-dark': recipientPlayer?.theme[19] || DEITY_THEMES[recipientPlayer?.deityBlood as Deity]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer] as Deity]?.[19],
                 } as React.CSSProperties}
               >
@@ -490,7 +492,7 @@ const CampTreasuryTransfer = () => {
                               className={`camp-treasury__sidebar__item ${pendingSelectedPlayer === player.characterId ? 'camp-treasury__sidebar__item--selected' : ''}`}
                               onClick={() => requestChangeSelectedPlayer(player.characterId)}
                               style={{
-                                '--player-primary': player.theme[0] || DEITY_THEMES[player.deityBlood]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0],
+                                '--player-primary': (!isNearWhite(player.theme[0]) ? player.theme[0] : undefined) || DEITY_THEMES[(player.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0] || DEFAULT_THEME[0],
                                 '--player-accent-dark': player.theme[19] || DEITY_THEMES[player.deityBlood]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[19],
                               } as React.CSSProperties}
                             >
