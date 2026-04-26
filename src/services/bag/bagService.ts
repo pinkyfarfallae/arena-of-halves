@@ -272,7 +272,7 @@ export async function transferItem(
 
     // Remove from source
     const removeResult = await consumeItem(fromUserId, itemId, amount);
-    console.log('Remove result:', removeResult);
+    // console.log('Remove result:', removeResult);
     if (!removeResult.success) {
       return removeResult;
     }

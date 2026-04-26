@@ -1599,15 +1599,25 @@ function findTaskRow(sheet, id) {
   return -1;
 }
 
-// Find a training row by userId (col 4) + date (col 2) from the data columns.
-// Previously matched by ID prefix, but the ID uses UTC time while the Date column
-// uses Bangkok timezone — these can differ across midnight, causing mismatches.
+// Find a training row by userId + date.
+// The ID column (index 0) always starts with "userId_".
+// The Date column (index 1) always stores the Bangkok-timezone date.
+// This avoids the UTC/Bangkok midnight mismatch where the ID encodes UTC date
+// but the Date column encodes Bangkok date (they differ across midnight).
 function findTaskRowByPrefix(sheet, userId, date) {
   var data = sheet.getDataRange().getValues();
+  var userPrefix = userId + '_';
   for (var i = 1; i < data.length; i++) {
-    var rowDate = data[i][1].toString().trim();   // col 2: Date
-    var rowUser = data[i][3].toString().trim();   // col 4: User
-    if (rowUser === userId && rowDate === date) {
+    var cellId = data[i][0].toString();
+    var rawDate = data[i][1];
+    var cellDate;
+    if (rawDate instanceof Date) {
+      // Date cells come back as Date objects from getValues(); format to yyyy-MM-dd in Bangkok TZ
+      cellDate = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'yyyy-MM-dd');
+    } else {
+      cellDate = rawDate.toString().trim();
+    }
+    if (cellId.indexOf(userPrefix) === 0 && cellDate === date) {
       return i + 1;
     }
   }

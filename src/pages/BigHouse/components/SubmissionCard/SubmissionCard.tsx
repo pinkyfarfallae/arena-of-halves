@@ -55,7 +55,7 @@ export default function SubmissionCard({ isAdmin = false, submission, characters
 
   const reward = useMemo(() => {
     if (submission.status !== BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.APPROVED) return null;
-    console.log(submission.drachmaReward, typeof submission.drachmaReward);
+    // console.log(submission.drachmaReward, typeof submission.drachmaReward);
     if (isAdmin) {
       const rewards: Record<string, number> = JSON.parse(
         submission.drachmaReward as string || '{}'

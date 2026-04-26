@@ -172,11 +172,11 @@ function Shop() {
 
       // Consume discount ticket if used
       if (hasDiscount) {
-        console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
+        // console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
         const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1);
 
         if (consumeResult.success) {
-          console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
+          // console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
         } else {
           console.error('Failed to consume discount ticket:', consumeResult.error);
           alert('Warning: Discount ticket could not be consumed. Error: ' + consumeResult.error);

@@ -135,7 +135,7 @@ function TrainingRoleplaySubmission() {
     }
   };
 
-  console.log(_error)
+  // console.log(_error)
 
   const handleSubmit = async () => {
     if (!user?.characterId) {
