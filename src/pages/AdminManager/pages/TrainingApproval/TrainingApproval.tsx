@@ -5,7 +5,7 @@ import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
 import { useAuth } from '../../../../hooks/useAuth';
 import { HARVEST_SCRIPT_COPY_STATUS } from '../../../../constants/harvest';
-import { parseScriptOutput } from '../../../../services/harvest/harvestApproval';
+import { parseScriptOutput, extractTwitterHandle } from '../../../../services/harvest/harvestApproval';
 import Close from '../../../../icons/Close';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import SubmissionCard from './components/SubmissionCard/SubmissionCard';
@@ -117,7 +117,7 @@ function TrainingApproval() {
     if (!reviewText.trim()) return;
 
     const traineeUsername = reviewingTask
-      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+      ? extractTwitterHandle(characters.find((c) => c.characterId === reviewingTask.userId)?.twitter || '')
       : null;
 
     const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
@@ -585,7 +585,7 @@ function TrainingApproval() {
                   {/* 6. Review Harvest Result */}
                   {reviewText.trim() && (() => {
                     const traineeUsername = reviewingTask
-                      ? characters.find((c) => c.characterId === reviewingTask.userId)?.twitter?.split('/').pop()
+                      ? extractTwitterHandle(characters.find((c) => c.characterId === reviewingTask.userId)?.twitter || '')
                       : null;
                     const scriptParsed = parseScriptOutput(reviewText, traineeUsername || undefined);
 

@@ -31,16 +31,20 @@ export async function updateCharacterDrachma(
 
     if (data.success) {
       if (amount > 0 && !options?.skipHermesTracking) {
-        await applyHermesPurseIncome(characterId, amount);
+        applyHermesPurseIncome(characterId, amount).catch(() => {});
       }
-      logActivity({
-        category: 'drachma',
-        action: amount >= 0 ? 'award' : 'deduct',
-        characterId,
-        performedBy: options?.performedBy ?? characterId,
-        amount: Math.abs(amount),
-        metadata: { source: options?.source ?? 'unknown', delta: amount },
-      });
+      try {
+        logActivity({
+          category: 'drachma',
+          action: amount >= 0 ? 'award' : 'deduct',
+          characterId,
+          performedBy: options?.performedBy ?? characterId,
+          amount: Math.abs(amount),
+          metadata: { source: options?.source ?? 'unknown', delta: amount },
+        });
+      } catch (_e) {
+        // Secondary effects must not propagate and roll back the daily claim
+      }
     }
 
     return data;

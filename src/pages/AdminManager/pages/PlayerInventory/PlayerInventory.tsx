@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useAuth } from "../../../../hooks/useAuth";
 import { Character, ItemInfo } from "../../../../types/character";
 import { DEITY_THEMES, fetchAllCharacters, fetchItemInfo } from "../../../../data/characters";
+import { DEFAULT_THEME } from "../../../../constants/theme";
+import { isNearWhite } from "../../../../utils/color";
 import ChevronLeft from "../../../../icons/ChevronLeft";
 import Close from "../../../../icons/Close";
 import { Dropdown, Input } from "../../../../components/Form";
@@ -475,7 +477,7 @@ const PlayerInventory = () => {
               <div
                 className="admin-player-inventory__content--player"
                 style={{
-                  '--player-primary': players.find(p => p.characterId === selectedPlayer[0])?.theme[0] || DEITY_THEMES[players.find(p => p.characterId === selectedPlayer[0])?.deityBlood as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer[0]] as Deity]?.[0],
+                  '--player-primary': (!isNearWhite(players.find(p => p.characterId === selectedPlayer[0])?.theme[0]) ? players.find(p => p.characterId === selectedPlayer[0])?.theme[0] : undefined) || DEITY_THEMES[(players.find(p => p.characterId === selectedPlayer[0])?.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer[0]] as Deity]?.[0] || DEFAULT_THEME[0],
                   '--player-accent-dark': players.find(p => p.characterId === selectedPlayer[0])?.theme[19] || DEITY_THEMES[players.find(p => p.characterId === selectedPlayer[0])?.deityBlood as Deity]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer[0]] as Deity]?.[19],
                 } as React.CSSProperties}
               >
@@ -873,7 +875,7 @@ const PlayerInventory = () => {
                                     [...pendingSelectedPlayer, player.characterId]
                                 )}
                               style={{
-                                '--player-primary': player.theme[0] || DEITY_THEMES[player.deityBlood]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0],
+                                '--player-primary': (!isNearWhite(player.theme[0]) ? player.theme[0] : undefined) || DEITY_THEMES[(player.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0] || DEFAULT_THEME[0],
                                 '--player-accent-dark': player.theme[19] || DEITY_THEMES[player.deityBlood]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[19],
                               } as React.CSSProperties}
                             >

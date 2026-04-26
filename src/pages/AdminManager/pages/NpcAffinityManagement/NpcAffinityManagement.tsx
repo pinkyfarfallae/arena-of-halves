@@ -2,6 +2,8 @@ import React, { use, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../../../hooks/useAuth";
 import { Character } from "../../../../types/character";
 import { DEITY_THEMES, fetchAllCharacters } from "../../../../data/characters";
+import { DEFAULT_THEME } from "../../../../constants/theme";
+import { isNearWhite } from "../../../../utils/color";
 import { fetchAllNPCs } from "../../../../data/npcs";
 import ChevronLeft from "../../../../icons/ChevronLeft";
 import './NpcAffinityManagement.scss';
@@ -257,7 +259,7 @@ export default function NpcAffinityManagement() {
     <div
       className="npc-affinity-management"
       style={{
-        '--player-primary': players.find(p => p.characterId === selectedPlayer.characterId)?.theme[0] || DEITY_THEMES[players.find(p => p.characterId === selectedPlayer.characterId)?.deityBlood as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer.characterId] as Deity]?.[0],
+        '--player-primary': (!isNearWhite(players.find(p => p.characterId === selectedPlayer.characterId)?.theme[0]) ? players.find(p => p.characterId === selectedPlayer.characterId)?.theme[0] : undefined) || DEITY_THEMES[(players.find(p => p.characterId === selectedPlayer.characterId)?.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer.characterId] as Deity]?.[0] || DEFAULT_THEME[0],
         '--player-accent-dark': players.find(p => p.characterId === selectedPlayer.characterId)?.theme[19] || DEITY_THEMES[players.find(p => p.characterId === selectedPlayer.characterId)?.deityBlood as Deity]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[selectedPlayer.characterId] as Deity]?.[19],
       } as React.CSSProperties}
     >
@@ -291,7 +293,7 @@ export default function NpcAffinityManagement() {
                     <img src={selectedPlayer.image} alt={selectedPlayer.nicknameEng} />
                   ) : (
                     <div className="npc-affinity-management__content-avatar-placeholder">
-                      {selectedPlayer.nicknameEng.charAt(0).toUpperCase()}
+                      {selectedPlayer.nicknameEng?.charAt(0).toUpperCase()}
                     </div>
                   )}
               </div>
@@ -447,7 +449,7 @@ export default function NpcAffinityManagement() {
                               onClick={() =>
                                 requestChangeSelectedPlayer(player)}
                               style={{
-                                '--player-primary': player.theme[0] || DEITY_THEMES[player.deityBlood]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0],
+                                '--player-primary': (!isNearWhite(player.theme[0]) ? player.theme[0] : undefined) || DEITY_THEMES[(player.deityBlood || '').toLowerCase() as Deity]?.[0] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[0] || DEFAULT_THEME[0],
                                 '--player-accent-dark': player.theme[19] || DEITY_THEMES[player.deityBlood]?.[19] || DEITY_THEMES[DEITY_DISPLAY_OVERRIDES[player.characterId] as Deity]?.[19],
                               } as React.CSSProperties}
                             >

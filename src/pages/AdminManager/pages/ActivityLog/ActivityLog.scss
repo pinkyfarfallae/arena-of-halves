@@ -289,4 +289,16 @@
     gap: 0.5rem;
     margin-top: 0.25rem;
   }
+
+}
+
+.activity-log {
+  td[data-label="Timestamp"],
+  td[data-label="Category"],
+  td[data-label="Type"],
+  td[data-label="Action"],
+  td[data-label="Character"],
+  td[data-label="By"] {
+    width: unset !important;
+  }
 }

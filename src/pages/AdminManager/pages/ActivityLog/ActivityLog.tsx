@@ -4,9 +4,9 @@ import { ROLE } from '../../../../constants/role';
 import { ActivityLog as ActivityLogType, ActivityLogCategory } from '../../../../types/activityLog';
 import { fetchActivityLogs, editActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
 import Table, { Column } from '../../../../components/Table/Table';
-import './ActivityLog.scss';
 import { Dropdown, Input } from '../../../../components/Form';
 import Pencil from '../../../../icons/Pencil';
+import './ActivityLog.scss';
 
 type CategoryFilter = ActivityLogCategory | 'all';
 
