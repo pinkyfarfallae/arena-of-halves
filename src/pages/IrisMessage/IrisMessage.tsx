@@ -99,14 +99,15 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
   const deityOrder = wishes.map(w => w.deity).slice(0, ORB_SCATTER.length);
 
   const toss = useCallback(() => {
+    if(!user) return;
     if (phase === IRIS_PHASE.TOSSING || phase === IRIS_PHASE.CHOOSING) return;
     if (!isAdmin && userTodayWish) return;
 
     const pool = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS);
     setPhase(IRIS_PHASE.TOSSING);
 
-    if (!isAdmin && user?.fortune === 5) {
-      // Fortune level 5: save a random default immediately, then let user swap to the other
+    if (!isAdmin && (user?.fortune || 0) >= 1) {
+      // Fortune level 1: save a random default immediately, then let user swap to the other
       const first = pool[Math.floor(Math.random() * pool.length)];
       const rest = pool.filter(w => w.deity !== first.deity);
       const second = (rest.length > 0 ? rest : pool)[Math.floor(Math.random() * (rest.length > 0 ? rest.length : pool.length))];
