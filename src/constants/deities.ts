@@ -24,6 +24,8 @@ export const DEITY = {
   TYCHE: 'Tyche',
   MORPHEUS: 'Morpheus',
   AMPHITRITE: 'Amphitrite',
+  NYX: 'Nyx',
+  HEMERA: 'Hemera',
 } as const;
 
 /** Deity display name (PascalCase) — use for labels, DEITY_POWERS, and DEITY_SVG keys. */
