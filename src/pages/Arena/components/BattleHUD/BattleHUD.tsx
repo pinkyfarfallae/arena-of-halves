@@ -1349,7 +1349,7 @@ export default function BattleHUD({
     // Self-buff powers (e.g. Beyond the Nimbus) still do normal attacks → allow crit
     const usedPowerDef = turn.action === TURN_ACTION.POWER && turn.usedPowerIndex != null
       ? attacker?.powers?.[turn.usedPowerIndex] : undefined;
-    if (turn.action === TURN_ACTION.POWER && usedPowerDef?.target !== TARGET_TYPES.SELF) {
+    if (turn.action === TURN_ACTION.POWER && usedPowerDef && usedPowerDef.target !== TARGET_TYPES.SELF) {
       setCritReady(true);
       return;
     }
@@ -1362,7 +1362,7 @@ export default function BattleHUD({
     const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
     const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
 
-    if (atkTotal <= defTotal || atkTotal < 10) {
+    if (atkTotal <= defTotal) {
       setCritReady(true);
       return;
     }

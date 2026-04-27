@@ -706,7 +706,8 @@ function Arena(props?: ArenaDemoProps) {
     if (canJoinAsFighter) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
-        const powers = room.practiceMode ? [] : getPowers(powerDeity);
+        // Ensure fighters joining practice rooms also receive their deity powers
+        const powers = getPowers(powerDeity);
         const wishesOfIris = await fetchActiveTodayIrisWish(user.characterId);
         const fighter = toFighterState(user, powers, wishesOfIris?.deity as Deity || null);
         const result = await joinRoom(arenaId, fighter);
