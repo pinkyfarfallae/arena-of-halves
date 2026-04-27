@@ -4,7 +4,7 @@ import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom';
 import type { FighterState } from '../../../../../types/battle';
 import { Minion } from '../../../../../types/minions';
-import { DEITY_POWERS, NO_STACK_POWER_NAMES } from '../../../../../data/powers';
+import { DEITY_POWERS, NO_STACK_POWER_NAMES, getPowers } from '../../../../../data/powers';
 import { darken, hexToRgb, lightenColor, rgbValues } from '../../../../../utils/color';
 import EfflorescenceMuse from './icons/EfflorescenceMuse';
 import PetalVines from './icons/PetalVines';
@@ -893,7 +893,7 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
     battleLive && isShockHitActive && 'mchip--shock-hit',
     battleLive && isKeraunosVoltageHit && 'mchip--keraunos-voltage',
     battleLive && isJoltArcAttackActive && 'mchip--jolt-arc-attack',
-    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && DEITY_POWERS[p.sourceDeity]?.some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
+    battleLive && (isShocked || shockBridgeActive) && effectPips?.some(p => p.sourceDeity && getPowers(p.sourceDeity).some(power => power.afflictions?.includes(EFFECT_TAGS.SHOCK))) && 'mchip--shocked',
     battleLive && hasJoltArcDeceleration && 'mchip--jolt-arc-deceleration',
     battleLive && isEfflorescenceMuse && 'mchip--efflorescence-muse',
     battleLive && hasPomegranateEffect && 'mchip--pomegranate',
