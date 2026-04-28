@@ -99,8 +99,6 @@ export default function ItemManagement() {
       await loadItems();
       setShowConfirmDelete(false);
       setItemToDelete(null);
-    } else {
-      alert('Failed to delete item');
     }
   };
 

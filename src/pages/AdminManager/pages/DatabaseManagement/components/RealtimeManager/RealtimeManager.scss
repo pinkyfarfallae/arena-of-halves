@@ -235,7 +235,8 @@ $realtime-manager-breakpoint: 981px;
 
       &--edit,
       &--save,
-      &--close {
+      &--close,
+      &--danger {
         display: inline-flex;
       }
     }

@@ -155,8 +155,6 @@ function Shop() {
 
     // Check if user has enough drachma
     if ((user.currency ?? 0) < finalPrice) {
-      alert('Insufficient drachma! You need ' + finalPrice + ' but only have ' + (user.currency ?? 0));
-      setProcessing(false);
       return;
     }
 
@@ -165,7 +163,6 @@ function Shop() {
       const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice, { source: 'cashier' });
 
       if (!drachmaResult.success) {
-        alert('Failed to process payment: ' + (drachmaResult.error || 'Unknown error'));
         setProcessing(false);
         return;
       }
@@ -177,11 +174,7 @@ function Shop() {
 
         if (consumeResult.success) {
           // console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
-        } else {
-          console.error('Failed to consume discount ticket:', consumeResult.error);
-          alert('Warning: Discount ticket could not be consumed. Error: ' + consumeResult.error);
         }
-        // appliedDiscount will be auto-updated by useEffect watching bagEntries
       }
 
       // Add items to bag
@@ -213,7 +206,7 @@ function Shop() {
       setPaySuccess(true);
     } catch (error) {
       // console.error('Error processing payment:', error);
-      alert('An error occurred during checkout. Please try again.');
+      // alert('An error occurred during checkout. Please try again.');
     } finally {
       setProcessing(false);
     }

@@ -3,6 +3,7 @@ import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { firestore } from '../../../../../../firebase';
 import './FirestoreManager.scss';
 import { Dropdown, Input } from '../../../../../../components/Form';
+import ConfirmModal from '../../../../../../components/ConfirmModal/ConfirmModal';
 import { FIRESTORE_COLLECTIONS, FireStoreCollections } from '../../../../../../constants/fireStoreCollections';
 import Table from '../../../../../../components/Table/Table';
 import ChevronDown from '../../../../../../icons/ChevronDown';
@@ -77,6 +78,8 @@ export default function FirestoreManager() {
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
   const [saveLoading, setSaveLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const loadCollection = async (_collectionName: string) => {
     if (!_collectionName) return;
@@ -168,8 +171,6 @@ export default function FirestoreManager() {
   };
 
   const deleteDocument = async (id: string) => {
-    if (!window.confirm(`Delete document ${id} in ${collectionName}?`)) return;
-
     try {
       await deleteDoc(doc(firestore, collectionName, id));
       setDocs((s) => s.filter((x) => x.id !== id));
@@ -182,6 +183,11 @@ export default function FirestoreManager() {
       console.error('Failed to delete doc', err);
       setError('Failed to delete document');
     }
+  };
+
+  const requestDelete = (id: string) => {
+    setPendingDeleteId(id);
+    setShowDeleteConfirm(true);
   };
 
   const tableColumns = useMemo(() => [
@@ -275,7 +281,7 @@ export default function FirestoreManager() {
                       <button className="firestore-manager__btn firestore-manager__btn--edit" onClick={startEdit}>
                         <Pencil />
                       </button>
-                      <button className="firestore-manager__btn firestore-manager__btn--danger" onClick={() => deleteDocument(selectedDoc.id)}>
+                      <button className="firestore-manager__btn firestore-manager__btn--danger" onClick={() => requestDelete(selectedDoc.id)}>
                         <Trash />
                       </button>
                     </div>
@@ -343,6 +349,25 @@ export default function FirestoreManager() {
           </>
         )}
       </div>
+
+      {showDeleteConfirm && pendingDeleteId && (
+        <ConfirmModal
+          title="Delete document?"
+          message={`Delete document ${pendingDeleteId} in ${collectionName}? This cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={async () => {
+            await deleteDocument(pendingDeleteId);
+            setShowDeleteConfirm(false);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setPendingDeleteId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

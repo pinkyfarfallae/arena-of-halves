@@ -3,12 +3,14 @@ import './RealtimeManager.scss';
 import { db } from '../../../../../../firebase';
 import { ref, get, remove, set } from 'firebase/database';
 import { Dropdown, Input } from '../../../../../../components/Form';
+import ConfirmModal from '../../../../../../components/ConfirmModal/ConfirmModal';
 import { FIREBASE_PATHS } from '../../../../../../constants/firebase';
 import Table from '../../../../../../components/Table/Table';
 import ChevronDown from '../../../../../../icons/ChevronDown';
 import Pencil from '../../../../../../icons/Pencil';
 import Save from '../../../ItemManagement/icons/Save';
 import Close from '../../../../../../icons/Close';
+import Trash from '../../../../../Shop/icons/Trash';
 
 type RealtimeDoc = {
   id: string;
@@ -71,6 +73,34 @@ function coerceValue(raw: string, original: any) {
   return raw;
 }
 
+function formatUnixDateTime(value: any) {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (typeof num !== 'number' || Number.isNaN(num)) return String(value);
+
+  const ms = num < 1_000_000_000_000 ? num * 1000 : num;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
+}
+
+function formatFieldValue(key: string, value: any) {
+  if (key === 'createdAt') {
+    return formatUnixDateTime(value);
+  }
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+}
+
 export default function RealtimeManager() {
   const [rootName, setRootName] = useState('');
   const [rootData, setRootData] = useState<Record<string, any> | any | null>(null);
@@ -82,6 +112,8 @@ export default function RealtimeManager() {
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
   const [saveLoading, setSaveLoading] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeletePath, setPendingDeletePath] = useState('');
 
   const loadRoot = async (nextRoot: string) => {
     if (!nextRoot) return;
@@ -183,16 +215,13 @@ export default function RealtimeManager() {
     }
   };
 
-  const deleteSelected = async () => {
-    if (!selectedDoc) return;
-    if (!window.confirm(`Delete path: ${selectedPath}?`)) return;
-
+  const deleteSelected = async (pathToDelete: string, docId: string) => {
     try {
-      await remove(ref(db, selectedPath));
+      await remove(ref(db, pathToDelete));
       setRootData((prev: Record<string, any>) => {
         if (!prev || typeof prev !== 'object') return null;
         const next = { ...(prev as Record<string, any>) };
-        delete next[selectedDoc.id];
+        delete next[docId];
         return Object.keys(next).length ? next : null;
       });
       setSelectedDoc(null);
@@ -202,6 +231,12 @@ export default function RealtimeManager() {
       console.error('Failed to delete RTDB node', err);
       setError(err?.message || String(err) || 'Failed to delete node');
     }
+  };
+
+  const requestDelete = () => {
+    if (!selectedDoc) return;
+    setPendingDeletePath(selectedPath);
+    setShowDeleteConfirm(true);
   };
 
   const tableColumns = useMemo(() => [
@@ -293,8 +328,8 @@ export default function RealtimeManager() {
                       <button className="realtime-manager__btn realtime-manager__btn--edit" onClick={startEdit}>
                         <Pencil />
                       </button>
-                      <button className="realtime-manager__btn realtime-manager__btn--danger" onClick={deleteSelected}>
-                        Delete
+                      <button className="realtime-manager__btn realtime-manager__btn--danger" onClick={requestDelete}>
+                        <Trash />
                       </button>
                     </div>
                   )}
@@ -321,7 +356,7 @@ export default function RealtimeManager() {
                     <div key={key} className="realtime-manager__field">
                       <span className="realtime-manager__field-key">{key}</span>
                       <span className="realtime-manager__field-value">
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                        {formatFieldValue(key, value)}
                       </span>
                     </div>
                   ))}
@@ -362,6 +397,26 @@ export default function RealtimeManager() {
           </>
         )}
       </div>
+
+      {showDeleteConfirm && pendingDeletePath && (
+        <ConfirmModal
+          title="Delete document?"
+          message={`Delete path ${pendingDeletePath}? This cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={async () => {
+            if (!selectedDoc || !pendingDeletePath) return;
+            await deleteSelected(pendingDeletePath, selectedDoc.id);
+            setShowDeleteConfirm(false);
+            setPendingDeletePath('');
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setPendingDeletePath('');
+          }}
+        />
+      )}
     </div>
   );
 }
