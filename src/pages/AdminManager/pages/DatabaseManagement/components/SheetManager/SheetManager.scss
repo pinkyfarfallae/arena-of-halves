@@ -387,4 +387,8 @@ $sheet-manager-breakpoint: 981px;
       flex-shrink: 0;
     }
   }
+
+  td[data-label="Name (thai)"] {
+    grid-column: 1 / -1;
+  }
 }
