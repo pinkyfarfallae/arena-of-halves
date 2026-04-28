@@ -57,6 +57,20 @@
       border-bottom: none;
     }
   }
+
+  .at__row {
+    &--clickable {
+      cursor: pointer;
+
+      &:hover {
+        background: color-mix(in srgb, var(--ci-primary, #c0a062) 5%, transparent);
+      }
+    }
+
+    &--selected {
+      background: color-mix(in srgb, var(--ci-primary, #c0a062) 8%, transparent);
+    }
+  }
 }
 
 /* ── Action column ── */

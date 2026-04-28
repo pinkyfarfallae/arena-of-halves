@@ -8,6 +8,7 @@
  */
 export const FIREBASE_PATHS = {
   ARENAS: 'arenas',
+  TRAINING_QUOTAS: 'trainingQuotas',
 } as const;
 
 /**

@@ -1,3 +1,4 @@
+import { on } from 'events';
 import './Table.scss';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -21,12 +22,14 @@ interface Props<T extends Record<string, any>> {
   headerColor?: string;
   loading?: boolean;
   hideHeaders?: boolean;
+  onRowClick?: (row: T) => void;
+  selectedRowIdx?: number;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function Table<T extends Record<string, any>>({
-  columns, data, rowKey, actions, headerColor, loading, hideHeaders = false,
+  columns, data, rowKey, actions, headerColor, loading, hideHeaders = false, onRowClick, selectedRowIdx,
 }: Props<T>) {
   const hasActions = actions && actions.length > 0;
 
@@ -57,8 +60,15 @@ export default function Table<T extends Record<string, any>>({
                 No data
               </td>
             </tr>
-          ) : data.map(row => (
-            <tr key={rowKey(row)}>
+          ) : data.map((row, idx) => (
+            <tr
+              key={rowKey(row)}
+              onClick={() => onRowClick?.(row)}
+              className={[
+                onRowClick ? 'at__row--clickable' : '',
+                selectedRowIdx === idx ? 'at__row--selected' : '',
+              ].join(' ')}
+            >
               {columns.map(c => (
                 <td key={c.key} data-label={c.label} style={c.width ? { width: c.width } : undefined}>
                   {c.render ? c.render(row) : String(row[c.key] ?? '')}
@@ -71,8 +81,14 @@ export default function Table<T extends Record<string, any>>({
                       <button
                         key={i}
                         className="at__btn at__btn--action"
-                        onClick={() => a.onClick(row)}
-                        onMouseOver={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          a.onClick(row);
+                        }}
+                        onMouseOver={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
                       >
                         {typeof a.label === 'function' ? a.label(row) : a.label}
                       </button>
