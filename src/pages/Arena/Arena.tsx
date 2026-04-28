@@ -87,6 +87,8 @@ import { useDailyTrigger } from '../../hooks/useDailyTrigger';
 import BeyondTodayPracticeModal from './components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
 import { Deity, DEITY } from '../../constants/deities';
 import './Arena.scss';
+import Chat from './icons/Chat';
+import ChatPanel from './components/ChatPanel/ChatPanel';
 
 /**
  * NPC auto-defend after human attack: phase flips to ROLLING_DEFEND as soon as attack is submitted,
@@ -172,6 +174,7 @@ function Arena(props?: ArenaDemoProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [resolveShown, setResolveShown] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [stuckContinueVisible, setStuckContinueVisible] = useState(false);
   const stuckContinueClickRef = useRef<(() => void) | null>(null);
 
@@ -706,7 +709,8 @@ function Arena(props?: ArenaDemoProps) {
     if (canJoinAsFighter) {
       try {
         const powerDeity = POWER_OVERRIDES[user.characterId?.toLowerCase()] ?? user.deityBlood;
-        const powers = room.practiceMode ? [] : getPowers(powerDeity);
+        // Ensure fighters joining practice rooms also receive their deity powers
+        const powers = getPowers(powerDeity);
         const wishesOfIris = await fetchActiveTodayIrisWish(user.characterId);
         const fighter = toFighterState(user, powers, wishesOfIris?.deity as Deity || null);
         const result = await joinRoom(arenaId, fighter);
@@ -1467,13 +1471,13 @@ function Arena(props?: ArenaDemoProps) {
 
     const allMembers = [...teamAMembers, ...teamBMembers];
     const turn = battle?.turn;
-    
+
     // Check if this is a Pomegranate co-attack
     const isPomCoAttack = turn && (
       (turn.phase === PHASE.ROLLING_POMEGRANATE_CO_ATTACK) ||
       ((turn as any).awaitingPomegranateCoAttack && turn.phase === PHASE.ROLLING_ATTACK)
     ) && ((turn as any).coAttackRoll == null || (turn as any).coAttackRoll <= 0);
-    
+
     // Get the appropriate attacker (co-attacker for Pomegranate, main attacker otherwise)
     const attackerId = isPomCoAttack ? effectivePomCoAttackerId(turn!) : turn?.attackerId;
     const attacker = allMembers.find((m) => m.characterId === attackerId);
@@ -1719,6 +1723,18 @@ function Arena(props?: ArenaDemoProps) {
               {copied === COPY_TYPE.LINK ? <CheckIcon /> : <Link />}
             </button>
           </div>
+        )}
+
+        {/* Chat */}
+        {!isPracticeRoom && !isDemo && (
+          <button
+            className={`arena__share-btn`}
+            onClick={() => setChatOpen(!chatOpen)}
+            data-tooltip={chatOpen ? 'Close chat' : 'Open chat'}
+            data-tooltip-pos="bottom"
+          >
+            <Chat width={14} height={14} />
+          </button>
         )}
       </header>
 
@@ -1984,6 +2000,14 @@ function Arena(props?: ArenaDemoProps) {
           }}
         />
       )}
+
+      <ChatPanel
+        arenaId={arenaId}
+        user={user}
+        isViewer={role === ARENA_ROLE.VIEWER}
+        isOpen={chatOpen && !isPracticeRoom && !isDemo}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }

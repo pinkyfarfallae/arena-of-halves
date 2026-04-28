@@ -86,7 +86,7 @@ export const CAMP_LOCATION_NAMES: Record<string, BilingualText> = {
   },
   [CAMP_LOCATION.CAMP_TREASURY_TRANSFER]: {
     en: 'Camp Treasury Transfer',
-    th: 'จุดแลกเปลี่ยนสมบัติของค่าย',
+    th: 'จุดแลกเปลี่ยนสมบัติ',
   },
 };
 

@@ -10,13 +10,14 @@ export const GID = {
   WISHES: '198616624',
   ITEM_INFO: '403375390',
   CUSTOM_EQUIPMENT: '1866887317',
-  PLAYER_BAG: '927684470',
   SHOP: '819284917',
   HARVEST: '390673925',
   NPC: '1431163652',
   DAILY_TRAINING_DICE: '383013042',
   BIG_HOUSE_ROLEPLAY_SUBMISSION: '284757298',
 } as const;
+
+export type SheetKey = keyof typeof GID;
 
 export const csvUrl = (gid: string) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}&_t=${Date.now()}&r=${Math.random()}`;

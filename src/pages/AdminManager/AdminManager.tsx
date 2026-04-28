@@ -14,6 +14,7 @@ import './AdminManager.scss';
 import NpcAffinityManagement from './pages/NpcAffinityManagement/NpcAffinityManagement';
 import BigHouseSubmissionApproval from './pages/BigHouseSubmissionApproval/BigHouseSubmissionApproval';
 import ActivityLog from './pages/ActivityLog/ActivityLog';
+import { DatabaseManagement } from './pages/DatabaseManagement/DatabaseManagement';
 
 const TABS = [
   { label: 'User Accounts', path: 'users' },
@@ -27,6 +28,7 @@ const TABS = [
   { label: 'Training Approval', path: 'training-approval' },
   { label: 'System Testing', path: 'testing' },
   { label: 'Activity Log', path: 'activity-log' },
+  { label: 'Database Management', path: 'database-management', developerOnly: true },
   { label: 'Powers VFX Demo', path: 'power-vfx-demo', developerOnly: true },
 ] as const;
 
@@ -74,6 +76,7 @@ function AdminManager() {
           <Route path="equipment-management" element={<EquipmentManagement />} />
           <Route path="npc-affinity" element={<NpcAffinityManagement />} />
           <Route path="activity-log" element={<ActivityLog />} />
+          <Route path="database-management" element={<DatabaseManagement />} />
         </Routes>
       </div>
     </div>

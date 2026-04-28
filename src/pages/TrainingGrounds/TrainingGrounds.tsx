@@ -17,6 +17,7 @@ import { InviteReservation } from '../../types/battle';
 import TrainingPracticeModal from './components/TrainingPracticeModal/TrainingPracticeModal';
 import { hexToRgb } from '../../utils/color';
 import { getPreviousDate, getTodayDate } from '../../utils/date';
+import { useDailyTrigger } from '../../hooks/useDailyTrigger';
 import { fetchUserTrainingTasks, getTodayProgress, TrainingTask, canUserTrain, savePracticeProgress } from '../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../constants/trainingPointRequestStatus';
 import { POWER_OVERRIDES } from '../CharacterInfo/constants/overrides';
@@ -169,6 +170,37 @@ export default function TrainingGrounds() {
       mounted = false;
     };
   }, [todayDate, user?.characterId, createdPracticeArenaId, existingPvpArenaId]);
+
+  // Auto-delete yesterday's PvP practice room when the day rolls over
+  const cleanupYesterdayPracticeRoom = () => {
+    if (!user?.characterId) return;
+
+    (async () => {
+      try {
+        const yesterdayDate = getPreviousDate(getTodayDate());
+        const yesterdayQuotaSnap = await get(ref(db, `trainingQuotas/${user.characterId}/${yesterdayDate}`)).catch(() => null);
+        const yesterdayProgressSnap = await get(ref(db, `trainingProgress/${user.characterId}/${yesterdayDate}`)).catch(() => null);
+        const yesterdayArenaId = yesterdayProgressSnap?.exists() ? yesterdayProgressSnap.val().arenaId : null;
+        const hadYesterdayPvpRoom = yesterdayQuotaSnap?.exists() && yesterdayQuotaSnap.val().mode === PRACTICE_MODE.PVP && yesterdayArenaId;
+
+        if (hadYesterdayPvpRoom && yesterdayArenaId) {
+          await deleteRoom(yesterdayArenaId);
+        }
+      } catch (err) {
+        // Ignore errors - best-effort cleanup
+      }
+    })();
+  };
+
+  // Run cleanup once on mount when user is available
+  useEffect(() => {
+    cleanupYesterdayPracticeRoom();
+  }, [user?.characterId]);
+
+  // Also trigger cleanup on daily rollover
+  useDailyTrigger(() => {
+    cleanupYesterdayPracticeRoom();
+  });
 
   const handleTrainWithAdmin = () => {
     navigate('/training-grounds/guided');

@@ -94,8 +94,6 @@ export default function EquipmentManagement() {
       await loadEquipment();
       setShowConfirmDelete(false);
       setEquipmentToDelete(null);
-    } else {
-      alert('Failed to delete equipment');
     }
   };
 

@@ -74,11 +74,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(async ([c, users]) => {
           if (c) {
             const userRow = users.find(u => u.characterId.toLowerCase() === saved.toLowerCase());
+            let firebaseUser = null;
+
             if (userRow) {
               // Re-authenticate with Firebase on session restore
-              await loginCharacter(userRow.characterId, userRow.password);
+              firebaseUser = await loginCharacter(userRow.characterId, userRow.password);
+              if (!firebaseUser) {
+                firebaseUser = await registerCharacter(userRow.characterId, userRow.password);
+              }
             }
-            
+
+            if (!userRow || !firebaseUser) {
+              localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
+              localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
+              localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
+              setUser(null);
+              setRole(ROLE.PLAYER);
+              return;
+            }
+
             setUser(c);
             localStorage.setItem(LOCAL_STORAGE_KEYS.THEME, JSON.stringify(c.theme));
             const r = userRow?.role ?? ROLE.PLAYER;

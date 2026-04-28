@@ -2,7 +2,14 @@
   "rules": {
     ".read": "auth != null",
     ".write": "auth != null",
-    
+
+    "chat": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
     "arenas": {
       ".read": "auth != null",
       ".write": "auth != null",

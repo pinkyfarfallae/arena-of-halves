@@ -1,0 +1,394 @@
+@import '../../../../../../styles/variables';
+
+$sheet-manager-breakpoint: 981px;
+
+.sheet-manager {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-height: 100%;
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: $topbar-height;
+    min-height: $topbar-height;
+    background: var(--ci-border);
+    padding: 0.7rem;
+  }
+
+  &__dropdown {
+    flex: 1;
+    height: 32px;
+  }
+
+  &__loading,
+  &__error,
+  &__no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 1rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: #939393;
+  }
+
+  &__error {
+    color: var(--ci-primary, #c0a062);
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    gap: 1rem;
+    overflow: hidden;
+    padding: 1rem 0.7rem;
+  }
+
+  &__left {
+    background: var(--surface, #fff);
+    border: 1px solid #e6e6e6;
+    padding: 12px;
+    border-radius: 6px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 65%;
+
+    &-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
+  &__filter {
+    flex: 1;
+    max-height: 100%;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  &__btn {
+    width: 33.5px;
+    height: 33.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--ci-border, #e0e0e0) 70%, transparent);
+    border-radius: 50%;
+    background: var(--ci-bg, #fff);
+    color: var(--ci-muted, #888);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    &:hover {
+      color: var(--ci-primary, #c0a062);
+      border-color: color-mix(in srgb, var(--ci-primary, #c0a062) 30%, transparent);
+      background: color-mix(in srgb, var(--ci-primary, #c0a062) 6%, transparent);
+    }
+
+    @media (min-width: $sheet-manager-breakpoint) {
+      display: none;
+
+      &--edit,
+      &--save,
+      &--close {
+        display: inline-flex;
+      }
+    }
+  }
+
+  &__table-wrap {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__right {
+    background: var(--surface, #fff);
+    border: 1px solid #e6e6e6;
+    padding: 12px 12px 0;
+    border-radius: 6px;
+    width: 35%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &-no-data {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #939393;
+      font-size: 12px;
+    }
+  }
+
+  &__detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 33.5px;
+  }
+
+  &__fields {
+    overflow: auto;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__editor {
+
+    &-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      overflow-y: auto;
+
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    &-grid {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow: auto;
+
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    &-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+      height: fit-content;
+      padding: 0.7rem;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--ci-border, #e6e6e6) 75%, transparent);
+      background: color-mix(in srgb, var(--ci-bg, #fff) 96%, var(--ci-primary, #c0a062) 4%);
+
+      &--wide {
+        grid-column: 1 / -1;
+      }
+
+      &:last-child {
+        margin-bottom: 0.75rem;
+      }
+
+      &-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ci-muted, #777);
+      }
+    }
+
+    &-input {
+      width: 100%;
+
+      .form__input {
+        width: 100%;
+      }
+    }
+
+    &-textarea {
+      width: 100%;
+      min-height: 110px;
+      resize: vertical;
+      border: 1px solid var(--ci-border, #ddd);
+      border-radius: 8px;
+      padding: 0.6rem 0.7rem;
+      font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+      font-size: 0.85rem;
+      color: black;
+      background: var(--ci-bg, #fff);
+      outline: none;
+
+      &:focus {
+        border-color: color-mix(in srgb, var(--ci-primary, #c0a062) 60%, white 40%);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ci-primary, #c0a062) 12%, transparent);
+      }
+    }
+
+    &-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      padding-top: 0.25rem;
+    }
+  }
+
+  &__field {
+    display: flex;
+    border-bottom: 1px solid #f4f4f4;
+    padding: 6px 0;
+    font-size: 13px;
+    gap: 8px;
+
+    &-key {
+      font-weight: 600;
+      min-width: 130px;
+      color: #555;
+      font-family: monospace;
+      flex-shrink: 0;
+    }
+
+    &-value {
+      color: #222;
+      word-break: break-all;
+    }
+
+    &:last-child {
+      margin-bottom: 0.75rem;
+    }
+  }
+
+  &__editor {
+    width: 100%;
+    min-height: 360px;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+
+    &-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  .small-muted {
+    color: #888;
+    font-size: 13px;
+  }
+
+  @media (max-width: calc($sheet-manager-breakpoint - 1px)) {
+    &__content {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    &__left {
+      flex: 1;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      width: 100%;
+
+      &--collapsed {
+        // keep header visible (≈ 48px), hide the rest
+        max-height: fit-content;
+        min-height: fit-content;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+
+        .sheet-manager__left-header {
+          max-height: 100%;
+          margin-bottom: 0;
+          overflow: hidden;
+          width: 100%;
+
+          h3 {
+            font-size: 18px;
+            color: #555;
+            flex: 1;
+          }
+        }
+
+        .sheet-manager__table-wrap {
+          display: none;
+        }
+      }
+    }
+
+    &__right {
+      flex: 1;
+      overflow: hidden;
+      width: 100%;
+
+      &--empty {
+        flex: 1;
+        min-height: 103.5px;
+
+        &.sheet-manager__right--full {
+          min-height: 103.5px;
+        }
+      }
+
+      &--full {
+        flex: 1;
+        max-height: unset;
+        min-height: unset;
+      }
+    }
+
+    // on mobile, the table itself scrolls within the 50vh cap
+    &__table-wrap {
+      display: flex;
+      scrollbar-width: none; // hide scrollbar in Firefox
+      -ms-overflow-style: none; // hide scrollbar in IE 10+
+
+      &::-webkit-scrollbar {
+        display: none; // hide scrollbar in Chrome, Safari, and Opera
+      }
+
+      .at {
+        max-height: 100%;
+        flex: 1;
+      }
+    }
+
+    &__collapse-btn {
+      display: inline-flex;
+      flex-shrink: 0;
+    }
+  }
+
+  td[data-label="Name (thai)"] {
+    grid-column: 1 / -1;
+  }
+}
