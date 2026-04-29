@@ -31,6 +31,7 @@ import { updateTrainingPoints } from '../../../../services/training/trainingPoin
 import './TrainingApproval.scss';
 import Crown from '../../../../icons/Crown';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
+import { formatAppDate, getAppDateString } from '../../../../utils/date';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -133,9 +134,7 @@ function TrainingApproval() {
       return;
     }
 
-    const formattedDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Bangkok'
-    }).format(new Date(reviewingTask.date));
+    const formattedDate = getAppDateString(reviewingTask.date);
 
     fetchIrisWishesByDate(formattedDate)
       .then((wishes) => {
@@ -426,7 +425,7 @@ function TrainingApproval() {
           <header className="training-approval__bar">
             <div className="training-approval__bar-title">
               {reviewingTask?.id
-                ? `${getCharacterName(reviewingTask.userId)}'s training on ${new Date(reviewingTask.date).toLocaleDateString()}`
+                ? `${getCharacterName(reviewingTask.userId)}'s training on ${formatAppDate(reviewingTask.date)}`
                 : 'Task Submissions'}
             </div>
             {/* Mobile toggle */}

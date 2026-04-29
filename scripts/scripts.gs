@@ -1647,36 +1647,51 @@ function handleSubmitTraining(params) {
     return jsonResponse({ error: 'Missing required fields: userId, date, rolls' });
   }
 
-  var sheet = getTrainingSheet();
+  var lock = LockService.getScriptLock();
 
-  if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  try {
+    lock.waitLock(10000);
+
+    var sheet = getTrainingSheet();
+
+    if (!sheet) {
+      return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+    }
+
+    var existingRow = findTaskRowByPrefix(sheet, userId, date);
+    if (existingRow > 0) {
+      return jsonResponse({
+        success: true,
+        id: sheet.getRange(existingRow, 1).getValue().toString(),
+        duplicate: true,
+      });
+    }
+
+    var id = userId + '_' + submittedAt;
+
+    // Build row in the requested sequence:
+    // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
+    var newRow = [
+      id,                           // 1: Id
+      date,                         // 2: Date
+      withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
+      userId,                       // 4: User
+      attempt,                      // 5: Attempt
+      JSON.stringify(rolls),        // 6: Rolls
+      mode,                         // 7: Mode
+      success ? 'TRUE' : 'FALSE',   // 8: Success
+      '',                           // 9: Roleplay
+      0,                            // 10: Tickets
+      'pending',                    // 11: Verified
+    ];
+
+    sheet.appendRow(newRow);
+    return jsonResponse({ success: true, id: id });
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
   }
-
-  var id = userId + '_' + submittedAt;
-
-  if (findTaskRowByPrefix(sheet, userId, date) > 0) {
-    return jsonResponse({ error: 'Training task already exists for this date' });
-  }
-
-  // Build row in the requested sequence:
-  // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
-  var newRow = [
-    id,                           // 1: Id
-    date,                         // 2: Date
-    withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
-    userId,                       // 4: User
-    attempt,                      // 5: Attempt
-    JSON.stringify(rolls),        // 6: Rolls
-    mode,                         // 7: Mode
-    success ? 'TRUE' : 'FALSE',   // 8: Success
-    '',                           // 9: Roleplay
-    0,                            // 10: Tickets
-    'pending',                    // 11: Verified
-  ];
-
-  sheet.appendRow(newRow);
-  return jsonResponse({ success: true, id: id });
 }
 
 /* ══════════════════════════════════════

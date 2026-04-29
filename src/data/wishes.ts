@@ -5,6 +5,7 @@ import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { WishEntry } from '../types/character';
+import { getTodayDate } from '../utils/date';
 
 const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
@@ -67,9 +68,7 @@ function parseCSV(csv: string): string[][] {
 }
 
 export const saveIrisWish = async (userId: string, deity: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${userId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -84,9 +83,7 @@ export const saveIrisWish = async (userId: string, deity: string) => {
 };
 
 export const cancelTodayIrisWish = async (characterId: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${characterId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -115,9 +112,7 @@ export async function fetchWishes(): Promise<Wish[]> {
 
 /** Fetch today's Iris wish for a specific character */
 export const fetchTodayIrisWish = async (characterId: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${characterId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -159,9 +154,7 @@ export const fetchIrisWishCountsForCharacter = async (characterId: string): Prom
 
 /** Fetch today's Iris wish of every character */
 export const fetchTodayIrisWishes = async () => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
   const q = query(ref, where('date', '==', date));
   const snap = await getDocs(q);

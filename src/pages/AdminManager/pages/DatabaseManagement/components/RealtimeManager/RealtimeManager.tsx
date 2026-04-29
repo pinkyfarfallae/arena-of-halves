@@ -11,6 +11,7 @@ import Pencil from '../../../../../../icons/Pencil';
 import Save from '../../../ItemManagement/icons/Save';
 import Close from '../../../../../../icons/Close';
 import Trash from '../../../../../Shop/icons/Trash';
+import { formatAppDateTime } from '../../../../../../utils/date';
 
 type RealtimeDoc = {
   id: string;
@@ -81,14 +82,7 @@ function formatUnixDateTime(value: any) {
   const date = new Date(ms);
   if (Number.isNaN(date.getTime())) return String(value);
 
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
+  return formatAppDateTime(date);
 }
 
 function formatFieldValue(key: string, value: any) {

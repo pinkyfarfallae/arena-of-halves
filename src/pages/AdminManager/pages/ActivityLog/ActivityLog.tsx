@@ -6,6 +6,7 @@ import { fetchActivityLogs, editActivityLog, EditableLogFields } from '../../../
 import Table, { Column } from '../../../../components/Table/Table';
 import { Dropdown, Input } from '../../../../components/Form';
 import Pencil from '../../../../icons/Pencil';
+import { formatAppDateTime } from '../../../../utils/date';
 import './ActivityLog.scss';
 
 type CategoryFilter = ActivityLogCategory | 'all';
@@ -23,7 +24,7 @@ const CATEGORIES: ActivityLogCategory[] = ['drachma', 'item', 'equipment', 'stat
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleString();
+    return formatAppDateTime(iso);
   } catch {
     return iso;
   }

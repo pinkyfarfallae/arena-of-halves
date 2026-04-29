@@ -15,6 +15,7 @@ import { hexToRgb } from '../../../../../../utils/color';
 import RolePlayers from './icons/RolePlayers';
 import Swords from '../../../../../../icons/Swords';
 import HeartBroken from './icons/HeartBroken';
+import { formatAppDate } from '../../../../../../utils/date';
 import './SubmissionCard.scss';
 
 export default function SubmissionCard({ task, focused, onClick, disabled, forcedCompact }: { task: TrainingTask, focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
@@ -22,14 +23,10 @@ export default function SubmissionCard({ task, focused, onClick, disabled, force
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
-  const date = new Date(task.date)
-    .toLocaleDateString(
-      lang === LANGUAGE.ENGLISH ?
-        'en-US' : 'th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const date = formatAppDate(
+    task.date,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
+  );
 
   const handleLinkClick = () => {
     window.open(task.roleplay, '_blank', 'noopener,noreferrer');

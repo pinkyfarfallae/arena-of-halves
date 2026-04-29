@@ -23,6 +23,7 @@ import { ITEMS } from '../../../../constants/items';
 import { consumeItem, giveItem } from '../../../../services/bag/bagService';
 import { BAG_ITEM_TYPES } from '../../../../constants/bag';
 import { isValidTwitterUrl } from '../../../../utils/twitterUrlValidation';
+import { formatAppDate, getAppDateString } from '../../../../utils/date';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -117,9 +118,7 @@ function TrainingRoleplaySubmission() {
     setError('');
 
     try {
-      const date = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Bangkok'
-      }).format(new Date(sheetTaskDate));
+      const date = getAppDateString(sheetTaskDate);
 
       await recheckTrainingTask(user.characterId, date);
 
@@ -172,9 +171,7 @@ function TrainingRoleplaySubmission() {
     setError('');
 
     try {
-      const date = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Bangkok'
-      }).format(new Date(sheetTaskDate));
+      const date = getAppDateString(sheetTaskDate);
 
       const ticketDifference = ticketsToApply - sheetTaskTickets;
 
@@ -330,8 +327,8 @@ function TrainingRoleplaySubmission() {
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
               <div className="training-roleplay-submission__form-waiting">
                 <div className="training-roleplay-submission__form-waiting-icon">
@@ -357,8 +354,8 @@ function TrainingRoleplaySubmission() {
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
 
               {/* Roleplay URL Input - Primary Section */}

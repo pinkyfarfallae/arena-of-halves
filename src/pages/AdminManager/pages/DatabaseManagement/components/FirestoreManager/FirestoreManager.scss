@@ -105,8 +105,13 @@ $firestore-manager-breakpoint: 981px;
 
   &__table-wrap {
     flex: 1;
+    display: flex;
     overflow: hidden;
     width: 100%;
+
+    .at {
+      flex: 1;
+    }
   }
 
   &__right {

@@ -16,20 +16,17 @@ import RolePlayers from './icons/RolePlayers';
 import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { parseDrachmaReward } from '../../../../utils/harvestReward';
+import { formatAppDate } from '../../../../utils/date';
 import './SubmissionCard.scss';
 
 export default function SubmissionCard({ submission, focused, onClick, forcedCompact }: { submission: HarvestSubmission, focused?: boolean, onClick?: () => void, forcedCompact?: boolean }) {
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
-  const date = new Date(submission.submittedAt)
-    .toLocaleDateString(
-      lang === LANGUAGE.ENGLISH ?
-        'en-US' : 'th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const date = formatAppDate(
+    submission.submittedAt,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
+  );
 
   const handleLinkClick = () => {
     window.open(submission.firstTweetUrl, '_blank', 'noopener,noreferrer');

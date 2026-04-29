@@ -26,6 +26,7 @@ import { logActivity } from '../../../../services/activityLog/activityLogService
 import Background from '../../../BigHouse/images/background.jpg';
 import { BigHouseSubmission } from '../../../../types/bigHouse';
 import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS, BigHouseSubmissionStatus } from '../../../../constants/bigHouse';
+import { formatAppDate, getAppDateString } from '../../../../utils/date';
 import './BigHouseSubmissionApproval.scss';
 
 type ApproveParticipantReward = {
@@ -120,9 +121,7 @@ function BigHouseSubmissionApproval() {
       return;
     }
 
-    const formattedDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Bangkok'
-    }).format(new Date(reviewingSubmission.submittedAt));
+    const formattedDate = getAppDateString(reviewingSubmission.submittedAt);
 
     fetchIrisWishesByDate(formattedDate)
       .then((wishes) => {
@@ -477,7 +476,7 @@ function BigHouseSubmissionApproval() {
           <header className="big-house-submission-approval__bar">
             <div className="big-house-submission-approval__bar-title">
               {reviewingSubmission?.id
-                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${new Date(reviewingSubmission.submittedAt).toLocaleDateString()}`
+                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${formatAppDate(reviewingSubmission.submittedAt)}`
                 : 'Harvest Submissions'}
             </div>
 

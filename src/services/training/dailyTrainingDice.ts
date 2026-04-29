@@ -13,7 +13,7 @@ import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
 import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../../constants/practice';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import { getTodayDate } from '../../utils/date';
+import { getAppDateString, getTodayDate } from '../../utils/date';
 import { splitCSVRows, parseCSVLine } from '../../utils/csv';
 export interface DailyConfig {
   date: string;
@@ -609,9 +609,7 @@ export const verifyTrainingTask = async (
   rejectReason?: string
 ): Promise<void> => {
 
-  const formattedDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date(date));
+  const formattedDate = getAppDateString(date);
 
   const payload = {
     action: ACTIONS.VERIFY_TRAINING,

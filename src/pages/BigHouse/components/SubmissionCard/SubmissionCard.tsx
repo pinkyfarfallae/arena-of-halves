@@ -20,20 +20,17 @@ import Characters from './icons/Characters';
 import Drachma from '../../../../icons/Drachma';
 import HarvestorChip from '../../../StrawberryFields/components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
 import { Character } from '../../../../data/characters';
+import { formatAppDate } from '../../../../utils/date';
 
 export default function SubmissionCard({ isAdmin = false, submission, characters, focused, onClick, disabled, forcedCompact }: { isAdmin?: boolean, submission: BigHouseSubmission, characters: Character[], focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
   const { user } = useAuth();
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
-  const date = new Date(submission.submittedAt)
-    .toLocaleDateString(
-      lang === LANGUAGE.ENGLISH ?
-        'en-US' : 'th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const date = formatAppDate(
+    submission.submittedAt,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
+  );
 
   const handleLinkClick = () => {
     window.open(submission.roleplayUrl, '_blank', 'noopener,noreferrer');
