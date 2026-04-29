@@ -505,7 +505,9 @@ function CharacterInfo() {
                   <span className="cs__today-wish-name">{wishesData.find(w => w.deity === todayWish.deity)?.name}</span>
                 </span>
               </div>
-              <span className="cs__today-wish-description">{wishesData.find(w => w.deity === todayWish.deity)?.description}</span>
+              <span className="cs__today-wish-description">
+                {wishesData.find(w => w.deity === todayWish.deity)?.description?.replace(/\\n|\n/g, '')}
+              </span>
               {((isOwnProfile && justiceCookieAmount > 0 && !todayWish.canceled) || todayWish.canceled) && (
                 <div className="cs__today-wish-actions">
                   <button
