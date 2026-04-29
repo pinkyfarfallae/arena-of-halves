@@ -5,6 +5,7 @@ import { ChatMessage } from '../../../../types/chatMessage';
 import type { Character } from '../../../../data/characters';
 import Close from '../../../../icons/Close';
 import ArrowRight from '../../../Lobby/icons/ArrowRight';
+import { formatAppTime } from '../../../../utils/date';
 
 type Props = {
   title?: string;
@@ -184,7 +185,7 @@ export default function ChatPanel({
                   )}
                 </div>
                 <div className="chat-panel__msg-text">{m.text}</div>
-                {m.ts && <div className="chat-panel__msg-time">{new Date(m.ts).toLocaleTimeString()}</div>}
+                {m.ts && <div className="chat-panel__msg-time">{formatAppTime(m.ts)}</div>}
               </div>
             );
           })

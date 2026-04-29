@@ -1,7 +1,7 @@
 import React from "react";
 import './EarlyWinModal.scss';
 
-export default function EarlyWinModal({handleEarlyWinConfirm}: {handleEarlyWinConfirm: () => void}) {
+export default function EarlyWinModal({handleEarlyWinConfirm, disabled = false}: {handleEarlyWinConfirm: () => void, disabled?: boolean}) {
   return (
     <div className="train-with-admin__modal-overlay">
       <div className="train-with-admin__modal train-with-admin__modal--win">
@@ -13,8 +13,9 @@ export default function EarlyWinModal({handleEarlyWinConfirm}: {handleEarlyWinCo
         <button
           className="train-with-admin__modal-button train-with-admin__modal-button--win"
           onClick={handleEarlyWinConfirm}
+          disabled={disabled}
         >
-          Roger that
+          {disabled ? 'Processing...' : 'Roger that'}
         </button>
       </div>
     </div>

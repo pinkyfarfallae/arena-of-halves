@@ -5,6 +5,8 @@ import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { WishEntry } from '../types/character';
+import { getTodayDate } from '../utils/date';
+import { updateCharacterDrachma } from '../services/character/currencyService';
 
 const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
@@ -14,6 +16,7 @@ export interface IrisWishDoc {
   deity: string;
   canceled?: boolean;
   tossedAt?: string;
+  nikeBonus100DCount?: number;
 }
 
 function parseCSV(csv: string): string[][] {
@@ -67,9 +70,7 @@ function parseCSV(csv: string): string[][] {
 }
 
 export const saveIrisWish = async (userId: string, deity: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${userId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -84,9 +85,7 @@ export const saveIrisWish = async (userId: string, deity: string) => {
 };
 
 export const cancelTodayIrisWish = async (characterId: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${characterId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -115,9 +114,7 @@ export async function fetchWishes(): Promise<Wish[]> {
 
 /** Fetch today's Iris wish for a specific character */
 export const fetchTodayIrisWish = async (characterId: string) => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const docId = `${characterId}_${date}`;
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
@@ -159,9 +156,7 @@ export const fetchIrisWishCountsForCharacter = async (characterId: string): Prom
 
 /** Fetch today's Iris wish of every character */
 export const fetchTodayIrisWishes = async () => {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok'
-  }).format(new Date());
+  const date = getTodayDate();
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
   const q = query(ref, where('date', '==', date));
   const snap = await getDocs(q);
@@ -176,6 +171,40 @@ export const fetchIrisWishesByDate = async (date: string) => {
   const snap = await getDocs(q);
 
   return snap.docs.map(doc => doc.data() as IrisWishDoc);
+};
+
+/** Check if user has Nike wish and award 100 drachma (max 2 times). Returns true if awarded. */
+export const tryAwardNikeBonusDrachma = async (userId: string): Promise<boolean> => {
+  const date = getTodayDate();
+  const docId = `${userId}_${date}`;
+  const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
+
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return false;
+
+    const wish = snap.data() as IrisWishDoc;
+    
+    // Check if it's a Nike wish and not canceled
+    if (wish.deity !== DEITY.NIKE || wish.canceled) return false;
+
+    // Get current bonus count (default 0)
+    const currentCount = wish.nikeBonus100DCount ?? 0;
+    
+    // Check if already awarded 2 times
+    if (currentCount >= 2) return false;
+
+    // Award drachma and increment counter
+    await updateCharacterDrachma(userId, 100);
+    await setDoc(ref, {
+      nikeBonus100DCount: currentCount + 1,
+    }, { merge: true });
+
+    return true;
+  } catch (error) {
+    console.error('Error awarding Nike bonus:', error);
+    return false;
+  }
 };
 
 /** Fallback data if fetch fails */

@@ -7,6 +7,7 @@ import { giveItem } from "../bag/bagService";
 import { updateCharacterDrachma } from "../character/currencyService";
 import { updateTrainingPoints } from "../training/trainingPoints";
 import { logActivity } from '../activityLog/activityLogService';
+import { tryAwardNikeBonusDrachma } from "../../data/wishes";
 
 export const applyWishEffect = (wish: Wish, characterId: string) => {
   const { deity } = wish;
@@ -41,10 +42,10 @@ export const applyWishEffect = (wish: Wish, characterId: string) => {
   }
 };
 
-export const nikeAwardedAfterWinTheFight = (teamMembers: FighterState[]) => {
-  teamMembers.forEach(member => {
+export const nikeAwardedAfterWinTheFight = async (teamMembers: FighterState[]) => {
+  for (const member of teamMembers) {
     if (member.wishOfIris === DEITY.NIKE) {
-      updateCharacterDrachma(member.characterId, 100);
+      await tryAwardNikeBonusDrachma(member.characterId);
     }
-  });
+  }
 }

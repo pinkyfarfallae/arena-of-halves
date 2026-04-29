@@ -4,7 +4,8 @@ import './TrainWithAdmin.scss';
 import { useAuth } from '../../../../hooks/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
 import DoorExit from '../../../IrisMessage/icons/DoorExit';
-import { hexToRgb } from '../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 import { db } from '../../../../firebase';
 import { get, ref } from 'firebase/database';
 import {
@@ -59,6 +60,7 @@ export default function TrainWithAdmin() {
   // eslint-disable-next-line
   const [_quotaUsed, setQuotaUsed] = useState<boolean>(false);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const [die, setDie] = useState<10 | 12 | 20>(12);
   const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
@@ -110,7 +112,8 @@ export default function TrainWithAdmin() {
       }
 
       setLivePractice(todayProgress);
-      const todaySheetTask = [...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
+      const todayDate = getTodayDate();
+      const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate && training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
       setSheetTask(todaySheetTask);
 
       const quotaDoc = await get(ref(db, `trainingQuotas/${user.characterId}/${getTodayDate()}`)).catch(() => null);
@@ -259,21 +262,24 @@ export default function TrainWithAdmin() {
   };
 
   const handleEarlyFailConfirm = async () => {
-    // Fill remaining papers with 0 (unrolled placeholder)
-    const completedPapers = [...papers];
-    for (let i = currentRollIndex; i < 5; i++) {
-      completedPapers[i] = {
-        ...completedPapers[i],
-        roll: 0, // Placeholder for unrolled dice
-        rolled: false,
-      };
-    }
-
-    const rolls = completedPapers.map(p => p.roll || 0);
-    // Use first target for legacy storage
-    const target = completedPapers[0].target;
+    if (isProcessing) return;
+    setIsProcessing(true);
 
     try {
+      // Fill remaining papers with 0 (unrolled placeholder)
+      const completedPapers = [...papers];
+      for (let i = currentRollIndex; i < 5; i++) {
+        completedPapers[i] = {
+          ...completedPapers[i],
+          roll: 0, // Placeholder for unrolled dice
+          rolled: false,
+        };
+      }
+
+      const rolls = completedPapers.map(p => p.roll || 0);
+      // Use first target for legacy storage
+      const target = completedPapers[0].target;
+
       await completeTraining(user!.characterId!, rolls, target, false, true, user?.fortune === 5);
 
       setPapers(completedPapers);
@@ -283,25 +289,30 @@ export default function TrainWithAdmin() {
       setFinalResult({ success: false, rolls });
     } catch (err: any) {
       setError(err.message || 'Failed to complete training');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleEarlyWinConfirm = async () => {
-    // Fill remaining papers with 0 (unrolled placeholder)
-    const completedPapers = [...papers];
-    for (let i = currentRollIndex; i < 5; i++) {
-      completedPapers[i] = {
-        ...completedPapers[i],
-        roll: 0, // Placeholder for unrolled dice
-        rolled: false,
-      };
-    }
-
-    const rolls = completedPapers.map(p => p.roll || 0);
-    // Use first target for legacy storage
-    const target = completedPapers[0].target;
+    if (isProcessing) return;
+    setIsProcessing(true);
 
     try {
+      // Fill remaining papers with 0 (unrolled placeholder)
+      const completedPapers = [...papers];
+      for (let i = currentRollIndex; i < 5; i++) {
+        completedPapers[i] = {
+          ...completedPapers[i],
+          roll: 0, // Placeholder for unrolled dice
+          rolled: false,
+        };
+      }
+
+      const rolls = completedPapers.map(p => p.roll || 0);
+      // Use first target for legacy storage
+      const target = completedPapers[0].target;
+
       await completeTraining(user!.characterId!, rolls, target, true, false, user?.fortune === 5);
 
       setPapers(completedPapers);
@@ -311,15 +322,20 @@ export default function TrainWithAdmin() {
       setFinalResult({ success: true, rolls });
     } catch (err: any) {
       setError(err.message || 'Failed to complete training');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const colorStyle = useMemo(() => {
+    const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+    const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
     return {
-      '--primary-color': user?.theme[0] || '#C0A062',
-      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-      '--dark-color': user?.theme[1] || '#2c2c2c',
-      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--primary-color': primaryColor,
+      '--primary-color-rgb': hexToRgb(primaryColor),
+      '--dark-color': darkColor,
+      '--dark-color-rgb': hexToRgb(darkColor),
+      '--text-color': contrastText(darkColor),
       '--light-color': user?.theme[2] || '#f5f5f5',
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',
@@ -466,7 +482,7 @@ export default function TrainWithAdmin() {
             {paper.rolled && (
               <>
                 <div className="train-with-admin__paper-divider"></div>
-                <div className="train-with-admin__paper-result" style={hasCampTShirt ? {marginRight: '16px', color: '#ff4005'} : {}}>
+                <div className="train-with-admin__paper-result" style={hasCampTShirt ? { marginRight: '16px', color: '#ff4005' } : {}}>
                   {paper.roll}
                   {hasCampTShirt && <span className="train-with-admin__paper-bonus">+2 <Shirt /></span>}
                 </div>
@@ -491,10 +507,10 @@ export default function TrainWithAdmin() {
       </div>
 
       {/* Early Failure Modal */}
-      {showEarlyFailModal && (<EarlyFailModal handleEarlyFailConfirm={handleEarlyFailConfirm} />)}
+      {showEarlyFailModal && (<EarlyFailModal handleEarlyFailConfirm={handleEarlyFailConfirm} disabled={isProcessing} />)}
 
       {/* Early Win Modal */}
-      {showEarlyWinModal && (<EarlyWinModal handleEarlyWinConfirm={handleEarlyWinConfirm} />)}
+      {showEarlyWinModal && (<EarlyWinModal handleEarlyWinConfirm={handleEarlyWinConfirm} disabled={isProcessing} />)}
 
       {/* Final Result Overlay */}
       {finalResult && (

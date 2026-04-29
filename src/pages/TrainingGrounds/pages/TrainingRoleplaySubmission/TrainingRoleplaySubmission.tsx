@@ -7,13 +7,14 @@ import ChevronLeft from '../../../../icons/ChevronLeft';
 import Trophy from '../../../../icons/Trophy';
 import { LANGUAGE } from '../../../../constants/language';
 import Close from '../../../../icons/Close';
-import { hexToRgb } from '../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
 import { fetchUserTrainingTasks, getTodayProgress, submitTrainingRoleplay, recheckTrainingTask, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
-import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
+import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 import Alert from './icons/Alert';
@@ -23,6 +24,8 @@ import { ITEMS } from '../../../../constants/items';
 import { consumeItem, giveItem } from '../../../../services/bag/bagService';
 import { BAG_ITEM_TYPES } from '../../../../constants/bag';
 import { isValidTwitterUrl } from '../../../../utils/twitterUrlValidation';
+import { formatAppDate, getAppDateString, getTodayDate } from '../../../../utils/date';
+import SubmissionCard from '../../../AdminManager/pages/TrainingApproval/components/SubmissionCard/SubmissionCard';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -41,6 +44,10 @@ function TrainingRoleplaySubmission() {
   const [ticketsToApply, setTicketsToApply] = useState(0);
   const [isChangeRoleplayUrl, setIsChangeRoleplayUrl] = useState(false);
   const [isSubmittingRecheck, setIsSubmittingRecheck] = useState(false);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
+  const [userTrainingTasks, setUserTrainingTasks] = useState<TrainingTask[]>([]);
 
   // Initialize ticketsToApply when sheet task loads
   useEffect(() => {
@@ -61,8 +68,10 @@ function TrainingRoleplaySubmission() {
     ]).then(([data, todayProgress]) => {
       if (mounted) {
         setLivePractice(todayProgress);
-        const todaySheetTask = [...data].reverse()[0] || null;
-        setSheetTask(todaySheetTask);
+        const oldestPendingSheetTask = [...data].find(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING) || null;
+        setSheetTask(oldestPendingSheetTask);
+        // Store all user training tasks for sidebar
+        setUserTrainingTasks(data);
       }
     }).catch(() => { })
       .finally(() => {
@@ -86,6 +95,13 @@ function TrainingRoleplaySubmission() {
   const canSubmitWithoutTweet = useMemo(() => {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
+  const isUrlLockedByTickets = ticketsToApply >= 5;
+
+  useEffect(() => {
+    if (isUrlLockedByTickets && firstTweetUrl) {
+      setFirstTweetUrl('');
+    }
+  }, [isUrlLockedByTickets, firstTweetUrl]);
 
   const isPvpPracticeLive = livePractice?.mode === PRACTICE_MODE.PVP && livePractice.state === PRACTICE_STATES.LIVE;
   const isAdminPracticeLive = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;
@@ -117,9 +133,7 @@ function TrainingRoleplaySubmission() {
     setError('');
 
     try {
-      const date = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Bangkok'
-      }).format(new Date(sheetTaskDate));
+      const date = getAppDateString(sheetTaskDate);
 
       await recheckTrainingTask(user.characterId, date);
 
@@ -143,11 +157,13 @@ function TrainingRoleplaySubmission() {
       return;
     }
 
-    // Use existing roleplay URL if no new one is provided and we're in change mode
-    const urlToSubmit = firstTweetUrl.trim() || (isChangeRoleplayUrl ? sheetTaskRoleplay : '');
+    // 5 tickets fully waive the roleplay URL, so never submit one in that case.
+    const urlToSubmit = isUrlLockedByTickets
+      ? ''
+      : firstTweetUrl.trim() || (isChangeRoleplayUrl ? sheetTaskRoleplay : '');
 
     // Only require tweet URL if character requirements aren't fully met with tickets
-    if (!canSubmitWithoutTweet) {
+    if (!canSubmitWithoutTweet && !isUrlLockedByTickets) {
       if (!urlToSubmit) {
         setError('Please paste the thread URL');
         return;
@@ -172,9 +188,7 @@ function TrainingRoleplaySubmission() {
     setError('');
 
     try {
-      const date = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Bangkok'
-      }).format(new Date(sheetTaskDate));
+      const date = getAppDateString(sheetTaskDate);
 
       const ticketDifference = ticketsToApply - sheetTaskTickets;
 
@@ -231,16 +245,21 @@ function TrainingRoleplaySubmission() {
   return (
     <div
       className="training-roleplay-submission"
-      style={{
-        '--primary-color': user?.theme[0] || '#C0A062',
-        '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-        '--dark-color': user?.theme[1] || '#2c2c2c',
-        '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
-        '--light-color': user?.theme[2] || '#f5f5f5',
-        '--surface-hover': user?.theme[11] || '#e8e8e8',
-        '--overlay-text': user?.theme[17] || '#333333',
-        '--accent-dark': user?.theme[19] || '#0f1a2e',
-      } as React.CSSProperties}
+      style={(() => {
+        const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+        const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
+        return {
+          '--primary-color': primaryColor,
+          '--primary-color-rgb': hexToRgb(primaryColor),
+          '--dark-color': darkColor,
+          '--dark-color-rgb': hexToRgb(darkColor),
+          '--text-color': contrastText(darkColor),
+          '--light-color': user?.theme[2] || '#f5f5f5',
+          '--surface-hover': user?.theme[11] || '#e8e8e8',
+          '--overlay-text': user?.theme[17] || '#333333',
+          '--accent-dark': user?.theme[19] || '#0f1a2e',
+        } as React.CSSProperties;
+      })()} 
     >
 
       {/* Background elements */}
@@ -269,6 +288,10 @@ function TrainingRoleplaySubmission() {
               </span>
             </span>
           </div>
+
+          <button className="training-roleplay-submission__toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <ChevronLeft />
+          </button>
         </div>
       </div>
 
@@ -330,8 +353,8 @@ function TrainingRoleplaySubmission() {
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
               <div className="training-roleplay-submission__form-waiting">
                 <div className="training-roleplay-submission__form-waiting-icon">
@@ -357,8 +380,8 @@ function TrainingRoleplaySubmission() {
             <>
               <div className="training-roleplay-submission__form-title">
                 {lang === LANGUAGE.ENGLISH
-                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
-                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? new Date(sheetTaskDate).toLocaleDateString(lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
+                  ? `${user?.nicknameEng}'s Training on ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`
+                  : `การฝึกฝนของ${user?.nicknameThai} ประจำวันที่ ${sheetTaskDate ? formatAppDate(sheetTaskDate, lang, { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
               </div>
 
               {/* Roleplay URL Input - Primary Section */}
@@ -449,12 +472,17 @@ function TrainingRoleplaySubmission() {
                         type="text"
                         ref={inputRef}
                         className="training-roleplay-submission__form-input"
-                        placeholder={canSubmitWithoutTweet ? "Tweet URL (optional - covered by tickets)" : "Paste thread URL (first tweet)"}
+                        placeholder={isUrlLockedByTickets
+                          ? 'URL locked when using 5 tickets'
+                          : canSubmitWithoutTweet
+                            ? 'Tweet URL (optional - covered by tickets)'
+                            : 'Paste thread URL (first tweet)'}
                         style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                         value={firstTweetUrl}
                         onChange={(e) => setFirstTweetUrl(e.target.value)}
+                        disabled={isUrlLockedByTickets}
                       />
-                      {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                      {!isUrlLockedByTickets && !_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
                         <div
                           className="training-roleplay-submission__form-error-icon"
                           data-tooltip={t(T.INVALID_TWITTER_URL)}
@@ -508,7 +536,7 @@ function TrainingRoleplaySubmission() {
                     <button
                       className={`training-roleplay-submission__form-button ${isSubmitting || isSubmittingRecheck ? 'training-roleplay-submission__form-button--loading' : ''}`}
                       onClick={handleSubmit}
-                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
+                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && !isUrlLockedByTickets && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
                     >
                       <Swords className="training-roleplay-submission__form-button-icon" />
                       <span>{isSubmitting || isSubmittingRecheck ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>
@@ -520,6 +548,47 @@ function TrainingRoleplaySubmission() {
           )}
         </div>
       </div>
+
+      {/* Sidebar (right) - Task History */}
+      <aside className={`training-roleplay-submission__sidebar ${sidebarOpen ? 'training-roleplay-submission__sidebar--open' : ''}`}>
+        <div className="training-roleplay-submission__sidebar__head">
+          <div className="training-roleplay-submission__sidebar__head-tabs">
+            {Object.values(TRAINING_POINT_REQUEST_STATUS).map((status) => (
+              <button
+                key={status}
+                className={`training-roleplay-submission__sidebar__tab training-roleplay-submission__sidebar__tab--${status.toLowerCase()}${sidebarView === status ? '--active' : ''}`}
+                onClick={() => setSidebarView(status)}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <button className="training-roleplay-submission__sidebar__close" onClick={() => setSidebarOpen(false)}>
+            <Close />
+          </button>
+        </div>
+
+        <div className="training-roleplay-submission__sidebar__content">
+          {userTrainingTasks.filter((s) => s.verified === sidebarView).length === 0 ? (
+            <div className="training-roleplay-submission__sidebar__content--empty">No submissions found</div>
+          ) : (
+            userTrainingTasks
+              .filter((s) => s.verified === sidebarView)
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map((task) => (
+                <SubmissionCard
+                  key={task.id}
+                  task={task}
+                  focused={task.id === sheetTask?.id}
+                  onClick={sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING ? () => {
+                    setSheetTask(task);
+                  } : undefined}
+                  forcedCompact
+                />
+              ))
+          )}
+        </div>
+      </aside>
     </div>
   );
 }

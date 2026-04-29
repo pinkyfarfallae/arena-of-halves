@@ -46,7 +46,8 @@ export default function AffinityZone({ character, affinities, npcs, maxShown }: 
                       style={{
                         fill: isFilled
                           ? `url(#gradient-${npc.characterId})`
-                          : 'rgba(0, 0, 0, 0.1)'
+                          : 'rgba(var(--ci-dark-rgb), 0.2)',
+                        objectPosition: isFilled ? 1 : 0.2,
                       }}
                     />
                   );

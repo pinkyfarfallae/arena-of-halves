@@ -11,10 +11,12 @@ import { useScreenSize } from '../../../../../../hooks/useScreenSize';
 import { TrainingTask } from '../../../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../../../constants/trainingPointRequestStatus';
 import { useAuth } from '../../../../../../hooks/useAuth';
-import { hexToRgb } from '../../../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../../../utils/color';
+import { DEITY_THEMES } from '../../../../../../data/characters';
 import RolePlayers from './icons/RolePlayers';
 import Swords from '../../../../../../icons/Swords';
 import HeartBroken from './icons/HeartBroken';
+import { formatAppDate } from '../../../../../../utils/date';
 import './SubmissionCard.scss';
 
 export default function SubmissionCard({ task, focused, onClick, disabled, forcedCompact }: { task: TrainingTask, focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
@@ -22,25 +24,24 @@ export default function SubmissionCard({ task, focused, onClick, disabled, force
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
-  const date = new Date(task.date)
-    .toLocaleDateString(
-      lang === LANGUAGE.ENGLISH ?
-        'en-US' : 'th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const date = formatAppDate(
+    task.date,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
+  );
 
   const handleLinkClick = () => {
     window.open(task.roleplay, '_blank', 'noopener,noreferrer');
   };
 
   const colorStyle = useMemo(() => {
+    const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+    const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
     return {
-      '--primary-color': user?.theme[0] || '#C0A062',
-      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-      '--dark-color': user?.theme[1] || '#2c2c2c',
-      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--primary-color': primaryColor,
+      '--primary-color-rgb': hexToRgb(primaryColor),
+      '--dark-color': darkColor,
+      '--dark-color-rgb': hexToRgb(darkColor),
+      '--text-color': contrastText(darkColor),
       '--light-color': user?.theme[2] || '#f5f5f5',
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',
@@ -97,7 +98,7 @@ export default function SubmissionCard({ task, focused, onClick, disabled, force
         )}
 
         {task.verified === TRAINING_POINT_REQUEST_STATUS.APPROVED && (
-          <div className="training-approval__submission-card-details">
+          <div className="training-approval__submission-card-details" style={(!task.roleplay || task.roleplay.trim() === '') ? { minWidth: '100%' } : undefined}>
             <div className="training-approval__submission-card-stats">
               <div className="training-approval__submission-card__stat-item">
                 <Swords width={18} height={18} style={{ marginTop: 2 }} />

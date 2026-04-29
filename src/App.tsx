@@ -16,7 +16,7 @@ import Arena from './pages/Arena/Arena';
 import StrawberryFields from './pages/StrawberryFields/StrawberryFields';
 import BigHouse from './pages/BigHouse/BigHouse';
 import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
-import { hexToRgb } from './utils/color';
+import { hexToRgb, contrastText, isNearWhite } from './utils/color';
 import DailyGift from './components/DailyGift/DailyGift';
 import { updateCharacterDrachma } from './services/character/currencyService';
 // Using server-side persistence for daily claims; no localStorage fallback
@@ -25,34 +25,42 @@ import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator
 import CampTreasury from './pages/CampTreasuryTransfer/CampTreasuryTransfer';
 import './App.scss';
 
-export const applyTheme = (t: string[]): React.CSSProperties => ({
-  '--ci-primary': t[0],
-  '--ci-primary-rgb': hexToRgb(t[0]) || '255, 255, 255',
-  '--ci-dark': t[1],
-  '--ci-light': t[2],
-  '--ci-accent': t[3],
-  '--ci-bg': t[4],
-  '--ci-fg': t[5],
-  '--ci-surface': t[6],
-  '--ci-muted': t[7],
-  '--ci-border': t[8],
-  '--ci-primary-hover': t[9],
-  '--ci-accent-soft': t[10],
-  '--ci-surface-hover': t[11],
-  '--ci-bg-alt': t[12],
-  '--ci-shadow': t[13],
-  '--ci-highlight': t[14],
-  '--ci-overlay': t[15],
-  '--ci-nav-icon': t[16],
-  '--ci-overlay-text': t[17],
-  '--ci-primary-dark': t[18],
-  '--ci-accent-dark': t[19],
-  '--ci-left-grad1': t[20],
-  '--ci-left-grad2': t[21],
-  '--ci-right-grad1': t[22],
-  '--ci-right-grad2': t[23],
-  '--ci-tag-color': t[24],
-} as React.CSSProperties);
+export const applyTheme = (t: string[]): React.CSSProperties => {
+  const primaryColor = (!isNearWhite(t[0]) ? t[0] : undefined) || t[0];
+  const darkColor = (!isNearWhite(t[1]) ? t[1] : undefined) || t[1];
+  const textColor = contrastText(darkColor);
+  return {
+    '--ci-primary': primaryColor,
+    '--ci-primary-rgb': hexToRgb(primaryColor) || '255, 255, 255',
+    '--ci-dark': darkColor,
+    '--ci-dark-rgb': hexToRgb(darkColor),
+    '--ci-text-color': textColor,
+    '--ci-text-color-rgb': hexToRgb(textColor),
+    '--ci-light': t[2],
+    '--ci-accent': t[3],
+    '--ci-bg': t[4],
+    '--ci-fg': t[5],
+    '--ci-surface': t[6],
+    '--ci-muted': t[7],
+    '--ci-border': t[8],
+    '--ci-primary-hover': t[9],
+    '--ci-accent-soft': t[10],
+    '--ci-surface-hover': t[11],
+    '--ci-bg-alt': t[12],
+    '--ci-shadow': t[13],
+    '--ci-highlight': t[14],
+    '--ci-overlay': t[15],
+    '--ci-nav-icon': t[16],
+    '--ci-overlay-text': t[17],
+    '--ci-primary-dark': t[18],
+    '--ci-accent-dark': t[19],
+    '--ci-left-grad1': t[20],
+    '--ci-left-grad2': t[21],
+    '--ci-right-grad1': t[22],
+    '--ci-right-grad2': t[23],
+    '--ci-tag-color': t[24],
+  } as React.CSSProperties;
+};
 
 function AppRoutes() {
   const { isLoggedIn, restoring } = useAuth();

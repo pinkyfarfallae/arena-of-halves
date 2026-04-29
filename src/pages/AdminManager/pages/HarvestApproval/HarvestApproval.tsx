@@ -26,6 +26,7 @@ import { ITEMS } from '../../../../constants/items';
 import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
 import { logActivity } from '../../../../services/activityLog/activityLogService';
+import { formatAppDate, getAppDateString } from '../../../../utils/date';
 
 type ApproveParticipantReward = {
   characterId: string;
@@ -118,9 +119,7 @@ function HarvestApproval() {
       return;
     }
 
-    const formattedDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Bangkok'
-    }).format(new Date(reviewingSubmission.submittedAt));
+    const formattedDate = getAppDateString(reviewingSubmission.submittedAt);
 
     fetchIrisWishesByDate(formattedDate)
       .then((wishes) => {
@@ -514,7 +513,7 @@ function HarvestApproval() {
           <header className="harvest-approval__bar">
             <div className="harvest-approval__bar-title">
               {reviewingSubmission?.id
-                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${new Date(reviewingSubmission.submittedAt).toLocaleDateString()}`
+                ? `${getCharacterName(reviewingSubmission.characterId)}'s harvest on ${formatAppDate(reviewingSubmission.submittedAt)}`
                 : 'Harvest Submissions'}
             </div>
 

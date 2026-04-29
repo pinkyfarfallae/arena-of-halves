@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
-import { hexToRgb } from '../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 import { db } from '../../../../firebase';
 import { get, ref } from 'firebase/database';
 import {
@@ -55,7 +56,7 @@ export default function PvP() {
 
         setLivePractice(todayProgress);
         setQuotaUsed(!!quotaSnapshot?.exists());
-        setSheetTask([...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null);
+        setSheetTask([...trainings].reverse().find((training) => training.date === todayDate && training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null);
 
         // Check comprehensive validation
         const validationResult = await canUserTrain(user.characterId, PRACTICE_MODE.PVP);
@@ -71,11 +72,14 @@ export default function PvP() {
   }, [arenaId, user?.characterId]);
 
   const colorStyle = useMemo(() => {
+    const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+    const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
     return {
-      '--primary-color': user?.theme[0] || '#C0A062',
-      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-      '--dark-color': user?.theme[1] || '#2c2c2c',
-      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--primary-color': primaryColor,
+      '--primary-color-rgb': hexToRgb(primaryColor),
+      '--dark-color': darkColor,
+      '--dark-color-rgb': hexToRgb(darkColor),
+      '--text-color': contrastText(darkColor),
       '--light-color': user?.theme[2] || '#f5f5f5',
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',

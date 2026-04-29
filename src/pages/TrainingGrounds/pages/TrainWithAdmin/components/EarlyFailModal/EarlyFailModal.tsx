@@ -1,7 +1,7 @@
 import React from "react";
 import './EarlyFailModal.scss';
 
-export default function EarlyFailModal({handleEarlyFailConfirm}: {handleEarlyFailConfirm: () => void}) {
+export default function EarlyFailModal({handleEarlyFailConfirm, disabled = false}: {handleEarlyFailConfirm: () => void, disabled?: boolean}) {
   return (
     <div className="train-with-admin__modal-overlay">
       <div className="train-with-admin__modal train-with-admin__modal--fail">
@@ -13,8 +13,9 @@ export default function EarlyFailModal({handleEarlyFailConfirm}: {handleEarlyFai
         <button
           className="train-with-admin__modal-button train-with-admin__modal-button--fail"
           onClick={handleEarlyFailConfirm}
+          disabled={disabled}
         >
-          Roger that
+          {disabled ? 'Processing...' : 'Roger that'}
         </button>
       </div>
     </div>

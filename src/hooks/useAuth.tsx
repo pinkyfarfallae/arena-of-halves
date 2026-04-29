@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
       }
-      
+
       const character = await fetchCharacter(found.characterId);
       if (character) {
         localStorage.setItem(LOCAL_STORAGE_KEYS.AUTH_KEY, found.characterId);
@@ -142,16 +142,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear user state first to trigger component cleanup
       setUser(null);
       setRole(ROLE.PLAYER);
-      
+
       // Give components a moment to unmount and cleanup listeners
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Then sign out from Firebase
       await signOut(auth);
     } catch (error) {
       console.error('Error signing out:', error);
     }
-    
+
     localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
@@ -182,6 +182,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => clearInterval(interval);
   }, [user, refreshUser]);
+
+  // Re-fetch immediately when the tab/app comes back to the foreground (mobile background → foreground)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUser();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refreshUser]);
 
   const value: AuthContextType = {
     user,

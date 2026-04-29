@@ -1588,6 +1588,40 @@ function getTrainingSheet() {
   return sheet;
 }
 
+function getTrainingColumnMap(sheet) {
+  var headers = sheet.getDataRange().getValues()[0].map(function (h) {
+    return h.toString().trim().toLowerCase();
+  });
+
+  var indexOfHeader = function (name, fallback) {
+    var idx = headers.indexOf(name);
+    return idx !== -1 ? idx : fallback;
+  };
+
+  var hasWff = headers.indexOf('withfulllevelfortune') !== -1;
+
+  return {
+    id: indexOfHeader('id', 0),
+    date: indexOfHeader('date', 1),
+    withFullLevelFortune: indexOfHeader('withfulllevelfortune', hasWff ? 2 : -1),
+    user: indexOfHeader('user', hasWff ? 3 : 2),
+    attempt: indexOfHeader('attempt', hasWff ? 4 : 3),
+    rolls: indexOfHeader('rolls', hasWff ? 5 : 4),
+    mode: indexOfHeader('mode', hasWff ? 6 : 5),
+    success: indexOfHeader('success', hasWff ? 7 : 6),
+    roleplay: indexOfHeader('roleplay', hasWff ? 8 : 7),
+    tickets: indexOfHeader('tickets', hasWff ? 9 : 8),
+    verified: indexOfHeader('verified', hasWff ? 10 : 9),
+    verifiedBy: indexOfHeader('verifiedby', hasWff ? 11 : 10),
+    verifiedAt: indexOfHeader('verifiedat', hasWff ? 12 : 11),
+    rejectReason: indexOfHeader('rejectreason', hasWff ? 13 : 12),
+    arenaId: indexOfHeader('arenaid', hasWff ? 14 : 13),
+    opponentId: indexOfHeader('opponentid', hasWff ? 15 : 14),
+    opponentName: indexOfHeader('opponentname', hasWff ? 16 : 15),
+    battleRounds: indexOfHeader('battlerounds', hasWff ? 17 : 16)
+  };
+}
+
 // Helper: Find task row by ID
 function findTaskRow(sheet, id) {
   var data = sheet.getDataRange().getValues();
@@ -1647,36 +1681,51 @@ function handleSubmitTraining(params) {
     return jsonResponse({ error: 'Missing required fields: userId, date, rolls' });
   }
 
-  var sheet = getTrainingSheet();
+  var lock = LockService.getScriptLock();
 
-  if (!sheet) {
-    return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+  try {
+    lock.waitLock(10000);
+
+    var sheet = getTrainingSheet();
+
+    if (!sheet) {
+      return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
+    }
+
+    var existingRow = findTaskRowByPrefix(sheet, userId, date);
+    if (existingRow > 0) {
+      return jsonResponse({
+        success: true,
+        id: sheet.getRange(existingRow, 1).getValue().toString(),
+        duplicate: true,
+      });
+    }
+
+    var id = userId + '_' + submittedAt;
+
+    // Build row in the requested sequence:
+    // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
+    var newRow = [
+      id,                           // 1: Id
+      date,                         // 2: Date
+      withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
+      userId,                       // 4: User
+      attempt,                      // 5: Attempt
+      JSON.stringify(rolls),        // 6: Rolls
+      mode,                         // 7: Mode
+      success ? 'TRUE' : 'FALSE',   // 8: Success
+      '',                           // 9: Roleplay
+      0,                            // 10: Tickets
+      'pending',                    // 11: Verified
+    ];
+
+    sheet.appendRow(newRow);
+    return jsonResponse({ success: true, id: id });
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
   }
-
-  var id = userId + '_' + submittedAt;
-
-  if (findTaskRowByPrefix(sheet, userId, date) > 0) {
-    return jsonResponse({ error: 'Training task already exists for this date' });
-  }
-
-  // Build row in the requested sequence:
-  // Id | Date | withFullLevelFortune | User | Attempt | Rolls | Mode | Success | Roleplay | Tickets | Verified | ...
-  var newRow = [
-    id,                           // 1: Id
-    date,                         // 2: Date
-    withFullLevelFortune ? 'TRUE' : 'FALSE', // 3: withFullLevelFortune
-    userId,                       // 4: User
-    attempt,                      // 5: Attempt
-    JSON.stringify(rolls),        // 6: Rolls
-    mode,                         // 7: Mode
-    success ? 'TRUE' : 'FALSE',   // 8: Success
-    '',                           // 9: Roleplay
-    0,                            // 10: Tickets
-    'pending',                    // 11: Verified
-  ];
-
-  sheet.appendRow(newRow);
-  return jsonResponse({ success: true, id: id });
 }
 
 /* ══════════════════════════════════════
@@ -1690,7 +1739,13 @@ function handleSubmitTrainingRoleplay(params) {
   var roleplayUrl = (params.roleplayUrl || '').toString().trim();
   var tickets = parseInt(params.tickets || '0', 10);
 
-  if (!userId || !date || !roleplayUrl) {
+  // 5 tickets fully waive the roleplay requirement, so roleplayUrl must be empty in that case
+  var needsRoleplayUrl = tickets < 5;
+  if (tickets >= 5 && roleplayUrl) {
+    return jsonResponse({ error: 'Roleplay URL must be empty when using 5 tickets' });
+  }
+
+  if (!userId || !date || (needsRoleplayUrl && !roleplayUrl)) {
     return jsonResponse({ error: 'Missing required fields: userId, date, roleplayUrl' });
   }
 
@@ -1740,69 +1795,87 @@ function handleVerifyTraining(params) {
   }
 
   var sheet = getTrainingSheet();
+  var lock = LockService.getScriptLock();
 
   if (!sheet) {
     return jsonResponse({ error: 'Sheet not found: ' + TRAINING_SHEET_NAME });
   }
 
-  var row = findTaskRowByPrefix(sheet, userId, date);
-
-  if (row === -1) {
-    return jsonResponse({ error: 'Training task not found' });
-  }
-
-  // Read fields according to the new column order:
-  // Mode is column 7, Success is column 8, withFullLevelFortune is column 3
-  var mode = sheet.getRange(row, 7).getValue().toString().toLowerCase();
-  var success = sheet.getRange(row, 8).getValue().toString().toUpperCase() === 'TRUE';
-
-  var withFullLevelFortune = false;
   try {
-    var wffCell = sheet.getRange(row, 3).getValue();
-    withFullLevelFortune = (wffCell === true || wffCell === 'TRUE' || wffCell === 'true' || wffCell === '1' || wffCell === 1);
-  } catch (e) {
-    withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
-  }
+    lock.waitLock(10000);
 
-  sheet.getRange(row, 11).setValue(verified);
+    var row = findTaskRowByPrefix(sheet, userId, date);
+    var cols = getTrainingColumnMap(sheet);
 
-  // Award training point if approved
-  if (verified === 'approved') {
-    var shouldAwardPoint = false;
-
-    // PvP mode: award TP for both success and fail
-    if (mode === 'pvp') {
-      shouldAwardPoint = true;
-    }
-    // Normal/Admin mode: award TP only if success is true
-    else if (success) {
-      shouldAwardPoint = true;
+    if (row === -1) {
+      return jsonResponse({ error: 'Training task not found' });
     }
 
-    if (shouldAwardPoint) {
-      var trainingPointResult = updateTrainingPoints(userId, withFullLevelFortune ? 2 : 1);
-      var trainingPointData = JSON.parse(trainingPointResult.getContent());
+    var mode = sheet.getRange(row, cols.mode + 1).getValue().toString().toLowerCase();
+    var success = sheet.getRange(row, cols.success + 1).getValue().toString().toUpperCase() === 'TRUE';
 
-      if (!trainingPointData.success) {
-        return jsonResponse({
-          success: false,
-          verified: verified,
-          error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
-        });
+    var withFullLevelFortune = false;
+    try {
+      if (cols.withFullLevelFortune !== -1) {
+        var wffCell = sheet.getRange(row, cols.withFullLevelFortune + 1).getValue();
+        withFullLevelFortune = (wffCell === true || wffCell === 'TRUE' || wffCell === 'true' || wffCell === '1' || wffCell === 1);
+      }
+    } catch (e) {
+      withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
+    }
+
+    // Read the PREVIOUS verified status before overwriting — used for idempotency
+    var previousVerified = sheet.getRange(row, cols.verified + 1).getValue().toString().toLowerCase();
+
+    // Idempotency must be checked while the script lock is held.
+    if (verified === 'approved' && previousVerified === 'approved') {
+      return jsonResponse({ success: true, verified: verified, duplicate: true });
+    }
+
+    sheet.getRange(row, cols.verified + 1).setValue(verified);
+
+    // Award training point if approved
+    if (verified === 'approved') {
+      var shouldAwardPoint = false;
+
+      // PvP mode: award TP for both success and fail
+      if (mode === 'pvp') {
+        shouldAwardPoint = true;
+      }
+      // Normal/Admin mode: award TP only if success is true
+      else if (success) {
+        shouldAwardPoint = true;
       }
 
-      return jsonResponse({
-        success: true,
-        verified: verified,
-        trainingPoints: {
-          previous: trainingPointData.previous,
-          current: trainingPointData.current
-        }
-      });
-    }
-  }
+      if (shouldAwardPoint) {
+        var trainingPointResult = updateTrainingPoints(userId, withFullLevelFortune ? 2 : 1);
+        var trainingPointData = JSON.parse(trainingPointResult.getContent());
 
-  return jsonResponse({ success: true, verified: verified });
+        if (!trainingPointData.success) {
+          return jsonResponse({
+            success: false,
+            verified: verified,
+            error: 'Training verified but failed to award point: ' + (trainingPointData.error || 'Unknown error')
+          });
+        }
+
+        return jsonResponse({
+          success: true,
+          verified: verified,
+          trainingPoints: {
+            previous: trainingPointData.previous,
+            current: trainingPointData.current
+          }
+        });
+      }
+    }
+
+    return jsonResponse({ success: true, verified: verified });
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1854,6 +1927,7 @@ function handleFetchTrainings(userId, verified, mode) {
   }
 
   var data = sheet.getDataRange().getValues();
+  var cols = getTrainingColumnMap(sheet);
 
   if (data.length <= 1) {
     return jsonResponse({ trainings: [] });
@@ -1864,35 +1938,38 @@ function handleFetchTrainings(userId, verified, mode) {
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
 
-    if (userId && row[2] !== userId) continue;
-    if (verified && row[9].toString().toLowerCase() !== verified.toLowerCase()) continue;
-    if (mode && row[5] !== mode) continue;
+    if (userId && row[cols.user] !== userId) continue;
+    if (verified && row[cols.verified].toString().toLowerCase() !== verified.toLowerCase()) continue;
+    if (mode && row[cols.mode] !== mode) continue;
 
     var rolls = [];
     try {
-      rolls = JSON.parse(row[4]);
+      rolls = JSON.parse(row[cols.rolls]);
     } catch (e) {
       rolls = [];
     }
 
     trainings.push({
-      id: row[0] || '',
-      date: row[1] || '',
-      userId: row[2] || '',
-      attempt: row[3] || 0,
+      id: row[cols.id] || '',
+      date: row[cols.date] || '',
+      userId: row[cols.user] || '',
+      attempt: row[cols.attempt] || 0,
       rolls: rolls,
-      mode: row[5] || 'admin',
-      success: row[6] === 'TRUE' || row[6] === true,
-      roleplay: row[7] || '',
-      tickets: row[8] || 0,
-      verified: row[9] || 'pending',
-      verifiedBy: row[10] || '',
-      verifiedAt: row[11] || '',
-      rejectReason: row[12] || '',
-      arenaId: row[13] || '',
-      opponentId: row[14] || '',
-      opponentName: row[15] || '',
-      battleRounds: row[16] || 0
+      mode: row[cols.mode] || 'admin',
+      success: row[cols.success] === 'TRUE' || row[cols.success] === true,
+      roleplay: row[cols.roleplay] || '',
+      tickets: row[cols.tickets] || 0,
+      verified: row[cols.verified] || 'pending',
+      verifiedBy: row[cols.verifiedBy] || '',
+      verifiedAt: row[cols.verifiedAt] || '',
+      rejectReason: row[cols.rejectReason] || '',
+      arenaId: row[cols.arenaId] || '',
+      opponentId: row[cols.opponentId] || '',
+      opponentName: row[cols.opponentName] || '',
+      battleRounds: row[cols.battleRounds] || 0,
+      withFullLevelFortune: cols.withFullLevelFortune !== -1
+        ? (row[cols.withFullLevelFortune] === 'TRUE' || row[cols.withFullLevelFortune] === true)
+        : false
     });
   }
 

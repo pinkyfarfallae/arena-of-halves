@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { PRACTICE_STATS } from '../../../../constants/practice';
-import { hexToRgb, lightenColor, rgbToHex } from '../../../../utils/color';
+import { hexToRgb, lightenColor, rgbToHex, isNearWhite, contrastText } from '../../../../utils/color';
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
 import { addTrainingPoints } from '../../../../services/training/trainingPoints';
 import { consumeItem } from '../../../../services/bag/bagService';
-import { fetchAllCharacters } from '../../../../data/characters';
+import { fetchAllCharacters, DEITY_THEMES } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 import { UpgradeOverlay } from './components/UpgradeOverlay/UpgradeOverlay';
@@ -60,6 +60,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const trainingPointsRef = useRef<HTMLDivElement>(null);
   const athenaCodexPanelRef = useRef<HTMLDivElement>(null);
   const originalCodexCountRef = useRef<number>(0);
+  const upgradingRef = useRef(false); // sync guard against double-click
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [isUpgradeOverlayVisible, setIsUpgradeOverlayVisible] = useState(false);
   const [isRefundOverlayVisible, setIsRefundOverlayVisible] = useState(false);
@@ -103,6 +104,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
   const handleUpgrade = async (statId: string) => {
     if (!user?.characterId) return;
+    if (upgradingRef.current) return; // sync guard: block before React re-renders
 
     const currentValue = getStatValue(statId);
     const cost = getUpgradeCost(currentValue);
@@ -123,6 +125,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       return;
     }
 
+    upgradingRef.current = true;
     setUpgrading(statId);
     setIsUpgradeOverlayVisible(true);
     const startedAt = Date.now();
@@ -141,6 +144,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       setIsUpgradeOverlayVisible(false);
       await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
       setUpgrading(null);
+      upgradingRef.current = false;
       return;
     }
 
@@ -167,6 +171,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setIsUpgradeOverlayVisible(false);
     await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
     setUpgrading(null);
+    upgradingRef.current = false;
   };
 
   const handleOpenRefundModal = () => {
@@ -331,16 +336,21 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   return (
     <div
       className="training-stats"
-      style={{
-        '--primary-color': user?.theme[0] || '#C0A062',
-        '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-        '--dark-color': user?.theme[1] || '#2c2c2c',
-        '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
-        '--light-color': user?.theme[2] || '#f5f5f5',
-        '--surface-hover': user?.theme[11] || '#e8e8e8',
-        '--overlay-text': user?.theme[17] || '#333333',
-        '--accent-dark': user?.theme[19] || '#0f1a2e',
-      } as React.CSSProperties}
+      style={(() => {
+        const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+        const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
+        return {
+          '--primary-color': primaryColor,
+          '--primary-color-rgb': hexToRgb(primaryColor),
+          '--dark-color': darkColor,
+          '--dark-color-rgb': hexToRgb(darkColor),
+          '--text-color': contrastText(darkColor),
+          '--light-color': user?.theme[2] || '#f5f5f5',
+          '--surface-hover': user?.theme[11] || '#e8e8e8',
+          '--overlay-text': user?.theme[17] || '#333333',
+          '--accent-dark': user?.theme[19] || '#0f1a2e',
+        } as React.CSSProperties;
+      })()} 
     >
       {BG_ELEMENTS}
 

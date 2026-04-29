@@ -7,7 +7,8 @@ import {
 import './DailyTrainingConfig.scss';
 import DiceRoller from '../../../../components/DiceRoller/DiceRoller';
 import { useAuth } from '../../../../hooks/useAuth';
-import { hexToRgb } from '../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 
 interface PaperTarget {
   value: number | null;
@@ -141,11 +142,12 @@ export default function DailyTrainingConfig() {
             key={index}
             className={`daily-training-config__paper ${paper.rolled ? 'rolled' : ''} ${confirmed ? 'confirmed' : ''}`}
             style={{
-              '--primary-color': user?.theme[0] || '#000',
-              '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
-              '--primary-hover-color': user?.theme[0] || '#000',
+              '--primary-color': (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000',
+              '--primary-color-rgb': hexToRgb((!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000'),
+              '--primary-hover-color': (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000',
               '--foreground-color': user?.theme[5] || '#fff',
-              '--background-color': user?.theme[1] || '#f0f0f0',
+              '--background-color': (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#f0f0f0',
+              '--text-color': contrastText((!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#f0f0f0'),
             } as React.CSSProperties}
           >
             <div className="daily-training-config__paper-number">#{index + 1}</div>
@@ -169,9 +171,10 @@ export default function DailyTrainingConfig() {
         <div
           className="daily-training-config__actions"
           style={{
-            '--primary-color': user?.theme[0] || '#000',
-            '--primary-color-rgb': hexToRgb(user?.theme[0] || '#000'),
-            '--dark-color': user?.theme[1] || '#333',
+            '--primary-color': (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000',
+            '--primary-color-rgb': hexToRgb((!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000'),
+            '--dark-color': (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#333',
+            '--text-color': contrastText((!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#333'),
           } as React.CSSProperties}
         >
           <button

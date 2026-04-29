@@ -13,6 +13,7 @@ import { parseDrachmaReward } from '../../../../utils/harvestReward';
 import HarvestorChip from './components/HarvestorChip/HarvestorChip';
 import { DEITY_DISPLAY_OVERRIDES } from '../../../CharacterInfo/constants/overrides';
 import { DEITY_SVG } from '../../../../data/deities';
+import { formatAppDate } from '../../../../utils/date';
 import './HarvestRecordCard.scss';
 
 interface HarvestRecordCardProps {
@@ -24,9 +25,9 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
   const { t, lang } = useTranslation();
   const [harvestor, setHarvestor] = useState<Character | null>(null);
 
-  const date = new Date(submission.submittedAt).toLocaleDateString(
-    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH',
-    { year: 'numeric', month: 'short', day: 'numeric' }
+  const date = formatAppDate(
+    submission.submittedAt,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
   );
 
   const submitter = characterMap[submission.characterId.toLowerCase()] || null;

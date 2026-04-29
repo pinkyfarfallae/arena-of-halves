@@ -2,6 +2,8 @@ import React, { CSSProperties } from 'react';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { T } from '../../../../constants/translationKeys';
 import { useAuth } from '../../../../hooks/useAuth';
+import { isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 import './BeyondTodayPracticeModal.scss';
 
 export const BeyondTodayPracticeModal = ({ onClose }: { onClose: () => void }) => {
@@ -14,7 +16,8 @@ export const BeyondTodayPracticeModal = ({ onClose }: { onClose: () => void }) =
         className="beyond-today-practice-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
-          '--primary-color': user?.theme[0] || '#000',
+          '--primary-color': (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000',
+          '--text-color': contrastText((!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#000'),
         } as CSSProperties}
       >
         <h2 className="beyond-today-practice-modal-title">{t(T.BEYOND_TODAY_PRACTICE_TITLE)}</h2>

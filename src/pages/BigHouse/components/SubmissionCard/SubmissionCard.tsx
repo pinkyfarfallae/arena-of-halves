@@ -10,7 +10,8 @@ import TweetPreview from '../../../../components/TweetPreview/TweetPreview';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
 import { useAuth } from '../../../../hooks/useAuth';
-import { hexToRgb } from '../../../../utils/color';
+import { hexToRgb, isNearWhite, contrastText } from '../../../../utils/color';
+import { DEITY_THEMES } from '../../../../data/characters';
 import RolePlayers from './icons/RolePlayers';
 import Swords from '../../../../icons/Swords';
 import { BigHouseSubmission } from '../../../../types/bigHouse';
@@ -20,31 +21,31 @@ import Characters from './icons/Characters';
 import Drachma from '../../../../icons/Drachma';
 import HarvestorChip from '../../../StrawberryFields/components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
 import { Character } from '../../../../data/characters';
+import { formatAppDate } from '../../../../utils/date';
 
 export default function SubmissionCard({ isAdmin = false, submission, characters, focused, onClick, disabled, forcedCompact }: { isAdmin?: boolean, submission: BigHouseSubmission, characters: Character[], focused?: boolean, onClick?: () => void, disabled?: boolean, forcedCompact?: boolean }) {
   const { user } = useAuth();
   const { t, lang } = useTranslation();
   const { width } = useScreenSize();
 
-  const date = new Date(submission.submittedAt)
-    .toLocaleDateString(
-      lang === LANGUAGE.ENGLISH ?
-        'en-US' : 'th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const date = formatAppDate(
+    submission.submittedAt,
+    lang === LANGUAGE.ENGLISH ? 'en-US' : 'th-TH'
+  );
 
   const handleLinkClick = () => {
     window.open(submission.roleplayUrl, '_blank', 'noopener,noreferrer');
   };
 
   const colorStyle = useMemo(() => {
+    const primaryColor = (!isNearWhite(user?.theme[0]) ? user?.theme[0] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[0] || '#C0A062';
+    const darkColor = (!isNearWhite(user?.theme[1]) ? user?.theme[1] : undefined) || DEITY_THEMES[user?.deityBlood?.toLowerCase() as any]?.[1] || '#2c2c2c';
     return {
-      '--primary-color': user?.theme[0] || '#C0A062',
-      '--primary-color-rgb': hexToRgb(user?.theme[0] || '#C0A062'),
-      '--dark-color': user?.theme[1] || '#2c2c2c',
-      '--dark-color-rgb': hexToRgb(user?.theme[1] || '#2c2c2c'),
+      '--primary-color': primaryColor,
+      '--primary-color-rgb': hexToRgb(primaryColor),
+      '--dark-color': darkColor,
+      '--dark-color-rgb': hexToRgb(darkColor),
+      '--text-color': contrastText(darkColor),
       '--light-color': user?.theme[2] || '#f5f5f5',
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',

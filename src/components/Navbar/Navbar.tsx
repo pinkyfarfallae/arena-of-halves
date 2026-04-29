@@ -215,6 +215,10 @@ function Navbar() {
           <MapIcon />
           <span>{t(T.LIFE_IN_CAMP)}</span>
         </NavLink>
+        <NavLink to="/dice" className={({ isActive }) => `topbar-menu__item ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
+          <Dice />
+          <span>{t(T.DICE)}</span>
+        </NavLink>
         <button className="topbar-menu__item" onClick={() => { setShowThemePicker(p => !p); close(); }}>
           <Palette />
           <span>{t(T.THEME_COLORS)}</span>

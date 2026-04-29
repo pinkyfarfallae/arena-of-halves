@@ -642,12 +642,22 @@
       color: var(--dark-color, #000);
       font-weight: 600;
       text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      @media (max-width: $bp-mobile) {
+        font-size: 0.45rem;
+      }
     }
 
     &-value {
       font-size: 1rem;
       font-weight: 700;
       color: var(--primary-color, #e63946);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
 
       @media (max-width: $bp-mobile) {
         font-size: 0.85rem;
@@ -807,6 +817,10 @@
           rgba(var(--primary-color-rgb, 251, 192, 203), 0.08) 0%,
           transparent 70%);
       pointer-events: none;
+    }
+
+    &:not(:last-child) {
+      margin-bottom: 1rem;
     }
 
     &-title {
