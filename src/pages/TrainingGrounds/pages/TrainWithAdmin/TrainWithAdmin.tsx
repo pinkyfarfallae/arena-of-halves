@@ -59,6 +59,7 @@ export default function TrainWithAdmin() {
   // eslint-disable-next-line
   const [_quotaUsed, setQuotaUsed] = useState<boolean>(false);
   const [validation, setValidation] = useState<TrainingValidation | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const [die, setDie] = useState<10 | 12 | 20>(12);
   const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
@@ -259,21 +260,24 @@ export default function TrainWithAdmin() {
   };
 
   const handleEarlyFailConfirm = async () => {
-    // Fill remaining papers with 0 (unrolled placeholder)
-    const completedPapers = [...papers];
-    for (let i = currentRollIndex; i < 5; i++) {
-      completedPapers[i] = {
-        ...completedPapers[i],
-        roll: 0, // Placeholder for unrolled dice
-        rolled: false,
-      };
-    }
-
-    const rolls = completedPapers.map(p => p.roll || 0);
-    // Use first target for legacy storage
-    const target = completedPapers[0].target;
+    if (isProcessing) return;
+    setIsProcessing(true);
 
     try {
+      // Fill remaining papers with 0 (unrolled placeholder)
+      const completedPapers = [...papers];
+      for (let i = currentRollIndex; i < 5; i++) {
+        completedPapers[i] = {
+          ...completedPapers[i],
+          roll: 0, // Placeholder for unrolled dice
+          rolled: false,
+        };
+      }
+
+      const rolls = completedPapers.map(p => p.roll || 0);
+      // Use first target for legacy storage
+      const target = completedPapers[0].target;
+
       await completeTraining(user!.characterId!, rolls, target, false, true, user?.fortune === 5);
 
       setPapers(completedPapers);
@@ -283,25 +287,30 @@ export default function TrainWithAdmin() {
       setFinalResult({ success: false, rolls });
     } catch (err: any) {
       setError(err.message || 'Failed to complete training');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleEarlyWinConfirm = async () => {
-    // Fill remaining papers with 0 (unrolled placeholder)
-    const completedPapers = [...papers];
-    for (let i = currentRollIndex; i < 5; i++) {
-      completedPapers[i] = {
-        ...completedPapers[i],
-        roll: 0, // Placeholder for unrolled dice
-        rolled: false,
-      };
-    }
-
-    const rolls = completedPapers.map(p => p.roll || 0);
-    // Use first target for legacy storage
-    const target = completedPapers[0].target;
+    if (isProcessing) return;
+    setIsProcessing(true);
 
     try {
+      // Fill remaining papers with 0 (unrolled placeholder)
+      const completedPapers = [...papers];
+      for (let i = currentRollIndex; i < 5; i++) {
+        completedPapers[i] = {
+          ...completedPapers[i],
+          roll: 0, // Placeholder for unrolled dice
+          rolled: false,
+        };
+      }
+
+      const rolls = completedPapers.map(p => p.roll || 0);
+      // Use first target for legacy storage
+      const target = completedPapers[0].target;
+
       await completeTraining(user!.characterId!, rolls, target, true, false, user?.fortune === 5);
 
       setPapers(completedPapers);
@@ -311,6 +320,8 @@ export default function TrainWithAdmin() {
       setFinalResult({ success: true, rolls });
     } catch (err: any) {
       setError(err.message || 'Failed to complete training');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -491,10 +502,10 @@ export default function TrainWithAdmin() {
       </div>
 
       {/* Early Failure Modal */}
-      {showEarlyFailModal && (<EarlyFailModal handleEarlyFailConfirm={handleEarlyFailConfirm} />)}
+      {showEarlyFailModal && (<EarlyFailModal handleEarlyFailConfirm={handleEarlyFailConfirm} disabled={isProcessing} />)}
 
       {/* Early Win Modal */}
-      {showEarlyWinModal && (<EarlyWinModal handleEarlyWinConfirm={handleEarlyWinConfirm} />)}
+      {showEarlyWinModal && (<EarlyWinModal handleEarlyWinConfirm={handleEarlyWinConfirm} disabled={isProcessing} />)}
 
       {/* Final Result Overlay */}
       {finalResult && (
