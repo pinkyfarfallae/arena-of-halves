@@ -199,38 +199,38 @@ function TrainingApproval() {
   };
 
   const handleApproveClick = () => {
-    const scriptParsed = parseScriptOutput(reviewText);
+    if (!reviewingTask) return;
 
-    if (!scriptParsed) {
-      return;
-    }
+    const isTicketOnly = (reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '');
 
-    if (!reviewingTask) {
-      return;
-    }
+    let charCount = 0;
+    let tweetCount = 0;
 
-    const charCount = countCharacters(scriptParsed.text);
-    const trainingCheck = checkTrainingPass(charCount, reviewingTask.tickets || 0);
+    if (!isTicketOnly) {
+      const scriptParsed = parseScriptOutput(reviewText);
+      if (!scriptParsed) return;
 
-    if (!trainingCheck.passes) {
-      return;
+      charCount = countCharacters(scriptParsed.text);
+      tweetCount = scriptParsed.tweetCount;
+
+      const trainingCheck = checkTrainingPass(charCount, reviewingTask.tickets || 0);
+      if (!trainingCheck.passes) return;
     }
 
     let reward = 0;
-
     if (reviewingTask.mode === PRACTICE_MODE.NORMAL) {
-      if (reviewingTask.success) {
-        reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1; // Base 1 point for passing normal training
+      if (reviewingTask.success || isTicketOnly) {
+        reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1;
       }
     } else {
-      reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1; // Base 2 points for passing PvP training
+      reward = (isTraineeBlessedByAthena ? 1 : 0) + (reviewingTask.withFullLevelFortune ? 1 : 0) + (isTraineeBlessedByAthena && reviewingTask.withFullLevelFortune ? 1 : 0) + 1;
     }
 
     setApproveData({
       charCount,
-      tweetCount: scriptParsed.tweetCount,
+      tweetCount,
       reward,
-      roleplayers: [reviewingTask.userId], // Only the submitter
+      roleplayers: [reviewingTask.userId],
       isSolo: true,
       withFullLevelFortune: !!reviewingTask.withFullLevelFortune,
       isTraineeBlessedByAthena,
@@ -443,7 +443,126 @@ function TrainingApproval() {
             ) : loadError ? (
               <div className="training-approval__review-error">Something went wrong</div>
             ) : reviewingTask ? (
-              (
+              (() => {
+                const isTicketOnly = (reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '');
+                if (isTicketOnly) {
+                  const trainee = characters.find((c) => c.characterId === reviewingTask.userId);
+                  return (
+                    <div className="training-approval__review-sheet">
+                      <div className="training-approval__review-section training-approval__review-section--result">
+                        <div className="training-approval__review-section-header">
+                          <span className="training-approval__review-section-title">Ticket-Only Submission</span>
+                        </div>
+                        <div className="training-approval__review-section-content">
+                          <div style={{ marginBottom: '0.75rem', opacity: 0.8 }}>
+                            This submission uses <strong>5 tickets</strong> — no roleplay required.
+                          </div>
+
+                          {/* Trainee */}
+                          <div className="training-approval__trainee">
+                            <div className="training-approval__trainee-avatar">
+                              {trainee ? (
+                                <img src={trainee.image} alt={getCharacterName(trainee.characterId)} referrerPolicy="no-referrer" />
+                              ) : (
+                                <span>{getCharacterName(reviewingTask.userId)[0]?.toUpperCase() || '?'}</span>
+                              )}
+                            </div>
+                            <span className="training-approval__trainee-name">
+                              <b>Trainee </b>
+                              {trainee
+                                ? `${trainee.nameEng} (${trainee.nicknameEng})`
+                                : getCharacterName(reviewingTask.userId)}
+                            </span>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="training-approval__stats">
+                            <div className="training-approval__stat-item">
+                              <span className="training-approval__stat-label">Tickets Used</span>
+                              <span className="training-approval__stat-value">{reviewingTask.tickets}</span>
+                            </div>
+                            <div className="training-approval__stat-item">
+                              <span className="training-approval__stat-label">Ticket Bonus</span>
+                              <span className="training-approval__stat-value">+{reviewingTask.tickets * 200}</span>
+                            </div>
+                            <div className="training-approval__stat-item">
+                              <span className="training-approval__stat-label">Total</span>
+                              <span className="training-approval__stat-value">{reviewingTask.tickets * 200}</span>
+                            </div>
+                          </div>
+
+                          <div className="training-approval__result">
+                            <div className="training-approval__result-title">Training Status</div>
+                            <div className="training-approval__result-status training-approval__result-status--pass">
+                              <span className="training-approval__result-status-head">✓ PASSED</span>
+                              <small style={{ opacity: 0.8, fontWeight: 500 }}>5 tickets = 1,000 characters (fully waived)</small>
+                            </div>
+                          </div>
+
+                          {/* Fortune blessing */}
+                          {reviewingTask.withFullLevelFortune && (
+                            <div
+                              className="training-approval__fortune-blessing"
+                              style={{
+                                '--fortune-primary-color': PRACTICE_STATES_DETAIL[5].color,
+                                '--fortune-primary-color-rgb': hexToRgb(PRACTICE_STATES_DETAIL[5].color),
+                                '--fortune-dark-color': rgbToHex(darken(PRACTICE_STATES_DETAIL[5].color, 0.5)),
+                                '--fortune-dark-color-rgb': hexToRgb(darken(PRACTICE_STATES_DETAIL[5].color, 0.5))
+                              } as CSSProperties}
+                            >
+                              <div className="training-approval__fortune-blessing-header">
+                                <div className="training-approval__fortune-blessing-icon"><Crown /></div>
+                                <span>This trainee had max Fortune (level 5) on the training day!</span>
+                              </div>
+                              <div className="training-approval__fortune-blessing-content">
+                                Full Fortune grants an extra training point for this submission.
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Athena blessing */}
+                          {isTraineeBlessedByAthena && (
+                            <div
+                              className="training-approval__athena-blessing"
+                              style={{
+                                '--athena-primary-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0],
+                                '--athena-primary-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0]),
+                                '--athena-dark-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1],
+                                '--athena-dark-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1]),
+                              } as CSSProperties}
+                            >
+                              <div className="training-approval__athena-blessing-header">
+                                <div className="training-approval__athena-blessing-icon"><Athena /></div>
+                                <span>Goddess Athena has blessed this trainee on the training day!</span>
+                              </div>
+                              <div className="training-approval__athena-blessing-content">
+                                As a blessing from Athena, this trainee's will receive 2 training point reward for this submission.
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quick Reject */}
+                          <div className="training-approval__quick-reject" style={{ marginTop: '0.5rem' }}>
+                            <div className="training-approval__quick-reject-content">
+                              <span className="training-approval__quick-reject-label">Need to reject this submission?</span>
+                              <button className="training-approval__quick-reject-btn" onClick={handleRejectClick}>Reject Submission</button>
+                            </div>
+                          </div>
+
+                          <div className="training-approval__actions">
+                            <button
+                              className="training-approval__action-btn training-approval__action-btn--approve"
+                              onClick={handleApproveClick}
+                            >
+                              Approve
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
                 <div className="training-approval__review-sheet">
                   {/* 1. Open link of tweet */}
                   <div className="training-approval__review-section">
@@ -782,13 +901,14 @@ function TrainingApproval() {
                     );
                   })()}
                 </div>
-              )
+              );
+              })()
             ) : (
               <div className="training-approval__empty-state">
                 <div className="training-approval__empty-state-icon">✓</div>
                 <div className="training-approval__empty-state-title">All caught up!</div>
                 <div className="training-approval__empty-state-message">
-                  {trainingTasks.filter(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && t.roleplay && t.roleplay.trim() !== '').length === 0
+                  {trainingTasks.filter(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5)).length === 0
                     ? "No pending submissions to review."
                     : "Select a submission from the sidebar to review."}
                 </div>
@@ -834,7 +954,7 @@ function TrainingApproval() {
               trainingTasks
                 .filter((s) => s.verified === sidebarView)
                 .map((task) => {
-                  const readyForReview = task.roleplay && task.roleplay.trim() !== '';
+                  const readyForReview = (task.roleplay && task.roleplay.trim() !== '') || (task.tickets || 0) >= 5;
                   return (
                     <SubmissionCard
                       key={task.id}

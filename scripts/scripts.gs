@@ -1690,7 +1690,9 @@ function handleSubmitTrainingRoleplay(params) {
   var roleplayUrl = (params.roleplayUrl || '').toString().trim();
   var tickets = parseInt(params.tickets || '0', 10);
 
-  if (!userId || !date || !roleplayUrl) {
+  // 5 tickets fully waive the roleplay requirement, so roleplayUrl may be empty in that case
+  var needsRoleplayUrl = tickets < 5;
+  if (!userId || !date || (needsRoleplayUrl && !roleplayUrl)) {
     return jsonResponse({ error: 'Missing required fields: userId, date, roleplayUrl' });
   }
 
