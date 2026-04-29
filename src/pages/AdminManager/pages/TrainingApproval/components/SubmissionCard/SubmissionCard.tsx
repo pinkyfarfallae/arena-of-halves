@@ -94,7 +94,7 @@ export default function SubmissionCard({ task, focused, onClick, disabled, force
         )}
 
         {task.verified === TRAINING_POINT_REQUEST_STATUS.APPROVED && (
-          <div className="training-approval__submission-card-details">
+          <div className="training-approval__submission-card-details" style={(!task.roleplay || task.roleplay.trim() === '') ? { minWidth: '100%' } : undefined}>
             <div className="training-approval__submission-card-stats">
               <div className="training-approval__submission-card__stat-item">
                 <Swords width={18} height={18} style={{ marginTop: 2 }} />

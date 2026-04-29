@@ -1,7 +1,7 @@
   /* Early Win/Fail Modal */
   .train-with-admin {
   &__modal-overlay {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 350;
     display: flex;
@@ -60,7 +60,7 @@
       background: #4caf50;
     }
 
-    &:hover {
+    &:not(:disabled):hover {
       filter: brightness(1.1);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }

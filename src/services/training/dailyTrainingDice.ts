@@ -577,11 +577,12 @@ export const submitTrainingRoleplay = async (
   roleplayUrl: string,
   tickets: number = 0
 ): Promise<void> => {
+  const normalizedRoleplayUrl = tickets >= 5 ? '' : roleplayUrl.trim();
   const payload = {
     action: ACTIONS.SUBMIT_TRAINING_ROLEPLAY,
     userId,
     date,
-    roleplayUrl,
+    roleplayUrl: normalizedRoleplayUrl,
     tickets,
   };
 

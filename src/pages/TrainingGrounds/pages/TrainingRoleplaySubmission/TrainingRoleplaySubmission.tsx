@@ -87,6 +87,13 @@ function TrainingRoleplaySubmission() {
   const canSubmitWithoutTweet = useMemo(() => {
     return requiredCharacters === 0;
   }, [requiredCharacters]);
+  const isUrlLockedByTickets = ticketsToApply >= 5;
+
+  useEffect(() => {
+    if (isUrlLockedByTickets && firstTweetUrl) {
+      setFirstTweetUrl('');
+    }
+  }, [isUrlLockedByTickets, firstTweetUrl]);
 
   const isPvpPracticeLive = livePractice?.mode === PRACTICE_MODE.PVP && livePractice.state === PRACTICE_STATES.LIVE;
   const isAdminPracticeLive = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;
@@ -142,11 +149,13 @@ function TrainingRoleplaySubmission() {
       return;
     }
 
-    // Use existing roleplay URL if no new one is provided and we're in change mode
-    const urlToSubmit = firstTweetUrl.trim() || (isChangeRoleplayUrl ? sheetTaskRoleplay : '');
+    // 5 tickets fully waive the roleplay URL, so never submit one in that case.
+    const urlToSubmit = isUrlLockedByTickets
+      ? ''
+      : firstTweetUrl.trim() || (isChangeRoleplayUrl ? sheetTaskRoleplay : '');
 
     // Only require tweet URL if character requirements aren't fully met with tickets
-    if (!canSubmitWithoutTweet) {
+    if (!canSubmitWithoutTweet && !isUrlLockedByTickets) {
       if (!urlToSubmit) {
         setError('Please paste the thread URL');
         return;
@@ -446,12 +455,17 @@ function TrainingRoleplaySubmission() {
                         type="text"
                         ref={inputRef}
                         className="training-roleplay-submission__form-input"
-                        placeholder={canSubmitWithoutTweet ? "Tweet URL (optional - covered by tickets)" : "Paste thread URL (first tweet)"}
+                        placeholder={isUrlLockedByTickets
+                          ? 'URL locked when using 5 tickets'
+                          : canSubmitWithoutTweet
+                            ? 'Tweet URL (optional - covered by tickets)'
+                            : 'Paste thread URL (first tweet)'}
                         style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                         value={firstTweetUrl}
                         onChange={(e) => setFirstTweetUrl(e.target.value)}
+                        disabled={isUrlLockedByTickets}
                       />
-                      {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                      {!isUrlLockedByTickets && !_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
                         <div
                           className="training-roleplay-submission__form-error-icon"
                           data-tooltip={t(T.INVALID_TWITTER_URL)}
@@ -505,7 +519,7 @@ function TrainingRoleplaySubmission() {
                     <button
                       className={`training-roleplay-submission__form-button ${isSubmitting || isSubmittingRecheck ? 'training-roleplay-submission__form-button--loading' : ''}`}
                       onClick={handleSubmit}
-                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
+                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && !isUrlLockedByTickets && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
                     >
                       <Swords className="training-roleplay-submission__form-button-icon" />
                       <span>{isSubmitting || isSubmittingRecheck ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>

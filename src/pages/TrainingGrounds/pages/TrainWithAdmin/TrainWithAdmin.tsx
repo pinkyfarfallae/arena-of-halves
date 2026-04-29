@@ -477,7 +477,7 @@ export default function TrainWithAdmin() {
             {paper.rolled && (
               <>
                 <div className="train-with-admin__paper-divider"></div>
-                <div className="train-with-admin__paper-result" style={hasCampTShirt ? {marginRight: '16px', color: '#ff4005'} : {}}>
+                <div className="train-with-admin__paper-result" style={hasCampTShirt ? { marginRight: '16px', color: '#ff4005' } : {}}>
                   {paper.roll}
                   {hasCampTShirt && <span className="train-with-admin__paper-bonus">+2 <Shirt /></span>}
                 </div>
