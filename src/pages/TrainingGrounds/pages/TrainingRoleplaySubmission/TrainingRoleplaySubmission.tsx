@@ -13,7 +13,7 @@ import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
 import { fetchUserTrainingTasks, getTodayProgress, submitTrainingRoleplay, recheckTrainingTask, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
-import { TRAINING_POINT_REQUEST_STATUS } from '../../../../constants/trainingPointRequestStatus';
+import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
 import Alert from './icons/Alert';
@@ -23,7 +23,8 @@ import { ITEMS } from '../../../../constants/items';
 import { consumeItem, giveItem } from '../../../../services/bag/bagService';
 import { BAG_ITEM_TYPES } from '../../../../constants/bag';
 import { isValidTwitterUrl } from '../../../../utils/twitterUrlValidation';
-import { formatAppDate, getAppDateString } from '../../../../utils/date';
+import { formatAppDate, getAppDateString, getTodayDate } from '../../../../utils/date';
+import SubmissionCard from '../../../AdminManager/pages/TrainingApproval/components/SubmissionCard/SubmissionCard';
 
 function TrainingRoleplaySubmission() {
   const { user } = useAuth();
@@ -42,6 +43,10 @@ function TrainingRoleplaySubmission() {
   const [ticketsToApply, setTicketsToApply] = useState(0);
   const [isChangeRoleplayUrl, setIsChangeRoleplayUrl] = useState(false);
   const [isSubmittingRecheck, setIsSubmittingRecheck] = useState(false);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
+  const [userTrainingTasks, setUserTrainingTasks] = useState<TrainingTask[]>([]);
 
   // Initialize ticketsToApply when sheet task loads
   useEffect(() => {
@@ -62,8 +67,12 @@ function TrainingRoleplaySubmission() {
     ]).then(([data, todayProgress]) => {
       if (mounted) {
         setLivePractice(todayProgress);
-        const todaySheetTask = [...data].reverse()[0] || null;
+        // Get today's training task (if any)
+        const todayDate = getTodayDate();
+        const todaySheetTask = [...data].reverse().find((training) => training.date === todayDate) || null;
         setSheetTask(todaySheetTask);
+        // Store all user training tasks for sidebar
+        setUserTrainingTasks(data);
       }
     }).catch(() => { })
       .finally(() => {
@@ -275,6 +284,10 @@ function TrainingRoleplaySubmission() {
               </span>
             </span>
           </div>
+
+          <button className="training-roleplay-submission__toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <ChevronLeft />
+          </button>
         </div>
       </div>
 
@@ -531,6 +544,43 @@ function TrainingRoleplaySubmission() {
           )}
         </div>
       </div>
+
+      {/* Sidebar (right) - Task History */}
+      <aside className={`training-roleplay-submission__sidebar ${sidebarOpen ? 'training-roleplay-submission__sidebar--open' : ''}`}>
+        <div className="training-roleplay-submission__sidebar__head">
+          <div className="training-roleplay-submission__sidebar__head-tabs">
+            {Object.values(TRAINING_POINT_REQUEST_STATUS).map((status) => (
+              <button
+                key={status}
+                className={`training-roleplay-submission__sidebar__tab training-roleplay-submission__sidebar__tab--${status.toLowerCase()}${sidebarView === status ? '--active' : ''}`}
+                onClick={() => setSidebarView(status)}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <button className="training-roleplay-submission__sidebar__close" onClick={() => setSidebarOpen(false)}>
+            <Close />
+          </button>
+        </div>
+
+        <div className="training-roleplay-submission__sidebar__content">
+          {userTrainingTasks.filter((s) => s.verified === sidebarView).length === 0 ? (
+            <div className="training-roleplay-submission__sidebar__content--empty">No submissions found</div>
+          ) : (
+            userTrainingTasks
+              .filter((s) => s.verified === sidebarView)
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map((task) => (
+                <SubmissionCard
+                  key={task.id}
+                  task={task}
+                  forcedCompact
+                />
+              ))
+          )}
+        </div>
+      </aside>
     </div>
   );
 }

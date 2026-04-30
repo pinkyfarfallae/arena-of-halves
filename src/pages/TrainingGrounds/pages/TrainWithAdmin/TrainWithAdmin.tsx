@@ -111,7 +111,8 @@ export default function TrainWithAdmin() {
       }
 
       setLivePractice(todayProgress);
-      const todaySheetTask = [...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
+      const todayDate = getTodayDate();
+      const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate && training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null;
       setSheetTask(todaySheetTask);
 
       const quotaDoc = await get(ref(db, `trainingQuotas/${user.characterId}/${getTodayDate()}`)).catch(() => null);

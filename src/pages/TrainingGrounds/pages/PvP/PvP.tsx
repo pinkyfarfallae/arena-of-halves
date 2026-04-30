@@ -55,7 +55,7 @@ export default function PvP() {
 
         setLivePractice(todayProgress);
         setQuotaUsed(!!quotaSnapshot?.exists());
-        setSheetTask([...trainings].reverse().find((training) => training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null);
+        setSheetTask([...trainings].reverse().find((training) => training.date === todayDate && training.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED) || null);
 
         // Check comprehensive validation
         const validationResult = await canUserTrain(user.characterId, PRACTICE_MODE.PVP);

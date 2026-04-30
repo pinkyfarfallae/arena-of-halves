@@ -92,7 +92,6 @@ export default function TrainingGrounds() {
 
         const todaySheetTask = [...trainings].reverse().find((training) => training.date === todayDate) || null;
         const hasPendingSheetTask = !!todaySheetTask && todaySheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
-        const hasNonApprovedTasks = tasks.some(task => task.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED);
         const hasLiveNormalTraining = todayProgress?.mode === PRACTICE_MODE.NORMAL && todayProgress.state === PRACTICE_STATES.LIVE;
         const isFinishedNormalTraining = todayProgress?.mode === PRACTICE_MODE.NORMAL && todayProgress.state === PRACTICE_STATES.FINISHED;
         const isFinishedPvpTraining = todayProgress?.mode === PRACTICE_MODE.PVP && todayProgress.state === PRACTICE_STATES.FINISHED;
@@ -146,9 +145,9 @@ export default function TrainingGrounds() {
         const quotaSnapshot2 = await get(ref(db, `trainingQuotas/${user.characterId}/${todayDate}`)).catch(() => null);
         const quotaUsed = !!quotaSnapshot2?.exists();
 
-        // Determine if user can open PvP modal (no pending tasks, no quota used, or has existing room)
+        // Determine if user can open PvP modal (no pending TODAY tasks, no quota used today, or has existing room)
+        // Note: Pending tasks from other days don't block training, only today's pending task does
         const canOpenModal = !hasPendingSheetTask &&
-          !hasNonApprovedTasks &&
           !hasLiveNormalTraining &&
           !isFinishedNormalTraining &&
           !isFinishedPvpTraining &&

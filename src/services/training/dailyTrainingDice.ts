@@ -679,8 +679,11 @@ export const canUserTrain = async (
   const todayTasks = await fetchUserTrainingTasks(userId);
   const todayTask = todayTasks.reverse().find(t => t.date === getTodayDate());
 
-  // Check for non-approved tasks in sheet
+  // Check for non-approved tasks in sheet (pending or rejected)
   const hasNonApprovedTask = !!todayTask && todayTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
+
+  // Check if today's task exists at all (any status including approved = already trained today)
+  const hasTodayTask = !!todayTask;
 
   // Check if already finished any mode today
   const hasFinishedToday = todayProgress?.state === PRACTICE_STATES.FINISHED;
@@ -695,6 +698,17 @@ export const canUserTrain = async (
       reason: 'You have a pending training task. Please complete it or wait for approval.',
       hasNonApprovedTask: true,
       hasFinishedToday,
+      hasLiveProgress,
+    };
+  }
+
+  // Rule 1b: Today's task exists (approved) -> already trained today, one session per day
+  if (hasTodayTask) {
+    return {
+      canTrain: false,
+      reason: 'You already completed training today. Come back tomorrow!',
+      hasNonApprovedTask: false,
+      hasFinishedToday: true,
       hasLiveProgress,
     };
   }
