@@ -60,6 +60,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const trainingPointsRef = useRef<HTMLDivElement>(null);
   const athenaCodexPanelRef = useRef<HTMLDivElement>(null);
   const originalCodexCountRef = useRef<number>(0);
+  const upgradingRef = useRef(false); // sync guard against double-click
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [isUpgradeOverlayVisible, setIsUpgradeOverlayVisible] = useState(false);
   const [isRefundOverlayVisible, setIsRefundOverlayVisible] = useState(false);
@@ -103,6 +104,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
   const handleUpgrade = async (statId: string) => {
     if (!user?.characterId) return;
+    if (upgradingRef.current) return; // sync guard: block before React re-renders
 
     const currentValue = getStatValue(statId);
     const cost = getUpgradeCost(currentValue);
@@ -123,6 +125,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       return;
     }
 
+    upgradingRef.current = true;
     setUpgrading(statId);
     setIsUpgradeOverlayVisible(true);
     const startedAt = Date.now();
@@ -141,6 +144,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       setIsUpgradeOverlayVisible(false);
       await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
       setUpgrading(null);
+      upgradingRef.current = false;
       return;
     }
 
@@ -167,6 +171,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     setIsUpgradeOverlayVisible(false);
     await new Promise((resolve) => setTimeout(resolve, UPGRADE_FADE_MS));
     setUpgrading(null);
+    upgradingRef.current = false;
   };
 
   const handleOpenRefundModal = () => {

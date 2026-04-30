@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, CSSProperties } from 'react';
+import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { DEITY_THEMES, fetchAllCharacters } from '../../../../data/characters';
 import { Character } from '../../../../types/character';
 import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
@@ -46,6 +46,7 @@ function TrainingApproval() {
 
   const [reviewText, setReviewText] = useState('');
 
+  const approvingRef = useRef(false); // sync guard against double-click
   const [approving, setApproving] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -239,6 +240,7 @@ function TrainingApproval() {
 
   const handleApprove = async (submissionId: string) => {
     if (!approveData) return;
+    if (approvingRef.current) return; // sync guard: block before React re-renders
 
     if (!reviewingTask) {
       return;
@@ -248,6 +250,7 @@ function TrainingApproval() {
       return;
     }
 
+    approvingRef.current = true;
     try {
       setApproving(true);
 
@@ -273,6 +276,7 @@ function TrainingApproval() {
 
     } catch (error) {
       // console.error('Failed to approve training task:', error);
+      approvingRef.current = false;
       return;
     } finally {
       setApproving(false);
@@ -312,6 +316,7 @@ function TrainingApproval() {
       setShowSuccessModal(false);
       navigateToNextPending();
     }, 2000);
+    approvingRef.current = false;
   };
 
   const handleRejectClick = () => {

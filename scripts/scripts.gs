@@ -1785,10 +1785,18 @@ function handleVerifyTraining(params) {
     withFullLevelFortune = params.withFullLevelFortune === true || params.withFullLevelFortune === 'true';
   }
 
+  // Read the PREVIOUS verified status before overwriting — used for idempotency
+  var previousVerified = sheet.getRange(row, 11).getValue().toString().toLowerCase();
+
   sheet.getRange(row, 11).setValue(verified);
 
   // Award training point if approved
   if (verified === 'approved') {
+    // Idempotency: if already approved, skip TP award to prevent double-awarding
+    if (previousVerified === 'approved') {
+      return jsonResponse({ success: true, verified: verified, duplicate: true });
+    }
+
     var shouldAwardPoint = false;
 
     // PvP mode: award TP for both success and fail
