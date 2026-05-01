@@ -394,7 +394,7 @@ $big-house-turquoise: #2f5f86;
   // color: $strawberry-red;
 
   @media (max-width: 380px) {
-    font-size: 0.65rem;
+    display: none;
   }
 }
 
@@ -407,10 +407,6 @@ $big-house-turquoise: #2f5f86;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  @media (max-width: 380px) {
-    display: none;
-  }
 }
 
 .big-house__submission-card-roleplayers {
