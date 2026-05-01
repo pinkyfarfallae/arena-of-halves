@@ -34,6 +34,9 @@ import { DEITY } from '../../../../constants/deities';
 import { useBag } from '../../../../hooks/useBag';
 import { ITEMS } from '../../../../constants/items';
 import Shirt from '../../../../icons/Shirt';
+import { ZeusOrPoseidonNoticeModal } from './components/ZeusOrPoseidonNoticeModal/ZeusOrPoseidonNoticeModal';
+import Zeus from '../../../../data/icons/deities/Zeus';
+import Poseidon from '../../../../data/icons/deities/Poseidon';
 interface PaperRoll {
   target: number;
   roll: number | null;
@@ -66,6 +69,10 @@ export default function TrainWithAdmin() {
   const [beyondTodayPractice, setBeyondTodayPractice] = useState(false);
   const [showDieNotice, setShowDieNotice] = useState(false);
 
+  const [isZeusDebuff, setIsZeusDebuff] = useState(false);
+  const [isPoseidonBuff, setIsPoseidonBuff] = useState(false);
+  const [zeusOrPoseidonNotice, setZeusOrPoseidonNotice] = useState(false);
+
   const hasCampTShirt = (bagEntries.find(entry => entry.itemId === ITEMS.CAMP_TSHIRT)?.amount || 0) > 0;
 
   useDailyTrigger(() => {
@@ -88,6 +95,9 @@ export default function TrainWithAdmin() {
       setShowEarlyFailModal(false);
       setShowEarlyWinModal(false);
       setQuotaUsed(false);
+      setIsZeusDebuff(false);
+      setIsPoseidonBuff(false);
+      setZeusOrPoseidonNotice(false);
 
       // Load all 5 today's targets
       const todayTargets = await getTodayTargets();
@@ -109,6 +119,14 @@ export default function TrainWithAdmin() {
         setShowDieNotice(true);
       } else {
         setDie(12);
+      }
+
+      if (deity === DEITY.ZEUS) {
+        setIsZeusDebuff(true);
+        setZeusOrPoseidonNotice(true);
+      } else if (deity === DEITY.POSEIDON) {
+        setIsPoseidonBuff(true);
+        setZeusOrPoseidonNotice(true);
       }
 
       setLivePractice(todayProgress);
@@ -186,14 +204,28 @@ export default function TrainWithAdmin() {
     loadTodayData();
   }, [loadTodayData]);
 
+  const applyDeityRollEffect = useCallback((roll: number) => {
+    if (isZeusDebuff) {
+      return Math.max(1, roll - 2);
+    }
+
+    if (isPoseidonBuff) {
+      return Math.max(6, roll);
+    }
+
+    return roll;
+  }, [isPoseidonBuff, isZeusDebuff]);
+
   const handleRollResult = async (result: number) => {
     if (alreadyTrained || currentRollIndex >= 5) return;
+
+    const effectiveResult = applyDeityRollEffect(result);
 
     // Update current paper with roll result
     const newPapers = [...papers];
     newPapers[currentRollIndex] = {
       ...newPapers[currentRollIndex],
-      roll: result + (hasCampTShirt ? 2 : 0),
+      roll: effectiveResult + (hasCampTShirt ? 2 : 0),
       rolled: true,
     };
     setPapers(newPapers);
@@ -484,6 +516,8 @@ export default function TrainWithAdmin() {
                 <div className="train-with-admin__paper-divider"></div>
                 <div className="train-with-admin__paper-result" style={hasCampTShirt ? { marginRight: '16px', color: '#ff4005' } : {}}>
                   {paper.roll}
+                  {isZeusDebuff && <span className="train-with-admin__paper-bonus train-with-admin__paper-bonus--zeus">-2 <Zeus /></span>}
+                  {isPoseidonBuff && <span className="train-with-admin__paper-bonus train-with-admin__paper-bonus--poseidon">min 6 <Poseidon /></span>}
                   {hasCampTShirt && <span className="train-with-admin__paper-bonus">+2 <Shirt /></span>}
                 </div>
                 <div className={`train-with-admin__paper-status ${paper.roll! >= paper.target ? 'passed' : 'failed'}`}>
@@ -556,6 +590,20 @@ export default function TrainWithAdmin() {
 
       {showDieNotice && (
         <DieNoticeModal die={die} onClose={() => setShowDieNotice(false)} />
+      )}
+
+      {zeusOrPoseidonNotice && isZeusDebuff && (
+        <ZeusOrPoseidonNoticeModal
+          deity={DEITY.ZEUS}
+          onClose={() => setZeusOrPoseidonNotice(false)}
+        />
+      )}
+
+      {zeusOrPoseidonNotice && isPoseidonBuff && (
+        <ZeusOrPoseidonNoticeModal
+          deity={DEITY.POSEIDON}
+          onClose={() => setZeusOrPoseidonNotice(false)}
+        />
       )}
     </div>
   );

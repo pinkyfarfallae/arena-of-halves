@@ -876,7 +876,6 @@ export const UI_TEXT = {
     en: 'Training is cut off for today since you have reached midnight. Please come back tomorrow.',
     th: 'เที่ยงคืนแล้ว การฝึกของคุณจบลงแล้วสำหรับวันนี้\nกรุณากลับมาที่นี่ในวันพรุ่งนี้'
   },
-
   // Hypnos Die Cursed
   HYPNOS_DIE_CURSED_TITLE: {
     en: 'Hypnos Cursed Your Die!',
@@ -886,7 +885,6 @@ export const UI_TEXT = {
     en: 'Hypnos has laid a curse upon your die, warping it into a mere 10-faced die. Fortune may favor you next time.',
     th: 'ฮิปนอสได้สาปลูกเต๋าของคุณให้กลายเป็นเพียงลูกเต๋าที่มีแค่ 10 หน้า ขอให้โชคจงเข้าข้างคุณในครั้งหน้า'
   },
-
   // Tyche Die Blessed
   TYCHE_DIE_BLESSED_TITLE: {
     en: 'Tyche Blessed Your Die!',
@@ -895,6 +893,22 @@ export const UI_TEXT = {
   TYCHE_DIE_BLESSED_MESSAGE: {
     en: 'Tyche has blessed your die,\ntransforming it into a mighty 20-faced die.\nFortune smiles upon you!',
     th: 'ไทคีได้อวยพรลูกเต๋าของคุณ\nลูกเต๋าของคุณจะมีถึง 20 หน้า โชคเข้าข้างคุณแล้ว!'
+  },
+  ZEUS_DIE_CURSED_TITLE : {
+    en: 'Zeus disrupted Your Die!',
+    th: 'ซุสสาปลูกเต๋าของคุณ!'
+  },
+  ZEUS_DIE_CURSED_MESSAGE: {
+    en: 'Zeus has disrupted your die to minus 2 on result. Fortune may favor you next time.',
+    th: 'ซุสได้สาปลูกเต๋าของคุณให้ลด 2 จากผลลัพธ์ที่คุณได้ ขอให้โชคจงเข้าข้างคุณในครั้งหน้า'
+  },
+  POSEIDON_DIE_BLESSED_TITLE: {
+    en: 'Poseidon Strengthened Your Die!',
+    th: 'โพไซดอนอวยพรลูกเต๋าของคุณ!'
+  },
+  POSEIDON_DIE_BLESSED_MESSAGE: {
+    en: 'By Poseidon\'s grace, your die cannot fall beneath 6. Luck stands at your side.',
+    th: 'โพไซดอนได้อวยพรลูกเต๋าของคุณ คุณจะไม่มีทางทอยเต๋าได้ต่ำกว่า 6 โชคเข้าข้างคุณแล้ว!'
   },
   // Nemesis's Cookie
   NEMESIS_COOKIE_BUTTON_LABEL: {
@@ -933,7 +947,7 @@ export const UI_TEXT = {
   BIG_HOUSE_SUBMISSION_ON: {
     en: 'Submission on',
     th: 'รายงานเมื่อ',
-  }
+  },
 } as const;
 
 /**))

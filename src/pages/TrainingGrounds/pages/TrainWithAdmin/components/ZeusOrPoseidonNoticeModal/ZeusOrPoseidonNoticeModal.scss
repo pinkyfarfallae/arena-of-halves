@@ -1,0 +1,116 @@
+@import '../../../../../../styles/variables';
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 350;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.zeus-or-poseidon-notice-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  background: rgb(255, 255, 255);
+  border-radius: 8px;
+  padding: 1.5rem 1.5rem 0;
+  box-shadow: 0 4px 15px rgba(var(--deity-primary-rgb), 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 400px;
+  max-width: 400px;
+  gap: 1.2rem;
+  z-index: 351;
+
+  @media (max-width: $bp-medium) {
+    min-width: 350px;
+    max-width: 350px;
+    gap: 1rem;
+  }
+
+  @media (max-width: $bp-compact) {
+    min-width: 300px;
+    max-width: 300px;
+    gap: 0.9rem;
+  }
+
+  &__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--deity-primary, #6a0dad);
+
+    @media (max-width: $bp-medium) {
+      font-size: 1.1rem;
+    }
+
+    @media (max-width: $bp-compact) {
+      font-size: 1rem;
+    }
+  }
+
+  &__message {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #5d5d5d;
+    text-align: center;
+    white-space: pre-wrap;
+    width: 90%;
+
+    @media (max-width: $bp-medium) {
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: $bp-compact) {
+      width: 100%;
+      font-size: 0.8rem;
+      white-space: normal;
+    }
+  }
+
+  &__close-button {
+    margin: 0.5rem -1.5rem 0;
+    width: calc(100% + 3rem);
+    padding: 0.75rem 1rem;
+    background: linear-gradient(90deg,
+        var(--deity-primary) 0%,
+        color-mix(in srgb, var(--deity-primary) 30%, var(--ci-primary)) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 0 0 8px 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+
+    @media (max-width: $bp-medium) {
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: $bp-compact) {
+      font-size: 0.75rem;
+    }
+
+    &:hover {
+      background: linear-gradient(90deg,
+          color-mix(in srgb, var(--deity-primary) 90%, black) 0%,
+          color-mix(in srgb, color-mix(in srgb, var(--deity-primary) 85%, black) 30%, color-mix(in srgb, var(--ci-primary) 70%, black)) 100%);
+    }
+  }
+}

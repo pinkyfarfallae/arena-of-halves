@@ -199,6 +199,9 @@
       font-weight: bold;
       opacity: 0.9;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       color: var(--foreground-color);
       text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
 
@@ -243,6 +246,21 @@
       svg {
         width: 14px;
         height: 14px;
+      }
+
+      &--zeus {
+        color: #b29800;
+      }
+
+      &--poseidon {
+        color: #0e70d3;
+      }
+
+      &--zeus,
+      &--poseidon {
+        position: relative;
+        left: unset;
+        text-shadow: none;
       }
 
       @media (max-width: $bp-medium) {
