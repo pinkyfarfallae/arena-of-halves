@@ -48,10 +48,16 @@ import * as PersephoneService from './persephone';
 import { DEITY, Deity } from '../../constants/deities';
 import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { getDiceSize } from '../../utils/getDiceSize';
+import { SECRET_CHARACTERS } from '../../constants/characters';
 import { NEMESIS_RETALIATION } from '../../constants/iris';
 import { nikeAwardedAfterWinTheFight } from '../irisWish/applyWishesEffect';
 
 /* ── helpers ─────────────────────────────────────────── */
+
+function isSecretCharacter(characterId?: string): boolean {
+  if (!characterId) return false;
+  return SECRET_CHARACTERS.includes(characterId.toLowerCase());
+}
 
 /**
  * Roll a D4 to check for critical hit.
@@ -580,6 +586,7 @@ export async function createRoom(
   teamAMax: number = 1,
   teamBMax?: number,
   extraFields?: Partial<BattleRoom>,
+  creatorCharacterId?: string,
 ): Promise<string> {
   let arenaId = generateArenaId();
 
@@ -611,6 +618,7 @@ export async function createRoom(
     teamA: { members: teamAMembers, maxSize: maxA, minions: [] },
     teamB: { members: [], maxSize: maxB, minions: [] },
     viewers: {},
+    secretMode: isSecretCharacter(creatorCharacterId),
     createdAt: Date.now(),
     ...extraFields,
   };
@@ -734,13 +742,19 @@ export async function getRoom(arenaId: string): Promise<BattleRoom | null> {
 
 /* ── list all active rooms (for viewer lobby) ─────────── */
 
-export function onRoomsList(callback: (rooms: BattleRoom[]) => void): () => void {
+export function onRoomsList(callback: (rooms: BattleRoom[]) => void, viewerCharacterId?: string): () => void {
   const arenasRef = ref(db, FIREBASE_PATHS.ARENAS);
   const handler = onValue(arenasRef, (snap) => {
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
-        .filter((r) => r.status !== ROOM_STATUS.CONFIGURING && !r.practiceMode)
+        .filter((r) => {
+          // Filter out configuring and practice arenas
+          if (r.status === ROOM_STATUS.CONFIGURING || r.practiceMode) return false;
+          // Filter out secret arenas if viewer is not a secret character
+          if (r.secretMode && !isSecretCharacter(viewerCharacterId)) return false;
+          return true;
+        })
         .sort((a, b) => b.createdAt - a.createdAt));
     setTimeout(() => callback(rooms), 0);
   });

@@ -3,6 +3,12 @@ export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 const DEPLOYMENT_ID = 'AKfycbzLNGoDviTk_MZEEqBkKk45WaQbP4dzzXn-ONZP4FzuGeqnOtPuRKfgo8fOB-BPH-NE';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
+export const SECRET_SHEET_ID = '1aIzkjzkP6WaW-CgLbckPEqV4xYdJbITZOJwFPUkdUHw';
+export const SECRET_GID = {
+  USER: '0',
+  CHARACTER: '927608720',
+} as const;
+
 export const GID = {
   CHARACTER: '0',
   USER: '1495840634',
@@ -21,3 +27,6 @@ export type SheetKey = keyof typeof GID;
 
 export const csvUrl = (gid: string) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}&_t=${Date.now()}&r=${Math.random()}`;
+
+export const secretCsvUrl = (gid: string) =>
+  `https://docs.google.com/spreadsheets/d/${SECRET_SHEET_ID}/export?format=csv&gid=${gid}&_t=${Date.now()}&r=${Math.random()}`;

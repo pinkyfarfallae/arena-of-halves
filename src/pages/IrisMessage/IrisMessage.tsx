@@ -163,7 +163,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
               }
             });
             unsubscribe();
-          });
+          }, user?.characterId);
         }
       }, 2200);
     }
@@ -200,7 +200,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         }
       });
       unsubscribe();
-    });
+    }, user?.characterId);
   }, [user?.characterId, pendingChoices]);
 
   const deityLabel = useMemo(() => wish?.deity ?? '', [wish]);

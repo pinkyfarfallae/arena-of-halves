@@ -21,6 +21,7 @@ import SettingsModal from '../SettingsModal/SettingsModal';
 import './Navbar.scss';
 import { isLifeSubPage } from '../../data/lifeSubPage';
 import Dice from './icons/Dice';
+import { SECRET_CHARACTERS } from '../../constants/characters';
 
 /* ── Theme Picker Panel ── */
 function ThemePicker({ colors, deityBlood, onClose, onSave }: {
@@ -195,7 +196,7 @@ function Navbar() {
       {/* Mobile dropdown menu */}
       {open && <div className="topbar-backdrop" onClick={close} />}
       <div className={`topbar-menu ${open ? 'topbar-menu--open' : ''}`}>
-        {isAdmin && (
+        {isAdmin && !SECRET_CHARACTERS.includes(user?.characterId || '') && (
           <NavLink to="/admin" className={({ isActive }) => `topbar-menu__item topbar-menu__item--admin ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
             <Shield />
             <span>{t(T.ADMIN_MANAGER)}</span>
