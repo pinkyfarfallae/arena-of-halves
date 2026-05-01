@@ -26,8 +26,8 @@ import { PRACTICE_MODE } from '../../../../constants/practice';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 import Athena from '../../../../data/icons/deities/Athena';
-import Tyche from '../../../../data/icons/deities/Tyche';
 import { updateTrainingPoints } from '../../../../services/training/trainingPoints';
+import { logActivity } from '../../../../services/activityLog/activityLogService';
 import './TrainingApproval.scss';
 import Crown from '../../../../icons/Crown';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
@@ -263,6 +263,7 @@ function TrainingApproval() {
 
       // Apps Script verifyTraining already awards base TP + fortune bonus (withFullLevelFortune ? 2 : 1).
       // Only award extra TPs here for Athena blessing (+1) and Athena+Fortune combo (+1).
+      const baseTP = approveData.withFullLevelFortune ? 2 : 1;
       let pointsAwarded = 0;
       if (approveData.isTraineeBlessedByAthena && approveData.reward > 0) {
         pointsAwarded += 1;
@@ -270,8 +271,29 @@ function TrainingApproval() {
       if (approveData.isTraineeBlessedByAthena && approveData.withFullLevelFortune && approveData.reward > 0) {
         pointsAwarded += 1;
       }
+
+      // Log the base TP that Apps Script awarded (it can't call Firestore itself)
+      logActivity({
+        category: 'stat',
+        action: 'approve_training',
+        characterId: reviewingTask.userId,
+        performedBy: user?.characterId || 'admin',
+        amount: baseTP,
+        metadata: {
+          source: 'admin_training_approval',
+          date: reviewingTask.date,
+          withFullLevelFortune: approveData.withFullLevelFortune,
+          isAthena: approveData.isTraineeBlessedByAthena,
+          athenaBonus: pointsAwarded,
+          totalTP: baseTP + pointsAwarded,
+        },
+      });
+
       if (pointsAwarded > 0) {
-        await updateTrainingPoints(reviewingTask.userId, pointsAwarded);
+        await updateTrainingPoints(reviewingTask.userId, pointsAwarded, {
+          performedBy: user?.characterId || 'admin',
+          source: 'admin_training_approval_athena_bonus',
+        });
       }
 
     } catch (error) {
@@ -339,6 +361,14 @@ function TrainingApproval() {
         TRAINING_POINT_REQUEST_STATUS.REJECTED,
         user?.characterId || 'admin'
       );
+      logActivity({
+        category: 'stat',
+        action: 'reject_training',
+        characterId: reviewingTask.userId,
+        performedBy: user?.characterId || 'admin',
+        amount: 0,
+        metadata: { source: 'admin_training_approval', date: reviewingTask.date },
+      });
     } catch (error) {
       // console.error('Failed to reject training task:', error);
       return;

@@ -10,7 +10,8 @@ import { logActivity } from '../activityLog/activityLogService';
  */
 export async function updateTrainingPoints(
   characterId: string,
-  amount: number
+  amount: number,
+  options?: { performedBy?: string; source?: string }
 ): Promise<{ 
   success?: boolean; 
   characterId?: string;
@@ -35,9 +36,9 @@ export async function updateTrainingPoints(
         category: 'stat',
         action: amount >= 0 ? 'add_training_points' : 'deduct_training_points',
         characterId,
-        performedBy: characterId,
+        performedBy: options?.performedBy ?? characterId,
         amount: Math.abs(amount),
-        metadata: { source: 'training_grounds', previous: data.previous, current: data.current },
+        metadata: { source: options?.source ?? 'training_grounds', previous: data.previous, current: data.current },
       });
     }
     return data;
