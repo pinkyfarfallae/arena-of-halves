@@ -79,7 +79,7 @@ import CheckIcon from './icons/Check';
 import Eye from '../../icons/Eye';
 import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
-import { getDiceSize } from '../../utils/getDiceSize';
+import { getDiceSize, tycheAdvantageRoll } from '../../utils/getDiceSize';
 import { PRACTICE_STATES } from '../../constants/practice';
 import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { getTodayDate } from '../../utils/date';
@@ -845,7 +845,8 @@ function Arena(props?: ArenaDemoProps) {
       const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
       const atkFighter = membersAll.find((m: any) => m.characterId === turn.attackerId);
       const diceSize = getDiceSize(atkFighter?.wishOfIris);
-      const roll = Math.floor(Math.random() * diceSize) + 1;
+      const rawRoll = Math.floor(Math.random() * diceSize) + 1;
+      const roll = atkFighter?.wishOfIris === DEITY.TYCHE ? tycheAdvantageRoll(rawRoll) : rawRoll;
       schedule(() => submitAttackRoll(arenaId, roll), 1200);
       return;
     }
@@ -856,7 +857,8 @@ function Arena(props?: ArenaDemoProps) {
       const membersAll = [...toArr(room.teamA?.members), ...toArr(room.teamB?.members)];
       const defFighter = membersAll.find((m: any) => m.characterId === turn.defenderId);
       const diceSize = getDiceSize(defFighter?.wishOfIris);
-      const roll = Math.floor(Math.random() * diceSize) + 1;
+      const rawRoll = Math.floor(Math.random() * diceSize) + 1;
+      const roll = defFighter?.wishOfIris === DEITY.TYCHE ? tycheAdvantageRoll(rawRoll) : rawRoll;
       schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
       return;
     }
@@ -1501,6 +1503,10 @@ function Arena(props?: ArenaDemoProps) {
         setOriginalAttackRollBeforeBuff(roll);
       }
       await submitAttackRoll(arenaId, modifiedRoll);
+    } else if (attackerTodayWishOfIris === DEITY.TYCHE) {
+      // Submit advantage roll (Tyche: max of two D20 rolls)
+      const modifiedRoll = tycheAdvantageRoll(roll);
+      await submitAttackRoll(arenaId, modifiedRoll);
     } else {
       await submitAttackRoll(arenaId, roll);
     }
@@ -1537,6 +1543,10 @@ function Arena(props?: ArenaDemoProps) {
       } else {
         setOriginalDefendRollBeforeBuff(roll);
       }
+      await submitDefendRoll(arenaId, modifiedRoll);
+    } else if (defenderTodayWishOfIris === DEITY.TYCHE) {
+      // Submit advantage roll (Tyche: max of two D20 rolls)
+      const modifiedRoll = tycheAdvantageRoll(roll);
       await submitDefendRoll(arenaId, modifiedRoll);
     } else {
       await submitDefendRoll(arenaId, roll);

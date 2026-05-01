@@ -184,13 +184,13 @@ export const tryAwardNikeBonusDrachma = async (userId: string): Promise<boolean>
     if (!snap.exists()) return false;
 
     const wish = snap.data() as IrisWishDoc;
-    
+
     // Check if it's a Nike wish and not canceled
     if (wish.deity !== DEITY.NIKE || wish.canceled) return false;
 
     // Get current bonus count (default 0)
     const currentCount = wish.nikeBonus100DCount ?? 0;
-    
+
     // Check if already awarded 2 times
     if (currentCount >= 2) return false;
 
@@ -209,26 +209,26 @@ export const tryAwardNikeBonusDrachma = async (userId: string): Promise<boolean>
 
 /** Fallback data if fetch fails */
 export const WISHES_FALLBACK: Wish[] = [
-  { deity: DEITY.ZEUS, name: 'ราชันย์เหนือนภา', description: 'การต่อสู้/ฝึกฝนในวันนี้แต้มเต๋าทุกประเภท -2' },
-  { deity: DEITY.HERA, name: 'มาตาแห่งนารี', description: 'ไม่สามารถร่วมกิจกรรมที่มีการต่อสู้ในวันนั้นได้' },
-  { deity: DEITY.POSEIDON, name: 'เขย่าโลกา', description: 'การทอยเต๋าในวันนี้ ถ้าน้อยกว่า 6 จะปัดเป็น 6' },
-  { deity: DEITY.DEMETER, name: 'สตรีสี่ฤดู', description: 'การทำไร่สตรอเบอร์รี่วันนี้จะได้รับเงินตอบแทน x2' },
-  { deity: DEITY.ARES, name: 'อสูรสงคราม', description: 'การต่อสู้ในวันนี้ ดาเมจแรงขึ้น 1 หน่วย' },
-  { deity: DEITY.ATHENA, name: 'เนตรเทาเชาว์ปัญญา', description: 'การฝึกฝนในวันนี้ เมื่อฝึกสำเร็จ 1 ครั้ง จะได้รับ โควตาอัพสเตตัส 2 พอยท์ (แค่การฝึกครั้งแรก)' },
-  { deity: DEITY.APOLLO, name: 'ลำนำพิณสุริยัน', description: 'เงินรางวัลจากเควสบอร์ดเพิ่มเป็น 2 เท่า (มีผลแค่ 3 เควสแรกที่ทำเท่านั้น)' },
-  { deity: DEITY.ARTEMIS, name: 'คันศรจันทรา', description: 'การต่อสู้ภายในวันนี้ ความเร็ว +3 หน่วย' },
-  { deity: DEITY.HEPHAESTUS, name: 'หัตถ์ผู้รังสรรค์', description: 'วันนี้ อุปกรณ์สวมใส่จะนับว่าเป็นขั้นที่สูงกว่า 1 ขั้น' },
-  { deity: DEITY.APHRODITE, name: 'พิราบเลอโฉม', description: 'ได้รับเสน่ห์ ทำให้ NPC จะ Quote พูดถึงคุณแบบสุ่ม' },
-  { deity: DEITY.HERMES, name: 'นาคาเพทุบาย', description: 'ได้รับตั๋วลดราคา 30% ในร้านค้า 1 ใบ' },
-  { deity: DEITY.DIONYSUS, name: 'รัญจวนเมรัย', description: 'ภายในวันนี้จะสามารถรับเควสบอร์ดได้แค่ 1 เควส' },
-  { deity: DEITY.HADES, name: 'เงาพิภพนิฬกาล', description: 'การต่อสู้ภายในวันนั้น หากตาย จะฟื้นคืนชีพขึ้นมาเลือดเต็ม 1 ครั้ง' },
-  { deity: DEITY.IRIS, name: 'สาส์นผ่านสายรุ้ง', description: 'ได้รับข้อความไอริสปริศนาแบบสุ่ม 1 คำ' },
-  { deity: DEITY.HYPNOS, name: 'นิทราเงียบงัน', description: 'แต้มเต๋าหน้าสูงสุดลดลง จาก (d12) เหลือ (d10)' },
-  { deity: DEITY.NEMESIS, name: 'ตราชั่งแห่งกรรม', description: 'การต่อสู้/ฝึกฝนในวันนี้ เมื่อป้องกันการโจมตีได้ จะโจมตีสวนกลับไป ทำดาเมจ 1 หน่วย' },
-  { deity: DEITY.NIKE, name: 'ปีกนำชัยชนะ', description: 'เมื่อต่อสู้ใด ๆ และชนะในวันนี้ จะได้รับเงิน 100$' },
+  { deity: DEITY.ZEUS, name: 'ราชันย์เหนือนภา', description: 'ในการฝึกฝนและการต่อสู้ในวันนี้ ผลลัพธ์การทอยเต๋าทุกประเภทติดลบ 2' },
+  { deity: DEITY.HERA, name: 'มาตาแห่งนารี', description: 'ไม่สามารถเข้าร่วมการฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้ได้' },
+  { deity: DEITY.POSEIDON, name: 'เขย่าโลกา', description: 'ในห้องทอยเต๋าฝึกฝน การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้\nหากผลลัพธ์การทอยเต๋าน้อยกว่า 6 จะถูกนับเป็น 6 เสมอ' },
+  { deity: DEITY.DEMETER, name: 'สตรีสี่ฤดู', description: 'การทำไร่สตรอเบอร์รี่วันนี้ ผลตอบแทนสุดท้ายที่ได้รับจะเพิ่มเป็น 2 เท่า' },
+  { deity: DEITY.ARES, name: 'อสูรสงคราม', description: 'การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้จะสามารถทำดาเมจได้แรงขึ้น 1 หน่วย' },
+  { deity: DEITY.ATHENA, name: 'เนตรเทาเชาว์ปัญญา', description: 'เมื่อส่งผลการฝึกฝนในวันนี้สำเร็จ จะได้รับ Training Point เพิ่มเติมอีก 1 คะแนน\nโดยหากฝึกโดยการทอยเต๋ากับสต๊าฟ จะต้องอยู่ในเงื่อนไขที่ทอยชนะสต๊าฟ' },
+  { deity: DEITY.APOLLO, name: 'ลำนำพิณสุริยัน', description: 'เงินรางวัลจากเควสบอร์ดที่ส่งและได้รับผลตอบแทนในวันนี้จะเพิ่มเป็น 2 เท่า\nโดยมีผลแค่ 3 เควสแรกที่ส่งเท่านั้น\n(กรุณาแคปเจอร์รูปพรส่งไดเรคแมสเมจให้สตาฟ)' },
+  { deity: DEITY.ARTEMIS, name: 'คันศรจันทรา', description: 'การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้\nจะมี 𝐒𝐩𝐞𝐞𝐝 เพิ่มขึ้น 3 หน่วย' },
+  { deity: DEITY.HEPHAESTUS, name: 'หัตถ์ผู้รังสรรค์', description: 'ในวันนี้ อุปกรณ์สวมใส่ที่ใส่ในระบบต่อสู้ จะนับว่าเป็นขั้นที่สูงกว่า 1 ขั้น' },
+  { deity: DEITY.APHRODITE, name: 'พิราบเลอโฉม', description: 'เอ็นพีซีจะโควทพูดถึงผู้เล่นแบบสุ่ม\n(กรุณาแคปเจอร์รูปพรส่งไดเรคแมสเมจให้สตาฟ)' },
+  { deity: DEITY.HERMES, name: 'นาคาเพทุบาย', description: 'ได้รับตั๋วลดราคา 30% สำหรับใช้ในร้านค้า 1 ใบ' },
+  { deity: DEITY.DIONYSUS, name: 'รัญจวนเมรัย', description: 'วันนี้รับเควสบอร์ดได้แค่ 1 เควส\n(กรุณาแคปเจอร์รูปพรส่งไดเรคแมสเมจให้สตาฟ)' },
+  { deity: DEITY.HADES, name: 'เงาพิภพนิฬกาล', description: 'การการฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้\nหากตายจะฟื้นคืนชีพขึ้นมาด้วยเลือดเต็มจำนวนได้ 1 ครั้ง' },
+  { deity: DEITY.IRIS, name: 'สาส์นผ่านสายรุ้ง', description: 'ได้รับข้อความไอริสปริศนาแบบสุ่ม 1 คำ\n(กรุณาแคปเจอร์รูปพรส่งไดเรคแมสเมจให้สตาฟ)' },
+  { deity: DEITY.HYPNOS, name: 'นิทราเงียบงัน', description: 'ในห้องทอยเต๋าฝึกฝน การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้\nแต้มเต๋าหน้าสูงสุดลดลง จาก D12 เหลือ D10\nแต่ยังสามารถได้รับผลจากแต้มบวกเต๋าได้อยู่' },
+  { deity: DEITY.NEMESIS, name: 'ตราชั่งแห่งกรรม', description: 'การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้ เมื่อป้องกันการโจมตีได้\nจะโจมตีสวนกลับไป ทำดาเมจ 1 หน่วย' },
+  { deity: DEITY.NIKE, name: 'ปีกนำชัยชนะ', description: 'การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้ ชนะในวันนี้\nจะได้รับเงิน 100 ดรัคมาโดยพรนี้จะแสดงแค่ 2 รอบเท่านั้น' },
   { deity: DEITY.HEBE, name: 'ธาราอมฤต', description: 'ได้รับโพชั่นไซส์ S 1 ขวด' },
-  { deity: DEITY.TYCHE, name: 'วงล้อโชคลาภ', description: 'แต้มเต๋าหน้าสูงสุดเพิ่มขึ้น จาก (d12) เป็น (d15)' },
-  { deity: DEITY.HECATE, name: 'ม่านหมอกมนตรา', description: 'ได้รับแต้มอัพ ทักษะ 1 แต้ม' },
+  { deity: DEITY.TYCHE, name: 'วงล้อโชคลาภ', description: 'ในห้องทอยเต๋าฝึกฝน การฝึกแบบตัวต่อตัวและการต่อสู้ในวันนี้ แต้มเต๋าหน้าสูงสุดเพิ่มขึ้นจาก D12 เป็น D20 และยังสามารถได้รับผลจากแต้มบวกเต๋าได้อยู่' },
+  { deity: DEITY.HECATE, name: 'ม่านหมอกมนตรา', description: 'ได้รับ Training Point ทันที 1 คะแนน' },
 ];
 
 /** Wishes associated with battle */
