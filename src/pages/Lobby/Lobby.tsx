@@ -74,9 +74,9 @@ function Lobby() {
   };
 
   useEffect(() => {
-    const unsub = onRoomsList(setActiveRooms);
+    const unsub = onRoomsList(setActiveRooms, user?.characterId);
     return unsub;
-  }, []);
+  }, [user?.characterId]);
 
   useEffect(() => {
     if (!user) return;

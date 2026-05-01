@@ -381,6 +381,8 @@ export interface BattleRoom {
   battle?: BattleState;
   testMode?: boolean;
   practiceMode?: boolean;
+  /** Secret mode: only visible to secret characters (RENESSME, ROSCOE) */
+  secretMode?: boolean;
   /** Dev arena (config modal): auto-run NPC / other-side turns; default true */
   devNpcAutoPlay?: boolean;
   /** Dev arena: host acts every fighter (disables NPC auto script; UI treats current attacker as you) */
