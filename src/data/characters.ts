@@ -2,20 +2,21 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo } from '../types/character';
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
-import { GID, csvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
+import { GID, SECRET_GID, csvUrl, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { DEITY, Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { BagData } from '../types/character';
-import { CHARACTER, HIDDEN_AMPHITRITE_FOR } from '../constants/characters';
+import { CHARACTER, HIDDEN_AMPHITRITE_FOR, SECRET_CHARACTERS } from '../constants/characters';
 
 export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo };
 export type { PowerDefinition };
 export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
 const characterCsvUrl = () => csvUrl(GID.CHARACTER);
+const secretCharacterCsvUrl = () => secretCsvUrl(SECRET_GID.CHARACTER);
 
 function parseTheme(raw: string, deity?: string): Theme25 {
   const cleaned = raw.replace(/"/g, '').trim();
@@ -150,7 +151,10 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
 }
 
 export async function fetchCharacter(characterId: string): Promise<Character | null> {
-  const res = await fetch(characterCsvUrl());
+  const isSecret = SECRET_CHARACTERS.includes(characterId.toLowerCase());
+  const url = isSecret ? secretCharacterCsvUrl() : characterCsvUrl();
+
+  const res = await fetch(url);
   const text = await res.text();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return null;
@@ -170,8 +174,8 @@ export async function fetchCharacter(characterId: string): Promise<Character | n
   return null;
 }
 
-export async function fetchAllCharacters(user?: Character): Promise<Character[]> {
-  const res = await fetch(characterCsvUrl());
+async function fetchSecretCharacters(): Promise<Character[]> {
+  const res = await fetch(secretCharacterCsvUrl());
   const text = await res.text();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
@@ -186,14 +190,44 @@ export async function fetchAllCharacters(user?: Character): Promise<Character[]>
     const id = cols[idIdx]?.trim();
     if (id) chars.push(rowToCharacter(headers, cols));
   }
+  return chars;
+}
 
-  // If not localhost, filter out test characters (IDs == "test")
-  if (user?.characterId !== 'test') {
-    return chars.filter(c => c.characterId.toLowerCase() !== 'test');
+export async function fetchAllCharacters(user?: Character): Promise<Character[]> {
+  const res = await fetch(characterCsvUrl());
+  const text = await res.text();
+  const lines = splitCSVRows(text);
+  if (lines.length < 2) return [];
+
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const idIdx = headers.indexOf('characterid');
+  if (idIdx === -1) return [];
+
+  let chars: Character[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const id = cols[idIdx]?.trim();
+    if (id) chars.push(rowToCharacter(headers, cols));
   }
 
-  if (HIDDEN_AMPHITRITE_FOR.includes(user?.characterId)) {
-    return chars.filter(c => c.deityBlood.toLowerCase() !== DEITY.AMPHITRITE.toLowerCase());
+  // Filter out test characters if viewer is not test
+  if (user?.characterId !== CHARACTER.TEST) {
+    chars = chars.filter(c => c.characterId.toLowerCase() !== CHARACTER.TEST);
+  }
+
+  // Filter out secret characters from the main list (they live in a separate sheet)
+  chars = chars.filter(c => !SECRET_CHARACTERS.includes(c.characterId.toLowerCase()));
+
+  // Hide Amphitrite characters for designated users
+  if ( user && HIDDEN_AMPHITRITE_FOR.includes(user.characterId as typeof HIDDEN_AMPHITRITE_FOR[number])) {
+    chars = chars.filter(c => c.deityBlood.toLowerCase() !== DEITY.AMPHITRITE.toLowerCase());
+  }
+
+  // Secret characters can only see each other — include secret chars only for secret viewers
+  const viewerIsSecret = SECRET_CHARACTERS.includes(user?.characterId?.toLowerCase() ?? '');
+  if (viewerIsSecret) {
+    const secretChars = await fetchSecretCharacters();
+    chars = [...chars, ...secretChars];
   }
 
   return chars;

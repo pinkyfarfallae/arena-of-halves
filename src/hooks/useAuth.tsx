@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Character, fetchCharacter } from '../data/characters';
-import { GID, csvUrl } from '../constants/sheets';
+import { GID, SECRET_GID, csvUrl, secretCsvUrl } from '../constants/sheets';
 import type { RoleName } from '../types/role';
 import { ROLE } from '../constants/role';
 import { loginCharacter, registerCharacter } from '../services/auth/firebaseAnonymous';
@@ -22,6 +22,7 @@ interface AuthContextType {
 interface UserRow { characterId: string; password: string; role: RoleName }
 
 const userCsvUrl = () => csvUrl(GID.USER);
+const secretUserCsvUrl = () => secretCsvUrl(SECRET_GID.USER);
 
 function toRole(raw: string): RoleName {
   const r = raw.toLowerCase().trim();
@@ -52,9 +53,11 @@ function parseCSV(csv: string): UserRow[] {
 }
 
 async function fetchUsers(): Promise<UserRow[]> {
-  const res = await fetch(userCsvUrl());
-  const text = await res.text();
-  return parseCSV(text);
+  const [mainText, secretText] = await Promise.all([
+    fetch(userCsvUrl()).then(r => r.text()),
+    fetch(secretUserCsvUrl()).then(r => r.text()).catch(() => ''),
+  ]);
+  return [...parseCSV(mainText), ...parseCSV(secretText)];
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

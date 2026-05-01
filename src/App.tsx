@@ -24,6 +24,7 @@ import { getUserDailyClaim, tryClaimToday, unmarkUserClaimedToday } from './serv
 import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator';
 import CampTreasury from './pages/CampTreasuryTransfer/CampTreasuryTransfer';
 import './App.scss';
+import { SECRET_CHARACTERS } from './constants/characters';
 
 export const applyTheme = (t: string[]): React.CSSProperties => {
   const primaryColor = (!isNearWhite(t[0]) ? t[0] : undefined) || t[0];
@@ -200,7 +201,7 @@ function AppShell() {
   return (
     <div className="app" style={themeVars}>
       <AppRoutes />
-      {user && showDailyGift && (
+      {user && showDailyGift && !SECRET_CHARACTERS.includes(user.characterId) && (
         <DailyGift
           amount={giftAmount}
           onClaim={async () => {
