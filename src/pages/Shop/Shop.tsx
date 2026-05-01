@@ -20,6 +20,7 @@ import { LANGUAGE } from '../../constants/language';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
 import { giveItem, consumeItem } from '../../services/bag/bagService';
 import { updateCharacterDrachma } from '../../services/character/currencyService';
+import { logActivity } from '../../services/activityLog/activityLogService';
 import { BAG_ITEM_TYPES } from '../../constants/bag';
 import { fetchItemInfo } from '../../data/characters';
 import './Shop.scss';
@@ -199,6 +200,23 @@ function Shop() {
 
       // Refresh user data to update currency display
       await refreshUser();
+
+      // Log the purchase
+      logActivity({
+        category: 'item',
+        action: 'shop_purchase',
+        characterId: user.characterId,
+        performedBy: user.characterId,
+        amount: cart.length,
+        metadata: {
+          source: 'shop',
+          items: cart.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
+          totalPrice,
+          finalPrice,
+          discountApplied: hasDiscount,
+          discountAmount: hasDiscount ? Math.round(totalPrice * 0.3) : 0,
+        },
+      });
 
       // Clear cart and show success
       setCart([]);

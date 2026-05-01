@@ -29,6 +29,7 @@ export const applyTheme = (t: string[]): React.CSSProperties => {
   const primaryColor = (!isNearWhite(t[0]) ? t[0] : undefined) || t[0];
   const darkColor = (!isNearWhite(t[1]) ? t[1] : undefined) || t[1];
   const textColor = contrastText(darkColor);
+  const bgAltTextColor = contrastText(t[12]);
   return {
     '--ci-primary': primaryColor,
     '--ci-primary-rgb': hexToRgb(primaryColor) || '255, 255, 255',
@@ -36,6 +37,8 @@ export const applyTheme = (t: string[]): React.CSSProperties => {
     '--ci-dark-rgb': hexToRgb(darkColor),
     '--ci-text-color': textColor,
     '--ci-text-color-rgb': hexToRgb(textColor),
+    '--ci-bg-alt-text': bgAltTextColor,
+    '--ci-bg-alt-text-rgb': hexToRgb(bgAltTextColor),
     '--ci-light': t[2],
     '--ci-accent': t[3],
     '--ci-bg': t[4],
