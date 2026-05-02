@@ -66,6 +66,7 @@ $crimson: #a0001b;
   gap: 0.5rem;
   width: 100%;
   margin-top: 0.5rem;
+  flex-wrap: wrap;
 
   @media (max-width: 600px) {
     margin-top: 0.3rem;
@@ -115,6 +116,45 @@ $crimson: #a0001b;
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+    }
+  }
+
+  &--experience-heal {
+    // Full width on next line to accommodate longer text, since "Ultimate" is longer than "Use Power"
+    min-width: 100%;
+
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--modal-dark, #4caf50) 8%, #fff),
+        color-mix(in srgb, #8ac68c 20%, transparent));
+    color: var(--modal-dark, #4caf50);
+    border-color: color-mix(in srgb, var(--modal-dark, #4caf50) 20%, transparent);
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg,
+          color-mix(in srgb, var(--modal-dark, #4caf50) 16%, #fff),
+          color-mix(in srgb, #8ac68c 30%, transparent));
+      border-color: color-mix(in srgb, var(--modal-dark, #4caf50) 35%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--modal-dark, #4caf50) 10%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &--skip-turn {
+    min-width: 100%;
+    font-size: 0.45rem;
+    padding: 0.4rem 0.3rem;
+    background: color-mix(in srgb, $ink 6%, #fff);
+    color: $ink;
+    border-color: color-mix(in srgb, $ink 15%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, $ink 12%, #fff);
+      border-color: color-mix(in srgb, $ink 30%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, $ink 10%, transparent);
     }
   }
 }
@@ -223,7 +263,7 @@ $crimson: #a0001b;
   animation: bhud-tooltip-in 0.12s ease-out;
 
   /* ── Formatted description lines ── */
-  > div {
+  >div {
     margin-top: 0.25rem;
 
     &:first-child {

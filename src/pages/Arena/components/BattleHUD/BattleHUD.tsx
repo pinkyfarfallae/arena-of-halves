@@ -7,7 +7,7 @@ import { db } from '../../../../firebase';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import type { BattleLogEntry, BattleState, FighterState } from '../../../../types/battle';
 import { buildBattlePlaybackEventKey } from '../../../../types/battle';
-import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterBlossomScentraHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom/battleRoom';
+import { checkCritical, getWinningFaces, advanceAfterShadowCamouflageD4, advanceAfterBlossomScentraHealD4, advanceAfterExperienceHealD4, advanceAfterSpringHealD4, advanceAfterDisorientedD4, ackAttackDiceShown, ackDefendDiceShown, ackPomegranateCoAttackDiceShown, ackPomegranateCoDefendDiceShown, effectiveKeraunosStep } from '../../../../services/battleRoom/battleRoom';
 import { getStatModifier } from '../../../../services/powerEngine/powerEngine';
 import type { SeasonKey } from '../../../../data/seasons';
 import WinBadge from './icons/Winner';
@@ -46,7 +46,6 @@ import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCKED } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
 import { DEITY } from '../../../../constants/deities';
-import { CHARACTER } from '../../../../constants/characters';
 
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
@@ -381,6 +380,11 @@ export default function BattleHUD({
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
+    if (turn?.action === TURN_ACTION.HEAL) {
+      const myTeam = turn.attackerTeam === BATTLE_TEAM.A ? teamA : teamB;
+      return (myTeam ?? []).filter((f) => f.currentHp > 0);
+    }
+
     // Death Keeper: show dead teammates instead of alive enemies
     if (turn?.usedPowerIndex != null && attacker) {
       const power = attackerPowers[turn.usedPowerIndex];
@@ -827,8 +831,13 @@ export default function BattleHUD({
     }
   }, [turn?.phase]);
 
-  // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
-  const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
+  // Skip card (turn skipped): same style as DamageCard, on attacker side
+  const [skipCard, setSkipCard] = useState<{
+    attackerName: string;
+    attackerTheme: string;
+    side: PanelSide;
+    byChoice: boolean;
+  } | null>(null);
 
   // No-target modal: track when shown so we can keep it visible at least 3s before skip
   const noTargetShownAtRef = useRef<number | null>(null);
@@ -1259,7 +1268,7 @@ export default function BattleHUD({
         (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
       const coDefTotal =
         (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-      if (coTotal <= coDefTotal || coTotal < 10) {
+      if (coTotal <= coDefTotal || coTotal <= 10) {
         setCritReady(true);
         return;
       }
@@ -1363,6 +1372,11 @@ export default function BattleHUD({
     const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
 
     if (atkTotal <= defTotal) {
+      setCritReady(true);
+      return;
+    }
+
+    if (atkTotal <= 10) {
       setCritReady(true);
       return;
     }
@@ -1672,12 +1686,14 @@ export default function BattleHUD({
 
   /* ── Heal crit (Blossom Scentra / Spring) + Shadow Camouflage refill: local roll on click so viewer dice start at same time ── */
   const [blossomHealRollLocal, setBlossomHealRollLocal] = useState<number | null>(null);
+  const [experienceHealRollLocal, setExperienceHealRollLocal] = useState<number | null>(null);
   const [springHealRollLocal, setSpringHealRollLocal] = useState<number | null>(null);
   const [shadowCamouflageRefillRollLocal, setShadowCamouflageRefillRollLocal] = useState<number | null>(null);
   const [disorientedRollLocal, setDisorientedRollLocal] = useState<number | null>(null);
   const [rapidFireD4RollLocal, setRapidFireD4RollLocal] = useState<number | null>(null);
   useEffect(() => {
     if (turn?.phase !== PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL) setBlossomHealRollLocal(null);
+    if (turn?.phase !== PHASE.ROLLING_EXPERIENCE_HEAL) setExperienceHealRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_SPRING_HEAL) setSpringHealRollLocal(null);
     if (!(turn?.phase === PHASE.RESOLVING && (turn as any)?.shadowCamouflageRefillWinFaces?.length)) setShadowCamouflageRefillRollLocal(null);
     if (turn?.phase !== PHASE.ROLLING_DISORIENTED_NO_EFFECT) setDisorientedRollLocal(null);
@@ -3097,6 +3113,7 @@ export default function BattleHUD({
           attackerName: atk?.nicknameEng ?? e.attackerId,
           attackerTheme: atk?.theme?.[0] ?? '#666',
           side,
+          byChoice: (e as any).skipReason === 'Player skipped turn',
         });
         break;
       }
@@ -3212,6 +3229,7 @@ export default function BattleHUD({
             attackerName: atk?.nicknameEng ?? entry.attackerId,
             attackerTheme: atk?.theme?.[0] ?? '#666',
             side,
+            byChoice: (entry as any).skipReason === 'Player skipped turn',
           });
           setTimeout(() => setSkipCard(null), HIT_DISPLAY_MS);
           return;
@@ -3517,7 +3535,7 @@ export default function BattleHUD({
                 {pomCoShowCoAsActiveAttacker && pomCoCasterFighter ? pomCoCasterFighter.nicknameEng : attacker.nicknameEng}
               </span>
               <span
-                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
+                className={`bhud__phase-label${turn.phase === PHASE.ROLLING_DISORIENTED_NO_EFFECT || turn.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL || turn.phase === PHASE.ROLLING_EXPERIENCE_HEAL || turn.phase === PHASE.ROLLING_SPRING_HEAL ? ' bhud__phase-label--dice-phase' : ''}`}
                 data-phase={turn.phase ?? undefined}
               >
                 {turn.phase &&
@@ -3605,6 +3623,7 @@ export default function BattleHUD({
           ) : targets.length > 0 ? (
             (() => {
               const isAllyHealTargetSelect = !!(turn?.usedPowerIndex != null && attacker && !turn?.allyTargetId && attacker.powers[turn.usedPowerIndex]?.target === TARGET_TYPES.ALLY && attacker.powers[turn.usedPowerIndex]?.name !== POWER_NAMES.DEATH_KEEPER);
+              const isExperienceHealTargetSelect = turn?.action === TURN_ACTION.HEAL;
               const selectedPoem = (turn as { selectedPoem?: string }).selectedPoem;
               const afflictionVerseTag =
                 turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM &&
@@ -3660,7 +3679,7 @@ export default function BattleHUD({
                   }
                   eternalAgonySelected={turn?.usedPowerName === POWER_NAMES.IMPRECATED_POEM && (turn as { selectedPoem?: string }).selectedPoem === EFFECT_TAGS.ETERNAL_AGONY}
                   activeEffects={battle?.activeEffects ?? []}
-                  healTargetSelect={isAllyHealTargetSelect}
+                  healTargetSelect={isAllyHealTargetSelect || isExperienceHealTargetSelect}
                   afflictionVerseTag={afflictionVerseTag}
                 />
               );
@@ -4116,6 +4135,45 @@ export default function BattleHUD({
                 advanceAfterBlossomScentraHealD4(arenaId).catch(() => { });
               }, REFILL_CARD_VIEW_MS);
             } : onBlossomScentraHealResultCardVisible}
+          />
+        );
+      })()}
+
+      {!winner && turn?.phase === PHASE.ROLLING_EXPERIENCE_HEAL && (turn as any).experienceHealWinFaces?.length > 0 && (() => {
+        const experienceHealWinFaces = (turn as any).experienceHealWinFaces ?? [];
+        const experienceHealRoll = (turn as any).experienceHealRoll;
+        const experienceHealRollDisplay = experienceHealRoll ?? experienceHealRollLocal;
+        const critPct = experienceHealWinFaces.length * 25;
+        return (
+          <RefillSPDiceModal
+            attacker={attacker}
+            isMyTurn={!!isMyTurn}
+            winFaces={experienceHealWinFaces}
+            roll={experienceHealRollDisplay}
+            atkSide={atkSide}
+            diceViewMs={REFILL_DICE_VIEW_MS}
+            resultViewMs={PLAYER_ROLL_RESULT_VIEW_MS}
+            title="Heal Crit"
+            subTitle={attacker ? `${attacker.nicknameEng} — D4 (${critPct}%)` : `D4 (${critPct}%)`}
+            wonText="HEAL x2!"
+            lostText="Normal Heal"
+            bonusLabel={`crit: ${[...experienceHealWinFaces].sort((a, b) => a - b).join(', ') || '—'}`}
+            onRollStart={arenaId && isMyTurn ? () => {
+              const roll = Math.ceil(Math.random() * 4);
+              update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { experienceHealRoll: roll }).catch(() => { });
+              setExperienceHealRollLocal(roll);
+            } : undefined}
+            onRoll={async (roll: number) => {
+              if (!arenaId) return;
+              try {
+                await update(ref(db, `arenas/${arenaId}/${ARENA_PATH.BATTLE_TURN}`), { experienceHealRoll: roll });
+                await new Promise((r) => setTimeout(r, REFILL_DICE_VIEW_MS + REFILL_CARD_VIEW_MS));
+                await advanceAfterExperienceHealD4(arenaId);
+              } catch (e) { }
+            }}
+            onResultCardVisible={arenaId ? () => {
+              window.setTimeout(() => advanceAfterExperienceHealD4(arenaId).catch(() => { }), REFILL_CARD_VIEW_MS);
+            } : undefined}
           />
         );
       })()}
@@ -4642,15 +4700,15 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
+      {/* Turn skipped — same style as DamageCard, on attacker side */}
       {skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${skipCard.side}`}>
           <div className="dmg-card dmg-card--power" style={{ '--card-atk': skipCard.attackerTheme, '--card-def': '#666' } as React.CSSProperties}>
             <div className="dmg-card__header">
               <span className="dmg-card__atkname" style={{ color: skipCard.attackerTheme }}>{skipCard.attackerName}</span>
             </div>
-            <span className="dmg-card__power">No valid target</span>
-            <span className="dmg-card__invoked">Turn skipped</span>
+            <span className="dmg-card__power">{skipCard.byChoice ? 'Skipped' : 'No valid target'}</span>
+            <span className="dmg-card__invoked">{skipCard.byChoice ? 'Player chose to skip' : 'Turn skipped'}</span>
           </div>
         </div>
       )}

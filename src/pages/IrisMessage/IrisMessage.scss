@@ -453,6 +453,10 @@ $orbit-radius-sm: 128px;
   z-index: 3;
   padding: 0 1rem;
   overflow: hidden;
+
+  @media (max-width: $bp-mobile) {
+    padding: 0 0.5rem;
+  }
 }
 
 /* ══════════════════════════════════════
@@ -512,6 +516,10 @@ $orbit-radius-sm: 128px;
 
   @media (max-width: $bp-medium) {
     transform: scale(0.9);
+  }
+
+  @media (max-width: $bp-mobile) {
+    transform: scale(1);
   }
 }
 
@@ -1720,8 +1728,9 @@ $orbit-radius-sm: 128px;
   max-height: 100%;
 
   @media (max-width: $bp-mobile) {
-    width: 300px;
-    gap: 0.2rem;
+    width: 100%;
+    max-width: 340px;
+    gap: 0.15rem;
   }
 }
 
@@ -1758,16 +1767,17 @@ $orbit-radius-sm: 128px;
   }
 
   @media (max-width: $bp-mobile) {
-    width: 170px;
-    height: 200px;
-    min-height: 200px;
+    width: 155px;
+    height: 195px;
+    min-height: 195px;
+    flex-shrink: 0;
 
     * {
-      transform: scale(0.975);
+      transform: scale(0.96);
     }
 
     .iris__card-desc {
-      font-size: 0.63rem;
+      font-size: 0.62rem;
     }
   }
 }

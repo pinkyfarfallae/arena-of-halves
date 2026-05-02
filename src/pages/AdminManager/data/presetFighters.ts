@@ -57,11 +57,17 @@ function makeFighter(
     passiveSkillPoint: SKILL_UNLOCKED,
     skillPoint: SKILL_UNLOCKED,
     ultimateSkillPoint: '',
-    technique: 0,
     quota: 2,
     maxQuota: 3,
     criticalRate: 25,
     powers: [],
+
+    strength: 0,
+    mobility: 0,
+    intelligence: 0,
+    technique: 0,
+    experience: 0,
+    fortune: 0,
   };
 }
 

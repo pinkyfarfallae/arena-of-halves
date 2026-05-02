@@ -35,7 +35,6 @@ import { useBag } from '../../../../hooks/useBag';
 import { ITEMS } from '../../../../constants/items';
 import Shirt from '../../../../icons/Shirt';
 import { ZeusOrPoseidonNoticeModal } from './components/ZeusOrPoseidonNoticeModal/ZeusOrPoseidonNoticeModal';
-import { tycheAdvantageRoll } from '../../../../utils/getDiceSize';
 import Zeus from '../../../../data/icons/deities/Zeus';
 import Poseidon from '../../../../data/icons/deities/Poseidon';
 interface PaperRoll {
@@ -212,10 +211,6 @@ export default function TrainWithAdmin() {
 
     if (isPoseidonBuff) {
       return Math.max(6, roll);
-    }
-
-    if (die === 20) {
-      return tycheAdvantageRoll(roll);
     }
 
     return roll;

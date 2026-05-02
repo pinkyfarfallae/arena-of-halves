@@ -79,7 +79,7 @@ import CheckIcon from './icons/Check';
 import Eye from '../../icons/Eye';
 import { CHARACTER } from '../../constants/characters';
 import { fetchNPCs } from '../../data/npcs';
-import { getDiceSize, tycheAdvantageRoll } from '../../utils/getDiceSize';
+import { getDiceSize } from '../../utils/getDiceSize';
 import { PRACTICE_STATES } from '../../constants/practice';
 import { fetchActiveTodayIrisWish } from '../../data/wishes';
 import { getTodayDate } from '../../utils/date';
@@ -846,7 +846,7 @@ function Arena(props?: ArenaDemoProps) {
       const atkFighter = membersAll.find((m: any) => m.characterId === turn.attackerId);
       const diceSize = getDiceSize(atkFighter?.wishOfIris);
       const rawRoll = Math.floor(Math.random() * diceSize) + 1;
-      const roll = atkFighter?.wishOfIris === DEITY.TYCHE ? tycheAdvantageRoll(rawRoll) : rawRoll;
+      const roll = rawRoll;
       schedule(() => submitAttackRoll(arenaId, roll), 1200);
       return;
     }
@@ -858,7 +858,7 @@ function Arena(props?: ArenaDemoProps) {
       const defFighter = membersAll.find((m: any) => m.characterId === turn.defenderId);
       const diceSize = getDiceSize(defFighter?.wishOfIris);
       const rawRoll = Math.floor(Math.random() * diceSize) + 1;
-      const roll = defFighter?.wishOfIris === DEITY.TYCHE ? tycheAdvantageRoll(rawRoll) : rawRoll;
+      const roll = rawRoll;
       schedule(() => submitDefendRoll(arenaId, roll), NPC_AUTO_DEFEND_DELAY_MS);
       return;
     }
@@ -1452,7 +1452,10 @@ function Arena(props?: ArenaDemoProps) {
 
   const handleCancelTarget = async () => {
     setSuppressHitAfterBack(true);
-    const hadPowerSelected = !!(room?.battle?.turn?.usedPowerName ?? lastConfirmedPowerName);
+    const currentTurn = room?.battle?.turn;
+    const hadPowerSelected = currentTurn?.action === TURN_ACTION.POWER
+      ? !!(currentTurn.usedPowerName ?? lastConfirmedPowerName)
+      : false;
     setLastConfirmedPowerName(null); /* so action modal shows again after back to SELECT_ACTION */
     setReturnFromTargetCancel(hadPowerSelected); /* only open on power list if they had confirmed a power; else Attack/Use power */
     if (suppressHitAfterBackTimerRef.current) clearTimeout(suppressHitAfterBackTimerRef.current);
@@ -1505,7 +1508,7 @@ function Arena(props?: ArenaDemoProps) {
       await submitAttackRoll(arenaId, modifiedRoll);
     } else if (attackerTodayWishOfIris === DEITY.TYCHE) {
       // Submit advantage roll (Tyche: max of two D20 rolls)
-      const modifiedRoll = tycheAdvantageRoll(roll);
+      const modifiedRoll = roll;
       await submitAttackRoll(arenaId, modifiedRoll);
     } else {
       await submitAttackRoll(arenaId, roll);
@@ -1546,7 +1549,7 @@ function Arena(props?: ArenaDemoProps) {
       await submitDefendRoll(arenaId, modifiedRoll);
     } else if (defenderTodayWishOfIris === DEITY.TYCHE) {
       // Submit advantage roll (Tyche: max of two D20 rolls)
-      const modifiedRoll = tycheAdvantageRoll(roll);
+      const modifiedRoll = roll;
       await submitDefendRoll(arenaId, modifiedRoll);
     } else {
       await submitDefendRoll(arenaId, roll);
