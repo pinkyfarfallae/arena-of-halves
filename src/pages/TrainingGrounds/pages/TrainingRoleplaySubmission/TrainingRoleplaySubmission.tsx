@@ -580,7 +580,7 @@ function TrainingRoleplaySubmission() {
                   key={task.id}
                   task={task}
                   focused={task.id === sheetTask?.id}
-                  onClick={sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING ? () => {
+                  onClick={sidebarView !== TRAINING_POINT_REQUEST_STATUS.APPROVED ? () => {
                     setSheetTask(task);
                   } : undefined}
                   forcedCompact

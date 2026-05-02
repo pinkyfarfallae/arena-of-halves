@@ -6,6 +6,7 @@ export const FIRESTORE_COLLECTIONS = {
   PLAYER_BAGS: 'playerBags',
   PLAYER_EQUIPMENT: 'playerEquipment',
   ACTIVITY_LOGS: 'ActivityLogs',
+  NPC_AFFINITY: 'npcAffinity',
 };
 
 export type FireStoreCollections = keyof typeof FIRESTORE_COLLECTIONS;

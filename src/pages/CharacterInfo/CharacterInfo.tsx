@@ -51,7 +51,7 @@ import { ITEMS } from '../../constants/items';
 import { useTranslation } from '../../hooks/useTranslation';
 import './CharacterInfo.scss';
 import { T } from '../../constants/translationKeys';
-import { getAffinityForCharacter } from '../../services/npcAffinityService';
+import { getAffinityForCharacter } from '../../services/user/npcAffinityService';
 import { fetchAllNPCs } from '../../data/npcs';
 import AffinityZone from './components/AffinityZone/AffinityZone';
 
