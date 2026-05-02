@@ -914,7 +914,7 @@ export async function applyNpcResolvingCritIfPending(
     const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
     const coTotal = (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
     const coDefTotal = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-    if (coTotal <= coDefTotal || coTotal < 10) return;
+    if (coTotal <= coDefTotal || coTotal <= 10) return;
     const critBuffCo = getStatModifier(effects, pomCoAtkId!, MOD_STAT.CRITICAL_RATE);
     const effectiveCrit = Math.max(coCaster.criticalRate, coCaster.criticalRate + critBuffCo);
     if (effectiveCrit <= 0) return;
@@ -961,7 +961,7 @@ export async function applyNpcResolvingCritIfPending(
   const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
   const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
   const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-  if (atkTotal <= defTotal || atkTotal < 10) return;
+  if (atkTotal <= defTotal || atkTotal <= 10) return;
 
   const critBuff = getStatModifier(effects, attackerId, MOD_STAT.CRITICAL_RATE);
   const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
@@ -1304,7 +1304,7 @@ function buildMasterPlaybackStep(
   const dmgBuff = getStatModifier(activeEffects, turn.attackerId, MOD_STAT.DAMAGE);
   const baseDmg = Math.max(0, attacker.damage + dmgBuff);
   let damage = baseDmg;
-  const isCrit = !!turn.isCrit;
+  const isCrit = at > dt && at > 10 && !!turn.isCrit;
   if (isCrit) damage *= 2;
   let shockBonus = 0;
   if (at > dt && turn.action !== TURN_ACTION.POWER) {
@@ -4941,7 +4941,7 @@ export async function applyDeferredPomegranateCoContinue(
       if (coHit) {
         const coDmgBuff = getStatModifier(activeEffects, casterId, MOD_STAT.DAMAGE);
         let coDmg = Math.max(0, caster.damage + coDmgBuff);
-        if (coTotal >= 10 && turn.isCrit) coDmg *= 2;
+        if (coTotal > 10 && turn.isCrit) coDmg *= 2;
         const coResolve = await resolveHitAtDefender(arenaId, room, defenderId, coDmg, updates, defender);
         const coDmgToMaster = coResolve.damageToMaster;
         if (coResolve.skippedMinionsPath) delete updates[coResolve.skippedMinionsPath];
@@ -6549,7 +6549,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         let rawDmg = baseDmg;
 
         // Critical hit: read from turn state (written by BattleHUD) or compute fallback
-        if (atkTotal >= 10) {
+        if (atkTotal > 10) {
           if (battle.turn.critRoll != null && battle.turn.critRoll > 0) {
             isCrit = !!battle.turn.isCrit;
             critRoll = battle.turn.critRoll;
