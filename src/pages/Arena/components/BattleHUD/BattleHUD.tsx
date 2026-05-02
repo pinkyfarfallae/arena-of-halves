@@ -46,7 +46,6 @@ import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCKED } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
 import { DEITY } from '../../../../constants/deities';
-import { CHARACTER } from '../../../../constants/characters';
 
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
@@ -832,8 +831,13 @@ export default function BattleHUD({
     }
   }, [turn?.phase]);
 
-  // Skip card (turn skipped — no valid target): same style as DamageCard, on attacker side
-  const [skipCard, setSkipCard] = useState<{ attackerName: string; attackerTheme: string; side: PanelSide } | null>(null);
+  // Skip card (turn skipped): same style as DamageCard, on attacker side
+  const [skipCard, setSkipCard] = useState<{
+    attackerName: string;
+    attackerTheme: string;
+    side: PanelSide;
+    byChoice: boolean;
+  } | null>(null);
 
   // No-target modal: track when shown so we can keep it visible at least 3s before skip
   const noTargetShownAtRef = useRef<number | null>(null);
@@ -3104,6 +3108,7 @@ export default function BattleHUD({
           attackerName: atk?.nicknameEng ?? e.attackerId,
           attackerTheme: atk?.theme?.[0] ?? '#666',
           side,
+          byChoice: (e as any).skipReason === 'Player skipped turn',
         });
         break;
       }
@@ -3219,6 +3224,7 @@ export default function BattleHUD({
             attackerName: atk?.nicknameEng ?? entry.attackerId,
             attackerTheme: atk?.theme?.[0] ?? '#666',
             side,
+            byChoice: (entry as any).skipReason === 'Player skipped turn',
           });
           setTimeout(() => setSkipCard(null), HIT_DISPLAY_MS);
           return;
@@ -4689,15 +4695,15 @@ export default function BattleHUD({
         );
       })()}
 
-      {/* Turn skipped (no valid target) — same style as DamageCard, on attacker side */}
+      {/* Turn skipped — same style as DamageCard, on attacker side */}
       {skipCard && (
         <div className={`bhud__dice-zone bhud__dice-zone--${skipCard.side}`}>
           <div className="dmg-card dmg-card--power" style={{ '--card-atk': skipCard.attackerTheme, '--card-def': '#666' } as React.CSSProperties}>
             <div className="dmg-card__header">
               <span className="dmg-card__atkname" style={{ color: skipCard.attackerTheme }}>{skipCard.attackerName}</span>
             </div>
-            <span className="dmg-card__power">No valid target</span>
-            <span className="dmg-card__invoked">Turn skipped</span>
+            <span className="dmg-card__power">{skipCard.byChoice ? 'Skipped' : 'No valid target'}</span>
+            <span className="dmg-card__invoked">{skipCard.byChoice ? 'Player chose to skip' : 'Turn skipped'}</span>
           </div>
         </div>
       )}

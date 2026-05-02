@@ -45,9 +45,11 @@ export const TURN_ACTION = {
   ATTACK: 'attack',
   POWER: 'power',
   HEAL: 'heal',
+  SKIP_TURN: 'skip-turn',
 } as const;
 
 export const EXPERIENCE_HEAL_ACTION_LABEL = 'Heal 10% of Max HP';
+export const SKIP_TURN_ACTION_LABEL = 'Skip turn';
 
 export type TurnAction = (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
 /**

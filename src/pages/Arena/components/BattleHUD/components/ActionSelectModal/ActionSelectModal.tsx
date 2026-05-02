@@ -6,7 +6,7 @@ import { getAffordablePowers } from '../../../../../../services/powerEngine/powe
 import { POWER_NAMES, POWER_TYPES } from '../../../../../../constants/powers';
 import { SKILL_UNLOCKED, getSkillPointLevel } from '../../../../../../constants/character';
 import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
-import { EXPERIENCE_HEAL_ACTION_LABEL, PANEL_SIDE, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
+import { EXPERIENCE_HEAL_ACTION_LABEL, PANEL_SIDE, SKIP_TURN_ACTION_LABEL, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
 import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/powerDisableReason';
 import { lightenColor, contrastText } from '../../../../../../utils/color';
 import './ActionSelectModal.scss';
@@ -358,6 +358,12 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
               {EXPERIENCE_HEAL_ACTION_LABEL}
             </button>
           )}
+          <button
+            className="bhud__action-btn bhud__action-btn--skip-turn"
+            onClick={() => onSelectAction(TURN_ACTION.SKIP_TURN)}
+          >
+            {SKIP_TURN_ACTION_LABEL}
+          </button>
         </div>
       ) : (
         <>
