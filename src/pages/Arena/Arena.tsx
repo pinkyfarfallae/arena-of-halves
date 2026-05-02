@@ -1452,7 +1452,10 @@ function Arena(props?: ArenaDemoProps) {
 
   const handleCancelTarget = async () => {
     setSuppressHitAfterBack(true);
-    const hadPowerSelected = !!(room?.battle?.turn?.usedPowerName ?? lastConfirmedPowerName);
+    const currentTurn = room?.battle?.turn;
+    const hadPowerSelected = currentTurn?.action === TURN_ACTION.POWER
+      ? !!(currentTurn.usedPowerName ?? lastConfirmedPowerName)
+      : false;
     setLastConfirmedPowerName(null); /* so action modal shows again after back to SELECT_ACTION */
     setReturnFromTargetCancel(hadPowerSelected); /* only open on power list if they had confirmed a power; else Attack/Use power */
     if (suppressHitAfterBackTimerRef.current) clearTimeout(suppressHitAfterBackTimerRef.current);

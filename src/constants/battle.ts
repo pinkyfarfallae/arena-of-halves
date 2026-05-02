@@ -14,6 +14,8 @@ export const PHASE = {
   ROLLING_DEFEND: 'rolling-defend',
   /** Blossom Scentra on ally with Efflorescence Muse: roll D4 for heal crit (same rate as target's critical rate); crit = 2× heal */
   ROLLING_BLOSSOM_SCENTRA_HEAL: 'rolling-scentra-heal',
+  /** Experience heal with Efflorescence Muse: roll D4 for heal crit using current crit rate; crit doubles the heal. */
+  ROLLING_EXPERIENCE_HEAL: 'rolling-experience-heal',
   /** Spring (Ephemeral Season): roll D4 for heal crit (1 or 2 HP until next caster turn) */
   ROLLING_SPRING_HEAL: 'rolling-spring-heal',
   /** Disoriented (Imprecated Poem): D4 roll for 25% no effect — client rolls on all screens, then advance */
@@ -42,7 +44,10 @@ export const PHASE = {
 export const TURN_ACTION = {
   ATTACK: 'attack',
   POWER: 'power',
+  HEAL: 'heal',
 } as const;
+
+export const EXPERIENCE_HEAL_ACTION_LABEL = 'Heal 10% of Max HP';
 
 export type TurnAction = (typeof TURN_ACTION)[keyof typeof TURN_ACTION];
 /**
@@ -219,6 +224,8 @@ export function getPhaseLabel(
     case PHASE.NEMESIS_WISH_BLESSING_REATTACK:
       return 'Nemesis retaliation...';
     case PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL:
+      return 'Heal Crit';
+    case PHASE.ROLLING_EXPERIENCE_HEAL:
       return 'Heal Crit';
     case PHASE.ROLLING_SPRING_HEAL:
       return 'Spring Heal';

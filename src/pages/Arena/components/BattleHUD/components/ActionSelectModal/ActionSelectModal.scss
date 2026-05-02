@@ -66,6 +66,7 @@ $crimson: #a0001b;
   gap: 0.5rem;
   width: 100%;
   margin-top: 0.5rem;
+  flex-wrap: wrap;
 
   @media (max-width: 600px) {
     margin-top: 0.3rem;
@@ -110,6 +111,26 @@ $crimson: #a0001b;
       background: color-mix(in srgb, var(--modal-primary, #{$gold}) 16%, #fff);
       border-color: color-mix(in srgb, var(--modal-primary, #{$gold}) 35%, transparent);
       box-shadow: 0 0 8px color-mix(in srgb, var(--modal-primary, #{$gold}) 10%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &--experience-heal {
+    // Full width on next line to accommodate longer text, since "Ultimate" is longer than "Use Power"
+    min-width: 100%;
+
+    background: color-mix(in srgb, var(--modal-dark, #4caf50) 8%, #fff);
+    color: var(--modal-dark, #4caf50);
+    border-color: color-mix(in srgb, var(--modal-dark, #4caf50) 20%, transparent);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--modal-dark, #4caf50) 16%, #fff);
+      border-color: color-mix(in srgb, var(--modal-dark, #4caf50) 35%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--modal-dark, #4caf50) 10%, transparent);
     }
 
     &:disabled {

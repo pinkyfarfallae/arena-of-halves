@@ -71,10 +71,16 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
     passiveSkillPoint: get('passive skill point'),
     skillPoint: get('skill point'),
     ultimateSkillPoint: get('ultimate skill point'),
-    technique: num('technique'),
     maxQuota: num('technique') < 3 ? 2 : 3,
     quota: num('technique') < 3 ? 2 : 3,
     criticalRate,
+
+    strength: num('strength'),
+    mobility: num('mobility'),
+    intelligence: num('intelligence'),
+    technique: num('technique'),
+    experience: num('experience'),
+    fortune: num('fortune'),
   };
 }
 

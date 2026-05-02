@@ -30,7 +30,6 @@ export interface FighterState {
   ultimateSkillPoint: string;
 
   /* Power quota */
-  technique: number;
   quota: number;
   maxQuota: number;
 
@@ -45,6 +44,14 @@ export interface FighterState {
 
   /* Today's wishes of Iris (for display in battle lobby) */
   wishOfIris?: Deity | null;
+
+  /* Stats */
+  strength: number;
+  mobility: number;
+  intelligence: number;
+  technique: number;
+  experience: number;
+  fortune: number;
 }
 
 /** Battle room statuses (derived from ROOM_STATUS so type and runtime stay in sync). */
@@ -204,6 +211,9 @@ export interface TurnState {
   /* Blossom Scentra + Efflorescence Muse: D4 roll for healing critical (server sets winFaces, client writes roll then advanceAfterBlossomScentraHealD4) */
   blossomHealWinFaces?: number[];
   blossomHealRoll?: number;
+  /* Experience heal + Efflorescence Muse: D4 roll for healing critical */
+  experienceHealWinFaces?: number[];
+  experienceHealRoll?: number;
   /** Blossom Scentra: heal skipped (e.g. target has Healing Nullified) — show modal, caster acks, then advanceAfterBlossomScentraHealSkippedAck */
   blossomHealSkipped?: boolean;
   /** Reason tag for heal skip (e.g. HEALING_NULLIFIED) for modal text */
@@ -315,6 +325,8 @@ export interface BattleLogEntry {
   healSkipReason?: string;
   /** Blossom Scentra + Efflorescence Muse: D4 heal crit (2× heal) */
   blossomScentraHealCrit?: boolean;
+  /** Experience heal + Efflorescence Muse: D4 heal crit (2x heal) */
+  experienceHealCrit?: boolean;
   /** Ephemeral Season Spring: heal amount (1 or 2) applied at end of caster turn */
   springHeal?: number;
   springHealCrit?: boolean;
