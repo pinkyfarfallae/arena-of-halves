@@ -1268,7 +1268,7 @@ export default function BattleHUD({
         (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
       const coDefTotal =
         (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-      if (coTotal <= coDefTotal || coTotal <= 10) {
+      if (coTotal <= coDefTotal || coTotal < 10) {
         setCritReady(true);
         return;
       }
@@ -1376,7 +1376,7 @@ export default function BattleHUD({
       return;
     }
 
-    if (atkTotal <= 10) {
+    if (atkTotal < 10) {
       setCritReady(true);
       return;
     }

@@ -184,7 +184,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
     if (log.category === 'item') {
       return {
         ...baseResult,
-        display: `Wish of ${deity} granted ${log.amount || 1} x ${itemId}.`,
+        display: `Wish of ${deity} granted ${log.amount || 1} x ${toTitleCase(itemId)}.`,
       };
     };
 
@@ -220,6 +220,14 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
           return {
             ...baseResult,
             display: `Received ${log.amount?.toLocaleString()} drachma from ${fromName} via Camp Treasury Transfer.`,
+          };
+        }
+
+        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        if (adminSources.includes(source)) {
+          return {
+            ...baseResult,
+            display: `Earned ${log.amount?.toLocaleString()} drachma awarded by admin.`,
           };
         }
 
@@ -298,6 +306,13 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       if (log.action === ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM || log.action === ACTIVITY_LOG_ACTIONS.GIVE_ITEM) {
         const itemId = metadata.itemId || 'item';
         const source = metadata.source || 'unknown';
+        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        if (adminSources.includes(source)) {
+          return {
+            ...baseResult,
+            display: `Received ${log.amount} x ${toTitleCase(itemId)} from admin.`,
+          };
+        }
         return {
           ...baseResult,
           display: `Received ${log.amount} x ${toTitleCase(itemId)}${source !== 'manual' ? ` from ${formatSourceLabel(String(source))}` : ''}.`,
@@ -306,6 +321,13 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       if (log.action === ACTIVITY_LOG_ACTIONS.CONSUME_ITEM) {
         const itemId = metadata.itemId || 'item';
         const source = metadata.source || 'usage';
+        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        if (adminSources.includes(source)) {
+          return {
+            ...baseResult,
+            display: `${log.amount} x ${toTitleCase(itemId)} removed by admin.`,
+          };
+        }
         return {
           ...baseResult,
           display: `Used ${log.amount} x ${toTitleCase(itemId)} for ${formatSourceLabel(String(source))}.`,

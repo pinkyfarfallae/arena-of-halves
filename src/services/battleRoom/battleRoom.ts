@@ -343,10 +343,10 @@ export function inviteReservationsFromFirebase(
 export function toFighterState(character: Character, powers: PowerDefinition[], wishOfIris: Deity | null): FighterState {
   // Calculate critical rate based on strength
   let criticalRate = 25; // default 25%
-  if (character.strength > 3 && character.strength < 5) {
-    criticalRate = 50; // 50% if 3 < strength < 5
-  } else if (character.strength === 5) {
-    criticalRate = 75; // 75% if strength === 5
+  if (character.strength >= 5) {
+    criticalRate = 75; // 75% if strength >= 5
+  } else if (character.strength >= 3) {
+    criticalRate = 50; // 50% if 3 <= strength < 5
   }
 
   const hasAresWish = wishOfIris === DEITY.ARES;
@@ -914,7 +914,7 @@ export async function applyNpcResolvingCritIfPending(
     const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
     const coTotal = (turn.coAttackRoll ?? 0) + coCaster.attackDiceUp + coBuff + coRecovery;
     const coDefTotal = (turn.coDefendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-    if (coTotal <= coDefTotal || coTotal <= 10) return;
+    if (coTotal <= coDefTotal || coTotal < 10) return;
     const critBuffCo = getStatModifier(effects, pomCoAtkId!, MOD_STAT.CRITICAL_RATE);
     const effectiveCrit = Math.max(coCaster.criticalRate, coCaster.criticalRate + critBuffCo);
     if (effectiveCrit <= 0) return;
@@ -961,7 +961,7 @@ export async function applyNpcResolvingCritIfPending(
   const defRecovery = getStatModifier(effects, turn.defenderId, MOD_STAT.RECOVERY_DICE_UP);
   const atkTotal = (turn.attackRoll ?? 0) + attacker.attackDiceUp + atkBuff + atkRecovery;
   const defTotal = (turn.defendRoll ?? 0) + defender.defendDiceUp + defBuff + defRecovery;
-  if (atkTotal <= defTotal || atkTotal <= 10) return;
+  if (atkTotal <= defTotal || atkTotal < 10) return;
 
   const critBuff = getStatModifier(effects, attackerId, MOD_STAT.CRITICAL_RATE);
   const effectiveCrit = Math.max(attacker.criticalRate, attacker.criticalRate + critBuff);
@@ -6549,7 +6549,7 @@ export async function resolveTurn(arenaId: string): Promise<void> {
         let rawDmg = baseDmg;
 
         // Critical hit: read from turn state (written by BattleHUD) or compute fallback
-        if (atkTotal > 10) {
+        if (atkTotal >= 10) {
           if (battle.turn.critRoll != null && battle.turn.critRoll > 0) {
             isCrit = !!battle.turn.isCrit;
             critRoll = battle.turn.critRoll;

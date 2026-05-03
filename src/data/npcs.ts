@@ -47,10 +47,10 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
 
   // Calculate critical rate based on strength
   let criticalRate = 25; // default 25%
-  if (strength > 3 && strength < 5) {
-    criticalRate = 50; // 50% if 3 < strength < 5
-  } else if (strength === 5) {
-    criticalRate = 75; // 75% if strength === 5
+  if (strength >= 5) {
+    criticalRate = 75; // 75% if strength >= 5
+  } else if (strength >= 3) {
+    criticalRate = 50; // 50% if 3 <= strength < 5
   }
 
   return {
