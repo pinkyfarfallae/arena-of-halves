@@ -570,13 +570,19 @@
     }
 
     .expand-toggle {
-      grid-column: 2;
-      justify-self: start;
+      grid-column: span 2;
+      font-size: 0.55rem;
+      padding: 0.35rem 0.5rem;
       margin-top: 0.25rem;
     }
 
     .activity-card-details {
       padding-left: 1rem;
+    }
+
+    .activity-detail-item {
+      font-size: 0.65rem;
+      line-height: 1.2;
     }
   }
 }
