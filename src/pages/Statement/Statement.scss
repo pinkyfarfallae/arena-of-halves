@@ -1,3 +1,5 @@
+@import '../../styles/variables';
+
 .statement {
   width: 100%;
   padding: 1.5rem 1.5rem 0;
@@ -9,6 +11,11 @@
   overflow: hidden;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 5%, #fcfcfd) 0%, #f7f8fa 100%);
+
+  @media (max-width: $bp-medium) {
+    min-height: calc(100vh - $topbar-height);
+    max-height: calc(100vh - $topbar-height);
+  }
 
   // CSS custom properties for character theme (set via inline styles from component)
   --primary-gradient-start: #667eea;
@@ -36,6 +43,10 @@
   gap: 1rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 14%, #d0d5dd);
+
+  @media (max-width: $bp-compact) {
+    margin-bottom: 0;
+  }
 
   .statement-title-section {
     .statement-kicker {
@@ -92,9 +103,13 @@
         font-weight: 600;
       }
     }
+
+    @media (max-width: $bp-compact) {
+      display: none;
+    }
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: $bp-compact) {
     grid-template-columns: 1fr;
     gap: 1rem;
 
@@ -164,7 +179,8 @@
     gap: 0.5rem;
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
+    /* Firefox */
 
     &::-webkit-scrollbar {
       width: 0;
@@ -204,7 +220,7 @@
     border: 1px solid color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 25%, #d0d5dd);
     background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 3%, white);
     position: relative;
-    
+
     // Add subtle deity-colored border on the left
     &::before {
       content: '';
@@ -213,24 +229,23 @@
       top: 0;
       bottom: 0;
       width: 3px;
-      background: linear-gradient(180deg, 
-        var(--deity-primary-color, var(--primary-color)) 0%, 
-        color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 70%, var(--deity-dark-color, var(--dark-color))) 100%
-      );
+      background: linear-gradient(180deg,
+          var(--deity-primary-color, var(--primary-color)) 0%,
+          color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 70%, var(--deity-dark-color, var(--dark-color))) 100%);
       border-radius: 10px 0 0 10px;
     }
-    
+
     .activity-icon-badge {
       color: var(--deity-primary-color, var(--primary-color));
       background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 12%, white);
       border: 1px solid color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 20%, #d0d5dd);
       box-shadow: 0 1px 3px color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 15%, transparent);
     }
-    
+
     .activity-separator {
       background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 50%, white);
     }
-    
+
     .expand-toggle {
       &:hover {
         border-color: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 40%, #d0d5dd);
@@ -238,11 +253,11 @@
         background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 5%, white);
       }
     }
-    
+
     .activity-detail-item .detail-bullet {
       background: var(--deity-primary-color, var(--primary-color));
     }
-    
+
     // Specialty deity hover effects
     &:hover {
       border-color: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 35%, #d0d5dd);
@@ -309,6 +324,10 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: #475467;
+
+      @media (max-width: $bp-compact) {
+        font-size: 0.575rem;
+      }
     }
 
     .activity-separator {
@@ -324,12 +343,20 @@
       color: var(--text-primary, #1a1a1a);
       line-height: 1.4;
       word-break: break-word;
+
+      @media (max-width: $bp-compact) {
+        font-size: 0.7rem;
+      }
     }
 
     .activity-timestamp {
       font-size: 0.7rem;
       color: #667085;
       font-weight: 500;
+
+      @media (max-width: $bp-compact) {
+        font-size: 0.55rem;
+      }
     }
   }
 
@@ -501,26 +528,19 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: $bp-compact) {
   .statement-page {
     padding: 1rem 1rem 2rem;
   }
 
   .statement-header {
     grid-template-columns: 1fr;
-    margin-bottom: 1rem;
   }
 
   .statement-feed {
     .statement-feed__header {
       flex-direction: column;
       align-items: flex-start;
-    }
-
-    .activity-list {
-      max-height: none;
-      overflow-y: visible;
-      padding-right: 0;
     }
   }
 
