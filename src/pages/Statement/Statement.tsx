@@ -6,8 +6,13 @@ import { fetchActivityLogs } from '../../services/activityLog/activityLogService
 import { fetchUserWishOfIris, IrisWishDoc } from '../../data/wishes';
 import './Statement.scss';
 import { Dropdown, Input } from '../../components/Form';
-import { ACTIVITY_LOG_ACTIONS } from '../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, SOURCE_LABELS } from '../../constants/activityLog';
 import { toTitleCase } from '../../utils/formatText';
+import { DEITY_THEMES } from '../../constants/theme';
+import { hexToRgb } from '../../utils/color';
+import Drachma from '../../icons/Drachma';
+import { Deity } from '../../constants/deities';
+import { DEITY_SVG } from '../../data/deities';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -20,47 +25,9 @@ interface FormattedActivity {
   createdAt: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  admin_player_inventory_add: 'Added by admin',
-  admin_player_inventory_bulk_add: 'Added by admin',
-  admin_player_inventory: 'Removed by admin',
-  admin_player_inventory_bulk: 'Removed by admin',
-  admin_training_approval: 'Training approval',
-  admin_training_approval_athena_bonus: 'Athena blessing',
-  big_house_approval: 'Big House approval',
-  cashier: 'the Shop',
-  consume_multiple_items: 'multiple item use',
-  daily_gift: 'Daily Gift',
-  forge_receive: 'the Forge',
-  forge_upgrade: 'a Forge upgrade',
-  harvest_approval: 'Harvest approval',
-  hermes_purse_bonus: 'Hermes Purse bonus',
-  hermes_purse_tracking: 'Hermes Purse tracking',
-  iris_fountain: 'Rainbow Drachma after the Wish of Iris',
-  iris_wish: 'the Wish of Iris',
-  iris_wish_hecate: 'the Wish of Hecate',
-  nike_statue: "Nike's Statue",
-  nike_wish_battle_bonus: 'Nike Wish',
-  player_inventory: 'Removed by admin',
-  player_inventory_bulk: 'Removed by admin',
-  shop: 'the Shop',
-  shop_discount_used: 'a shop discount ticket',
-  stats_refund_all: 'a full stat refund',
-  stats_use_codex: "Athena's Codex",
-  training_grounds: 'Training Grounds',
-  training_roleplay_refund: 'training roleplay refund',
-  training_roleplay_skip: 'training roleplay skip',
-  transfer_item_destination: 'an item transfer',
-  transfer_item_source: 'an item transfer',
-  transfer_item_rollback: 'an item transfer rollback',
-  treasury_transfer: 'Camp Treasury transfer',
-  treasury_transfer_rollback: 'Camp Treasury transfer rollback',
-  unknown: 'an unknown source',
-};
-
 const formatSourceLabel = (source: string): string => {
   if (!source) {
-    return 'an unknown source';
+    return SOURCE_LABELS['unknown'];
   }
 
   if (SOURCE_LABELS[source]) {
@@ -135,18 +102,22 @@ const getDisplayCategory = (log: ActivityLog): string => {
   return log.category;
 };
 
-const getCategoryCode = (category: string): string => {
-  const codes: Record<string, string> = {
-    drachma: 'DR',
+const getCategoryCode = (category: string, deity?: Deity): any => {
+  const codes: Record<string, any> = {
+    drachma: <Drachma width={25} height={25} />,
     item: 'IT',
     equipment: 'EQ',
     stat: 'ST',
-    action: 'AC',
-    wish: 'WS',
   };
+
+  if (category === 'wish') {
+    return deity ? DEITY_SVG[deity] : 'WS';
+  }
 
   return codes[category] || 'LG';
 };
+
+
 
 const getCategoryLabel = (category: string): string => {
   const labels: Record<string, string> = {
@@ -154,11 +125,31 @@ const getCategoryLabel = (category: string): string => {
     item: 'Item',
     equipment: 'Equipment',
     stat: 'Stat',
-    action: 'Action',
     wish: 'Wish',
   };
 
   return labels[category] || 'All';
+};
+
+const getWishDeityStyles = (log: ActivityLog): React.CSSProperties => {
+  if (!isWishLog(log)) return {};
+
+  const metadata = log.metadata as Record<string, any> || {};
+  const deity = metadata.deity || 'iris';
+  const deityKey = deity.toLowerCase();
+
+  const deityTheme = DEITY_THEMES[deityKey];
+  if (!deityTheme) return {};
+
+  const primaryColor = deityTheme[0];
+  const darkColor = deityTheme[1];
+
+  return {
+    '--deity-primary-color': primaryColor,
+    '--deity-primary-color-rgb': hexToRgb(primaryColor),
+    '--deity-dark-color': darkColor,
+    '--deity-dark-color-rgb': hexToRgb(darkColor),
+  } as React.CSSProperties;
 };
 
 const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
@@ -361,7 +352,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         const athenaBonus = metadata.athenaBonus ?? 0;
         const totalTP = metadata.totalTP ?? log.amount;
         const hasDetails = withFortune || isAthena || athenaBonus > 0;
-        
+
         return {
           ...baseResult,
           display: `Your roleplay submission was approved. Earned ${totalTP} Training Point${totalTP === 1 ? '' : 's'}.`,
@@ -475,7 +466,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         const isHarvest = log.action === ACTIVITY_LOG_ACTIONS.HARVEST_APPROVED;
         const roleplayers = (metadata.roleplayers as string[]) || [];
         const hasDetails = roleplayers.length > 0;
-        
+
         return {
           ...baseResult,
           display: `${isHarvest ? 'Harvest' : 'Mission'} approval granted. Earned ${log.amount} drachma.`,
@@ -504,7 +495,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       if (log.action === 'approveBigHouseRoleplay' || log.action === 'approve_big_house') {
         const roleplayers = (metadata.roleplayers as string[]) || [];
         let drachmaRewardMap: Record<string, number> = {};
-        
+
         // Parse drachma reward from metadata (could be JSON string or number)
         if (typeof metadata.drachmaReward === 'string') {
           try {
@@ -513,14 +504,14 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
             // If parsing fails, treat as legacy format
           }
         }
-        
-        const date = metadata.date ? formatDateOnly(metadata.date as string) : 'unknown date';
+
+        const date = metadata.date ? formatDateOnly(metadata.date as string) : log.createdAt ? formatDateOnly(log.createdAt) : 'unknown date';
         const hasRewardBreakdown = Object.keys(drachmaRewardMap).length > 0;
         const hasDetails = hasRewardBreakdown || roleplayers.length > 0 || metadata.charCount || metadata.tweetCount;
-        
+
         return {
           ...baseResult,
-          display: `Big House roleplay approval granted. Earned ${log.amount} drachma.`,
+          display: `Big House roleplay approval granted. Earned ${metadata.totalDrachma} drachma.`,
           details: hasDetails ? (
             <div className="activity-details">
               <div className="activity-detail-item">
@@ -603,6 +594,7 @@ export const Statement: React.FC = () => {
       setLogs(
         [...userLogs, ...syntheticWishLogs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .filter(log => getDisplayCategory(log) !== 'action')
       );
     } catch (error) {
       console.error('Failed to load activity logs:', error);
@@ -717,42 +709,50 @@ export const Statement: React.FC = () => {
             </div>
           ) : (
             <div className="activity-list">
-              {filteredLogs.map((formatted) => (
-                <article
-                  key={formatted.log.id || formatted.log.createdAt}
-                  className="activity-card"
-                >
-                  <div className="activity-card-header">
-                    <div className="activity-icon-badge" aria-hidden="true">
-                      <span className="icon">{getCategoryCode(getDisplayCategory(formatted.log))}</span>
-                    </div>
-                    <div className="activity-content">
-                      <div className="activity-meta">
-                        <span className="activity-category">{getCategoryLabel(getDisplayCategory(formatted.log))}</span>
-                        <span className="activity-separator" />
-                        <span className="activity-timestamp">{formatDate(formatted.log.createdAt)}</span>
+              {filteredLogs.map((formatted) => {
+                const isWish = isWishLog(formatted.log);
+                const deityStyles = getWishDeityStyles(formatted.log);
+                const metadata = formatted.log.metadata as Record<string, any> || {};
+                const deityClass = isWish ? `activity-card--deity-${(metadata.deity || 'iris').toLowerCase()}` : '';
+
+                return (
+                  <article
+                    key={formatted.log.id || formatted.log.createdAt}
+                    className={`activity-card ${isWish ? 'activity-card--wish' : ''} ${deityClass}`.trim()}
+                    style={deityStyles}
+                  >
+                    <div className="activity-card-header">
+                      <div className="activity-icon-badge" aria-hidden="true">
+                        <span className="icon">{getCategoryCode(getDisplayCategory(formatted.log), metadata.deity)}</span>
                       </div>
-                      <div className="activity-main-text">{formatted.display}</div>
+                      <div className="activity-content">
+                        <div className="activity-meta">
+                          <span className="activity-category">{getCategoryLabel(getDisplayCategory(formatted.log))}</span>
+                          <span className="activity-separator" />
+                          <span className="activity-timestamp">{formatDate(formatted.log.createdAt)}</span>
+                        </div>
+                        <div className="activity-main-text">{formatted.display}</div>
+                      </div>
+                      {formatted.details && (
+                        <button
+                          className="expand-toggle"
+                          onClick={() => toggleRowExpansion(formatted.log.id)}
+                          title={expandedRows[formatted.log.id || ''] ? 'Hide details' : 'Show details'}
+                        >
+                          <span className={`toggle-icon ${expandedRows[formatted.log.id || ''] ? 'open' : ''}`}>
+                            Details
+                          </span>
+                        </button>
+                      )}
                     </div>
-                    {formatted.details && (
-                      <button
-                        className="expand-toggle"
-                        onClick={() => toggleRowExpansion(formatted.log.id)}
-                        title={expandedRows[formatted.log.id || ''] ? 'Hide details' : 'Show details'}
-                      >
-                        <span className={`toggle-icon ${expandedRows[formatted.log.id || ''] ? 'open' : ''}`}>
-                          Details
-                        </span>
-                      </button>
+                    {formatted.details && expandedRows[formatted.log.id || ''] && (
+                      <div className="activity-card-details">
+                        {formatted.details}
+                      </div>
                     )}
-                  </div>
-                  {formatted.details && expandedRows[formatted.log.id || ''] && (
-                    <div className="activity-card-details">
-                      {formatted.details}
-                    </div>
-                  )}
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

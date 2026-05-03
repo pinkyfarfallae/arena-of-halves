@@ -199,6 +199,59 @@
     margin-bottom: 1.5rem;
   }
 
+  // Enhanced styling for wish logs with deity theming
+  &.activity-card--wish {
+    border: 1px solid color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 25%, #d0d5dd);
+    background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 3%, white);
+    position: relative;
+    
+    // Add subtle deity-colored border on the left
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, 
+        var(--deity-primary-color, var(--primary-color)) 0%, 
+        color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 70%, var(--deity-dark-color, var(--dark-color))) 100%
+      );
+      border-radius: 10px 0 0 10px;
+    }
+    
+    .activity-icon-badge {
+      color: var(--deity-primary-color, var(--primary-color));
+      background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 12%, white);
+      border: 1px solid color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 20%, #d0d5dd);
+      box-shadow: 0 1px 3px color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 15%, transparent);
+    }
+    
+    .activity-separator {
+      background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 50%, white);
+    }
+    
+    .expand-toggle {
+      &:hover {
+        border-color: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 40%, #d0d5dd);
+        color: var(--deity-primary-color, var(--primary-color));
+        background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 5%, white);
+      }
+    }
+    
+    .activity-detail-item .detail-bullet {
+      background: var(--deity-primary-color, var(--primary-color));
+    }
+    
+    // Specialty deity hover effects
+    &:hover {
+      border-color: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 35%, #d0d5dd);
+      background: color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 5%, white);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--deity-primary-color, var(--primary-color)) 15%, transparent);
+    }
+  }
+
   .activity-card-header {
     padding: 0.8rem 0.9rem;
     display: grid;
@@ -225,6 +278,16 @@
 
     .icon {
       display: inline-block;
+    }
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .drachma {
+      width: 18px;
+      height: 18px;
     }
   }
 
