@@ -350,7 +350,7 @@ export const DEITY_POWERS: Record<string, PowerDefinition[]> = {
       name: DEITY_POWER_NAMES.SUNBORN_SOVEREIGN,
       description:
         '\*ผลของการฟื้นฟู HP ที่ทายาทแห่งเทพอพอลโลได้รับเพิ่มเติม 1 หน่วยเสมอ\
-        \n\* เมื่อทายาทแห่งเทพอพอลโลสร้างหรือได้รับการฟื้นฟู จะเพิ่มแต้มเต๋าทุกประเภทถาวร 1 แต้ม โดยสามารถสะสมแต้มเต๋าได้สูงสุด +2',
+        \n\* เมื่อทายาทแห่งเทพอพอลโลสร้างหรือได้รับการฟื้นฟูจะเพิ่มแต้มเต๋าทุกประเภทถาวร 1 แต้ม โดยสามารถสะสมแต้มเต๋าได้สูงสุด +2',
       available: true,
       effect: EFFECT_TYPES.BUFF,
       target: TARGET_TYPES.SELF,
