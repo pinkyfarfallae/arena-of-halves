@@ -404,12 +404,15 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
   }
 
   if (existing) {
-    const isSamePvp =
+    // Allow if rejoining the same room (user left and came back)
+    const isSameRoom = existing.arenaId === progress.arenaId;
+    
+    // Or allow if it's an active PvP battle in LIVE/WAITING state
+    const isActivePvp =
       existing.mode === PRACTICE_MODE.PVP &&
-      existing.arenaId === progress.arenaId &&
       (existing.state === PRACTICE_STATES.LIVE || existing.state === PRACTICE_STATES.WAITING);
 
-    if (!isSamePvp) {
+    if (!(isSameRoom || isActivePvp)) {
       throw new Error('You already used your practice quota for today.');
     }
   }
