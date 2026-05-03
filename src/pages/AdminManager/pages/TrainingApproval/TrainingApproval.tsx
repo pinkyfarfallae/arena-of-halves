@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { DEITY_THEMES, fetchAllCharacters } from '../../../../data/characters';
+import { ACTIONS } from '../../../../constants/action';
 import { Character } from '../../../../types/character';
 import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
@@ -32,6 +33,7 @@ import './TrainingApproval.scss';
 import Crown from '../../../../icons/Crown';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { formatAppDate, getAppDateString } from '../../../../utils/date';
+import { ACTIVITY_LOG_ACTIONS } from '../../../../constants/activityLog';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -275,7 +277,7 @@ function TrainingApproval() {
       // Log the base TP that Apps Script awarded (it can't call Firestore itself)
       logActivity({
         category: 'stat',
-        action: 'approve_training',
+        action: ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING,
         characterId: reviewingTask.userId,
         performedBy: user?.characterId || 'admin',
         amount: baseTP,
@@ -364,7 +366,7 @@ function TrainingApproval() {
       );
       logActivity({
         category: 'stat',
-        action: 'reject_training',
+        action: ACTIVITY_LOG_ACTIONS.REJECT_TRAINING,
         characterId: reviewingTask.userId,
         performedBy: user?.characterId || 'admin',
         amount: 0,

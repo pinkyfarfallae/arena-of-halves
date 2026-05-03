@@ -22,6 +22,7 @@ import './Navbar.scss';
 import { isLifeSubPage } from '../../data/lifeSubPage';
 import Dice from './icons/Dice';
 import { SECRET_CHARACTERS } from '../../constants/characters';
+import Receipts from './icons/Receipts';
 
 /* ── Theme Picker Panel ── */
 function ThemePicker({ colors, deityBlood, onClose, onSave }: {
@@ -220,6 +221,10 @@ function Navbar() {
           <Dice />
           <span>{t(T.DICE)}</span>
         </NavLink>
+        <NavLink to="/statement" className={({ isActive }) => `topbar-menu__item ${isActive ? 'topbar-menu__item--active' : ''}`} onClick={close}>
+          <Receipts />
+          <span>{t(T.STATEMENT)}</span>
+        </NavLink>
         <button className="topbar-menu__item" onClick={() => { setShowThemePicker(p => !p); close(); }}>
           <Palette />
           <span>{t(T.THEME_COLORS)}</span>
@@ -264,6 +269,10 @@ function Navbar() {
 
         <NavLink to="/dice" className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.DICE)} data-tooltip-pos="right">
           <Dice />
+        </NavLink>
+
+        <NavLink to="/statement" className={({ isActive }) => `sidebar__icon ${isActive ? 'sidebar__icon--active' : ''}`} data-tooltip={t(T.STATEMENT)} data-tooltip-pos="right">
+          <Receipts />
         </NavLink>
 
         <div className="sidebar__spacer" />

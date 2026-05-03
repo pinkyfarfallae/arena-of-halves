@@ -25,6 +25,7 @@ import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator
 import CampTreasury from './pages/CampTreasuryTransfer/CampTreasuryTransfer';
 import './App.scss';
 import { SECRET_CHARACTERS } from './constants/characters';
+import Statement from './pages/Statement/Statement';
 
 export const applyTheme = (t: string[]): React.CSSProperties => {
   const primaryColor = (!isNearWhite(t[0]) ? t[0] : undefined) || t[0];
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="/camp" element={<CampMembers />} />
           <Route path="/life" element={<LifeInCamp />} />
           <Route path="/dice" element={<DiceRollerSimulator />} />
+          <Route path="/statement" element={<Statement />} />
           <Route path="/iris-message" element={<IrisMessage />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/forge" element={<Forge />} />

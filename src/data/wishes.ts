@@ -1,4 +1,5 @@
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { ACTIONS } from '../constants/action';
 import { Deity, DEITY } from '../constants/deities';
 import { GID, csvUrl } from '../constants/sheets';
 import { firestore } from '../firebase';
@@ -7,6 +8,8 @@ import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
 import type { WishEntry } from '../types/character';
 import { getTodayDate } from '../utils/date';
 import { updateCharacterDrachma } from '../services/character/currencyService';
+import { logActivity } from '../services/activityLog/activityLogService';
+import { ACTIVITY_LOG_ACTIONS } from '../constants/activityLog';
 
 const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
@@ -72,6 +75,7 @@ function parseCSV(csv: string): string[][] {
 export const saveIrisWish = async (userId: string, deity: string) => {
   const date = getTodayDate();
   const docId = `${userId}_${date}`;
+  const tossedAt = new Date().toISOString();
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
 
@@ -80,7 +84,20 @@ export const saveIrisWish = async (userId: string, deity: string) => {
     date,
     deity,
     canceled: false,
-    tossedAt: new Date().toISOString(),
+    tossedAt,
+  });
+
+  await logActivity({
+    category: 'action',
+    action: ACTIVITY_LOG_ACTIONS.WISH_TOSSED,
+    characterId: userId,
+    performedBy: userId,
+    metadata: {
+      source: 'iris_fountain',
+      deity,
+      date,
+      tossedAt,
+    },
   });
 };
 
@@ -141,6 +158,8 @@ export const fetchAllIrisWishes = async (characterId: string) => {
   return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 
+export const fetchUserWishOfIris = async (characterId: string) => fetchAllIrisWishes(characterId);
+
 /** Aggregate all Iris wishes for a specific character by deity */
 export const fetchIrisWishCountsForCharacter = async (characterId: string): Promise<WishEntry[]> => {
   const wishes = await fetchAllIrisWishes(characterId);
@@ -195,7 +214,10 @@ export const tryAwardNikeBonusDrachma = async (userId: string): Promise<boolean>
     if (currentCount >= 2) return false;
 
     // Award drachma and increment counter
-    await updateCharacterDrachma(userId, 100);
+    await updateCharacterDrachma(userId, 100, {
+      source: 'nike_wish_battle_bonus',
+      performedBy: 'iris_wish',
+    });
     await setDoc(ref, {
       nikeBonus100DCount: currentCount + 1,
     }, { merge: true });

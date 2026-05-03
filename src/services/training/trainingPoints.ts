@@ -1,4 +1,5 @@
 import { ACTIONS } from "../../constants/action";
+import { ACTIVITY_LOG_ACTIONS } from "../../constants/activityLog";
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 import { logActivity } from '../activityLog/activityLogService';
 
@@ -32,13 +33,21 @@ export async function updateTrainingPoints(
 
     const data = await res.json();
     if (data.success) {
+      const isUpgrade = options?.source?.includes('upgrade') ?? false;
       logActivity({
         category: 'stat',
-        action: amount >= 0 ? 'add_training_points' : 'deduct_training_points',
+        action: amount >= 0
+          ? ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS
+          : (isUpgrade ? ACTIVITY_LOG_ACTIONS.SPEND_TRAINING_POINTS_UPGRADE : ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS),
         characterId,
         performedBy: options?.performedBy ?? characterId,
         amount: Math.abs(amount),
-        metadata: { source: options?.source ?? 'training_grounds', previous: data.previous, current: data.current },
+        metadata: { 
+          source: options?.source ?? 'training_grounds', 
+          previous: data.previous, 
+          current: data.current,
+          spendType: isUpgrade ? 'upgrade' : 'other',
+        },
       });
     }
     return data;

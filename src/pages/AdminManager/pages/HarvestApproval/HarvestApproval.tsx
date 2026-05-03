@@ -27,6 +27,7 @@ import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
 import { logActivity } from '../../../../services/activityLog/activityLogService';
 import { formatAppDate, getAppDateString } from '../../../../utils/date';
+import { ACTIVITY_LOG_ACTIONS } from '../../../../constants/activityLog';
 
 type ApproveParticipantReward = {
   characterId: string;
@@ -363,9 +364,10 @@ function HarvestApproval() {
     // Log overall approval action
     logActivity({
       category: 'action',
-      action: 'approve_harvest',
+      action: ACTIVITY_LOG_ACTIONS.HARVEST_APPROVED,
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
+      amount: totalDrachmaAwarded,
       metadata: {
         submissionId,
         totalDrachma: totalDrachmaAwarded,
