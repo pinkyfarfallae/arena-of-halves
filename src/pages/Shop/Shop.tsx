@@ -171,7 +171,7 @@ function Shop() {
       // Consume discount ticket if used
       if (hasDiscount) {
         // console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
-        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1);
+        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, 'shop_discount_used');
 
         if (consumeResult.success) {
           // console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
@@ -189,7 +189,8 @@ function Shop() {
           BAG_ITEM_TYPES.ITEM,
           item.itemId === ITEMS.HERMES_S_PURSE
             ? { income: 0, available: true }
-            : undefined
+            : undefined,
+          'shop_purchase'
         );
 
         if (!result.success) {

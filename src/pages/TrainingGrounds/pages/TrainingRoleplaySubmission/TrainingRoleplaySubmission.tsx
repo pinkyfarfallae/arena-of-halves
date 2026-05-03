@@ -201,7 +201,7 @@ function TrainingRoleplaySubmission() {
             urlToSubmit,
             ticketsToApply
           ),
-          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference)
+          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference, 'training_roleplay_skip')
         ]);
       } else if (ticketDifference < 0) {
         // Using fewer tickets than before - return unused tickets
@@ -212,7 +212,7 @@ function TrainingRoleplaySubmission() {
             urlToSubmit,
             ticketsToApply
           ),
-          giveItem(user.characterId, ITEMS.SKIP_TICKET, Math.abs(ticketDifference), BAG_ITEM_TYPES.ITEM)
+          giveItem(user.characterId, ITEMS.SKIP_TICKET, Math.abs(ticketDifference), BAG_ITEM_TYPES.ITEM, undefined, 'training_roleplay_refund')
         ]);
       } else {
         // Same number of tickets - just submit

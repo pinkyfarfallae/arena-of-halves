@@ -583,7 +583,7 @@ const PlayerInventory = () => {
                             }
                           } else {
                             if (pending.action === ACTION.ADD) {
-                              const res = await giveItem(userId, itemId, pending.amount, BAG_ITEM_TYPES.ITEM);
+                              const res = await giveItem(userId, itemId, pending.amount, BAG_ITEM_TYPES.ITEM, undefined, 'admin_player_inventory_add');
                                 if (res.success) {
                                   const newAmount = typeof res.newAmount === 'number' ? res.newAmount : await getItemAmount(userId, itemId).catch(() => undefined);
                                   if (typeof newAmount === 'number') setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: newAmount }));
@@ -596,6 +596,9 @@ const PlayerInventory = () => {
                                       type: BAG_ITEM_TYPES.ITEM,
                                       income: 0,
                                       available: true,
+                                    }, {
+                                      performedBy: user?.characterId || 'admin',
+                                      source: 'player_inventory',
                                     });
                                   }
                                   logActivity({
@@ -608,7 +611,7 @@ const PlayerInventory = () => {
                                   });
                                 }
                             } else {
-                              const res = await consumeItem(userId, itemId, pending.amount);
+                              const res = await consumeItem(userId, itemId, pending.amount, 'admin_player_inventory');
                               // console.log('consumeItem result', { userId, itemId, pending, res });
                               if (res.success) {
                                 if (typeof res.newAmount === 'number') {
@@ -725,7 +728,7 @@ const PlayerInventory = () => {
                               }
                             } else {
                               if (row.action === ACTION.ADD) {
-                                const res = await giveItem(userId, row.itemId, row.amount, BAG_ITEM_TYPES.ITEM);
+                                const res = await giveItem(userId, row.itemId, row.amount, BAG_ITEM_TYPES.ITEM, undefined, 'admin_player_inventory_bulk_add');
                                 if (res.success) {
                                   logActivity({
                                     category: 'item',
@@ -737,7 +740,7 @@ const PlayerInventory = () => {
                                   });
                                 }
                               } else {
-                                const res = await consumeItem(userId, row.itemId, row.amount);
+                                const res = await consumeItem(userId, row.itemId, row.amount, 'admin_player_inventory_bulk');
                                 if (res.success) {
                                   logActivity({
                                     category: 'item',

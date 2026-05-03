@@ -329,9 +329,13 @@ function BigHouseSubmissionApproval() {
       action: 'approve_big_house',
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
+      amount: totalDrachmaAwarded,
       metadata: {
         submissionId,
-        totalDrachma: totalDrachmaAwarded,
+        date: reviewingSubmission?.submittedAt,
+        charCount: approveData.charCount,
+        tweetCount: approveData.tweetCount,
+        drachmaReward: JSON.stringify(rewardMap),
         roleplayers: approveData.roleplayers,
       },
     });

@@ -159,7 +159,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       const hasNikeStatue = (bagEntries.find(entry => entry.itemId === ITEMS.NIKE_S_STATUE)?.amount || 0) > 0;
 
       if(hasNikeStatue) {
-        updateCharacterDrachma(user.characterId, 30);
+        updateCharacterDrachma(user.characterId, 30, { source: 'nike_statue' });
       }
     }
 
@@ -201,7 +201,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
     const [result, _] = await Promise.all([
       refundAllStats(user.characterId),
-      consumeItem(user.characterId, ITEMS.REFUND_SKILL_TICKET, 1),
+      consumeItem(user.characterId, ITEMS.REFUND_SKILL_TICKET, 1, 'stats_refund_all'),
     ]);
 
     const elapsed = Date.now() - startedAt;
@@ -250,7 +250,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
 
     try {
       // Consume codex items
-      const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENA_S_CODEX, codexCountToUse);
+      const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENA_S_CODEX, codexCountToUse, 'stats_use_codex');
 
       if (!consumeResult.success) {
         setNoticeModal({

@@ -298,9 +298,12 @@ const CampTreasuryTransfer = () => {
       const { itemId, amount } = row;
       try {
         if (itemId === ITEMS.DRACHMA) {
+          const senderName = user.nicknameEng || user.nameEng || user.characterId;
+          const receiverName = recipientPlayer?.nicknameEng || recipientPlayer?.nameEng || selectedPlayer;
           const deductRes = await updateCharacterDrachma(user.characterId, -amount, {
             performedBy: user.characterId,
             source: 'treasury_transfer',
+            extraMetadata: { toUserId: selectedPlayer, toName: receiverName },
           });
           if (!deductRes.success) {
             errors.push(`Drachma deduct failed: ${deductRes.error || 'unknown'}`);
@@ -309,6 +312,7 @@ const CampTreasuryTransfer = () => {
           const addRes = await updateCharacterDrachma(selectedPlayer, amount, {
             performedBy: user.characterId,
             source: 'treasury_transfer',
+            extraMetadata: { fromUserId: user.characterId, fromName: senderName },
           });
           if (!addRes.success) {
             await updateCharacterDrachma(user.characterId, amount, {
@@ -318,7 +322,10 @@ const CampTreasuryTransfer = () => {
             errors.push(`Drachma send failed: ${addRes.error || 'unknown'}`);
           }
         } else {
-          const res = await transferItem(user.characterId, selectedPlayer, itemId, amount);
+          const res = await transferItem(user.characterId, selectedPlayer, itemId, amount, {
+            fromName: user.nicknameEng || user.nameEng || user.characterId,
+            toName: recipientPlayer?.nicknameEng || recipientPlayer?.nameEng || selectedPlayer,
+          });
           if (!res.success) {
             errors.push(`${itemId} transfer failed: ${res.error || 'unknown'}`);
           }

@@ -3,6 +3,7 @@ import { ACTIONS } from '../../constants/action';
 import { getBagData, setBagItemData } from '../bag/bagService';
 import { ITEMS } from '../../constants/items';
 import { logActivity } from '../activityLog/activityLogService';
+import { ACTIVITY_LOG_ACTIONS } from '../../constants/activityLog';
 
 /**
  * Update character's drachma (currency)
@@ -15,7 +16,7 @@ import { logActivity } from '../activityLog/activityLogService';
 export async function updateCharacterDrachma(
   characterId: string,
   amount: number,
-  options?: { skipHermesTracking?: boolean; performedBy?: string; source?: string }
+  options?: { skipHermesTracking?: boolean; performedBy?: string; source?: string; extraMetadata?: Record<string, any> }
 ): Promise<{ success: boolean; previous?: number; current?: number; error?: string }> {
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
@@ -36,11 +37,17 @@ export async function updateCharacterDrachma(
       try {
         logActivity({
           category: 'drachma',
-          action: amount >= 0 ? 'award' : 'deduct',
+          action: amount >= 0 ? ACTIVITY_LOG_ACTIONS.AWARD : ACTIVITY_LOG_ACTIONS.DEDUCT,
           characterId,
           performedBy: options?.performedBy ?? characterId,
           amount: Math.abs(amount),
-          metadata: { source: options?.source ?? 'unknown', delta: amount },
+          metadata: { 
+            source: options?.source ?? 'unknown', 
+            delta: amount,
+            previous: data.previous,
+            current: data.current,
+            ...(options?.extraMetadata ?? {}),
+          },
         });
       } catch (_e) {
         // Secondary effects must not propagate and roll back the daily claim
@@ -70,6 +77,9 @@ async function applyHermesPurseIncome(characterId: string, amount: number): Prom
     type: purse.type,
     income: nextIncome,
     available: true,
+  }, {
+    performedBy: characterId,
+    source: 'hermes_purse_tracking',
   });
 
   if (nextIncome >= 1000) {
@@ -84,6 +94,9 @@ async function applyHermesPurseIncome(characterId: string, amount: number): Prom
         type: purse.type,
         income: nextIncome,
         available: false,
+      }, {
+        performedBy: characterId,
+        source: 'hermes_purse_bonus',
       });
     }
   }

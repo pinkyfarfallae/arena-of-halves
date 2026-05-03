@@ -1,9 +1,11 @@
 import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
+import { ACTIONS } from '../../constants/action';
 import type { BagData, BagItemData } from '../../types/character';
 import { BagItemType } from '../../constants/bag';
 import { logActivity } from '../activityLog/activityLogService';
+import { ACTIVITY_LOG_ACTIONS } from '../../constants/activityLog';
 
 /** Strip undefined values so Firestore never receives them */
 function clean(obj: object): Record<string, unknown> {
@@ -37,7 +39,8 @@ export async function getBagData(userId: string): Promise<BagData> {
 export async function setBagItemData(
   userId: string,
   itemId: string,
-  data: BagItemData
+  data: BagItemData,
+  options?: { performedBy?: string; source?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const docRef = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_BAGS, userId);
@@ -54,6 +57,25 @@ export async function setBagItemData(
     await setDoc(docRef, {
       [itemId]: clean({ ...currentItem, ...data }),
     }, { merge: true });
+
+    if (
+      data.available !== undefined &&
+      currentItem.available !== data.available
+    ) {
+      logActivity({
+        category: 'item',
+        action: ACTIVITY_LOG_ACTIONS.UPDATE_ITEM_STATE,
+        characterId: userId,
+        performedBy: options?.performedBy ?? userId,
+        metadata: {
+          itemId,
+          source: options?.source ?? 'item_state_update',
+          previousAvailable: currentItem.available,
+          currentAvailable: data.available,
+          income: data.income ?? currentItem.income,
+        },
+      });
+    }
 
     return { success: true };
   } catch (error) {
@@ -138,6 +160,7 @@ export async function giveItem(
   amount: number,
   type: BagItemType,
   extraData?: Partial<BagItemData>,
+  source?: string
 ): Promise<{ success: boolean; newAmount?: number; error?: string }> {
   if (amount <= 0) {
     return { success: false, error: 'Amount must be positive' };
@@ -150,6 +173,14 @@ export async function giveItem(
     const result = await setItemAmount(userId, itemId, newAmount, type, extraData);
 
     if (result.success) {
+      logActivity({
+        category: 'item',
+        action: ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM,
+        characterId: userId,
+        performedBy: source ?? 'system',
+        amount,
+        metadata: { itemId, source: source ?? 'unknown', newAmount },
+      });
       return { success: true, newAmount };
     }
 
@@ -173,7 +204,8 @@ export async function giveItem(
 export async function consumeItem(
   userId: string,
   itemId: string,
-  amount: number = 1
+  amount: number = 1,
+  source?: string
 ): Promise<{ success: boolean; newAmount?: number; error?: string }> {
   if (amount <= 0) {
     return { success: false, error: 'Amount must be positive' };
@@ -201,6 +233,14 @@ export async function consumeItem(
     const result = await setItemAmount(userId, itemId, newAmount, currentItem.type, metadata);
 
     if (result.success) {
+      logActivity({
+        category: 'item',
+        action: ACTIVITY_LOG_ACTIONS.CONSUME_ITEM,
+        characterId: userId,
+        performedBy: userId,
+        amount,
+        metadata: { itemId, source: source ?? 'manual', newAmount },
+      });
       return { success: true, newAmount };
     }
 
@@ -248,7 +288,8 @@ export async function transferItem(
   fromUserId: string,
   toUserId: string,
   itemId: string,
-  amount: number
+  amount: number,
+  options?: { fromName?: string; toName?: string }
 ): Promise<{ success: boolean; error?: string }> {
   if (amount <= 0) {
     return { success: false, error: 'Amount must be positive' };
@@ -271,7 +312,7 @@ export async function transferItem(
     }
 
     // Remove from source
-    const removeResult = await consumeItem(fromUserId, itemId, amount);
+    const removeResult = await consumeItem(fromUserId, itemId, amount, 'transfer_item_source');
     // console.log('Remove result:', removeResult);
     if (!removeResult.success) {
       return removeResult;
@@ -279,20 +320,30 @@ export async function transferItem(
 
     // Add to destination
     const { amount: _amount, type: _type, ...metadata } = sourceItem;
-    const giveResult = await giveItem(toUserId, itemId, amount, sourceItem.type, metadata);
+    const giveResult = await giveItem(toUserId, itemId, amount, sourceItem.type, metadata, 'transfer_item_destination');
     if (!giveResult.success) {
       // Rollback: give back to source
-      await giveItem(fromUserId, itemId, amount, sourceItem.type, metadata);
+      await giveItem(fromUserId, itemId, amount, sourceItem.type, metadata, 'transfer_item_rollback');
       return giveResult;
     }
 
+    // Log for the receiver
     logActivity({
       category: 'item',
-      action: 'transfer_item',
+      action: ACTIVITY_LOG_ACTIONS.TRANSFER_ITEM,
       characterId: toUserId,
       performedBy: fromUserId,
       amount,
-      metadata: { itemId },
+      metadata: { itemId, fromUserId, toUserId, direction: 'received', fromName: options?.fromName, toName: options?.toName },
+    });
+    // Log for the sender
+    logActivity({
+      category: 'item',
+      action: ACTIVITY_LOG_ACTIONS.TRANSFER_ITEM,
+      characterId: fromUserId,
+      performedBy: fromUserId,
+      amount,
+      metadata: { itemId, fromUserId, toUserId, direction: 'sent', fromName: options?.fromName, toName: options?.toName },
     });
     return { success: true };
   } catch (error) {
@@ -349,7 +400,7 @@ export async function consumeMultipleItems(
 
     // If we get here, user has all items. Now consume them
     for (const { itemId, amount } of items) {
-      const result = await consumeItem(userId, itemId, amount);
+      const result = await consumeItem(userId, itemId, amount, 'consume_multiple_items');
       if (!result.success) {
         // This shouldn't happen since we checked above, but handle it anyway
         return result;

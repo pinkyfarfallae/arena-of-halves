@@ -134,6 +134,10 @@ export const UI_TEXT = {
     en: 'Dice Roller',
     th: 'ทอยลูกเต๋า'
   },
+  STATEMENT: {
+    en: 'Statement',
+    th: 'บันทึกความเคลื่อนไหว'
+  },
   REPORT_HARVEST: {
     en: 'Report Harvest',
     th: 'รายงานการเก็บเกี่ยว'

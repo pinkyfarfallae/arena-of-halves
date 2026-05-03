@@ -228,7 +228,7 @@ function Forge() {
     try {
       // Consume tickets if any are being used
       if (ticketsUsed > 0) {
-        const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed);
+        const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed, 'forge_equipment_upgrade');
         if (!ticketResult.success) {
           setUpgradingMode(null);
           setShowUpgradeOverlay(false);
