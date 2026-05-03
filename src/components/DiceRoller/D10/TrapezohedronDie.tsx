@@ -49,7 +49,9 @@ function computeNormal(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, c: THREE.Ve
   const va = new THREE.Vector3(...a);
   const vb = new THREE.Vector3(...b);
   const vc = new THREE.Vector3(...c);
-  return vb.sub(va).cross(vc.sub(new THREE.Vector3(...a))).normalize();
+  const e1 = new THREE.Vector3().subVectors(vb, va);
+  const e2 = new THREE.Vector3().subVectors(vc, va);
+  return e1.cross(e2).normalize();
 }
 
 const NORMALS = FACES.map(f => computeNormal(f[0], f[1], f[2]));
@@ -64,6 +66,10 @@ const EDGE_PAIRS: [THREE.Vector3Tuple, THREE.Vector3Tuple][] = [
 /* ── Target quaternions with full basis ── */
 const TARGET_QUATS: THREE.Quaternion[] = FACES.map((verts, fi) => {
   const normal = NORMALS[fi];
+  if (!normal) {
+    // Fallback quaternion if normal is undefined
+    return new THREE.Quaternion();
+  }
   const cx = (verts[0][0] + verts[1][0] + verts[2][0]) / 3;
   const cy = (verts[0][1] + verts[1][1] + verts[2][1]) / 3;
   const cz = (verts[0][2] + verts[1][2] + verts[2][2]) / 3;
@@ -160,7 +166,10 @@ export default function TrapezohedronDie({
     targetFaceIdx.current = fr != null
       ? FACE_VALUES.indexOf(fr)
       : rollFace(10);
-    targetQuat.current.copy(TARGET_QUATS[targetFaceIdx.current]);
+    const targetQuatValue = TARGET_QUATS[targetFaceIdx.current];
+    if (targetQuatValue) {
+      targetQuat.current.copy(targetQuatValue);
+    }
   }, [rollTrigger]);
 
   // Tint faces based on camera-facing direction + flash
@@ -180,7 +189,7 @@ export default function TrapezohedronDie({
 
     for (let i = 0; i < 10; i++) {
       const mesh = faceMeshRefs.current[i];
-      if (!mesh) continue;
+      if (!mesh || !NORMALS[i]) continue;
       worldNormal.current.copy(NORMALS[i]).applyQuaternion(groupRef.current.quaternion);
       const dot = worldNormal.current.dot(camDir);
       let brightness = 0.55 + 0.45 * Math.max(0, dot);

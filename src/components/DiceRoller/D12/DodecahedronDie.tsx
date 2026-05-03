@@ -63,7 +63,9 @@ function computeNormal(a: THREE.Vector3Tuple, b: THREE.Vector3Tuple, c: THREE.Ve
   const va = new THREE.Vector3(...a);
   const vb = new THREE.Vector3(...b);
   const vc = new THREE.Vector3(...c);
-  return vb.sub(va).cross(vc.sub(new THREE.Vector3(...a))).normalize();
+  const e1 = new THREE.Vector3().subVectors(vb, va);
+  const e2 = new THREE.Vector3().subVectors(vc, va);
+  return e1.cross(e2).normalize();
 }
 
 const NORMALS = FACES.map(f => computeNormal(f[0], f[1], f[2]));
@@ -268,7 +270,7 @@ export default function DodecahedronDie({ rollTrigger, onResult, primary, fixedR
 
     for (let i = 0; i < NUM_FACES; i++) {
       const mesh = faceMeshRefs.current[i];
-      if (!mesh) continue;
+      if (!mesh || !NORMALS[i]) continue;
       worldNormal.current.copy(NORMALS[i]).applyQuaternion(groupRef.current.quaternion);
       const dot = worldNormal.current.dot(camDir);
       let brightness = 0.55 + 0.45 * Math.max(0, dot);
