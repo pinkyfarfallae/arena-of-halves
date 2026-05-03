@@ -13,7 +13,7 @@ import InfoCircle from '../../../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
 import { BG_ELEMENTS } from '../../components/Background/Background';
 import TrainingPoint from '../Stats/icons/TrainingPoint';
-import { fetchUserTrainingTasks, getTodayProgress, submitTrainingRoleplay, recheckTrainingTask, UserDailyProgress, TrainingTask } from '../../../../services/training/dailyTrainingDice';
+import { fetchUserTrainingTasks, getTodayProgress, submitTrainingRoleplay, recheckTrainingTask, UserDailyProgress, TrainingTask, hasTrainingSubmissionForApproval } from '../../../../services/training/dailyTrainingDice';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
 import Swords from '../../../../icons/Swords';
 import { PRACTICE_MODE, PRACTICE_STATES } from '../../../../constants/practice';
@@ -109,6 +109,7 @@ function TrainingRoleplaySubmission() {
   const sheetTaskDate = sheetTask?.date ?? '';
   const sheetTaskRoleplay = sheetTask?.roleplay ?? '';
   const sheetTaskTickets = sheetTask?.tickets ?? 0;
+  const hasPendingSubmission = hasTrainingSubmissionForApproval(sheetTask);
 
   const availableTickets = useMemo(() => {
     return bagEntries.find(entry => entry.itemId === ITEMS.SKIP_TICKET)?.amount || 0;
@@ -348,7 +349,7 @@ function TrainingRoleplaySubmission() {
             <div className="training-roleplay-submission__form-approved">
               Training already approved! You can train more to upgrade your skills.
             </div>
-          ) : sheetTask && sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((sheetTaskRoleplay && sheetTaskRoleplay.trim() !== '') || sheetTaskTickets > 0) ? (
+          ) : sheetTask && sheetTaskVerified === TRAINING_POINT_REQUEST_STATUS.PENDING && hasPendingSubmission ? (
             // Pending with submission - show waiting message
             <>
               <div className="training-roleplay-submission__form-title">

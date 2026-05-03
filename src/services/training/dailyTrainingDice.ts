@@ -62,6 +62,26 @@ export interface TrainingTask {
   submittedAt?: string;
 }
 
+export const hasTrainingSubmissionForApproval = (
+  task: Pick<TrainingTask, 'roleplay' | 'tickets'> | null | undefined
+): boolean => {
+  if (!task) {
+    return false;
+  }
+
+  return Boolean(task.roleplay && task.roleplay.trim() !== '') || (task.tickets || 0) >= 5;
+};
+
+export const canApproveTrainingTask = (
+  task: Pick<TrainingTask, 'mode' | 'roleplay' | 'tickets'> | null | undefined
+): boolean => {
+  if (!task) {
+    return false;
+  }
+
+  return hasTrainingSubmissionForApproval(task);
+};
+
 export interface PracticeProgressInput {
   userId: string;
   arenaId: string;

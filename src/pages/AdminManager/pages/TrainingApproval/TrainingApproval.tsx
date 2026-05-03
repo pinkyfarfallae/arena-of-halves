@@ -17,7 +17,7 @@ import CopyIcon from '../../../Arena/icons/Copy';
 import ApproveModal from './components/ApproveModal/ApproveModal';
 import RejectModal from './components/RejectModal/RejectModal';
 import SuccessModal from './components/SuccessModal/SuccessModal';
-import { fetchAllTrainingTasks, TrainingTask, verifyTrainingTask } from '../../../../services/training/dailyTrainingDice';
+import { fetchAllTrainingTasks, TrainingTask, verifyTrainingTask, canApproveTrainingTask } from '../../../../services/training/dailyTrainingDice';
 import { darken, hexToRgb, rgbToHex, isNearWhite, contrastText } from '../../../../utils/color';
 import { BG_ELEMENTS } from '../../../TrainingGrounds/components/Background/Background';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../../../constants/trainingPointRequestStatus';
@@ -99,7 +99,7 @@ function TrainingApproval() {
             const pending = tasks.filter(
               (t) =>
                 t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING &&
-                ((t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5)
+                canApproveTrainingTask(t)
             );
 
             if (pending.length > 0) {
@@ -186,8 +186,7 @@ function TrainingApproval() {
     const pending = trainingTasks.filter(
       (t) => {
         const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
-        const hasSubmission = (t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5 || t.mode === PRACTICE_MODE.PVP;
-        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && hasSubmission && !isCurrent;
+        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && canApproveTrainingTask(t) && !isCurrent;
       }
     );
 
@@ -202,6 +201,7 @@ function TrainingApproval() {
 
   const handleApproveClick = () => {
     if (!reviewingTask) return;
+    if (!canApproveTrainingTask(reviewingTask)) return;
 
     const isTicketOnly = ((reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '')) || reviewingTask.mode === PRACTICE_MODE.PVP;
 
@@ -325,8 +325,7 @@ function TrainingApproval() {
     const pendingCount = trainingTasks.filter(
       (t) => {
         const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
-        const hasSubmission = (t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5 || t.mode === PRACTICE_MODE.PVP;
-        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && hasSubmission && !isCurrent;
+        return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && canApproveTrainingTask(t) && !isCurrent;
       }
     ).length;
 
@@ -393,8 +392,7 @@ function TrainingApproval() {
     setShowRejectModal(false);
     const pendingCount = trainingTasks.filter((t) => {
       const isCurrent = reviewingTask ? t.id === reviewingTask.id : false;
-      const hasSubmission = (t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5 || t.mode === PRACTICE_MODE.PVP;
-      return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && hasSubmission && !isCurrent;
+      return t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && canApproveTrainingTask(t) && !isCurrent;
     }).length;
 
     if (pendingCount > 0) {
@@ -485,6 +483,23 @@ function TrainingApproval() {
               <div className="training-approval__review-error">Something went wrong</div>
             ) : reviewingTask ? (
               (() => {
+                if (reviewingTask.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && !canApproveTrainingTask(reviewingTask)) {
+                  return (
+                    <div className="training-approval__review-sheet">
+                      <div className="training-approval__review-section training-approval__review-section--result">
+                        <div className="training-approval__review-section-header">
+                          <span className="training-approval__review-section-title">Awaiting Submission</span>
+                        </div>
+                        <div className="training-approval__review-section-content">
+                          This task is still pending, but it is not ready for approval yet.
+                          <br />
+                          The trainee must either submit a roleplay link or spend 5 tickets before approval is allowed.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const isPvPTask = reviewingTask.mode === PRACTICE_MODE.PVP;
                 const isTicketOnly = !isPvPTask && (reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '');
                 if (isPvPTask) {
@@ -1067,7 +1082,7 @@ function TrainingApproval() {
                 <div className="training-approval__empty-state-icon">✓</div>
                 <div className="training-approval__empty-state-title">All caught up!</div>
                 <div className="training-approval__empty-state-message">
-                  {trainingTasks.filter(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5 || t.mode === PRACTICE_MODE.PVP)).length === 0
+                  {trainingTasks.filter(t => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && canApproveTrainingTask(t)).length === 0
                     ? "No pending submissions to review."
                     : "Select a submission from the sidebar to review."}
                 </div>
@@ -1095,7 +1110,7 @@ function TrainingApproval() {
             </button>
           </div>
 
-          {sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING && trainingTasks.filter((t) => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && ((t.roleplay && t.roleplay.trim() !== '') || (t.tickets || 0) >= 5 || t.mode === PRACTICE_MODE.PVP)).length > 0 && (
+          {sidebarView === TRAINING_POINT_REQUEST_STATUS.PENDING && trainingTasks.filter((t) => t.verified === TRAINING_POINT_REQUEST_STATUS.PENDING && canApproveTrainingTask(t)).length > 0 && (
             <div className="training-approval__sidebar__note">
               <InfoCircle />
               Click on a submission to review.
@@ -1113,7 +1128,7 @@ function TrainingApproval() {
               trainingTasks
                 .filter((s) => s.verified === sidebarView)
                 .map((task) => {
-                  const readyForReview = (task.roleplay && task.roleplay.trim() !== '') || (task.tickets || 0) >= 5 || task.mode === PRACTICE_MODE.PVP;
+                  const readyForReview = canApproveTrainingTask(task);
                   return (
                     <SubmissionCard
                       key={task.id}
