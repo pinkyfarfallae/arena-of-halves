@@ -34,8 +34,8 @@ export function applyPomegranateOath(
   const duration = queueLen * 3;
 
   effects.push({
-    id: makeEffectId(attackerId, POWER_NAMES.POMEGRANATES_OATH),
-    powerName: POWER_NAMES.POMEGRANATES_OATH,
+    id: makeEffectId(attackerId, POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH),
+    powerName: POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH,
     effectType: EFFECT_TYPES.BUFF,
     sourceId: attackerId,
     targetId: allyTargetId,

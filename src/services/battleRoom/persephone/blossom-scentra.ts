@@ -44,7 +44,7 @@ export async function advanceAfterBlossomScentraHealSkippedAck(
     defenderHpAfter: ally.currentHp,
     eliminated: false,
     missed: false,
-    powerUsed: POWER_NAMES.BLOSSOM_SCENTRA,
+    powerUsed: POWER_NAMES.SERENITY_BLOSSOM_REVERIE,
     healSkipReason: healSkipReason ?? EFFECT_TAGS.HEALING_NULLIFIED,
   };
   const updates: Record<string, unknown> = {
@@ -129,7 +129,7 @@ export async function advanceAfterBlossomScentraHealD4(
     defenderHpAfter: newHp,
     eliminated: false,
     missed: false,
-    powerUsed: POWER_NAMES.BLOSSOM_SCENTRA,
+    powerUsed: POWER_NAMES.SERENITY_BLOSSOM_REVERIE,
     blossomScentraHealCrit: isHealCrit,
   };
   updates[ARENA_PATH.BATTLE_LOG] = sanitizeBattleLog([...(battle!.log || []), logEntry]);
