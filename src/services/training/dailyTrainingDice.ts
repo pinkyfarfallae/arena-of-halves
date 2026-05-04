@@ -15,6 +15,7 @@ import { PRACTICE_MODE, PRACTICE_STATES, PracticeMode, PracticeState } from '../
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import { getAppDateString, getTodayDate } from '../../utils/date';
 import { splitCSVRows, parseCSVLine } from '../../utils/csv';
+import { canExecuteNonCriticalRead } from '../quotaEmergency';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -156,6 +157,10 @@ export const confirmTargets = async (targets: number[]): Promise<void> => {
 
 // Admin: Get draft targets (including unconfirmed)
 export const getDraftTargets = async (): Promise<{ targets: number[], confirmed: boolean } | null> => {
+  if (!canExecuteNonCriticalRead()) {
+    return null;
+  }
+
   const date = getTodayDate();
   const configRef = doc(firestore, FIRESTORE_COLLECTIONS.DAILY_CONFIGS, date);
   const configSnap = await getDoc(configRef);

@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
 import { ROLE } from '../../../../constants/role';
 import { ActivityLog as ActivityLogType, ActivityLogCategory } from '../../../../types/activityLog';
-import { fetchActivityLogs, editActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
+import { fetchActivityLogs, editActivityLog, deleteActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
 import Table, { Column } from '../../../../components/Table/Table';
 import { Dropdown, Input } from '../../../../components/Form';
 import Pencil from '../../../../icons/Pencil';
+import Trash from '../../../../icons/Trash';
 import { formatAppDateTime } from '../../../../utils/date';
 import './ActivityLog.scss';
+import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 
 type CategoryFilter = ActivityLogCategory | 'all';
 
@@ -24,7 +26,17 @@ const CATEGORIES: ActivityLogCategory[] = ['drachma', 'item', 'equipment', 'stat
 
 function formatDate(iso: string) {
   try {
-    return formatAppDateTime(iso);
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Asia/Bangkok',
+      timeZoneName: 'short',
+      hour12: false,
+    }).format(new Date(iso));
   } catch {
     return iso;
   }
@@ -44,6 +56,8 @@ export default function ActivityLog() {
   const [editingLog, setEditingLog] = useState<ActivityLogType | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingDeleteLog, setPendingDeleteLog] = useState<ActivityLogType | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -81,6 +95,20 @@ export default function ActivityLog() {
 
   const patch = (fields: Partial<EditDraft>) =>
     setEditDraft(prev => prev ? { ...prev, ...fields } : prev);
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteLog?.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteActivityLog(pendingDeleteLog.id);
+      setLogs(prev => prev.filter(l => l.id !== pendingDeleteLog.id));
+    } catch {
+      setLoadError('Failed to delete log entry.');
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteLog(null);
+    }
+  };
 
   const saveEdit = async () => {
     if (!editingLog?.id || !editDraft || !user) return;
@@ -167,11 +195,27 @@ export default function ActivityLog() {
         rowKey={row => row.id ?? row.createdAt}
         loading={loading}
         actions={
-          isDev ? [{
-            label: () => <Pencil width={14} height={14} />,
-            onClick: startEdit,
-          }] : []}
+          isDev ? [
+            {
+              label: () => <Pencil width={14} height={14} />,
+              onClick: startEdit,
+            },
+            {
+              label: () => <Trash width={14} height={14} />,
+              onClick: (row) => setPendingDeleteLog(row),
+            },
+          ] : []}
       />
+
+      {/* Delete confirmation modal */}
+      {isDev && pendingDeleteLog && (
+        <ConfirmModal
+          title="Delete Log Entry"
+          message={`Are you sure you want to delete this log entry? This action cannot be undone. This log is on ${formatDate(pendingDeleteLog.createdAt)}`}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDeleteLog(null)}
+        />
+      )}
 
       {/* Edit modal */}
       {isDev && editingLog && editDraft && (

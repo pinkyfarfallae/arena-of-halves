@@ -758,20 +758,39 @@ export async function getRoom(arenaId: string): Promise<BattleRoom | null> {
 
 /* ── list all active rooms (for viewer lobby) ─────────── */
 
+// Cache filtered rooms list to reduce listener updates (quota emergency)
+let lastCachedRooms: BattleRoom[] | null = null;
+let lastCacheTimestamp = 0;
+const roomsCacheExpiry = 2000; // 2 seconds
+
 export function onRoomsList(callback: (rooms: BattleRoom[]) => void, viewerCharacterId?: string): () => void {
   const arenasRef = ref(db, FIREBASE_PATHS.ARENAS);
   const handler = onValue(arenasRef, (snap) => {
+    const now = Date.now();
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
         .filter((r) => {
-          // Filter out configuring and practice arenas
+          // QUOTA EMERGENCY: Filter early to reduce processing
           if (r.status === ROOM_STATUS.CONFIGURING || r.practiceMode) return false;
-          // Filter out secret arenas if viewer is not a secret character
           if (r.secretMode && !isSecretCharacter(viewerCharacterId)) return false;
           return true;
         })
         .sort((a, b) => b.createdAt - a.createdAt));
+    
+    // Only trigger callback if rooms changed, with debounce
+    const roomsJson = JSON.stringify(rooms);
+    const cacheKey = roomsJson + (viewerCharacterId || '');
+    
+    if (lastCachedRooms && (now - lastCacheTimestamp) < roomsCacheExpiry) {
+      const lastJson = JSON.stringify(lastCachedRooms);
+      if (lastJson === roomsJson) {
+        return; // Skip redundant update
+      }
+    }
+    
+    lastCachedRooms = rooms;
+    lastCacheTimestamp = now;
     setTimeout(() => callback(rooms), 0);
   });
 

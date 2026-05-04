@@ -39,8 +39,24 @@ const fallingEmberParticles = Array.from({ length: 36 }, (_, index) => {
 });
 
 export default function DailyGift({ amount, onClaim }: DailyGiftProps) {
+  const [claiming, setClaiming] = React.useState(false);
+
   // Random Drachma amount 1 - 5 if not provided
   const drachmaAmount = typeof amount === 'number' ? amount : (Math.floor(Math.random() * 5) + 1) * 10;
+
+  const handleClaim = async () => {
+    if (!onClaim || claiming) {
+      return;
+    }
+
+    setClaiming(true);
+
+    try {
+      await onClaim();
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   return (
     <div className="modal-overlay daily-gift" role="dialog" aria-modal="true">
@@ -95,10 +111,11 @@ export default function DailyGift({ amount, onClaim }: DailyGiftProps) {
 
         <button
           className="daily-gift__claim-btn"
-          onClick={onClaim}
+          onClick={handleClaim}
+          disabled={claiming}
           aria-label={`Claim ${drachmaAmount} drachmas`}
         >
-          Claim Your Daily Gift
+          {claiming ? 'Claiming...' : 'Claim Your Daily Gift'}
         </button>
       </div>
 

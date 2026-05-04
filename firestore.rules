@@ -208,8 +208,8 @@ service cloud.firestore {
     // Document ID: auto-generated
     // Write: any authenticated user (server-side app logic restricts who triggers log calls)
     // Read: any authenticated user (admin/dev role gate enforced in the UI)
-    // Edit (note field): authenticated users only; role gate enforced in the UI (developer-only)
-    // Delete: never
+    // Edit: authenticated users only; role gate enforced in the UI (developer-only)
+    // Delete: authenticated users only; admin/dev gate enforced in the UI
     match /ActivityLogs/{logId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
@@ -218,7 +218,7 @@ service cloud.firestore {
                       request.resource.data.category is string &&
                       request.resource.data.action is string;
       allow update: if isAuthenticated();
-      allow delete: if false;
+      allow delete: if isAuthenticated();
     }
 
     // NPC Affinity (admin-managed affinity values for each player)

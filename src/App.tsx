@@ -122,6 +122,7 @@ function AppShell() {
   const [giftAmount, setGiftAmount] = useState(0);
   const [checkedDailyGiftForSession, setCheckedDailyGiftForSession] = useState<string | null>(null);
   const dailyGiftFetchingRef = React.useRef(false);
+  const dailyGiftClaimingRef = React.useRef(false);
 
   let themeVars: React.CSSProperties | undefined;
 
@@ -132,6 +133,7 @@ function AppShell() {
       setGiftAmount(0);
       setCheckedDailyGiftForSession(null);
       dailyGiftFetchingRef.current = false;
+      dailyGiftClaimingRef.current = false;
     }
   }, [user?.characterId]);
 
@@ -207,6 +209,11 @@ function AppShell() {
         <DailyGift
           amount={giftAmount}
           onClaim={async () => {
+            if (dailyGiftClaimingRef.current) {
+              return;
+            }
+
+            dailyGiftClaimingRef.current = true;
             setShowDailyGift(false);
             // Mark session as done now that the user has claimed
             setCheckedDailyGiftForSession(user.characterId);
@@ -231,6 +238,8 @@ function AppShell() {
               // If something unexpectedly fails, attempt rollback
               try { await unmarkUserClaimedToday(user.characterId); } catch (e) { /* ignore */ }
               // console.error('Error claiming daily gift', err);
+            } finally {
+              dailyGiftClaimingRef.current = false;
             }
           }}
         />

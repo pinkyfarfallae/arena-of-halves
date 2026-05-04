@@ -11,11 +11,18 @@ import Pencil from '../../../../../../icons/Pencil';
 import Save from '../../../ItemManagement/icons/Save';
 import Close from '../../../../../../icons/Close';
 import Trash from '../../../../../../icons/Trash';
+import { canExecuteNonCriticalRead } from '../../../../../../services/quotaEmergency';
 
 type FirestoreDoc = {
   id: string;
   data: Record<string, any>;
 };
+
+const DELETABLE_COLLECTIONS = new Set<string>([
+  FIRESTORE_COLLECTIONS.DAILY_CONFIGS,
+  FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS,
+  FIRESTORE_COLLECTIONS.ACTIVITY_LOGS,
+]);
 
 function previewFor(obj: any) {
   if (!obj || typeof obj !== 'object') return String(obj ?? '');
@@ -81,6 +88,8 @@ export default function FirestoreManager() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+  const canDeleteSelectedDoc = !!collectionName && DELETABLE_COLLECTIONS.has(collectionName);
+
   const loadCollection = async (_collectionName: string) => {
     if (!_collectionName) return;
     setLoading(true);
@@ -89,6 +98,11 @@ export default function FirestoreManager() {
     setSelectedDoc(null);
     setEditing(false);
     setEditDraft({});
+    if (!canExecuteNonCriticalRead()) {
+      setError('Collection browsing is disabled during quota emergency');
+      setLoading(false);
+      return;
+    }
     try {
       const colRef = collection(firestore, _collectionName);
       const snap = await getDocs(colRef);
@@ -172,6 +186,11 @@ export default function FirestoreManager() {
 
   const deleteDocument = async (id: string) => {
     try {
+      if (!DELETABLE_COLLECTIONS.has(collectionName)) {
+        setError(`Delete is disabled for ${collectionName} by Firestore rules`);
+        return;
+      }
+
       await deleteDoc(doc(firestore, collectionName, id));
       setDocs((s) => s.filter((x) => x.id !== id));
       if (selectedDoc?.id === id) {
@@ -181,7 +200,10 @@ export default function FirestoreManager() {
       }
     } catch (err) {
       console.error('Failed to delete doc', err);
-      setError('Failed to delete document');
+      const message = (err as { code?: string; message?: string })?.code === 'permission-denied'
+        ? `Delete is not allowed for ${collectionName} by Firestore rules`
+        : ((err as Error)?.message || 'Failed to delete document');
+      setError(message);
     }
   };
 
@@ -281,9 +303,11 @@ export default function FirestoreManager() {
                       <button className="firestore-manager__btn firestore-manager__btn--edit" onClick={startEdit}>
                         <Pencil />
                       </button>
-                      <button className="firestore-manager__btn firestore-manager__btn--danger" onClick={() => requestDelete(selectedDoc.id)}>
-                        <Trash />
-                      </button>
+                      {canDeleteSelectedDoc && (
+                        <button className="firestore-manager__btn firestore-manager__btn--danger" onClick={() => requestDelete(selectedDoc.id)}>
+                          <Trash />
+                        </button>
+                      )}
                     </div>
                   )}
                   {editing && (

@@ -51,6 +51,37 @@ const formatDateOnly = (dateStr: string): string => {
   }
 };
 
+const getDayKey = (dateStr: string): string => {
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) {
+    return dateStr.slice(0, 10);
+  }
+
+  return parsed.toISOString().slice(0, 10);
+};
+
+const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
+  const seenDailyGiftDays = new Set<string>();
+
+  return activityLogs.filter((log) => {
+    const metadata = (log.metadata as Record<string, any>) || {};
+    const source = String(metadata.source || '');
+    const isDailyGiftLog = log.category === 'drachma' && source === 'daily_gift';
+
+    if (!isDailyGiftLog) {
+      return true;
+    }
+
+    const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
+    if (seenDailyGiftDays.has(dayKey)) {
+      return false;
+    }
+
+    seenDailyGiftDays.add(dayKey);
+    return true;
+  });
+};
+
 const toWishTossLog = (wish: IrisWishDoc): ActivityLog => ({
   id: `wish-${wish.userId}-${wish.date}-${wish.deity}`,
   category: 'action',
@@ -614,9 +645,11 @@ export const Statement: React.FC = () => {
         .map(toWishTossLog);
 
       setLogs(
-        [...userLogs, ...syntheticWishLogs]
+        dedupeStatementLogs(
+          [...userLogs, ...syntheticWishLogs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .filter(log => getDisplayCategory(log) !== 'action')
+        )
       );
     } catch (error) {
       console.error('Failed to load activity logs:', error);
@@ -743,6 +776,7 @@ export const Statement: React.FC = () => {
                     className={`activity-card ${isWish ? 'activity-card--wish' : ''} ${deityClass}`.trim()}
                     style={deityStyles}
                   >
+                    {formatted.log.id}
                     <div className="activity-card-header">
                       <div className="activity-icon-badge" aria-hidden="true">
                         <span className="icon">{getCategoryCode(getDisplayCategory(formatted.log), metadata.deity)}</span>

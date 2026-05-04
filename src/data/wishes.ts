@@ -149,13 +149,27 @@ export const fetchActiveTodayIrisWish = async (characterId: string) => {
   return wish;
 };
 
-/** Fetch all Iris wishes for a specific character */
+/** Fetch all Iris wishes for a specific character
+ * QUOTA EMERGENCY: Results are cached for 5 minutes to prevent duplicate reads on Statement page views
+ * Limited to 5000 most recent wishes per character
+ */
 export const fetchAllIrisWishes = async (characterId: string) => {
+  // Check cache first
+  const cached = userWishesCacheMap.get(characterId);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp) < wishesCacheExpiry) {
+    console.log(`[Quota Cache] Using cached wishes for character ${characterId}`);
+    return cached.wishes;
+  }
+
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
-  const q = query(ref, where('userId', '==', characterId));
+  const q = query(ref, where('userId', '==', characterId), limit(5000));
   const snap = await getDocs(q);
 
-  return snap.docs.map(doc => doc.data() as IrisWishDoc);
+  const wishes = snap.docs.map(doc => doc.data() as IrisWishDoc);
+  userWishesCacheMap.set(characterId, { wishes, timestamp: now });
+  
+  return wishes;
 };
 
 export const fetchUserWishOfIris = async (characterId: string) => fetchAllIrisWishes(characterId);
@@ -173,34 +187,77 @@ export const fetchIrisWishCountsForCharacter = async (characterId: string): Prom
   return Array.from(counts.entries()).map(([deity, count]) => ({ deity, count }));
 };
 
+// Cache for today's wishes to prevent repeated queries (quota emergency)
+let cachedTodayWishes: IrisWishDoc[] | null = null;
+let cachedTodayDate: string | null = null;
+const wishesCacheExpiry = 5 * 60 * 1000; // 5 minutes
+let wishCacheTimestamp = 0;
+
+// Cache for user's all wishes (quota emergency - prevent Statement page reads)
+const userWishesCacheMap = new Map<string, { wishes: IrisWishDoc[]; timestamp: number }>();
+
+// Cache for historical wishes by date to avoid repeated statement/admin reads
+const wishesByDateCacheMap = new Map<string, { wishes: IrisWishDoc[]; timestamp: number }>();
+
 /** 
  * Fetch today's Iris wish of every character.
- * WARNING: This query can be expensive. Use sparingly and consider caching.
- * Currently limited to 10,000 results to prevent excessive quota usage.
- * Consider using a Cloud Function to pre-aggregate daily wishes instead.
+ * QUOTA EMERGENCY: Uses aggressive caching to minimize reads.
+ * Cached for 5 minutes to prevent duplicate queries.
  */
 export const fetchTodayIrisWishes = async () => {
   const date = getTodayDate();
+  const now = Date.now();
+  
+  // Return cached result if still valid and same date
+  if (cachedTodayWishes && cachedTodayDate === date && (now - wishCacheTimestamp) < wishesCacheExpiry) {
+    console.log(`[Quota Cache] Using cached wishes for ${date}`);
+    return cachedTodayWishes;
+  }
+  
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
   const q = query(ref, where('date', '==', date), limit(10000));
   const snap = await getDocs(q);
 
   console.warn(`[Quota Alert] fetchTodayIrisWishes: ${snap.size} documents read for date ${date}`);
-  return snap.docs.map(doc => doc.data() as IrisWishDoc);
+  
+  // Cache the result
+  cachedTodayWishes = snap.docs.map(doc => doc.data() as IrisWishDoc);
+  cachedTodayDate = date;
+  wishCacheTimestamp = now;
+  
+  return cachedTodayWishes;
 };
 
 /** 
  * Fetch all Iris wishes for specific date.
- * WARNING: This query can be expensive. Use sparingly and consider caching.
- * Currently limited to 10,000 results to prevent excessive quota usage.
+ * QUOTA EMERGENCY: Uses aggressive caching to minimize reads.
  */
 export const fetchIrisWishesByDate = async (date: string) => {
+  // Reuse cache if fetching today's wishes
+  if (date === getTodayDate()) {
+    return fetchTodayIrisWishes();
+  }
+
+  const now = Date.now();
+  const cached = wishesByDateCacheMap.get(date);
+  if (cached && (now - cached.timestamp) < wishesCacheExpiry) {
+    console.log(`[Quota Cache] Using cached wishes for historical date ${date}`);
+    return cached.wishes;
+  }
+  
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
   const q = query(ref, where('date', '==', date), limit(10000));
   const snap = await getDocs(q);
 
-  console.warn(`[Quota Alert] fetchIrisWishesByDate: ${snap.size} documents read for date ${date}`);
-  return snap.docs.map(doc => doc.data() as IrisWishDoc);
+  if (snap.size >= 100) {
+    console.warn(`[Quota Alert] fetchIrisWishesByDate: ${snap.size} documents read for date ${date}`);
+  } else {
+    console.log(`[Quota Trace] fetchIrisWishesByDate: ${snap.size} documents read for date ${date}`);
+  }
+
+  const wishes = snap.docs.map(doc => doc.data() as IrisWishDoc);
+  wishesByDateCacheMap.set(date, { wishes, timestamp: now });
+  return wishes;
 };
 
 /** Check if user has Nike wish and award 100 drachma (max 2 times). Returns true if awarded. */
