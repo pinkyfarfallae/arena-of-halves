@@ -776,7 +776,6 @@ export const Statement: React.FC = () => {
                     className={`activity-card ${isWish ? 'activity-card--wish' : ''} ${deityClass}`.trim()}
                     style={deityStyles}
                   >
-                    {formatted.log.id}
                     <div className="activity-card-header">
                       <div className="activity-icon-badge" aria-hidden="true">
                         <span className="icon">{getCategoryCode(getDisplayCategory(formatted.log), metadata.deity)}</span>
