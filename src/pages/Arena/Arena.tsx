@@ -547,10 +547,10 @@ function Arena(props?: ArenaDemoProps) {
       if (found >= 0) powerIdx = found;
     }
     if (powerIdx == null) return;
-    if (turn.usedPowerName === POWER_NAMES.BLOSSOM_SCENTRA) {
+    if (turn.usedPowerName === POWER_NAMES.SERENITY_BLOSSOM_REVERIE) {
       if (blossomScentraVisualTimerRef.current) clearTimeout(blossomScentraVisualTimerRef.current);
       setNpcVisualTarget(allyId);
-      setNpcVisualPowerName(POWER_NAMES.BLOSSOM_SCENTRA);
+      setNpcVisualPowerName(POWER_NAMES.SERENITY_BLOSSOM_REVERIE);
       blossomScentraVisualTimerRef.current = setTimeout(() => {
         setNpcVisualTarget(null);
         setNpcVisualPowerName(null);
@@ -579,10 +579,10 @@ function Arena(props?: ArenaDemoProps) {
     if (action === TURN_ACTION.POWER && powerName) {
       setLastConfirmedPowerName(powerName);
       // Show Blossom Scentra healing effect immediately when human selects ally (choose → select target → show)
-      if (powerName === POWER_NAMES.BLOSSOM_SCENTRA && allyTargetId) {
+      if (powerName === POWER_NAMES.SERENITY_BLOSSOM_REVERIE && allyTargetId) {
         if (blossomScentraVisualTimerRef.current) clearTimeout(blossomScentraVisualTimerRef.current);
         setNpcVisualTarget(allyTargetId);
-        setNpcVisualPowerName(POWER_NAMES.BLOSSOM_SCENTRA);
+        setNpcVisualPowerName(POWER_NAMES.SERENITY_BLOSSOM_REVERIE);
         blossomScentraVisualTimerRef.current = setTimeout(() => {
           setNpcVisualTarget(null);
           setNpcVisualPowerName(null);

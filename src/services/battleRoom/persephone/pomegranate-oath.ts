@@ -32,7 +32,7 @@ export function appendPomegranateCoAttackLog(
     damage: opts.hit ? opts.damage : 0,
     defenderHpAfter: opts.defenderHpAfter,
     eliminated: opts.defenderHpAfter <= 0,
-    powerUsed: `${POWER_NAMES.POMEGRANATES_OATH} (Co-Attack)`,
+    powerUsed: `${POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH} (Co-Attack)`,
     isPomegranateCoAttack: true,
     coAtkTotal: opts.coAtkTotal,
     coDefTotal: opts.coDefTotal,

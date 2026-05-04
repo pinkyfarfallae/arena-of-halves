@@ -428,7 +428,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
         const rawRecent = Array.isArray(battle?.log) ? (battle!.log as any[]).slice(-24) : [];
         const blossomScentraSearchLog = rawRecent;
         const blossomScentraLogIndex = (() => {
-          const powerName = (POWER_NAMES.BLOSSOM_SCENTRA as string).trim();
+          const powerName = (POWER_NAMES.SERENITY_BLOSSOM_REVERIE as string).trim();
           const charId = String(m.characterId);
           for (let idx = blossomScentraSearchLog.length - 1; idx >= 0; idx--) {
             const le = blossomScentraSearchLog[idx];
@@ -510,7 +510,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
           return { amount, key: `soul_devourer_heal_turn_${r}_${ti}_${m.characterId}` };
         })();
 
-        const isBlossomScentraPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.BLOSSOM_SCENTRA as string).trim();
+        const isBlossomScentraPowerInUse = typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.SERENITY_BLOSSOM_REVERIE as string).trim();
         const serverBlossomScentraOnTarget = turn?.allyTargetId != null && String(turn.allyTargetId) === String(m.characterId) && isBlossomScentraPowerInUse;
         // Blossom Scentra Heal D4: show scent only after dice roll result is in (animation ended), not during roll
         const blossomHealRollDone = turn?.phase === PHASE.ROLLING_BLOSSOM_SCENTRA_HEAL && serverBlossomScentraOnTarget && (turn as { blossomHealRoll?: number }).blossomHealRoll != null;
@@ -655,7 +655,7 @@ export default function TeamPanel({ isPracticeRoom, members, allMembers, side, b
             blossomScentraHealResultCardVisible={blossomScentraHealResultCardVisible}
             isBlossomScentraHealTarget={isBlossomScentraHealTarget}
             blossomScentraCasterIsRosabella={
-              (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.BLOSSOM_SCENTRA as string).trim() &&
+              (typeof turn?.usedPowerName === 'string' && (turn.usedPowerName as string).trim() === (POWER_NAMES.SERENITY_BLOSSOM_REVERIE as string).trim() &&
                 turn?.attackerId
                 ? (fighterMap.get(turn.attackerId)?.characterId?.toLowerCase() === CHARACTER.ROSABELLA)
                 : (useSpringForThisMember && springLogIndex >= 0) || (useBlossomScentraForThisMember && blossomScentraLogIndex >= 0)

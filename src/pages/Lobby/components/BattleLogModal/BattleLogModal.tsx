@@ -169,7 +169,7 @@ export default function BattleLogModal({ room, onClose }: Props) {
             // Power entry: "AttackerName PowerName [→ DefenderName] [damage]"
             // Ephemeral Season / self-target: no arrow (log is written after choose season / choose target)
             if (entry.powerUsed) {
-              const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed.startsWith(POWER_NAMES.EPHEMERAL_SEASON + ':');
+              const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERA_SOLSTICE || entry.powerUsed.startsWith(POWER_NAMES.EPHEMERA_SOLSTICE + ':');
               const isSelfTarget = entry.defenderId === entry.attackerId;
               const noTarget = isSeasonPower || isSelfTarget;
               const powMeta = atk ? getPowers(atk.deityBlood).find((p) => p.name === entry.powerUsed) : undefined;

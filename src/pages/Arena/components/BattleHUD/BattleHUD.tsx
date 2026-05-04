@@ -376,7 +376,7 @@ export default function BattleHUD({
     battleBeyondNimbusShockPending || lrNormalAttackResolvingHit;
 
   /** When true, hide Back on target select modal (e.g. Soul Devourer must pick target; Beyond the Nimbus has no back; Blossom Scentra follow-up after heal must pick enemy). */
-  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || (turn?.usedPowerName === POWER_NAMES.BLOSSOM_SCENTRA && !!turn?.allyTargetId)) ?? false;
+  const backDisabled = (confirmedPowerName === POWER_NAMES.SOUL_DEVOURER || turn?.usedPowerName === POWER_NAMES.SOUL_DEVOURER || confirmedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || turn?.usedPowerName === POWER_NAMES.BEYOND_THE_NIMBUS || (turn?.usedPowerName === POWER_NAMES.SERENITY_BLOSSOM_REVERIE && !!turn?.allyTargetId)) ?? false;
 
   // Filter targets based on power requirements (e.g., Jolt Arc needs 'shock')
   const targets = (() => {
@@ -4813,7 +4813,7 @@ export default function BattleHUD({
             );
           }
 
-          if (entry.powerUsed === POWER_NAMES.BLOSSOM_SCENTRA && entry.heal === 0 && (entry as any).healSkipReason) {
+          if (entry.powerUsed === POWER_NAMES.SERENITY_BLOSSOM_REVERIE && entry.heal === 0 && (entry as any).healSkipReason) {
             const skipReasonLabel = (entry as any).healSkipReason === EFFECT_TAGS.HEALING_NULLIFIED ? 'Healing Nullified' : (entry as any).healSkipReason;
             return (
               <div className="bhud__log-entry bhud__log-entry--skip" key={i}>
@@ -4870,7 +4870,7 @@ export default function BattleHUD({
           if (entry.powerUsed) {
             const power = atkFighter ? getPowers(atkFighter.deityBlood).find((p: { name: string }) => p.name === entry.powerUsed) : undefined;
             const isSelfTarget = power?.target === TARGET_TYPES.SELF;
-            const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERAL_SEASON || entry.powerUsed?.startsWith?.('Ephemeral Season:');
+            const isSeasonPower = entry.powerUsed === POWER_NAMES.EPHEMERA_SOLSTICE || entry.powerUsed?.startsWith?.('Ephemeral Season:');
             const pendingTarget = !!(entry as any).pendingTarget;
             const logSelfTarget = entry.attackerId === entry.defenderId;
             const noTarget = isSelfTarget || isSeasonPower || pendingTarget || logSelfTarget;

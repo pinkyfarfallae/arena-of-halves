@@ -2445,7 +2445,7 @@ export async function selectAction(
     }
 
     // ── Pomegranate's Oath: apply buff + end turn immediately (like confirmSeason) ──
-    if (power.name === POWER_NAMES.POMEGRANATES_OATH) {
+    if (power.name === POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH) {
       const pendingTurnPom: Record<string, unknown> = {};
       deductPowerQuotaIfPending(room, battle.turn, attackerId, updates, pendingTurnPom, effectivePowerIndex);
       const oathUpdates = applyPomegranateOath(room, attackerId, allyTargetId, battle);
@@ -2575,7 +2575,7 @@ export async function selectAction(
     const allyHasHealingNullified = isHealingNullified(battle.activeEffects || [], allyTargetId);
 
     // Heal skipped (e.g. Healing Nullified): show modal, wait for caster to ack, then log heal 0 and advance — no D4 roll.
-    if (power.name === POWER_NAMES.BLOSSOM_SCENTRA && allyHasHealingNullified && ally && attacker) {
+    if (power.name === POWER_NAMES.SERENITY_BLOSSOM_REVERIE && allyHasHealingNullified && ally && attacker) {
       const turnBlossomScentraSkip: Record<string, unknown> = {
         attackerId,
         attackerTeam: battle.turn.attackerTeam,
@@ -2594,7 +2594,7 @@ export async function selectAction(
     }
 
     // Blossom Scentra: always show D4 roll for heal crit (use target's crit rate)
-    if (power.name === POWER_NAMES.BLOSSOM_SCENTRA && ally && attacker) {
+    if (power.name === POWER_NAMES.SERENITY_BLOSSOM_REVERIE && ally && attacker) {
       // Heal crit rate = caster's current critical rate (base + buffs/debuffs)
       const baseCritRate = typeof attacker.criticalRate === 'number' ? attacker.criticalRate : 25;
       const critMod = getStatModifier(battle.activeEffects || [], attackerId, MOD_STAT.CRITICAL_RATE);

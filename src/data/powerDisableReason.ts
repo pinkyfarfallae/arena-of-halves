@@ -40,15 +40,15 @@ export const POWER_DISABLE_REASONS: Record<string, Record<string, string>> = {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
   },
   // Persephone
-  [POWER_NAMES.BLOSSOM_SCENTRA]: {
+  [POWER_NAMES.SERENITY_BLOSSOM_REVERIE]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
     ALL_HEALING_NULLIFIED_INFO: 'ขณะนี้ทุกคนในทีมถูกคำสาป "สูญสิ้นเยียวยา" ทำให้การฟื้นฟู HP จะไม่มีผล',
   },
-  [POWER_NAMES.EPHEMERAL_SEASON]: {
+  [POWER_NAMES.EPHEMERA_SOLSTICE]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
     ALL_HEALING_NULLIFIED_SPRING_INFO: 'หากเลือก "สารทฤดู" ขณะนี้ทุกคนในทีมถูกคำสาป "สูญสิ้นเยียวยา" การฟื้นฟู HP จากสารทฤดูจะไม่มีผล',
   },
-  [POWER_NAMES.POMEGRANATES_OATH]: {
+  [POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH]: {
     NOT_ENOUGH_SKILL_POINT: NOT_ENOUGH_SKILL_POINT_REASON,
   },
 };
@@ -153,10 +153,10 @@ export function getDisabledPowersAndReasons(params: GetDisabledPowersParams): Di
       ae.some((e) => e.targetId === id && e.tag === EFFECT_TAGS.HEALING_NULLIFIED),
     );
     if (allHealingNullified) {
-      infoReasons[POWER_NAMES.BLOSSOM_SCENTRA] =
-        POWER_DISABLE_REASONS[POWER_NAMES.BLOSSOM_SCENTRA]?.ALL_HEALING_NULLIFIED_INFO ?? 'ขณะนี้ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จะไม่มีผล';
-      infoReasons[POWER_NAMES.EPHEMERAL_SEASON] =
-        POWER_DISABLE_REASONS[POWER_NAMES.EPHEMERAL_SEASON]?.ALL_HEALING_NULLIFIED_SPRING_INFO ?? 'หากเลือก "สารทฤดู" แต่ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จากสารทฤดูจะไม่มีผล';
+      infoReasons[POWER_NAMES.SERENITY_BLOSSOM_REVERIE] =
+        POWER_DISABLE_REASONS[POWER_NAMES.SERENITY_BLOSSOM_REVERIE]?.ALL_HEALING_NULLIFIED_INFO ?? 'ขณะนี้ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จะไม่มีผล';
+      infoReasons[POWER_NAMES.EPHEMERA_SOLSTICE] =
+        POWER_DISABLE_REASONS[POWER_NAMES.EPHEMERA_SOLSTICE]?.ALL_HEALING_NULLIFIED_SPRING_INFO ?? 'หากเลือก "สารทฤดู" แต่ทุกคนในทีมติดสถานะลบล้างการรักษา การฟื้นฟู HP จากสารทฤดูจะไม่มีผล';
     }
   }
 

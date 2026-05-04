@@ -209,7 +209,7 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
     if (selectedPowerIdx == null) return;
     const power = attackerPowers[selectedPowerIdx];
     // Blossom Scentra, Apollo's Hymn: use target select modal (so "Healing nullified" can show there)
-    const useTargetModalForAlly = power?.name === POWER_NAMES.BLOSSOM_SCENTRA || power?.name === POWER_NAMES.APOLLO_S_HYMN;
+    const useTargetModalForAlly = power?.name === POWER_NAMES.SERENITY_BLOSSOM_REVERIE || power?.name === POWER_NAMES.APOLLO_S_HYMN;
     if (power?.target === TARGET_TYPES.ALLY && teammates && teammates.length > 0 && !useTargetModalForAlly) {
       const otherAlive = teammates.filter(m => m.characterId !== attacker.characterId && m.currentHp > 0);
       if (otherAlive.length === 0) {
@@ -263,7 +263,7 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
     const allDead = (teammates || []).filter(m => m.currentHp <= 0);
     // Death Keeper: show dead teammates only
     // Pomegranate's Oath: self only if no other allies alive
-    const isPomegranate = allyPower?.name === POWER_NAMES.POMEGRANATES_OATH;
+    const isPomegranate = allyPower?.name === POWER_NAMES.POMEGRANATES_IRREVOCABLE_OATH;
     const othersAlive = allAlive.filter(m => m.characterId !== attacker.characterId);
     const aliveTeammates = isDeathKeeper ? allDead : (isPomegranate && othersAlive.length > 0 ? othersAlive : allAlive);
     return (

@@ -65,8 +65,8 @@ export function applySeasonEffects(
     switch (season) {
       case SEASON_KEYS.SUMMER: {
         effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERA_SOLSTICE),
+          powerName: POWER_NAMES.EPHEMERA_SOLSTICE,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
@@ -89,8 +89,8 @@ export function applySeasonEffects(
         }
         // Tracking effect for reversal on expiry
         effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERA_SOLSTICE),
+          powerName: POWER_NAMES.EPHEMERA_SOLSTICE,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
@@ -104,8 +104,8 @@ export function applySeasonEffects(
 
       case SEASON_KEYS.WINTER: {
         effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERA_SOLSTICE),
+          powerName: POWER_NAMES.EPHEMERA_SOLSTICE,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
@@ -120,8 +120,8 @@ export function applySeasonEffects(
       case SEASON_KEYS.SPRING: {
         // Spring heal is applied in resolveTurn; add effect so pip/SeasonalEffects show Spring
         effects.push({
-          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERAL_SEASON),
-          powerName: POWER_NAMES.EPHEMERAL_SEASON,
+          id: makeEffectId(attackerId, POWER_NAMES.EPHEMERA_SOLSTICE),
+          powerName: POWER_NAMES.EPHEMERA_SOLSTICE,
           effectType: EFFECT_TYPES.BUFF,
           sourceId: attackerId,
           targetId: fighterId,
