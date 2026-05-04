@@ -89,10 +89,11 @@ export async function fetchActivityLogsForCharacter(
     return cached.logs;
   }
 
+  // No orderBy — avoids needing a composite index (characterId + createdAt).
+  // Statement sorts client-side anyway.
   const q = query(
     col(),
     where('characterId', '==', characterId),
-    orderBy('createdAt', 'desc'),
     limit(limitCount)
   );
   const snap = await getDocs(q);
