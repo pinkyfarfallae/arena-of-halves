@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where, limit } from 'firebase/firestore';
 import { ACTIONS } from '../constants/action';
 import { Deity, DEITY } from '../constants/deities';
 import { GID, csvUrl } from '../constants/sheets';
@@ -173,22 +173,33 @@ export const fetchIrisWishCountsForCharacter = async (characterId: string): Prom
   return Array.from(counts.entries()).map(([deity, count]) => ({ deity, count }));
 };
 
-/** Fetch today's Iris wish of every character */
+/** 
+ * Fetch today's Iris wish of every character.
+ * WARNING: This query can be expensive. Use sparingly and consider caching.
+ * Currently limited to 10,000 results to prevent excessive quota usage.
+ * Consider using a Cloud Function to pre-aggregate daily wishes instead.
+ */
 export const fetchTodayIrisWishes = async () => {
   const date = getTodayDate();
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
-  const q = query(ref, where('date', '==', date));
+  const q = query(ref, where('date', '==', date), limit(10000));
   const snap = await getDocs(q);
 
+  console.warn(`[Quota Alert] fetchTodayIrisWishes: ${snap.size} documents read for date ${date}`);
   return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 
-/** Fetch all Iris wishes for specific date */
+/** 
+ * Fetch all Iris wishes for specific date.
+ * WARNING: This query can be expensive. Use sparingly and consider caching.
+ * Currently limited to 10,000 results to prevent excessive quota usage.
+ */
 export const fetchIrisWishesByDate = async (date: string) => {
   const ref = collection(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS);
-  const q = query(ref, where('date', '==', date));
+  const q = query(ref, where('date', '==', date), limit(10000));
   const snap = await getDocs(q);
 
+  console.warn(`[Quota Alert] fetchIrisWishesByDate: ${snap.size} documents read for date ${date}`);
   return snap.docs.map(doc => doc.data() as IrisWishDoc);
 };
 

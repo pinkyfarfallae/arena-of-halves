@@ -1,31 +1,47 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+    // Root: no direct access (all access through specific paths)
+    ".read": false,
+    ".write": false,
 
+    // Chat messages - authenticated users can read room chats, write only their own messages
     "chat": {
       "$roomId": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": false,
+        
+        "$messageId": {
+          ".read": "auth != null",
+          // Only allow write if sender matches auth user
+          ".write": "auth != null && newData.child('senderId').val() === auth.uid",
+          ".validate": "newData.hasChildren(['senderId', 'message', 'timestamp'])"
+        }
       }
     },
 
+    // Battle arenas - authenticated users can read, write controlled by server-side logic
     "arenas": {
       ".read": "auth != null",
-      ".write": "auth != null",
+      ".write": false,  // Firebase Functions handle arena creation/updates
       
       "$roomId": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": false
       }
     },
-    
+
+    // Training quotas - per-character, read-only from client (written server-side)
     "trainingQuotas": {
       ".read": "auth != null",
-      ".write": "auth != null",
+      ".write": false,  // Server-side only
       
       "$characterId": {
+        ".read": "auth != null",
+        ".write": false,
+        
         "$date": {
+          ".read": "auth != null",
+          ".write": false,
           ".validate": "newData.hasChildren(['used', 'timestamp']) || newData.hasChildren(['used', 'timestamp', 'mode'])"
         }
       }
