@@ -7,6 +7,7 @@ import {
   updateDoc,
   query,
   orderBy,
+  where,
   limit,
 } from 'firebase/firestore';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
@@ -15,10 +16,14 @@ import { isInQuotaEmergency, canExecuteNonCriticalRead } from '../quotaEmergency
 
 const col = () => collection(firestore, FIRESTORE_COLLECTIONS.ACTIVITY_LOGS);
 
-// Cache for activity logs (quota emergency)
+// Cache for activity logs (admin full view)
 let cachedActivityLogs: ActivityLog[] | null = null;
 let cachedActivityLogsTimestamp = 0;
 const activityLogsCacheDuration = 10 * 60 * 1000; // 10 minutes
+
+// Cache for per-character activity logs (Statement page)
+const cachedCharacterLogs = new Map<string, { logs: ActivityLog[]; timestamp: number }>();
+const characterLogsCacheDuration = 5 * 60 * 1000; // 5 minutes
 
 export async function logActivity(
   entry: Omit<ActivityLog, 'id' | 'createdAt'>
@@ -60,6 +65,41 @@ export async function fetchActivityLogs(limitCount = 300): Promise<ActivityLog[]
   cachedActivityLogsTimestamp = now;
   
   return cachedActivityLogs;
+}
+
+/**
+ * Fetch activity logs for a specific character only.
+ * Much cheaper than fetchActivityLogs — reads only that character's entries.
+ * Cached per character for 5 minutes.
+ */
+export async function fetchActivityLogsForCharacter(
+  characterId: string,
+  limitCount = 200
+): Promise<ActivityLog[]> {
+  if (!canExecuteNonCriticalRead()) {
+    const cached = cachedCharacterLogs.get(characterId);
+    console.warn('[QUOTA EMERGENCY] Character activity log fetch blocked');
+    return cached?.logs || [];
+  }
+
+  const now = Date.now();
+  const cached = cachedCharacterLogs.get(characterId);
+  if (cached && (now - cached.timestamp) < characterLogsCacheDuration) {
+    console.log(`[Quota Cache] Using cached activity logs for ${characterId}`);
+    return cached.logs;
+  }
+
+  const q = query(
+    col(),
+    where('characterId', '==', characterId),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+
+  const logs = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<ActivityLog, 'id'>) }));
+  cachedCharacterLogs.set(characterId, { logs, timestamp: now });
+  return logs;
 }
 
 export type EditableLogFields = Pick<

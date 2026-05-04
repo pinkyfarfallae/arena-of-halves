@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ACTIONS } from '../../constants/action';
 import { useAuth } from '../../hooks/useAuth';
 import { ActivityLog } from '../../types/activityLog';
-import { fetchActivityLogs } from '../../services/activityLog/activityLogService';
+import { fetchActivityLogs, fetchActivityLogsForCharacter } from '../../services/activityLog/activityLogService';
 import { fetchUserWishOfIris, IrisWishDoc } from '../../data/wishes';
 import './Statement.scss';
 import { Dropdown, Input } from '../../components/Form';
@@ -624,29 +624,28 @@ export const Statement: React.FC = () => {
 
   useEffect(() => {
     loadActivityLogs();
-  }, [user]);
+  }, [user?.characterId]);
 
   const loadActivityLogs = async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const [allLogs, userWishes] = await Promise.all([
-        fetchActivityLogs(500),
+      const [userLogs, userWishes] = await Promise.all([
+        fetchActivityLogsForCharacter(user.characterId, 200),
         fetchUserWishOfIris(user.characterId),
       ]);
 
-      const userLogs = allLogs
-        .filter(log => log.characterId === user.characterId)
+      const sortedLogs = [...userLogs]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       const syntheticWishLogs = userWishes
         .filter(wish => Boolean(wish.deity))
-        .filter(wish => !hasWishTossLog(userLogs, wish))
+        .filter(wish => !hasWishTossLog(sortedLogs, wish))
         .map(toWishTossLog);
 
       setLogs(
         dedupeStatementLogs(
-          [...userLogs, ...syntheticWishLogs]
+          [...sortedLogs, ...syntheticWishLogs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .filter(log => getDisplayCategory(log) !== 'action')
         )
