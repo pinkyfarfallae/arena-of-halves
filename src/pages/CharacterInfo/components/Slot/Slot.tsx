@@ -1,11 +1,30 @@
 import './Slot.scss';
 
-export default function Slot({ name, icon, quantity, imageUrl, tier, hideAmount = false }: {
-  name?: string; icon: string; quantity?: number; imageUrl?: string; tier?: string; hideAmount?: boolean;
-}) {
+interface SlotProps {
+  name?: string;
+  icon: string,
+  quantity?: number,
+  imageUrl?: string,
+  tier?: string,
+  hideAmount?: boolean,
+  onClick?: () => void;
+}
+
+export default function Slot({
+  name,
+  icon,
+  quantity,
+  imageUrl,
+  tier,
+  hideAmount = false,
+  onClick
+}: SlotProps) {
   const tierCls = tier ? `wslot--${tier.toLowerCase()}` : '';
   return (
-    <div className={`wslot ${!name ? 'wslot--empty' : ''} ${name ? tierCls : ''}`}>
+    <div
+      className={`wslot ${!name ? 'wslot--empty' : ''} ${name ? tierCls : ''}`}
+      onClick={onClick}
+    >
       <div className="wslot__frame">
         {imageUrl ? (
           <img src={imageUrl} alt={name} className="wslot__img" referrerPolicy="no-referrer" />

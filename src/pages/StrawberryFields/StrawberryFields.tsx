@@ -18,10 +18,10 @@ import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import { LANGUAGE } from '../../constants/language';
 import Close from '../../icons/Close';
 import HarvestRecordCard from './components/HarvestRecordCard/HarvestRecordCard';
-import { Character, fetchAllCharacters } from '../../data/characters';
+import { Character, fetchAllCharacters, DEITY_THEMES } from '../../data/characters';
 import HarvestorChip from './components/HarvestRecordCard/components/HarvestorChip/HarvestorChip';
 import Crown from '../../icons/Crown';
-import { hexToRgb } from '../../utils/color';
+import { hexToRgb, isNearWhite } from '../../utils/color';
 import InfoCircle from '../Shop/icons/InfoCircle';
 import { useScreenSize } from '../../hooks/useScreenSize';
 import { fetchActiveTodayIrisWish } from '../../data/wishes';
@@ -499,9 +499,14 @@ function StrawberryFields() {
                     <div
                       key={harvester.characterId}
                       className="strawberry-fields__top-harvestor"
-                      style={{
-                        '--primary-color': characterMap[harvester.characterId.toLowerCase()] ? hexToRgb(characterMap[harvester.characterId.toLowerCase()].theme[0]) : 'rgb(255, 255, 255)',
-                      } as React.CSSProperties}
+                      style={(() => {
+                        const char = characterMap[harvester.characterId.toLowerCase()];
+                        const rawColor = char?.theme?.[0];
+                        const primaryHex = (!isNearWhite(rawColor) ? rawColor : undefined)
+                          || DEITY_THEMES[char?.deityBlood?.toLowerCase() as any]?.[0]
+                          || '#C0A062';
+                        return { '--primary-color': hexToRgb(primaryHex) } as React.CSSProperties;
+                      })()}
                     >
                       {index === 0 && (
                         <span className="strawberry-fields__top-harvestor-crown">

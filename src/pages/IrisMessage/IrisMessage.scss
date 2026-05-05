@@ -1631,18 +1631,17 @@ $orbit-radius-sm: 128px;
 /* ── Description ── */
 .iris__card-desc {
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #68687a;
   line-height: 1.5;
   margin: 0;
   flex: 1;
   display: flex;
   align-items: center;
-  white-space: pre-line;
   animation: fadeSlideUp 0.5s ease-out 0.75s both;
 
   @media (max-width: $bp-compact) {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 }
 
@@ -1651,13 +1650,13 @@ $orbit-radius-sm: 128px;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.4rem 1.1rem;
+  padding: 0.3rem 1.1rem;
   border: 1.5px solid color-mix(in srgb, var(--card-hue) 38%, #d0ccc0);
   border-radius: 20px;
   background: transparent;
   color: var(--card-text);
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.58rem;
+  font-size: 0.5rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;

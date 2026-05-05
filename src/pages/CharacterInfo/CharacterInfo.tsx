@@ -54,6 +54,9 @@ import { T } from '../../constants/translationKeys';
 import { getAffinityForCharacter } from '../../services/user/npcAffinityService';
 import { fetchAllNPCs } from '../../data/npcs';
 import AffinityZone from './components/AffinityZone/AffinityZone';
+import { ItemDetailModal } from './components/ItemDetailModal/ItemDetailModal';
+import { consumeItem } from '../../services/bag/bagService';
+import { addTrainingPoints } from '../../services/training/trainingPoints';
 
 /* ── Formatted text: supports / line breaks, * bullets, Label: bold ── */
 function FormatText({ text }: { text: string }) {
@@ -96,8 +99,12 @@ function CharacterInfo() {
   const [bagWeapons, setBagWeapons] = useState<(any & Equipment[])[]>([]);
 
   // Modal open state (setters used by UI; values reserved for future use)
-  const [weaponModal, setWeaponModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [itemModal, setItemModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+
+  const [weaponModal, setWeaponModal] = useState(false);
+
+  const [itemInfoModal, setItemInfoModal] = useState<ItemInfo | null>(null);
+  const [itemModal, setItemModal] = useState(false);
+
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -303,13 +310,18 @@ function CharacterInfo() {
     return [...filledSlots, ...emptySlots];
   }, [bagWeapons]);
 
-  const itemSlots: { name: string; quantity: number; imageUrl?: string; }[] = useMemo(() => {
+  const itemSlots: { id: string; name: string; quantity: number; imageUrl?: string; income?: number; available?: boolean }[] = useMemo(() => {
     const slots = bagItems.map((b) => ({
+      id: b.itemId,
       name: b.labelEng,
       quantity: b.amount,
       imageUrl: b.imageUrl || undefined,
+      ...(b.itemId === ITEMS.HERMES_S_PURSE && {
+        income: b.income || 0,
+        available: b.available || false,
+      })
     }));
-    while (slots.length < SLOT_MIN) slots.push({ name: '', quantity: 0, imageUrl: undefined });
+    while (slots.length < SLOT_MIN) slots.push({ id: crypto.randomUUID(), name: '', quantity: 0, imageUrl: undefined, income: 0, available: true });
     return slots;
   }, [bagItems]);
 
@@ -585,10 +597,23 @@ function CharacterInfo() {
               </div>
               <div className="cs__slots">
                 {itemSlots.map((it, i) => (
-                  <Slot key={`i${i}`} name={it.name || undefined} icon="◈" quantity={it.quantity} imageUrl={it.imageUrl} />
+                  <Slot
+                    key={`i${i}`}
+                    name={it.name || undefined}
+                    icon="◈"
+                    quantity={it.quantity}
+                    imageUrl={it.imageUrl}
+                    onClick={() => {
+                      if (!isOwnProfile) return;
+                      const fullInfo = bagItems.find(b => b.itemId === it.id);
+                      setItemInfoModal(fullInfo || null);
+                    }}
+                  />
                 ))}
               </div>
-              <button className="cs__slots-more" onClick={() => setItemModal(true)}>
+              <button className="cs__slots-more" onClick={() => {
+                setItemModal(true);
+              }}>
                 <span className="cs__slots-more-text">Show All</span>
               </button>
             </div>
@@ -817,6 +842,38 @@ function CharacterInfo() {
         <div className="cs__saving-overlay">
           <div className="app-loader__ring" />
         </div>
+      )}
+
+      {/* Item modal */}
+      {isOwnProfile && itemInfoModal && (
+        <ItemDetailModal
+          itemInfo={itemInfoModal}
+          onClose={() => setItemInfoModal(null)}
+          todayWish={todayWish?.deity ? {
+            deity: todayWish.deity,
+            name: wishesData.find((wish) => wish.deity === todayWish.deity)?.name,
+            description: wishesData.find((wish) => wish.deity === todayWish.deity)?.description,
+            canceled: todayWish.canceled,
+          } : null}
+          onDecreeTodayWish={handleUseJusticeCookie}
+          canDecreeTodayWish={isOwnProfile && !!todayWish && !todayWish.canceled && justiceCookieAmount > 0}
+          trainingPoints={user?.trainingPoints ?? 0}
+          codexCount={bagItems?.find(item => item.itemId === ITEMS.ATHENA_S_CODEX)?.amount ?? 0}
+          onExchangeCodex={async () => {
+            if (!user?.characterId) return;
+            const codexAmount = bagItems?.find(item => item.itemId === ITEMS.ATHENA_S_CODEX)?.amount ?? 0;
+            if (codexAmount === 0) return;
+            try {
+              const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENA_S_CODEX, codexAmount, 'modal_use_codex');
+              if (!consumeResult.success) return;
+              await addTrainingPoints(user.characterId, codexAmount * 3);
+              await refreshUser();
+            } finally {
+              setSaving(false);
+            }
+          }}
+          canExchangeCodex={isOwnProfile}
+        />
       )}
     </div>
   );

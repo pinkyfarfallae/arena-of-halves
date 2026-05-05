@@ -62,22 +62,41 @@ const getDayKey = (dateStr: string): string => {
 
 const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   const seenDailyGiftDays = new Set<string>();
+  // Deduplicate admin item grants that produced two Firestore docs:
+  // one "give_item" (old manual log) + one "receive_item" (auto-log from bagService).
+  // Normalize both to the same key so only the first one survives.
+  const seenItemGrantKeys = new Set<string>();
 
   return activityLogs.filter((log) => {
     const metadata = (log.metadata as Record<string, any>) || {};
     const source = String(metadata.source || '');
     const isDailyGiftLog = log.category === 'drachma' && source === 'daily_gift';
 
-    if (!isDailyGiftLog) {
+    if (isDailyGiftLog) {
+      const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
+      if (seenDailyGiftDays.has(dayKey)) return false;
+      seenDailyGiftDays.add(dayKey);
       return true;
     }
 
-    const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
-    if (seenDailyGiftDays.has(dayKey)) {
-      return false;
+    // Both "give_item" and "receive_item" from admin sources represent the same
+    // item grant event. Collapse them using characterId + itemId + amount + minute.
+    const adminItemSources = [
+      'admin_player_inventory_add', 'admin_player_inventory_bulk_add',
+      'player_inventory', 'player_inventory_bulk',
+    ];
+    const isAdminItemGrant =
+      log.category === 'item' &&
+      (log.action === ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM || log.action === ACTIVITY_LOG_ACTIONS.GIVE_ITEM) &&
+      adminItemSources.includes(source);
+
+    if (isAdminItemGrant) {
+      const minuteSlot = Math.floor(new Date(log.createdAt).getTime() / 60_000);
+      const key = `${log.characterId}:${metadata.itemId || ''}:${log.amount}:${minuteSlot}`;
+      if (seenItemGrantKeys.has(key)) return false;
+      seenItemGrantKeys.add(key);
     }
 
-    seenDailyGiftDays.add(dayKey);
     return true;
   });
 };
