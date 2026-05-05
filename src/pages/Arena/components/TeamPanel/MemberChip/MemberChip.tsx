@@ -29,6 +29,7 @@ import { TARGET_TYPES } from '../../../../../constants/effectTypes';
 import { CHARACTER } from '../../../../../constants/characters';
 import { POWER_NAMES } from '../../../../../constants/powers';
 import { getImprecatedPoemCurse } from '../../../../../data/imprecatedPoemCurse';
+import { isTrustedDomEvent } from '../../../../../utils/trustedEvent';
 
 import './MemberChip.scss';
 import { LANGUAGE } from '../../../../../constants/language';
@@ -971,7 +972,10 @@ export default function MemberChip({ fighter, isAttacker, isPracticeRoom, isDefe
           '--mchip-frame-width': `${frameLayout.width}px`,
         }),
       } as React.CSSProperties}
-      onClick={isTargetable && !isEliminated && onSelect ? onSelect : undefined}
+      onClick={isTargetable && !isEliminated && onSelect ? (event) => {
+        if (!isTrustedDomEvent(event)) return;
+        onSelect();
+      } : undefined}
       role={isTargetable && !isEliminated ? 'button' : undefined}
     >
       {/* Wavy line background — Efflorescence Muse only: thin lines, green/yellow/white/pink, low opacity */}

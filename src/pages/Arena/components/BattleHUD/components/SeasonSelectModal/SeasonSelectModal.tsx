@@ -4,6 +4,7 @@ import type { FighterState } from '../../../../../../types/battle';
 import { getAllSeasons, getSeasonConfig } from '../../../../../../data/seasons';
 import type { SeasonKey } from '../../../../../../data/seasons';
 import { PANEL_SIDE, type PanelSide } from '../../../../../../constants/battle';
+import { isTrustedDomEvent } from '../../../../../../utils/trustedEvent';
 import './SeasonSelectModal.scss';
 
 const SEASON_DETAILS: Record<SeasonKey, { effect: string; effectTh: string }> = {
@@ -120,6 +121,11 @@ export default function SeasonSelectModal({
     setHoveredEl(null);
   }, []);
 
+  const runTrusted = useCallback((event: React.MouseEvent<HTMLElement>, fn: () => void) => {
+    if (!isTrustedDomEvent(event)) return;
+    fn();
+  }, []);
+
   const themeStyle = {
     '--modal-primary': themeColor,
     '--modal-dark': themeColorDark,
@@ -162,11 +168,11 @@ export default function SeasonSelectModal({
               } as React.CSSProperties}
               onMouseEnter={(e) => handleEnter(season.key, e.currentTarget)}
               onMouseLeave={handleLeave}
-              onClick={() => {
+              onClick={(event) => runTrusted(event, () => {
                 const next = selected ? null : season.key;
                 setSelectedSeason(next);
                 onPreviewSeason?.(next);
-              }}
+              })}
             >
               <span className="bhud__season-icon">
                 <Suspense fallback={<div style={{ width: '32px', height: '32px' }} />}>
@@ -186,7 +192,7 @@ export default function SeasonSelectModal({
 
       <div className="bhud__power-actions">
         {onBack && (
-          <button className="bhud__power-back" onClick={onBack}>
+          <button className="bhud__power-back" onClick={(event) => runTrusted(event, onBack)}>
             Back
           </button>
         )}
@@ -194,9 +200,9 @@ export default function SeasonSelectModal({
         <button
           className="bhud__power-confirm"
           disabled={selectedSeason == null}
-          onClick={() => {
+          onClick={(event) => runTrusted(event, () => {
             if (selectedSeason) onSelectSeason(selectedSeason);
-          }}
+          })}
         >
           Confirm
         </button>

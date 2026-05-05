@@ -8,6 +8,7 @@ import D10Die from './D10/D10Die';
 import D12Die from './D12/D12Die';
 import D20Die from './D20/D20Die';
 import D100Die from './D100/D100Die';
+import { isTrustedDomEvent } from '../../utils/trustedEvent';
 import './DiceRoller.scss';
 
 interface Props {
@@ -68,7 +69,8 @@ export default function DiceRoller({ className, lockedDie, hidePrompt = false, a
     }
   }, [autoRoll, disabled]);
 
-  const roll = useCallback(() => {
+  const roll = useCallback((event?: any) => {
+    if (event && !isTrustedDomEvent(event)) return;
     if (rolling || disabled) return;
     onRollStart?.();
     setRolling(true);

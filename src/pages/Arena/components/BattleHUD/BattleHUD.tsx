@@ -24,6 +24,7 @@ import './BattleHUD.scss';
 import ResurrectingModal from './components/ResurrectingModal/ResurrectingModal';
 import { DEFAULT_THEME, DEITY_THEMES } from '../../../../constants/theme';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS, isSeasonTag, SEASON_TAG_PREFIX } from '../../../../constants/effectTags';
+import { isTrustedDomEvent } from '../../../../utils/trustedEvent';
 import { getPowers } from '../../../../data/powers';
 import { getDisabledPowersAndReasons } from '../../../../data/powerDisableReason';
 import { POWER_NAMES, POWER_TYPES } from '../../../../constants/powers';
@@ -3693,14 +3694,18 @@ export default function BattleHUD({
               {isMyTurn && onSkipTurnNoTarget ? (
                 <div className="bhud__target-actions">
                   {onCancelTarget && (
-                    <button type="button" className="bhud__target-back" onClick={() => setTimeout(() => onCancelTarget(), 0)}>
+                    <button type="button" className="bhud__target-back" onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      setTimeout(() => onCancelTarget(), 0);
+                    }}>
                       Back
                     </button>
                   )}
                   <button
                     type="button"
                     className="bhud__target-confirm"
-                    onClick={() => {
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
                       const shownAt = noTargetShownAtRef.current ?? Date.now();
                       const elapsed = Date.now() - shownAt;
                       if (elapsed >= noTargetMinShowMs) {
@@ -3952,7 +3957,10 @@ export default function BattleHUD({
                   <button
                     type="button"
                     className="bhud__target-confirm"
-                    onClick={() => onHealSkippedAck()}
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      onHealSkippedAck();
+                    }}
                   >
                     {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
@@ -3985,7 +3993,10 @@ export default function BattleHUD({
                   <button
                     type="button"
                     className="bhud__target-confirm"
-                    onClick={() => onSpringHealSkippedAck()}
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      onSpringHealSkippedAck();
+                    }}
                   >
                     {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
@@ -4009,12 +4020,15 @@ export default function BattleHUD({
               {t(TRANSLATION_KEYS.BECAUSE_HEALING_NULLIFIED_CASTER)}
             </p>
             {isMyTurn ? (
-              <div className="bhud__target-actions">
-                <button
-                  type="button"
-                  className="bhud__target-confirm"
-                  onClick={() => onSoulDevourerHealSkippedAck?.()}
-                >
+                <div className="bhud__target-actions">
+                  <button
+                    type="button"
+                    className="bhud__target-confirm"
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      onSoulDevourerHealSkippedAck?.();
+                    }}
+                  >
                   {t(TRANSLATION_KEYS.ROGER_THAT)}
                 </button>
               </div>
@@ -4045,7 +4059,10 @@ export default function BattleHUD({
                   <button
                     type="button"
                     className="bhud__target-confirm"
-                    onClick={() => onPomegranateCoSkippedAck?.()}
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      onPomegranateCoSkippedAck?.();
+                    }}
                   >
                     {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>
@@ -4079,7 +4096,10 @@ export default function BattleHUD({
                   <button
                     type="button"
                     className="bhud__target-confirm"
-                    onClick={() => onRapidFireSkippedAck?.()}
+                    onClick={(event) => {
+                      if (!isTrustedDomEvent(event)) return;
+                      onRapidFireSkippedAck?.();
+                    }}
                   >
                     {t(TRANSLATION_KEYS.ROGER_THAT)}
                   </button>

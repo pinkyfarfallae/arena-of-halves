@@ -11,7 +11,7 @@ export interface DieRendererProps {
   rolling: boolean;
   onResult: (n: number) => void;
   onRollEnd: () => void;
-  onClick: () => void;
+  onClick: (event: any) => void;
   fixedResult?: number;
   /** Override die colors (uses logged-in user theme if omitted) */
   themeColors?: { primary: string; primaryDark: string };

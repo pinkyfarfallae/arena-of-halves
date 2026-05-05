@@ -5,6 +5,7 @@ import type { FighterState } from '../../../../../../types/battle';
 import { PANEL_SIDE, type PanelSide } from '../../../../../../constants/battle';
 import { EFFECT_TAGS } from '../../../../../../constants/effectTags';
 import { getImprecatedPoemCurse as getImprecatedPoemCurseShared } from '../../../../../../data/imprecatedPoemCurse';
+import { isTrustedDomEvent } from '../../../../../../utils/trustedEvent';
 import HealingNullifiedIcon from './icons/HealingNullifiedIcon';
 import DisorientedIcon from './icons/DisorientedIcon';
 import EternalAgonyIcon from './icons/EternalAgonyIcon';
@@ -135,6 +136,11 @@ export default function PoemSelectModal({
     setHoveredEl(null);
   }, []);
 
+  const runTrusted = useCallback((event: React.MouseEvent<HTMLElement>, fn: () => void) => {
+    if (!isTrustedDomEvent(event)) return;
+    fn();
+  }, []);
+
   const themeStyle = {
     '--modal-primary': themeColor,
     '--modal-dark': themeColorDark,
@@ -169,7 +175,7 @@ export default function PoemSelectModal({
               className={`bhud__poem-btn ${selected ? 'bhud__poem-btn--selected' : ''}`}
               onMouseEnter={(e) => handleEnter(tag, e.currentTarget)}
               onMouseLeave={handleLeave}
-              onClick={() => setSelectedVerse(selected ? null : tag)}
+              onClick={(event) => runTrusted(event, () => setSelectedVerse(selected ? null : tag))}
             >
               <span className="bhud__poem-icon">
                 {IconComponent && <IconComponent />}
@@ -194,7 +200,7 @@ export default function PoemSelectModal({
 
       <div className="bhud__power-actions">
         {onBack && (
-          <button type="button" className="bhud__power-back" onClick={onBack}>
+          <button type="button" className="bhud__power-back" onClick={(event) => runTrusted(event, onBack)}>
             Back
           </button>
         )}
@@ -202,9 +208,9 @@ export default function PoemSelectModal({
           type="button"
           className="bhud__power-confirm"
           disabled={selectedVerse == null}
-          onClick={() => {
+          onClick={(event) => runTrusted(event, () => {
             if (selectedVerse) onSelectPoem(selectedVerse);
-          }}
+          })}
         >
           Confirm
         </button>

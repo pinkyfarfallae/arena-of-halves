@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { isTrustedDomEvent } from '../../utils/trustedEvent';
 
 interface Props {
   die: number;
@@ -6,7 +7,7 @@ interface Props {
   landed: boolean;
   rotation: { x: number; y: number; z: number };
   spinCount: number;
-  onClick: () => void;
+  onClick: (event: any) => void;
   children: ReactNode;
 }
 
@@ -15,7 +16,10 @@ export default function CubeShell({ die, rolling, landed, rotation, spinCount, o
   return (
     <div
       className={`dr__cube-scene${rolling ? ' dr__cube-scene--rolling' : ''}${landed ? ' dr__cube-scene--landed' : ''}`}
-      onClick={onClick}
+      onClick={(event) => {
+        if (!isTrustedDomEvent(event)) return;
+        onClick(event);
+      }}
     >
       <div
         className="dr__cube"
