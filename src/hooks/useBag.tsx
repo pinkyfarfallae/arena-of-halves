@@ -66,6 +66,8 @@ export function useBag(userId: string | undefined) {
     itemId,
     amount: data.amount,
     type: data.type,
+    income: data.income,
+    available: data.available,
   }));
 
   // Separate items and weapons

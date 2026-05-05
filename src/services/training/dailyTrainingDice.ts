@@ -442,12 +442,20 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     }
   }
 
-  // Save lightweight progress to Firestore (quota tracking only)
+  // Save lightweight progress to Firestore (quota tracking only).
+  // For a FINISHED state, intentionally keep the on-disk state as LIVE so that
+  // if submitTrainingResult fails below, the FINISHED early-return guard above
+  // won't block a retry on the next Arena visit.
+  // submitTrainingResult itself writes state:'finished' to Firestore on success.
+  const firestoreState =
+    progress.state === PRACTICE_STATES.FINISHED
+      ? PRACTICE_STATES.LIVE
+      : progress.state;
   await setDoc(progressRef, {
     userId: progress.userId,
     date,
     mode: PRACTICE_MODE.PVP,
-    state: progress.state,
+    state: firestoreState,
     arenaId: progress.arenaId,
     createdAt: serverTimestamp(),
   }, { merge: true });
@@ -465,7 +473,9 @@ export const savePracticeProgress = async (progress: PracticeProgressInput): Pro
     // Don't throw - allow progress save to succeed even if quota fails
   }
 
-  // If battle is finished, submit result to Google Sheets
+  // If battle is finished, submit result to Google Sheets.
+  // submitTrainingResult will also set Firestore state to 'finished' on success,
+  // enabling the early-return guard on future calls.
   if (progress.state === PRACTICE_STATES.FINISHED) {
     const battleRolls = progress.battleRolls ?? progress.rolls ?? [];
     const validRolls = battleRolls.filter((roll) => typeof roll === 'number' && roll >= 0 && roll <= 12);

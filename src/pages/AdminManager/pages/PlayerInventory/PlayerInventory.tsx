@@ -601,14 +601,7 @@ const PlayerInventory = () => {
                                       source: 'player_inventory',
                                     });
                                   }
-                                  logActivity({
-                                    category: 'item',
-                                    action: 'give_item',
-                                    characterId: userId,
-                                    performedBy: user?.characterId || 'admin',
-                                    amount: pending.amount,
-                                    metadata: { source: 'player_inventory', itemId },
-                                  });
+                                  // Note: giveItem() already logs RECEIVE_ITEM automatically
                                 }
                             } else {
                               const res = await consumeItem(userId, itemId, pending.amount, 'admin_player_inventory');
@@ -620,14 +613,7 @@ const PlayerInventory = () => {
                                   const current = await getItemAmount(userId, itemId).catch(() => undefined);
                                   if (typeof current === 'number') setSingleSelectedPlayerBagData(prev => ({ ...prev, [itemId]: current }));
                                 }
-                                logActivity({
-                                  category: 'item',
-                                  action: 'consume_item',
-                                  characterId: userId,
-                                  performedBy: user?.characterId || 'admin',
-                                  amount: pending.amount,
-                                  metadata: { source: 'player_inventory', itemId },
-                                });
+                                // Note: consumeItem() already logs CONSUME_ITEM automatically
                               }
                             }
                           }
@@ -728,29 +714,11 @@ const PlayerInventory = () => {
                               }
                             } else {
                               if (row.action === ACTION.ADD) {
-                                const res = await giveItem(userId, row.itemId, row.amount, BAG_ITEM_TYPES.ITEM, undefined, 'admin_player_inventory_bulk_add');
-                                if (res.success) {
-                                  logActivity({
-                                    category: 'item',
-                                    action: 'give_item',
-                                    characterId: userId,
-                                    performedBy: user?.characterId || 'admin',
-                                    amount: row.amount,
-                                    metadata: { source: 'player_inventory_bulk', itemId: row.itemId },
-                                  });
-                                }
+                                // Note: giveItem() already logs RECEIVE_ITEM automatically
+                                await giveItem(userId, row.itemId, row.amount, BAG_ITEM_TYPES.ITEM, undefined, 'admin_player_inventory_bulk_add');
                               } else {
-                                const res = await consumeItem(userId, row.itemId, row.amount, 'admin_player_inventory_bulk');
-                                if (res.success) {
-                                  logActivity({
-                                    category: 'item',
-                                    action: 'consume_item',
-                                    characterId: userId,
-                                    performedBy: user?.characterId || 'admin',
-                                    amount: row.amount,
-                                    metadata: { source: 'player_inventory_bulk', itemId: row.itemId },
-                                  });
-                                }
+                                // Note: consumeItem() already logs CONSUME_ITEM automatically
+                                await consumeItem(userId, row.itemId, row.amount, 'admin_player_inventory_bulk');
                               }
                             }
                           } catch (err) {

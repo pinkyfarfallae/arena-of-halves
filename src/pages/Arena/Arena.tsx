@@ -86,6 +86,7 @@ import { getTodayDate } from '../../utils/date';
 import { useDailyTrigger } from '../../hooks/useDailyTrigger';
 import BeyondTodayPracticeModal from './components/BeyondTodayPracticeModal/BeyondTodayPracticeModal';
 import { Deity, DEITY } from '../../constants/deities';
+import { isTrustedDomEvent } from '../../utils/trustedEvent';
 import './Arena.scss';
 import Chat from './icons/Chat';
 import ChatPanel from './components/ChatPanel/ChatPanel';
@@ -180,6 +181,11 @@ function Arena(props?: ArenaDemoProps) {
 
   const onStuckContinueVisibleChange = useCallback((visible: boolean) => {
     setStuckContinueVisible(visible);
+  }, []);
+
+  const runTrusted = useCallback((event: React.MouseEvent<HTMLElement>, fn: () => void) => {
+    if (!isTrustedDomEvent(event)) return;
+    fn();
   }, []);
 
   const [transientEffectsActive, setTransientEffectsActive] = useState(false);
@@ -1700,7 +1706,7 @@ function Arena(props?: ArenaDemoProps) {
           <div className="arena__bar-share">
             <button
               className="arena__share-btn"
-              onClick={() => setShowLog(true)}
+              onClick={(event) => runTrusted(event, () => setShowLog(true))}
               data-tooltip="Log"
               data-tooltip-pos="bottom"
             >
@@ -1708,7 +1714,7 @@ function Arena(props?: ArenaDemoProps) {
             </button>
             <button
               className={`arena__share-btn ${copied === COPY_TYPE.LINK ? 'arena__share-btn--copied' : ''}`}
-              onClick={() => handleCopy(COPY_TYPE.LINK)}
+              onClick={(event) => runTrusted(event, () => handleCopy(COPY_TYPE.LINK))}
               data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
@@ -1720,7 +1726,7 @@ function Arena(props?: ArenaDemoProps) {
             {effectiveRoom.status === ROOM_STATUS.WAITING && (
               <button
                 className={`arena__share-btn ${copied === COPY_TYPE.CODE ? 'arena__share-btn--copied' : ''}`}
-                onClick={() => handleCopy(COPY_TYPE.CODE)}
+                onClick={(event) => runTrusted(event, () => handleCopy(COPY_TYPE.CODE))}
                 data-tooltip={copied === COPY_TYPE.CODE ? 'Copied!' : 'Copy room code'}
                 data-tooltip-pos="bottom"
               >
@@ -1729,7 +1735,7 @@ function Arena(props?: ArenaDemoProps) {
             )}
             <button
               className={`arena__share-btn ${copied === COPY_TYPE.LINK ? 'arena__share-btn--copied' : ''}`}
-              onClick={() => handleCopy(COPY_TYPE.LINK)}
+              onClick={(event) => runTrusted(event, () => handleCopy(COPY_TYPE.LINK))}
               data-tooltip={copied === COPY_TYPE.LINK ? 'Copied!' : 'Copy viewer link'}
               data-tooltip-pos="bottom"
             >
@@ -1742,7 +1748,7 @@ function Arena(props?: ArenaDemoProps) {
         {!isPracticeRoom && !isDemo && (
           <button
             className={`arena__share-btn`}
-            onClick={() => setChatOpen(!chatOpen)}
+            onClick={(event) => runTrusted(event, () => setChatOpen(!chatOpen))}
             data-tooltip={chatOpen ? 'Close chat' : 'Open chat'}
             data-tooltip-pos="bottom"
           >
@@ -1989,12 +1995,12 @@ function Arena(props?: ArenaDemoProps) {
       {/* ── Footer actions ── */}
       <div className="arena__actions">
         {isCreator && effectiveRoom.status === ROOM_STATUS.READY && (
-          <button className="arena__action-btn arena__action-btn--primary" onClick={() => runAsync(handleStartBattle)}>
+          <button className="arena__action-btn arena__action-btn--primary" onClick={(event) => runTrusted(event, () => runAsync(handleStartBattle))}>
             Start Battle
           </button>
         )}
         {isCreator && (effectiveRoom.status === ROOM_STATUS.CONFIGURING || effectiveRoom.status === ROOM_STATUS.WAITING || effectiveRoom.status === ROOM_STATUS.READY) && (
-          <button className="arena__action-btn arena__action-btn--danger" onClick={() => runAsync(handleClose)}>
+          <button className="arena__action-btn arena__action-btn--danger" onClick={(event) => runTrusted(event, () => runAsync(handleClose))}>
             Close Room
           </button>
         )}

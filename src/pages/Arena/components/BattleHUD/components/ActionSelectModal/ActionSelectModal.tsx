@@ -9,6 +9,7 @@ import { TARGET_TYPES } from '../../../../../../constants/effectTypes';
 import { EXPERIENCE_HEAL_ACTION_LABEL, PANEL_SIDE, SKIP_TURN_ACTION_LABEL, TURN_ACTION, TurnAction, type PanelSide } from '../../../../../../constants/battle';
 import { NOT_ENOUGH_SKILL_POINT_REASON } from '../../../../../../data/powerDisableReason';
 import { lightenColor, contrastText } from '../../../../../../utils/color';
+import { isTrustedDomEvent } from '../../../../../../utils/trustedEvent';
 import './ActionSelectModal.scss';
 
 /** Render text with content inside double quotes as bold (same as power description). */
@@ -193,6 +194,11 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
     '--power-tooltip-footer-color': contrastText(themeColor ?? '#333'),
   } as React.CSSProperties;
 
+  const runTrusted = useCallback((event: any, fn: () => void) => {
+    if (!isTrustedDomEvent(event)) return;
+    fn();
+  }, []);
+
   const handleMouseEnter = useCallback((realIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
     setHoveredIdx(realIdx);
     const btn = e.currentTarget.querySelector('button');
@@ -279,7 +285,7 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
                 key={m.characterId}
                 className={`bhud__ally-btn ${selected ? 'bhud__ally-btn--selected' : ''}`}
                 style={{ '--t-color': m.theme[0], '--t-text': m.theme[9] } as React.CSSProperties}
-                onClick={() => setSelectedAllyId(selected ? null : m.characterId)}
+                onClick={(event) => runTrusted(event, () => setSelectedAllyId(selected ? null : m.characterId))}
               >
                 {m.image ? (
                   <img className="bhud__ally-avatar" src={m.image} alt="" referrerPolicy="no-referrer" />
@@ -298,13 +304,13 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
           })}
         </div>
         <div className="bhud__power-actions">
-          <button className="bhud__power-back" onClick={handleAllyBack}>
+          <button className="bhud__power-back" onClick={(event) => runTrusted(event, handleAllyBack)}>
             Back
           </button>
           <button
             className="bhud__power-confirm"
             disabled={!selectedAllyId}
-            onClick={handleAllyConfirm}
+            onClick={(event) => runTrusted(event, handleAllyConfirm)}
           >
             Confirm
           </button>
@@ -339,28 +345,28 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
 
       {!showPowerPicker ? (
         <div className="bhud__action-btns">
-          <button className="bhud__action-btn bhud__action-btn--attack" onClick={() => onSelectAction(TURN_ACTION.ATTACK)}>
+          <button className="bhud__action-btn bhud__action-btn--attack" onClick={(event) => runTrusted(event, () => onSelectAction(TURN_ACTION.ATTACK))}>
             Attack
           </button>
           {!practiceMode && (
             <button
               className="bhud__action-btn bhud__action-btn--power"
               disabled={getAffordablePowers({ ...attacker, powers: attackerPowers }).length === 0}
-              onClick={() => setShowPowerPicker(true)}
+              onClick={(event) => runTrusted(event, () => setShowPowerPicker(true))}
             >
               Use Power
             </button>)}
           {attacker.experience >= 5 && (
             <button
               className="bhud__action-btn bhud__action-btn--experience-heal"
-              onClick={() => onSelectAction(TURN_ACTION.HEAL)}
+              onClick={(event) => runTrusted(event, () => onSelectAction(TURN_ACTION.HEAL))}
             >
               {EXPERIENCE_HEAL_ACTION_LABEL}
             </button>
           )}
           <button
             className="bhud__action-btn bhud__action-btn--skip-turn"
-            onClick={() => onSelectAction(TURN_ACTION.SKIP_TURN)}
+            onClick={(event) => runTrusted(event, () => onSelectAction(TURN_ACTION.SKIP_TURN))}
           >
             {SKIP_TURN_ACTION_LABEL}
           </button>
@@ -396,7 +402,7 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
                   <button
                     className={`bhud__power-btn ${!usable ? 'bhud__power-btn--disabled' : ''} ${selected ? 'bhud__power-btn--selected' : ''}`}
                     disabled={!usable}
-                    onClick={() => setSelectedPowerIdx(selected ? null : realIdx)}
+                    onClick={(event) => runTrusted(event, () => setSelectedPowerIdx(selected ? null : realIdx))}
                   >
                     <span className="bhud__power-type">{isDK ? 'Passive' : p.type}</span>
                     <span className="bhud__power-name">{p.name}</span>
@@ -410,20 +416,20 @@ export default function ActionSelectModal({ attacker, practiceMode, defenderName
           <div className="bhud__power-actions">
             <button
               className="bhud__power-back"
-              onClick={() => {
+              onClick={(event) => runTrusted(event, () => {
                 setShowPowerPicker(false);
                 setSelectedPowerIdx(null);
-              }}
+              })}
             >
               Back
             </button>
-            <button
-              className="bhud__power-confirm"
-              disabled={selectedPowerIdx == null}
-              onClick={handlePowerConfirm}
-            >
-              Confirm
-            </button>
+          <button
+            className="bhud__power-confirm"
+            disabled={selectedPowerIdx == null}
+            onClick={(event) => runTrusted(event, handlePowerConfirm)}
+          >
+            Confirm
+          </button>
           </div>
         </>
       )}

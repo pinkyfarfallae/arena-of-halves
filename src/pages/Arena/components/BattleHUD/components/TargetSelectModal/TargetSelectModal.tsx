@@ -3,6 +3,7 @@ import type { FighterState } from '../../../../../../types/battle';
 import type { ActiveEffect } from '../../../../../../types/power';
 import { isAffliction } from '../../../../../../data/statusCategory';
 import { EFFECT_TAGS, IMPRECATED_POEM_VERSE_TAGS } from '../../../../../../constants/effectTags';
+import { isTrustedDomEvent } from '../../../../../../utils/trustedEvent';
 import './TargetSelectModal.scss';
 /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -66,6 +67,11 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
   const n = targets.length;
   const targetIdsKey = targets.map((t) => t.characterId).join(',');
   const isMultiSelect = typeof multiSelectRequired === 'number' && multiSelectRequired > 1 && !!onSelectMulti;
+
+  const runTrusted = (event: React.MouseEvent<HTMLElement>, fn: () => void) => {
+    if (!isTrustedDomEvent(event)) return;
+    fn();
+  };
 
   useEffect(() => {
     if (!isMultiSelect) return;
@@ -186,14 +192,14 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
                 waitingForLabel || randomMode
                   ? undefined
                   : isMultiSelect && multiSelectRequired != null
-                    ? () => {
+                    ? (event) => runTrusted(event, () => {
                       setSelectedIds((prev) => {
                         if (prev.includes(t.characterId)) return prev.filter((id) => id !== t.characterId);
                         if (prev.length >= multiSelectRequired) return prev;
                         return [...prev, t.characterId];
                       });
-                    }
-                    : () => !isRandomizing && setSelectedId(t.characterId)
+                    })
+                    : (event) => runTrusted(event, () => !isRandomizing && setSelectedId(t.characterId))
               }
               type="button"
               disabled={!!waitingForLabel}
@@ -245,7 +251,7 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
               !backDisabled &&
               !isRandomizing &&
               !(randomMode && selectedId && randomAnimationFinished) && (
-                <button type="button" className="bhud__target-back" onClick={onBack}>
+                <button type="button" className="bhud__target-back" onClick={(event) => runTrusted(event, onBack)}>
                   Back
                 </button>
               )}
@@ -263,13 +269,13 @@ export default function TargetSelectModal({ attackerName, targets, themeColor, t
                   ? isRandomizing
                     ? undefined
                     : selectedId
-                      ? () => onSelect(selectedId)
-                      : handleRandomClick
+                      ? (event) => runTrusted(event, () => onSelect(selectedId))
+                      : (event) => runTrusted(event, handleRandomClick)
                   : isMultiSelect && multiSelectRequired != null && onSelectMulti
-                    ? () => {
+                    ? (event) => runTrusted(event, () => {
                       if (selectedIds.length === multiSelectRequired) onSelectMulti(selectedIds);
-                    }
-                    : () => selectedId && onSelect(selectedId)
+                    })
+                    : (event) => runTrusted(event, () => selectedId && onSelect(selectedId))
               }
             >
               {randomMode ? (isRandomizing ? confirmLabel : selectedId ? 'Confirm' : confirmLabel) : 'Confirm'}

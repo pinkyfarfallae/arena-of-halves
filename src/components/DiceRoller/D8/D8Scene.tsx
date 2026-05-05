@@ -1,11 +1,12 @@
 import { Canvas } from '@react-three/fiber';
 import CanvasContainer from '../CanvasContainer';
 import OctahedronDie from './OctahedronDie';
+import { isTrustedDomEvent } from '../../../utils/trustedEvent';
 
 interface Props {
   rollTrigger: number;
   onResult: (result: number) => void;
-  onClick: () => void;
+  onClick: (event: any) => void;
   primary: string;
   primaryDark: string;
   fixedResult?: number;
@@ -19,7 +20,10 @@ export default function D8Scene({ rollTrigger, onResult, onClick, primary, prima
         camera={{ position: [0, 0, 5.5], fov: 40 }}
         gl={{ alpha: true, antialias: true }}
         style={{ background: 'transparent', cursor: 'pointer' }}
-        onClick={onClick}
+        onClick={(event) => {
+          if (!isTrustedDomEvent(event)) return;
+          onClick(event);
+        }}
       >
         <ambientLight intensity={0.55} color="#ffffff" />
         <directionalLight position={[0, 0, 5]} intensity={0.45} color="#ffffff" />
