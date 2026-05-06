@@ -416,6 +416,59 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         display: `${log.action.replace(/_/g, ' ')}: ${log.amount} items.`,
       };
 
+    case 'equipment':
+      if (log.action === 'equipment_upgrade') {
+        const outcome = String(metadata.outcome || log.note || '').toLowerCase();
+        const passed = outcome === 'pass' || outcome === 'success';
+        const equipmentName = (metadata.equipmentName as string) || 'equipment';
+        const fromTier = metadata.fromTier != null ? String(metadata.fromTier).replace('level_', '') : '?';
+        const toTier = metadata.toTier != null ? String(metadata.toTier).replace('level_', '') : '?';
+        const category = (metadata.category as string) || 'equipment';
+        const ticketsUsed = Number(metadata.ticketsUsed || 0);
+        const successRate = metadata.successRate != null ? Number(metadata.successRate) : null;
+
+        return {
+          ...baseResult,
+          display: `${passed ? 'Passed' : 'Failed'} ${equipmentName} upgrade from tier ${fromTier} to ${toTier}.`,
+          details: (
+            <div className="activity-details">
+              <div className="activity-detail-item">
+                <span className="detail-bullet" />
+                <span className="detail-text">Category: {toTitleCase(category)}</span>
+              </div>
+              <div className="activity-detail-item">
+                <span className="detail-bullet" />
+                <span className="detail-text">Outcome: {passed ? 'Pass' : 'Fail'}</span>
+              </div>
+              <div className="activity-detail-item">
+                <span className="detail-bullet" />
+                <span className="detail-text">Tier change: {fromTier} → {toTier}</span>
+              </div>
+              <div className="activity-detail-item">
+                <span className="detail-bullet" />
+                <span className="detail-text">Tickets used: {ticketsUsed}</span>
+              </div>
+              {successRate != null && (
+                <div className="activity-detail-item activity-detail-bonus">
+                  <span className="detail-bullet" />
+                  <span className="detail-text">Success rate: {successRate.toLocaleString()}%</span>
+                </div>
+              )}
+              {metadata.reason && (
+                <div className="activity-detail-item">
+                  <span className="detail-bullet" />
+                  <span className="detail-text">Reason: {String(metadata.reason)}</span>
+                </div>
+              )}
+            </div>
+          ),
+        };
+      }
+      return {
+        ...baseResult,
+        display: `${log.action.replace(/_/g, ' ')}: ${log.amount}.`,
+      };
+
     case 'stat':
       if (log.action === ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING) {
         const trainingDate = metadata.date || 'unknown date';

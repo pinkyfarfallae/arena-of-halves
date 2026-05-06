@@ -40,7 +40,34 @@ import StandardUpgradeModal from './components/StandardUpgradeModal/StandardUpgr
 import { consumeItem } from '../../services/bag/bagService';
 import ForgeUpgradeOverlay from './components/ForgeUpgradeOverlay/ForgeUpgradeOverlay';
 import { UPGRADE_SUCCESS_RATES } from '../../constants/equipment';
+import { logActivity } from '../../services/activityLog/activityLogService';
 import './Forge.scss';
+
+const CATEGORY_ORDER: Record<string, number> = {
+  weapon: 1,
+  armor: 2,
+  shield: 3,
+  boots: 4,
+};
+
+function getEquipmentTierLevel(tier?: string): EquipmentTier {
+  if (tier === '2' || tier === EQUIPMENT_TIERS.LEVEL_2) return EQUIPMENT_TIERS.LEVEL_2;
+  if (tier === '3' || tier === EQUIPMENT_TIERS.LEVEL_3) return EQUIPMENT_TIERS.LEVEL_3;
+  return EQUIPMENT_TIERS.LEVEL_1;
+}
+
+function sortForgeEquipment(list: (any & Equipment)[]): (any & Equipment)[] {
+  return [...list].sort((a, b) => {
+    const categoryA = Array.isArray(a.category) ? a.category[0] : a.category;
+    const categoryB = Array.isArray(b.category) ? b.category[0] : b.category;
+    const orderA = CATEGORY_ORDER[categoryA] || 99;
+    const orderB = CATEGORY_ORDER[categoryB] || 99;
+    if (orderA !== orderB) return orderA - orderB;
+    const tierA = Number(a.tier || 0);
+    const tierB = Number(b.tier || 0);
+    return tierB - tierA;
+  });
+}
 
 function Forge() {
   const { user, refreshUser } = useAuth();
@@ -198,6 +225,78 @@ function Forge() {
     setUpgradingMode(type);
   };
 
+  const logEquipmentUpgrade = async (params: {
+    outcome: 'pass' | 'fail';
+    equipment: Equipment;
+    category: EquipmentCategory;
+    fromTier: EquipmentTier;
+    toTier?: EquipmentTier | null;
+    cost: number;
+    ticketsUsed: number;
+    successRate: number;
+    upgradeType: UpgradeType | null;
+    reason?: string;
+  }) => {
+    if (!user?.characterId) return;
+
+    await logActivity({
+      category: 'equipment',
+      action: 'equipment_upgrade',
+      characterId: user.characterId,
+      performedBy: user.characterId,
+      amount: params.cost,
+      note: params.outcome,
+      metadata: {
+        outcome: params.outcome,
+        reason: params.reason || null,
+        equipmentId: params.equipment.id,
+        equipmentName: params.equipment.name,
+        category: params.category,
+        fromTier: params.fromTier,
+        toTier: params.toTier ?? params.fromTier,
+        ticketsUsed: params.ticketsUsed,
+        successRate: params.successRate,
+        upgradeType: params.upgradeType,
+      },
+    });
+  };
+
+  const applyOptimisticUpgradeToLists = (equipmentToUpgrade: Equipment, nextTier: EquipmentTier) => {
+    const category = equipmentToUpgrade.category;
+    const nextTierLevel = getEquipmentTierLevel(nextTier);
+    const currentImageUrl = (equipmentToUpgrade as any).imageUrl || '';
+    const nextName = equipmentToUpgrade.custom
+      ? equipmentToUpgrade.name
+      : (getNonCustomEquipmentName(category, nextTierLevel) || equipmentToUpgrade.name);
+    const nextImageUrl = equipmentToUpgrade.custom
+      ? currentImageUrl
+      : EQUIPMENT_IMAGES[category][nextTierLevel];
+
+    const updateItem = (item: any & Equipment) => {
+      const isTarget = item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category;
+      if (!isTarget) return item;
+      return {
+        ...item,
+        tier: nextTierLevel.split('_')[1] || item.tier,
+        name: nextName,
+        imageUrl: nextImageUrl,
+      };
+    };
+
+    setEquipment((prev) => sortForgeEquipment(prev.map(updateItem)));
+    setStarterEquipment((prev) => sortForgeEquipment(prev.map(updateItem)));
+    setFocusedEquipment((prev: { id: string; category: string; tier: any; }) => {
+      if (!prev) return prev;
+      if (prev.id !== equipmentToUpgrade.id && prev.category !== equipmentToUpgrade.category) return prev;
+      return {
+        ...prev,
+        tier: nextTierLevel.split('_')[1] || prev.tier,
+        name: nextName,
+        imageUrl: nextImageUrl,
+      };
+    });
+  };
+
   const handleConfirmUpgrade = async (equipmentToUpgrade: Equipment, ticketsUsed: number = 0) => {
     if (!equipmentToUpgrade || !user || equipment.length === 0 || !auth.currentUser) return;
 
@@ -230,6 +329,18 @@ function Forge() {
       if (ticketsUsed > 0) {
         const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed, 'forge_equipment_upgrade');
         if (!ticketResult.success) {
+          await logEquipmentUpgrade({
+            outcome: 'fail',
+            equipment: equipmentToUpgrade,
+            category: equipmentToUpgrade.category,
+            fromTier: currentTierValue,
+            toTier: nextTierKey,
+            cost,
+            ticketsUsed,
+            successRate: baseSuccessRate,
+            upgradeType: upgradingMode,
+            reason: 'ticket_deduction_failed',
+          });
           setUpgradingMode(null);
           setShowUpgradeOverlay(false);
           setUpgradingEquipment(null);
@@ -240,6 +351,18 @@ function Forge() {
       // Deduct currency (materials consumed regardless of success)
       const currencyResult = await updateCharacterDrachma(user.characterId, -cost, { source: 'forge_upgrade' });
       if (!currencyResult.success) {
+        await logEquipmentUpgrade({
+          outcome: 'fail',
+          equipment: equipmentToUpgrade,
+          category: equipmentToUpgrade.category,
+          fromTier: currentTierValue,
+          toTier: nextTierKey,
+          cost,
+          ticketsUsed,
+          successRate: baseSuccessRate,
+          upgradeType: upgradingMode,
+          reason: 'currency_deduction_failed',
+        });
         setUpgradingMode(null);
         setShowUpgradeOverlay(false);
         setUpgradingEquipment(null);
@@ -278,37 +401,49 @@ function Forge() {
         const result = await upgradeEquipment(user.characterId, equipmentToUpgrade.category, formattedEquipmentToUpgrade);
 
         if (result.success && result.newTier) {
-          // Update local equipment state - update the specific item in the array
-          setEquipment((prev: Equipment[]) => prev.map(item =>
-            item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
-              ? { ...item, tier: result.newTier?.split('_')[1] || item.tier }
-              : item
-          ));
-
-          setStarterEquipment((prev: Equipment[]) => prev.map(item =>
-            item.id === equipmentToUpgrade.id || item.category === equipmentToUpgrade.category
-              ? { ...item, 
-                  tier: result.newTier?.split('_')[1] || item.tier,
-                  name: getNonCustomEquipmentName(item.category, result.newTier as EquipmentTier) || item.name,
-                  image: EQUIPMENT_IMAGES[item.category][result.newTier as EquipmentTier] || EQUIPMENT_IMAGES[item.category][item.tier as EquipmentTier],
-                }
-              : item
-          ));
-
-          setFocusedEquipment((prev: Equipment | null) => {
-            if (prev?.id === equipmentToUpgrade.id || prev?.category === equipmentToUpgrade.category) {
-              return { ...prev, 
-                tier: result.newTier?.split('_')[1] || prev.tier,
-                name: getNonCustomEquipmentName(prev.category, result.newTier as EquipmentTier) || prev.name,
-                image: EQUIPMENT_IMAGES[prev.category][result.newTier as EquipmentTier] || EQUIPMENT_IMAGES[prev.category][prev.tier as EquipmentTier],
-              };
-            }
-            return prev;
-          });
+          applyOptimisticUpgradeToLists(equipmentToUpgrade, result.newTier);
 
           // Refresh character data to get updated currency
           await refreshUser();
+
+          await logEquipmentUpgrade({
+            outcome: 'pass',
+            equipment: equipmentToUpgrade,
+            category: equipmentToUpgrade.category,
+            fromTier: currentTierValue,
+            toTier: result.newTier,
+            cost,
+            ticketsUsed,
+            successRate: Math.min(100, baseSuccessRate + (ticketsUsed * 30)),
+            upgradeType: upgradingMode,
+          });
+        } else {
+          await logEquipmentUpgrade({
+            outcome: 'fail',
+            equipment: equipmentToUpgrade,
+            category: equipmentToUpgrade.category,
+            fromTier: currentTierValue,
+            toTier: nextTierKey,
+            cost,
+            ticketsUsed,
+            successRate: Math.min(100, baseSuccessRate + (ticketsUsed * 30)),
+            upgradeType: upgradingMode,
+            reason: result.message || 'equipment_firestore_update_failed',
+          });
         }
+      } else {
+        await logEquipmentUpgrade({
+          outcome: 'fail',
+          equipment: equipmentToUpgrade,
+          category: equipmentToUpgrade.category,
+          fromTier: currentTierValue,
+          toTier: nextTierKey,
+          cost,
+          ticketsUsed,
+          successRate: Math.min(100, baseSuccessRate + (ticketsUsed * 30)),
+          upgradeType: upgradingMode,
+          reason: 'upgrade_roll_failed',
+        });
       }
 
       // Wait another 1 second to show result
