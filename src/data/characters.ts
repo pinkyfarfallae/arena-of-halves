@@ -17,14 +17,8 @@ export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
 const secretCharacterCsvUrl = () => secretCsvUrl(SECRET_GID.CHARACTER);
 
-// Cache character sheet CSV for 60 s to avoid 429 rate limits
-let _charCsvCache: { text: string; expiresAt: number } | null = null;
 async function fetchCharacterCsv(): Promise<string> {
-  const now = Date.now();
-  if (_charCsvCache && now < _charCsvCache.expiresAt) return _charCsvCache.text;
-  const text = await fetchSheetCsv(GID.CHARACTER);
-  _charCsvCache = { text, expiresAt: now + 60_000 };
-  return text;
+  return fetchSheetCsv(GID.CHARACTER);
 }
 
 function parseTheme(raw: string, deity?: string): Theme25 {

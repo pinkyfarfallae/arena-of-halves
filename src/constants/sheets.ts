@@ -34,15 +34,34 @@ export const secretCsvUrl = (gid: string) =>
 /** Fetch a sheet as CSV via Apps Script POST proxy.
  *  Works in production (GitHub Pages). Local dev may be CORS-blocked — test on deployed site.
  *  If Apps Script doPost hasn't been redeployed with fetchSheet action, falls back gracefully. */
+
+// Per-GID cache (5 min TTL) + in-flight deduplication so simultaneous callers share one request
+const _csvCache = new Map<string, { text: string; expiresAt: number }>();
+const _csvInflight = new Map<string, Promise<string>>();
+
 export async function fetchSheetCsv(gid: string): Promise<string> {
-  const res = await fetch(APPS_SCRIPT_URL, {
+  const now = Date.now();
+  const cached = _csvCache.get(gid);
+  if (cached && now < cached.expiresAt) return cached.text;
+
+  const existing = _csvInflight.get(gid);
+  if (existing) return existing;
+
+  const promise = fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'fetchSheet', gid }),
+  }).then(async r => {
+    const text = await r.text();
+    if (text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
+      console.error('[fetchSheetCsv] Apps Script returned JSON for gid', gid, ':', text.slice(0, 200));
+      throw new Error('fetchSheet not available — redeploy Apps Script (scripts.gs).');
+    }
+    _csvCache.set(gid, { text, expiresAt: Date.now() + 5 * 60_000 });
+    return text;
+  }).finally(() => {
+    _csvInflight.delete(gid);
   });
-  const text = await res.text();
-  if (text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
-    console.error('[fetchSheetCsv] Apps Script returned JSON for gid', gid, ':', text.slice(0, 200));
-    throw new Error('fetchSheet not available — redeploy Apps Script (scripts.gs).');
-  }
-  return text;
+
+  _csvInflight.set(gid, promise);
+  return promise;
 }
