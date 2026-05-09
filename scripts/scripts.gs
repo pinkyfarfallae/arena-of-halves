@@ -27,6 +27,10 @@ var BIG_HOUSE_ROLEPLAY_SHEET_NAME = 'Big House Roleplay Submission';
 function doGet(e) {
   var action = (e.parameter.action || '').toString();
 
+  if (action === 'fetchSheet') {
+    return handleFetchSheet(e.parameter.gid);
+  }
+
   if (action === 'patch') {
     var fields = {};
     var skip = ['action', 'characterid'];
@@ -96,6 +100,10 @@ function doGet(e) {
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
+
+    if (data.action === 'fetchSheet') {
+      return handleFetchSheet(data.gid);
+    }
 
     if (data.action === 'patch') {
       return handlePatch(data.characterId, data.fields);
@@ -546,6 +554,7 @@ function handleSubmitHarvest(params) {
   var firstTweetUrl = (params.firstTweetUrl || '').toString().trim();
   var submittedAt = (params.submittedAt || new Date().toISOString()).toString();
   var id = (params.id || '').toString().trim();
+  var hasGardeningSetApplied = params.hasGardeningSetApplied === true || params.hasGardeningSetApplied === 'true';
 
   if (!characterId || !firstTweetUrl) {
     return jsonResponse({ error: 'Missing required fields' });
@@ -577,6 +586,7 @@ function handleSubmitHarvest(params) {
     else if (h === 'firsttweeturl') row.push(firstTweetUrl);
     else if (h === 'status') row.push('pending');
     else if (h === 'submittedat') row.push(submittedAt);
+    else if (h === 'hasgardeningsetapplied' || h === 'gardeningsetapplied' || h === 'usedgardeningset') row.push(hasGardeningSetApplied ? 'true' : 'false');
     else row.push('');
   }
 
@@ -768,6 +778,46 @@ function handleFetchHarvests(characterId, status) {
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ══════════════════════════════════════
+   FETCH SHEET AS CSV (CORS proxy)
+   - Routes CSV reads through Apps Script to avoid CORS issues
+   - action=fetchSheet&gid=<GID>
+   ══════════════════════════════════════ */
+function valueToCsv(cell) {
+  var s = (cell === null || cell === undefined) ? '' : cell.toString();
+  if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function handleFetchSheet(gid) {
+  if (!gid) {
+    return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.TEXT);
+  }
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheets = ss.getSheets();
+    var targetSheet = null;
+    for (var i = 0; i < sheets.length; i++) {
+      if (sheets[i].getSheetId().toString() === gid.toString()) {
+        targetSheet = sheets[i];
+        break;
+      }
+    }
+    if (!targetSheet) {
+      return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.TEXT);
+    }
+    var data = targetSheet.getDataRange().getValues();
+    var csv = data.map(function(row) {
+      return row.map(valueToCsv).join(',');
+    }).join('\n');
+    return ContentService.createTextOutput(csv).setMimeType(ContentService.MimeType.TEXT);
+  } catch (err) {
+    return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.TEXT);
+  }
 }
 
 /* ══════════════════════════════════════

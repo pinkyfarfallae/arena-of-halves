@@ -1,5 +1,5 @@
 import { ACTIONS } from "../../constants/action";
-import { APPS_SCRIPT_URL, csvUrl, GID } from "../../constants/sheets";
+import { APPS_SCRIPT_URL, fetchSheetCsv, GID } from "../../constants/sheets";
 import { BigHouseSubmission } from "../../types/bigHouse";
 import { BigHouseSubmissionStatus } from "../../constants/bigHouse";
 import { generateUUID } from "../../utils/uuid";
@@ -99,8 +99,7 @@ export async function fetchBigHouseRoleplays(
   status?: BigHouseSubmissionStatus,
 ): Promise<{ submissions: BigHouseSubmission[]; error?: string }> {
   try {
-    const res = await fetch(csvUrl(GID.BIG_HOUSE_ROLEPLAY_SUBMISSION));
-    const text = await res.text();
+    const text = await fetchSheetCsv(GID.BIG_HOUSE_ROLEPLAY_SUBMISSION);
     const lines = splitCSVRows(text);
 
     if (lines.length < 2) {

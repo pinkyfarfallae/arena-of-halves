@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocs, query, setDoc, where, limit } from 'firebase/firestore';
 import { ACTIONS } from '../constants/action';
 import { Deity, DEITY } from '../constants/deities';
-import { GID, csvUrl } from '../constants/sheets';
+import { GID, fetchSheetCsv } from '../constants/sheets';
 import { firestore } from '../firebase';
 import type { Wish } from '../types/wish';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
@@ -10,8 +10,6 @@ import { getTodayDate } from '../utils/date';
 import { updateCharacterDrachma } from '../services/character/currencyService';
 import { logActivity } from '../services/activityLog/activityLogService';
 import { ACTIVITY_LOG_ACTIONS } from '../constants/activityLog';
-
-const wishesCsvUrl = () => csvUrl(GID.WISHES);
 
 export interface IrisWishDoc {
   userId: string;
@@ -115,8 +113,7 @@ export const cancelTodayIrisWish = async (characterId: string) => {
 };
 
 export async function fetchWishes(): Promise<Wish[]> {
-  const res = await fetch(wishesCsvUrl());
-  const csv = await res.text();
+  const csv = await fetchSheetCsv(GID.WISHES);
   const rows = parseCSV(csv);
   // Skip header row, map columns: deity, wish (name), description
   // Sheet deity column matches DEITY (PascalCase); keep as-is.

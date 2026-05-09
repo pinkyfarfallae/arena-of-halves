@@ -2,7 +2,7 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo } from '../types/character';
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
-import { GID, SECRET_GID, csvUrl, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
+import { GID, SECRET_GID, fetchSheetCsv, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { DEITY, Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
 import { doc, getDoc } from 'firebase/firestore';
@@ -15,8 +15,17 @@ export type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEq
 export type { PowerDefinition };
 export { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES };
 
-const characterCsvUrl = () => csvUrl(GID.CHARACTER);
 const secretCharacterCsvUrl = () => secretCsvUrl(SECRET_GID.CHARACTER);
+
+// Cache character sheet CSV for 60 s to avoid 429 rate limits
+let _charCsvCache: { text: string; expiresAt: number } | null = null;
+async function fetchCharacterCsv(): Promise<string> {
+  const now = Date.now();
+  if (_charCsvCache && now < _charCsvCache.expiresAt) return _charCsvCache.text;
+  const text = await fetchSheetCsv(GID.CHARACTER);
+  _charCsvCache = { text, expiresAt: now + 60_000 };
+  return text;
+}
 
 function parseTheme(raw: string, deity?: string): Theme25 {
   const cleaned = raw.replace(/"/g, '').trim();
@@ -152,10 +161,10 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
 
 export async function fetchCharacter(characterId: string): Promise<Character | null> {
   const isSecret = SECRET_CHARACTERS.includes(characterId.toLowerCase());
-  const url = isSecret ? secretCharacterCsvUrl() : characterCsvUrl();
 
-  const res = await fetch(url);
-  const text = await res.text();
+  const text = isSecret
+    ? await fetch(secretCharacterCsvUrl()).then(r => r.text())
+    : await fetchCharacterCsv();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return null;
 
@@ -194,8 +203,7 @@ async function fetchSecretCharacters(): Promise<Character[]> {
 }
 
 export async function fetchAllCharacters(user?: Character): Promise<Character[]> {
-  const res = await fetch(characterCsvUrl());
-  const text = await res.text();
+  const text = await fetchCharacterCsv();
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
 
@@ -219,7 +227,7 @@ export async function fetchAllCharacters(user?: Character): Promise<Character[]>
   chars = chars.filter(c => !SECRET_CHARACTERS.includes(c.characterId.toLowerCase()));
 
   // Hide Amphitrite characters for designated users
-  if ( user && HIDDEN_AMPHITRITE_FOR.includes(user.characterId as typeof HIDDEN_AMPHITRITE_FOR[number])) {
+  if (user && HIDDEN_AMPHITRITE_FOR.includes(user.characterId as typeof HIDDEN_AMPHITRITE_FOR[number])) {
     chars = chars.filter(c => c.deityBlood.toLowerCase() !== DEITY.AMPHITRITE.toLowerCase());
   }
 
@@ -234,9 +242,7 @@ export async function fetchAllCharacters(user?: Character): Promise<Character[]>
 }
 
 export async function fetchWishes(characterId: string): Promise<WishEntry[]> {
-  const url = csvUrl(GID.WISHES);
-  const res = await fetch(url);
-  const text = await res.text();
+  const text = await fetchSheetCsv(GID.WISHES);
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
 
@@ -258,9 +264,7 @@ export async function fetchWishes(characterId: string): Promise<WishEntry[]> {
 }
 
 export async function fetchItemInfo(): Promise<ItemInfo[]> {
-  const url = csvUrl(GID.ITEM_INFO);
-  const res = await fetch(url);
-  const text = await res.text();
+  const text = await fetchSheetCsv(GID.ITEM_INFO);
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
 
@@ -358,9 +362,7 @@ export interface UserRecord {
 }
 
 export async function fetchAllUsers(): Promise<UserRecord[]> {
-  const url = csvUrl(GID.USER);
-  const res = await fetch(url);
-  const text = await res.text();
+  const text = await fetchSheetCsv(GID.USER);
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
 
@@ -492,10 +494,8 @@ export async function deleteItem(itemId: string): Promise<boolean> {
    ══════════════════════════════════════ */
 
 export async function fetchCustomEquipment(): Promise<CustomEquipmentInfo[]> {
-  const url = csvUrl(GID.CUSTOM_EQUIPMENT);
   try {
-    const res = await fetch(url);
-    const text = await res.text();
+    const text = await fetchSheetCsv(GID.CUSTOM_EQUIPMENT);
     const lines = splitCSVRows(text);
     if (lines.length < 2) return [];
 

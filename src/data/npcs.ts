@@ -2,7 +2,7 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import { DEITY_THEMES, DEFAULT_THEME } from './characters';
 import { getPowers } from './powers';
 import { POWER_OVERRIDES } from '../pages/CharacterInfo/constants/overrides';
-import { csvUrl, GID } from '../constants/sheets';
+import { fetchSheetCsv, GID } from '../constants/sheets';
 import type { Character, Theme25 } from '../types/character';
 import type { FighterState } from '../types/battle';
 import { Deity } from '../types/deity';
@@ -86,8 +86,7 @@ function rowToFighter(headers: string[], cols: string[]): Omit<FighterState, 'po
 
 /** Fetch all NPCs */
 export async function fetchAllNPCs(): Promise<Character[]> {
-  const res = await fetch(csvUrl(GID.NPC));
-  const text = await res.text();
+  const text = await fetchSheetCsv(GID.NPC);
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
 
@@ -157,8 +156,7 @@ export async function fetchAllNPCs(): Promise<Character[]> {
 
 /** Fetch all NPCs from the spreadsheet and return as FighterState[] ready for battle. */
 export async function fetchNPCs(): Promise<FighterState[]> {
-  const res = await fetch(csvUrl(GID.NPC));
-  const text = await res.text();
+  const text = await fetchSheetCsv(GID.NPC);
   const lines = splitCSVRows(text);
   if (lines.length < 2) return [];
 

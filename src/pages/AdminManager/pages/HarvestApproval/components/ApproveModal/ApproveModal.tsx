@@ -55,7 +55,7 @@ function ApproveModal({ show, approveData, isApproving, onClose, onConfirm }: Ap
                   <div className="modal-participants__bonuses">
                     <span className={`modal-badge ${participant.bonuses.hasGardeningSet ? 'modal-badge--gardening' : ''}`}>
                       Ceiling<>(</>({approveData.charCount} ÷ 200) x {participant.bonuses.hasGardeningSet
-                        ? <>15 <span className="modal-badge--gardening-info">Gardening Set</span></>
+                        ? <>1.5 <span className="modal-badge--gardening-info">Gardening Set</span></>
                         : '10'}
                       {(!participant.bonuses.isSolo && !participant.bonuses.hasDemeterWish) && <>)</>}
                     </span>

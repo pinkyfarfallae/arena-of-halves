@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore';
 import { firestore, db } from '../../firebase';
 import { ref, set } from 'firebase/database';
-import { APPS_SCRIPT_URL, csvUrl, GID } from '../../constants/sheets';
+import { APPS_SCRIPT_URL, fetchSheetCsv, GID } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
 import { TRAINING_POINT_REQUEST_STATUS, TrainingPointRequestStatus } from '../../constants/trainingPointRequestStatus';
@@ -506,9 +506,7 @@ export const fetchAllTrainingTasks = async (params?: {
   mode?: PracticeMode;
 }): Promise<TrainingTask[]> => {
   try {
-    // Fetch directly from Google Sheets CSV export
-    const res = await fetch(csvUrl(GID.DAILY_TRAINING_DICE));
-    const text = await res.text();
+    const text = await fetchSheetCsv(GID.DAILY_TRAINING_DICE);
     const lines = splitCSVRows(text);
     
     if (lines.length < 2) {

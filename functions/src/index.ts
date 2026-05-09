@@ -352,3 +352,38 @@ export const fetchTweetText = functions
       );
     }
   });
+
+/**
+ * Fetch a Google Sheets tab as CSV — runs server-side so no browser CORS restriction.
+ * Uses onRequest with manual CORS headers to avoid Firebase callable redirect issues.
+ */
+export const fetchSheetCsv = functions
+  .region("asia-southeast1")
+  .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    const gid = ((req.query.gid as string) || "").trim();
+    if (!gid) {
+      res.status(400).json({ error: "gid is required" });
+      return;
+    }
+    const SHEET_ID = "1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA";
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        res.status(502).json({ error: `Sheet fetch failed: ${response.status}` });
+        return;
+      }
+      const csv = await response.text();
+      res.set("Content-Type", "text/plain; charset=utf-8");
+      res.send(csv);
+    } catch (err: any) {
+      res.status(500).json({ error: err.toString() });
+    }
+  });

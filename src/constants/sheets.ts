@@ -1,6 +1,6 @@
 export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 
-const DEPLOYMENT_ID = 'AKfycbzLNGoDviTk_MZEEqBkKk45WaQbP4dzzXn-ONZP4FzuGeqnOtPuRKfgo8fOB-BPH-NE';
+const DEPLOYMENT_ID = 'AKfycbyo-cAGKy52K3EQHa0BYzf6ja3PRwtFl0zRlv-lXGbYm3nwoijUXhiVVz4_rq_NnEDzGQ';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export const SECRET_SHEET_ID = '1aIzkjzkP6WaW-CgLbckPEqV4xYdJbITZOJwFPUkdUHw';
@@ -30,3 +30,19 @@ export const csvUrl = (gid: string) =>
 
 export const secretCsvUrl = (gid: string) =>
   `https://docs.google.com/spreadsheets/d/${SECRET_SHEET_ID}/export?format=csv&gid=${gid}&_t=${Date.now()}&r=${Math.random()}`;
+
+/** Fetch a sheet as CSV via Apps Script POST proxy.
+ *  Works in production (GitHub Pages). Local dev may be CORS-blocked — test on deployed site.
+ *  If Apps Script doPost hasn't been redeployed with fetchSheet action, falls back gracefully. */
+export async function fetchSheetCsv(gid: string): Promise<string> {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'fetchSheet', gid }),
+  });
+  const text = await res.text();
+  if (text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
+    console.error('[fetchSheetCsv] Apps Script returned JSON for gid', gid, ':', text.slice(0, 200));
+    throw new Error('fetchSheet not available — redeploy Apps Script (scripts.gs).');
+  }
+  return text;
+}

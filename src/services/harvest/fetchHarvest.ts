@@ -1,6 +1,6 @@
 import { ACTIONS } from "../../constants/action";
 import { HARVEST_SUBMISSION_STATUS } from "../../constants/harvest";
-import { APPS_SCRIPT_URL, csvUrl, GID } from "../../constants/sheets";
+import { APPS_SCRIPT_URL, fetchSheetCsv, GID } from "../../constants/sheets";
 import { HarvestRecords, HarvestSubmission, HarvestSubmissionStatus, TopHarvester } from "../../types/harvest";
 import { generateUUID } from "../../utils/uuid";
 import { splitCSVRows, parseCSVLine } from "../../utils/csv";
@@ -101,9 +101,7 @@ export async function fetchHarvests(
   status?: HarvestSubmissionStatus
 ): Promise<{ harvests: HarvestSubmission[]; error?: string }> {
   try {
-    // Fetch directly from Google Sheets CSV export (no CORS issues)
-    const res = await fetch(csvUrl(GID.HARVEST));
-    const text = await res.text();
+    const text = await fetchSheetCsv(GID.HARVEST);
     const lines = splitCSVRows(text);
 
     if (lines.length < 2) {
@@ -228,8 +226,7 @@ export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvester
 
     // Fetch character names from character CSV
     try {
-      const charRes = await fetch(csvUrl(GID.CHARACTER));
-      const charText = await charRes.text();
+      const charText = await fetchSheetCsv(GID.CHARACTER);
       const charLines = splitCSVRows(charText);
 
       if (charLines.length >= 2) {
