@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { doc, onSnapshot, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { FIRESTORE_COLLECTIONS } from '../constants/fireStoreCollections';
@@ -62,16 +62,17 @@ export function useBag(userId: string | undefined) {
   }, [userId]);
 
   // Convert bag data to array format (for backward compatibility)
-  const bagEntries: BagEntry[] = Object.entries(bagData).map(([itemId, data]) => ({
+  // Memoize to prevent infinite loops when used in useEffect dependencies
+  const bagEntries: BagEntry[] = useMemo(() => Object.entries(bagData).map(([itemId, data]) => ({
     itemId,
     amount: data.amount,
     type: data.type,
     income: data.income,
     available: data.available,
-  }));
+  })), [bagData]);
 
   // Separate items and weapons
-  const items = bagEntries.filter((entry) => entry.type === BAG_ITEM_TYPES.ITEM);
+  const items = useMemo(() => bagEntries.filter((entry) => entry.type === BAG_ITEM_TYPES.ITEM), [bagEntries]);
 
   /**
    * Add or update an item in the bag
