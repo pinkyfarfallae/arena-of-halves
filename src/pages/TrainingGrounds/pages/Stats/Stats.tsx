@@ -69,6 +69,9 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const [showAthenaCodexPanel, setShowAthenaCodexPanel] = useState(false);
   const [codexCountToUse, setCodexCountToUse] = useState(1);
   const [processingCodex, setProcessingCodex] = useState(false);
+  // Optimistic update state
+  const [optimisticStats, setOptimisticStats] = useState<Record<string, number>>({});
+  const [optimisticTrainingPoints, setOptimisticTrainingPoints] = useState<number | null>(null);
   const MIN_UPGRADE_OVERLAY_MS = 3000;
   const UPGRADE_FADE_MS = 280;
   const showUpgradeOverlay = upgrading !== null;
@@ -83,6 +86,10 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const refundTicketCount = refundTicketEntry?.amount || 0;
 
   const getStatValue = (id: string) => {
+    // Use optimistic value if available
+    if (optimisticStats[id] !== undefined) {
+      return optimisticStats[id];
+    }
     if (!user) return 0;
     switch (id) {
       case PRACTICE_STATS.STRENGTH:
@@ -117,22 +124,38 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       return;
     }
 
-    if ((user.trainingPoints || 0) < cost) {
+    const currentTrainingPoints = optimisticTrainingPoints !== null ? optimisticTrainingPoints : (user.trainingPoints || 0);
+    if (currentTrainingPoints < cost) {
       setNoticeModal({
         title: 'Not Enough Training Points',
-        message: `Need ${cost} training points, but you only have ${user.trainingPoints || 0}.`,
+        message: `Need ${cost} training points, but you only have ${currentTrainingPoints}.`,
       });
       return;
     }
 
     upgradingRef.current = true;
     setUpgrading(statId);
+    
+    // Optimistic update: immediately update UI
+    setOptimisticStats(prev => ({
+      ...prev,
+      [statId]: currentValue + 1,
+    }));
+    setOptimisticTrainingPoints(currentTrainingPoints - cost);
     setIsUpgradeOverlayVisible(true);
     const startedAt = Date.now();
 
     const result = await upgradeStat(user.characterId, statId, cost);
 
     if (result.error) {
+      // Rollback optimistic update on error
+      setOptimisticStats(prev => {
+        const updated = { ...prev };
+        delete updated[statId];
+        return updated;
+      });
+      setOptimisticTrainingPoints(null);
+      
       setNoticeModal({
         title: 'Upgrade Failed',
         message: `Error: ${result.error}`,
@@ -149,11 +172,18 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     }
 
     if (result.success) {
-      // Refresh character data
+      // Confirm with server data: fetch fresh character data
       const characters = await fetchAllCharacters(user);
       const updated = characters.find(c => c.characterId === user.characterId);
       if (updated) {
         updateUser(updated);
+        // Clear optimistic state since we've confirmed with server
+        setOptimisticStats(prev => {
+          const newState = { ...prev };
+          delete newState[statId];
+          return newState;
+        });
+        setOptimisticTrainingPoints(null);
       }
 
       const hasNikeStatue = (bagEntries.find(entry => entry.itemId === ITEMS.NIKE_S_STATUE)?.amount || 0) > 0;
@@ -398,7 +428,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
               <span className="training-stats__header-points-text">
                 <span className="label">Points</span>
                 <span className="value">
-                  {user?.trainingPoints || 0}
+                  {optimisticTrainingPoints !== null ? optimisticTrainingPoints : (user?.trainingPoints || 0)}
                   <span>TP</span>
                 </span>
               </span>

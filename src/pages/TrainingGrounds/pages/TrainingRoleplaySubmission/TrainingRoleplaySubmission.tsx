@@ -28,7 +28,7 @@ import { formatAppDate, getAppDateString, getTodayDate } from '../../../../utils
 import SubmissionCard from '../../../AdminManager/pages/TrainingApproval/components/SubmissionCard/SubmissionCard';
 
 function TrainingRoleplaySubmission() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { width } = useScreenSize();
   const { t, lang } = useTranslation();
   const { bagEntries } = useBag(user?.characterId || '');
@@ -44,6 +44,8 @@ function TrainingRoleplaySubmission() {
   const [ticketsToApply, setTicketsToApply] = useState(0);
   const [isChangeRoleplayUrl, setIsChangeRoleplayUrl] = useState(false);
   const [isSubmittingRecheck, setIsSubmittingRecheck] = useState(false);
+  // Optimistic update state for bag items (skip tickets)
+  const [optimisticBagItems, setOptimisticBagItems] = useState<Record<string, number>>({});
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<TrainingPointRequestStatus>(TRAINING_POINT_REQUEST_STATUS.PENDING);
@@ -55,6 +57,11 @@ function TrainingRoleplaySubmission() {
       setTicketsToApply(sheetTask.tickets);
     }
   }, [sheetTask]);
+
+  // Clear optimistic bag state when bagEntries updates (from server)
+  useEffect(() => {
+    setOptimisticBagItems({});
+  }, [bagEntries]);
 
   useEffect(() => {
     if (!user?.characterId) return;
@@ -112,8 +119,12 @@ function TrainingRoleplaySubmission() {
   const hasPendingSubmission = hasTrainingSubmissionForApproval(sheetTask);
 
   const availableTickets = useMemo(() => {
+    // Use optimistic value if available
+    if (optimisticBagItems[ITEMS.SKIP_TICKET] !== undefined) {
+      return optimisticBagItems[ITEMS.SKIP_TICKET];
+    }
     return bagEntries.find(entry => entry.itemId === ITEMS.SKIP_TICKET)?.amount || 0;
-  }, [bagEntries]);
+  }, [bagEntries, optimisticBagItems]);
 
   // Calculate min and max tickets
   const minTickets = 0;
@@ -136,14 +147,21 @@ function TrainingRoleplaySubmission() {
     try {
       const date = getAppDateString(sheetTaskDate);
 
-      await recheckTrainingTask(user.characterId, date);
+      // Optimistic update: immediately mark as pending
+      if (sheetTask) {
+        setSheetTask({
+          ...sheetTask,
+          verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+          rejectReason: '',
+        });
+      }
 
-      setSheetTask((prev) => prev ? {
-        ...prev,
-        verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-        rejectReason: '',
-      } : prev);
+      await recheckTrainingTask(user.characterId, date);
     } catch (err) {
+      // Rollback optimistic update on error
+      if (sheetTask) {
+        setSheetTask(sheetTask);
+      }
       setError(err instanceof Error ? err.message : 'Failed to recheck training task');
     } finally {
       setIsSubmittingRecheck(false);
@@ -190,8 +208,25 @@ function TrainingRoleplaySubmission() {
 
     try {
       const date = getAppDateString(sheetTaskDate);
-
       const ticketDifference = ticketsToApply - sheetTaskTickets;
+
+      // Optimistic update: immediately update UI
+      if (ticketDifference !== 0) {
+        setOptimisticBagItems(prev => ({
+          ...prev,
+          [ITEMS.SKIP_TICKET]: Math.max(0, availableTickets - ticketDifference),
+        }));
+      }
+
+      // Optimistic update: immediately update sheet task
+      const optimisticTask = {
+        ...sheetTask!,
+        roleplay: urlToSubmit,
+        tickets: ticketsToApply,
+        verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
+        rejectReason: '',
+      };
+      setSheetTask(optimisticTask);
 
       if (ticketDifference > 0) {
         // Using more tickets than before - consume additional tickets
@@ -225,18 +260,27 @@ function TrainingRoleplaySubmission() {
         );
       }
 
-      setSheetTask((prev) => prev ? {
-        ...prev,
-        roleplay: urlToSubmit,
-        tickets: ticketsToApply,
-        verified: TRAINING_POINT_REQUEST_STATUS.PENDING,
-        rejectReason: '',
-      } : prev);
+      // Clear optimistic state on success
+      setOptimisticBagItems(prev => {
+        const updated = { ...prev };
+        delete updated[ITEMS.SKIP_TICKET];
+        return updated;
+      });
+
       setFirstTweetUrl('');
-      // Don't reset ticketsToApply - it stays as the committed amount
       setIsChangeRoleplayUrl(false);
     } catch (err) {
       console.error('Error submitting training roleplay:', err);
+      // Rollback optimistic update on error
+      setOptimisticBagItems(prev => {
+        const updated = { ...prev };
+        delete updated[ITEMS.SKIP_TICKET];
+        return updated;
+      });
+      // Rollback sheet task optimistic update
+      if (sheetTask) {
+        setSheetTask(sheetTask);
+      }
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
     } finally {
       setIsSubmitting(false);
