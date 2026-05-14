@@ -7,7 +7,7 @@ import { hexToRgb, lightenColor, rgbToHex, isNearWhite, contrastText } from '../
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
 import { addTrainingPoints } from '../../../../services/training/trainingPoints';
 import { consumeItem } from '../../../../services/bag/bagService';
-import { DEITY_THEMES, fetchCharacter } from '../../../../data/characters';
+import { DEITY_THEMES, forceRefreshCharacter } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 import { UpgradeOverlay } from './components/UpgradeOverlay/UpgradeOverlay';
@@ -186,7 +186,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       setOptimisticTrainingPoints(null);
 
       // Fetch full character to get updated derived stats (damage, defendDiceUp, etc.)
-      const updatedChar = await fetchCharacter(user.characterId);
+      const updatedChar = await forceRefreshCharacter(user.characterId);
       if (updatedChar) {
         updateUser(updatedChar);
       }
@@ -267,7 +267,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       });
 
       // Fetch full character to get updated derived stats
-      const updatedChar = await fetchCharacter(user.characterId);
+      const updatedChar = await forceRefreshCharacter(user.characterId);
       if (updatedChar) {
         updateUser(updatedChar);
       }
@@ -326,7 +326,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
         updateUser({ trainingPoints: tpResult.current });
 
         // Fetch full character to ensure everything is in sync
-        const updatedChar = await fetchCharacter(user.characterId);
+        const updatedChar = await forceRefreshCharacter(user.characterId);
         if (updatedChar) {
           updateUser(updatedChar);
         }

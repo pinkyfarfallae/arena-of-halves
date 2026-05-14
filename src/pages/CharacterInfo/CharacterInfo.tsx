@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useBag } from '../../hooks/useBag';
-import { fetchCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES, fetchCustomEquipment } from '../../data/characters';
+import { fetchCharacter, forceRefreshCharacter, fetchItemInfo, patchCharacter, Character, Power, WishEntry, ItemInfo, BagEntry, DEFAULT_THEME, DEITY_THEMES, fetchCustomEquipment } from '../../data/characters';
 import { cancelTodayIrisWish, fetchWishes, fetchIrisWishCountsForCharacter } from '../../data/wishes';
 import { getPowers } from '../../data/powers';
 import EditCharacterModal from './components/EditCharacterModal/EditCharacterModal';
@@ -81,7 +81,7 @@ function FormatText({ text }: { text: string }) {
 /* ════ Main ════ */
 
 function CharacterInfo() {
-  const { user, refreshUser } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { width } = useScreenSize();
@@ -866,8 +866,12 @@ function CharacterInfo() {
             try {
               const consumeResult = await consumeItem(user.characterId, ITEMS.ATHENA_S_CODEX, codexAmount, 'modal_use_codex');
               if (!consumeResult.success) return;
-              await addTrainingPoints(user.characterId, codexAmount * 3);
-              await refreshUser();
+              const tpResult = await addTrainingPoints(user.characterId, codexAmount * 3);
+              if (tpResult.current !== undefined) {
+                updateUser({ trainingPoints: tpResult.current });
+              }
+              const updatedChar = await forceRefreshCharacter(user.characterId);
+              if (updatedChar) updateUser(updatedChar);
             } finally {
               setSaving(false);
             }

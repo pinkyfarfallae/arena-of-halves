@@ -2,7 +2,7 @@ import { splitCSVRows, parseCSVLine } from '../utils/csv';
 import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEquipmentInfo } from '../types/character';
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
-import { GID, SECRET_GID, fetchSheetCsv, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
+import { GID, SECRET_GID, fetchSheetCsv, clearSheetCache, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
 import { DEITY, Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
 import { doc, getDoc } from 'firebase/firestore';
@@ -151,6 +151,11 @@ function rowToCharacter(headers: string[], cols: string[]): Character {
 
     trainingPoints: num('trainingpoints'),
   };
+}
+
+export async function forceRefreshCharacter(characterId: string): Promise<Character | null> {
+  clearSheetCache(GID.CHARACTER);
+  return fetchCharacter(characterId);
 }
 
 export async function fetchCharacter(characterId: string): Promise<Character | null> {

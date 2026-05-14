@@ -39,6 +39,11 @@ export const secretCsvUrl = (gid: string) =>
 const _csvCache = new Map<string, { text: string; expiresAt: number }>();
 const _csvInflight = new Map<string, Promise<string>>();
 
+export function clearSheetCache(gid: string): void {
+  _csvCache.delete(gid);
+  _csvInflight.delete(gid);
+}
+
 export async function fetchSheetCsv(gid: string): Promise<string> {
   const now = Date.now();
   const cached = _csvCache.get(gid);
