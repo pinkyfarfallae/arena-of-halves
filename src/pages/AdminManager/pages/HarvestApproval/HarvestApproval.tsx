@@ -21,7 +21,7 @@ import SuccessModal from './components/SuccessModal/SuccessModal';
 import { fetchIrisWishesByDate } from '../../../../data/wishes';
 import { DEITY } from '../../../../constants/deities';
 import './HarvestApproval.scss';
-import { getItemAmount } from '../../../../services/bag/bagService';
+import { getItemAmount, consumeItem } from '../../../../services/bag/bagService';
 import { ITEMS } from '../../../../constants/items';
 import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
@@ -318,8 +318,15 @@ function HarvestApproval() {
       })
     );
 
+    // Auto-consume gardening set from each participant who had it (item is per-use, not permanent)
+    const gardeningConsumePromises = approveData.participantRewards
+      .filter((p) => p.bonuses.hasGardeningSet)
+      .map((p) =>
+        consumeItem(p.characterId, ITEMS.DEMETER_S_GARDENING_SET, 1, 'harvest_gardening_set_used')
+      );
+
     try {
-      await Promise.all(rewardPromises);
+      await Promise.all([...rewardPromises, ...gardeningConsumePromises]);
     } catch (error) {
       setIsApproving(false);
       return;
