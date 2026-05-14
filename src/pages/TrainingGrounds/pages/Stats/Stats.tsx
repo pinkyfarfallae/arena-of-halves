@@ -7,7 +7,7 @@ import { hexToRgb, lightenColor, rgbToHex, isNearWhite, contrastText } from '../
 import { upgradeStat, getUpgradeCost, refundAllStats } from '../../../../services/training/upgradeStats';
 import { addTrainingPoints } from '../../../../services/training/trainingPoints';
 import { consumeItem } from '../../../../services/bag/bagService';
-import { fetchAllCharacters, DEITY_THEMES } from '../../../../data/characters';
+import { DEITY_THEMES, fetchCharacter } from '../../../../data/characters';
 import ChevronLeft from '../../../../icons/ChevronLeft';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 import { UpgradeOverlay } from './components/UpgradeOverlay/UpgradeOverlay';
@@ -54,7 +54,7 @@ const statIcons: Record<string, string> = {
 };
 
 export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, onSelectRolePlaySubmission, loading }: { onSelectTrainingWithAdminMode: () => void; onSelectPvPMode: () => void; onSelectRolePlaySubmission: () => void; loading?: boolean }) {
-  const { user, updateUser, refreshUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const { bagEntries } = useBag(user?.characterId);
   const { width } = useScreenSize();
   const trainingPointsRef = useRef<HTMLDivElement>(null);
@@ -172,18 +172,23 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
     }
 
     if (result.success) {
-      // Confirm with server data: fetch fresh character data
-      const characters = await fetchAllCharacters(user);
-      const updated = characters.find(c => c.characterId === user.characterId);
-      if (updated) {
-        updateUser(updated);
-        // Clear optimistic state since we've confirmed with server
-        setOptimisticStats(prev => {
-          const newState = { ...prev };
-          delete newState[statId];
-          return newState;
-        });
-        setOptimisticTrainingPoints(null);
+      // Confirm with server data using direct response
+      updateUser({ 
+        [statId]: result.newValue, 
+        trainingPoints: result.remainingPoints 
+      } as any);
+      // Clear optimistic state since we've confirmed with server
+      setOptimisticStats(prev => {
+        const newState = { ...prev };
+        delete newState[statId];
+        return newState;
+      });
+      setOptimisticTrainingPoints(null);
+
+      // Fetch full character to get updated derived stats (damage, defendDiceUp, etc.)
+      const updatedChar = await fetchCharacter(user.characterId);
+      if (updatedChar) {
+        updateUser(updatedChar);
       }
 
       const hasNikeStatue = (bagEntries.find(entry => entry.itemId === ITEMS.NIKE_S_STATUE)?.amount || 0) > 0;
@@ -249,11 +254,23 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       return;
     }
 
-    await refreshUser();
-    const characters = await fetchAllCharacters(user);
-    const updated = characters.find((c) => c.characterId === user.characterId);
-    if (updated) {
-      updateUser(updated);
+    // Update with server response
+    if (result.success) {
+      updateUser({
+        strength: result.newValues?.strength || 0,
+        mobility: result.newValues?.mobility || 0,
+        intelligence: result.newValues?.intelligence || 0,
+        technique: result.newValues?.technique || 0,
+        experience: result.newValues?.experience || 0,
+        fortune: result.newValues?.fortune || 0,
+        trainingPoints: result.remainingPoints || 0,
+      });
+
+      // Fetch full character to get updated derived stats
+      const updatedChar = await fetchCharacter(user.characterId);
+      if (updatedChar) {
+        updateUser(updatedChar);
+      }
     }
 
     setIsRefundOverlayVisible(false);
@@ -304,12 +321,15 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
         return;
       }
 
-      // Refresh user data
-      await refreshUser();
-      const characters = await fetchAllCharacters(user);
-      const updated = characters.find((c) => c.characterId === user.characterId);
-      if (updated) {
-        updateUser(updated);
+      // Update with server response (addTrainingPoints returns .current)
+      if (tpResult.current !== undefined) {
+        updateUser({ trainingPoints: tpResult.current });
+
+        // Fetch full character to ensure everything is in sync
+        const updatedChar = await fetchCharacter(user.characterId);
+        if (updatedChar) {
+          updateUser(updatedChar);
+        }
       }
 
       // Show success
@@ -336,6 +356,52 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
   const haseAthenaCodex = bagEntries.some(entry => entry.itemId === ITEMS.ATHENA_S_CODEX && entry.amount > 0);
   const codexEntry = bagEntries.find(entry => entry.itemId === ITEMS.ATHENA_S_CODEX);
   const availableCodex = codexEntry?.amount || 0;
+
+  // Auto-clear optimistic stats when server confirms
+  useEffect(() => {
+    setOptimisticStats(prev => {
+      const updated = { ...prev };
+      let changed = false;
+
+      if (prev.strength !== undefined && user && (user.strength || 0) >= prev.strength) {
+        delete updated.strength;
+        changed = true;
+      }
+      if (prev.mobility !== undefined && user && (user.mobility || 0) >= prev.mobility) {
+        delete updated.mobility;
+        changed = true;
+      }
+      if (prev.intelligence !== undefined && user && (user.intelligence || 0) >= prev.intelligence) {
+        delete updated.intelligence;
+        changed = true;
+      }
+      if (prev.technique !== undefined && user && (user.technique || 0) >= prev.technique) {
+        delete updated.technique;
+        changed = true;
+      }
+      if (prev.experience !== undefined && user && (user.experience || 0) >= prev.experience) {
+        delete updated.experience;
+        changed = true;
+      }
+      if (prev.fortune !== undefined && user && (user.fortune || 0) >= prev.fortune) {
+        delete updated.fortune;
+        changed = true;
+      }
+
+      return changed ? updated : prev;
+    });
+  }, [user?.strength, user?.mobility, user?.intelligence, user?.technique, user?.experience, user?.fortune]);
+
+  // Auto-clear optimistic training points when server confirms
+  useEffect(() => {
+    if (optimisticTrainingPoints !== null && user?.trainingPoints !== undefined) {
+      // Clear optimistic when server TP is less than or equal to optimistic
+      // (we spent TP, so server will be lower)
+      if (user.trainingPoints <= optimisticTrainingPoints) {
+        setOptimisticTrainingPoints(null);
+      }
+    }
+  }, [user?.trainingPoints]);
 
   useEffect(() => {
     if (showAthenaCodexPanel) {
@@ -508,7 +574,8 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
             const value = getStatValue(stat.id);
             const maxValue = 5;
             const cost = getUpgradeCost(value);
-            const canUpgrade = cost > 0 && (user?.trainingPoints || 0) >= cost;
+            const effectiveTP = optimisticTrainingPoints !== null ? optimisticTrainingPoints : (user?.trainingPoints || 0);
+            const canUpgrade = cost > 0 && effectiveTP >= cost;
             const isUpgrading = upgrading === stat.id;
 
             return (
