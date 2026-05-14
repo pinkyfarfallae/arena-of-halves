@@ -85,9 +85,9 @@ export default function EditCharacterModal({ char, onClose, onSaved }: Props) {
     return t;
   });
 
-  /* Birthdate validation */
+  /* Birthdate — stored as plain string, no date parsing */
   const birthdateVal = (form.birthdate ?? '').trim();
-  const birthdateInvalid = !!(birthdateVal && birthdateVal.toLowerCase() !== 'unknown' && isNaN(Date.parse(birthdateVal)));
+  const birthdateInvalid = false;
 
   /* Form validity (computed) */
   const isFormValid = (() => {
