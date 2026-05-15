@@ -1,5 +1,14 @@
 import { ITEMS } from '../constants/items';
 
+const appPath = (path: string) =>
+  window.location.hostname === 'localhost'
+    ? `/#${path}`
+    : `/arena-of-halves/#${path}`;
+
+const openAppPath = (path: string) => {
+  window.open(appPath(path), '_blank', 'noopener,noreferrer');
+};
+
 export interface ItemActionDescriptor {
   label: string;
   action?: string;
@@ -28,7 +37,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Open Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
         }
       },
     ],
@@ -41,7 +50,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
         }
       },
     ],
@@ -54,7 +63,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
         }
       },
     ],
@@ -67,7 +76,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
         }
       },
     ],
@@ -81,7 +90,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
 
         }
       },
@@ -103,7 +112,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
 
         }
       },
@@ -125,7 +134,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
 
         }
       },
@@ -146,7 +155,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
 
         }
       },
@@ -167,7 +176,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Buy More at the Shop',
         onClick: () => {
-          window.open('/#/shop', '_blank', 'noopener,noreferrer');
+          openAppPath('/shop');
 
         }
       },
@@ -200,7 +209,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Training In Normal Training',
         onClick: () => {
-          window.open('/#/training-grounds/guided', '_blank', 'noopener,noreferrer');
+          openAppPath('/training-grounds/guided');
         }
       },
     ],
@@ -261,7 +270,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Toss a Coin at Iris Fountain',
         onClick: () => {
-          window.open('/#/iris-message', '_blank', 'noopener,noreferrer');
+          openAppPath('/iris-message');
         }
       },
     ],
@@ -274,7 +283,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Submit Training Roleplay',
         onClick: () => {
-          window.open('/#/training-roleplay-submission', '_blank', 'noopener,noreferrer');
+          openAppPath('/training-roleplay-submission');
         }
       },
     ],
@@ -289,7 +298,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Upgrade Equipment',
         onClick: () => {
-          window.open('/#/forge', '_blank', 'noopener,noreferrer');
+          openAppPath('/forge');
         }
       },
     ],
@@ -302,7 +311,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'See Your Training Stats',
         onClick: () => {
-          window.open('/#/training-grounds', '_blank', 'noopener,noreferrer');
+          openAppPath('/training-grounds');
         }
       },
     ],
@@ -321,7 +330,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'See Your Training Stats',
         onClick: () => {
-          window.open('/#/training-grounds', '_blank', 'noopener,noreferrer');
+          openAppPath('/training-grounds');
         }
       },
     ],
@@ -335,27 +344,7 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       {
         label: 'Join Harvesting',
         onClick: () => {
-          window.open('/#/strawberry-fields', '_blank', 'noopener,noreferrer');
-        }
-      },
-    ],
-  },
-  [ITEMS.IRIS_KEYCHAIN]: {
-    usage:
-      '\* พวงกุญแจไอริสเป็นไอเทมแบบ passive ที่จะส่งผลโดยอัตโนมัติเมื่อมีอยู่ในกระเป๋า\
-      \n\* หากมีพวงกุญแจไอริสในกระเป๋า เมื่อสะสมพรแห่งไอริสครบทั้ง 20 องค์เทพ - เทพีแล้ว ผู้ครอบครองจะได้รับโบนัสเงิน 5000 drachma\
-      \n\* โบนัสจะถูกมอบให้โดยอัตโนมัติหลังจากการได้รับข้อความแต่ละครั้งที่น้ำพุไอริสครบทั้ง 20 องค์เทพ - เทพีแล้วเท่านั้น',
-    sections: [
-      {
-        kind: 'wishesProgress',
-        title: 'Your Wishes Progress',
-      }
-    ],
-    actions: [
-      {
-        label: 'Go to Iris Fountain',
-        onClick: () => {
-          window.open('/#/iris-message', '_blank', 'noopener,noreferrer');
+          openAppPath('/strawberry-fields');
         }
       },
     ],
