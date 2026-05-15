@@ -345,10 +345,15 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       '\* พวงกุญแจไอริสเป็นไอเทมแบบ passive ที่จะส่งผลโดยอัตโนมัติเมื่อมีอยู่ในกระเป๋า\
       \n\* หากมีพวงกุญแจไอริสในกระเป๋า เมื่อสะสมพรแห่งไอริสครบทั้ง 20 องค์เทพ - เทพีแล้ว ผู้ครอบครองจะได้รับโบนัสเงิน 5000 drachma\
       \n\* โบนัสจะถูกมอบให้โดยอัตโนมัติหลังจากการได้รับข้อความแต่ละครั้งที่น้ำพุไอริสครบทั้ง 20 องค์เทพ - เทพีแล้วเท่านั้น',
+    sections: [
+      {
+        kind: 'wishesProgress',
+        title: 'Your Wishes Progress',
+      }
+    ],
     actions: [
       {
         label: 'Go to Iris Fountain',
-
         onClick: () => {
           window.open('/#/iris-message', '_blank', 'noopener,noreferrer');
         }
