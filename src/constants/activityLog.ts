@@ -45,6 +45,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   iris_fountain: 'Rainbow Drachma after the Wish of Iris',
   iris_wish: 'the Wish of Iris',
   iris_wish_hecate: 'the Wish of Hecate',
+  iris_keychain_bonus: 'Iris Keychain bonus',
   nike_statue: "Nike's Statue",
   nike_wish_battle_bonus: 'Nike Wish',
   player_inventory: 'Removed by admin',

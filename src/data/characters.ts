@@ -311,6 +311,10 @@ export async function fetchPlayerBag(characterId: string): Promise<BagEntry[]> {
       itemId,
       amount: data.amount,
       type: data.type,
+      income: data.income,
+      available: data.available,
+      bonusClaimed: data.bonusClaimed,
+      bonusClaimedAt: data.bonusClaimedAt,
     }));
 
     return entries;

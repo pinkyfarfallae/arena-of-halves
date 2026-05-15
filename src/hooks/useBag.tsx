@@ -69,6 +69,8 @@ export function useBag(userId: string | undefined) {
     type: data.type,
     income: data.income,
     available: data.available,
+    bonusClaimed: data.bonusClaimed,
+    bonusClaimedAt: data.bonusClaimedAt,
   })), [bagData]);
 
   // Separate items and weapons

@@ -23,6 +23,11 @@ interface ItemModalProps {
   canDecreeTodayWish?: boolean;
   trainingPoints?: number;
   codexCount?: number;
+  wishesProgress?: {
+    current: number;
+    total: number;
+    claimed?: boolean;
+  } | null;
   onExchangeCodex?: () => void;
   canExchangeCodex?: boolean;
 }
@@ -65,6 +70,7 @@ export const ItemDetailModal = ({
   canDecreeTodayWish,
   trainingPoints = 0,
   codexCount = 0,
+  wishesProgress = null,
   onExchangeCodex,
   canExchangeCodex = false,
 }: ItemModalProps) => {
@@ -94,6 +100,7 @@ export const ItemDetailModal = ({
   const todayWishSection = sections.find((section) => section.kind === 'todayWish');
   const incomeTrackerSection = sections.find((section) => section.kind === 'incomeTracker');
   const trainingPointsSection = sections.find((section) => section.kind === 'trainingPoints');
+  const wishesProgressSection = sections.find((section) => section.kind === 'wishesProgress');
   const todayWishIconKey = todayWish?.deity ? toDeityKey(todayWish.deity) : undefined;
   const wishTheme = todayWish?.deity ? DEITY_THEMES[todayWish.deity.toLowerCase()] : undefined;
   const wishThemeStyle = todayWish?.deity
@@ -111,6 +118,15 @@ export const ItemDetailModal = ({
     '--deity-secondary': hermesTheme[1],
   } as CSSProperties;
   const isIncomeRewardClaimed = itemInfo.available === false;
+  const wishesCurrent = wishesProgress?.current ?? 0;
+  const wishesTotal = wishesProgress?.total ?? 0;
+  const wishesProgressPercent = wishesTotal > 0 ? Math.max(0, Math.min(100, (wishesCurrent / wishesTotal) * 100)) : 0;
+  const irisTheme = DEITY_THEMES[DEITY.IRIS.toLowerCase()] || DEFAULT_THEME;
+  const wishesThemeStyle = {
+    '--deity-primary': irisTheme[0],
+    '--deity-secondary': irisTheme[1],
+  } as CSSProperties;
+  const isWishesRewardClaimed = !!wishesProgress?.claimed;
 
   return (
     <div className="item-detail-modal__overlay" onClick={onClose} role="presentation">
@@ -258,6 +274,39 @@ export const ItemDetailModal = ({
                 >
                   {codexCount > 0 ? `Exchange ${codexCount} Codex` : 'No Codex to Exchange'}
                 </button>
+              </div>
+            </section>
+          )}
+
+          {wishesProgressSection && (
+            <section className="item-detail-modal__panel">
+              <div className="item-detail-modal__panel-head">
+                <span className="item-detail-modal__panel-title">{wishesProgressSection.title}</span>
+                <span className="item-detail-modal__panel-line" />
+              </div>
+              <div className="item-detail-modal__income-card" style={wishesThemeStyle}>
+                <div className="item-detail-modal__income-header">
+                  <div className="item-detail-modal__income-icon">
+                    {DEITY_SVG[DEITY.IRIS] || <Lightning width={14} height={14} />}
+                  </div>
+                  <div className="item-detail-modal__income-copy">
+                    <p className="item-detail-modal__income-label">Iris Keychain Progress</p>
+                    <p className="item-detail-modal__income-value">
+                      {wishesCurrent.toLocaleString()} / {wishesTotal.toLocaleString()} wishes collected
+                    </p>
+                  </div>
+                  <div className={`item-detail-modal__income-state${isWishesRewardClaimed ? ' item-detail-modal__income-state--done' : ''}`}>
+                    {isWishesRewardClaimed ? 'Reward claimed' : `${Math.round(wishesProgressPercent)}%`}
+                  </div>
+                </div>
+                <div className="item-detail-modal__income-bar" aria-hidden="true">
+                  <span className="item-detail-modal__income-fill" style={{ width: `${wishesProgressPercent}%` }} />
+                </div>
+                <p className="item-detail-modal__income-note">
+                  {isWishesRewardClaimed
+                    ? 'This keychain has already granted its 5000 drachma bonus.'
+                    : `${Math.max(0, wishesTotal - wishesCurrent).toLocaleString()} more deity wish${wishesTotal - wishesCurrent === 1 ? '' : 'es'} needed to trigger the 5000 drachma bonus.`}
+                </p>
               </div>
             </section>
           )}

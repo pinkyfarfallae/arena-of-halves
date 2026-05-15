@@ -10,6 +10,9 @@ import { getTodayDate } from '../utils/date';
 import { updateCharacterDrachma } from '../services/character/currencyService';
 import { logActivity } from '../services/activityLog/activityLogService';
 import { ACTIVITY_LOG_ACTIONS } from '../constants/activityLog';
+import { getBagData, setBagItemData } from '../services/bag/bagService';
+import { ITEMS } from '../constants/items';
+import type { BagData } from '../types/character';
 
 export interface IrisWishDoc {
   userId: string;
@@ -19,6 +22,8 @@ export interface IrisWishDoc {
   tossedAt?: string;
   nikeBonus100DCount?: number;
 }
+
+export const IRIS_KEYCHAIN_BONUS_AMOUNT = 5000;
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
@@ -97,6 +102,12 @@ export const saveIrisWish = async (userId: string, deity: string) => {
       tossedAt,
     },
   });
+
+  try {
+    await tryAwardIrisKeychainBonus(userId);
+  } catch {
+    // The wish itself must still save even if the bonus check fails.
+  }
 };
 
 export const cancelTodayIrisWish = async (characterId: string) => {
@@ -170,6 +181,76 @@ export const fetchAllIrisWishes = async (characterId: string) => {
 };
 
 export const fetchUserWishOfIris = async (characterId: string) => fetchAllIrisWishes(characterId);
+
+export const getIrisWishProgress = async (characterId: string): Promise<{
+  current: number;
+  total: number;
+  claimed: boolean;
+}> => {
+  const [wishDefs, wishes, bagData] = await Promise.all([
+    fetchWishes().catch(() => WISHES_FALLBACK),
+    fetchAllIrisWishes(characterId).catch(() => [] as IrisWishDoc[]),
+    getBagData(characterId).catch(() => ({} as BagData)),
+  ]);
+
+  const requiredDeities = new Set(
+    wishDefs
+      .map((wish) => wish.deity?.trim())
+      .filter(Boolean)
+  );
+
+  const collectedDeities = new Set(
+    wishes
+      .filter((wish) => !wish.canceled && !!wish.deity)
+      .map((wish) => wish.deity.trim())
+  );
+
+  const keychain = bagData[ITEMS.IRIS_KEYCHAIN];
+
+  return {
+    current: collectedDeities.size,
+    total: requiredDeities.size,
+    claimed: !!keychain?.bonusClaimed,
+  };
+};
+
+export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<boolean> => {
+  const [progress, bagData] = await Promise.all([
+    getIrisWishProgress(characterId),
+    getBagData(characterId).catch(() => ({} as BagData)),
+  ]);
+
+  const keychain = bagData[ITEMS.IRIS_KEYCHAIN];
+
+  if (!keychain || keychain.bonusClaimed) {
+    return false;
+  }
+
+  if (progress.total === 0 || progress.current < progress.total) {
+    return false;
+  }
+
+  const drachmaResult = await updateCharacterDrachma(characterId, IRIS_KEYCHAIN_BONUS_AMOUNT, {
+    source: 'iris_keychain_bonus',
+    performedBy: 'iris_wish',
+  });
+
+  if (!drachmaResult.success) {
+    return false;
+  }
+
+  await setBagItemData(characterId, ITEMS.IRIS_KEYCHAIN, {
+    amount: keychain.amount,
+    type: keychain.type,
+    bonusClaimed: true,
+    bonusClaimedAt: new Date().toISOString(),
+  }, {
+    performedBy: characterId,
+    source: 'iris_keychain_bonus',
+  });
+
+  return true;
+};
 
 /** Aggregate all Iris wishes for a specific character by deity */
 export const fetchIrisWishCountsForCharacter = async (characterId: string): Promise<WishEntry[]> => {

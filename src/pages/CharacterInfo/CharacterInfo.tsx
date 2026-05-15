@@ -325,6 +325,24 @@ function CharacterInfo() {
     return slots;
   }, [bagItems]);
 
+  const irisKeychainProgress = useMemo(() => {
+    const current = new Set(
+      wishes
+        .map(({ deity }) => deity?.trim())
+        .filter(Boolean)
+    ).size;
+
+    const total = new Set(
+      wishesData
+        .map(({ deity }) => deity?.trim())
+        .filter(Boolean)
+    ).size;
+
+    const claimed = !!bagItems.find((item) => item.itemId === ITEMS.IRIS_KEYCHAIN)?.bonusClaimed;
+
+    return { current, total, claimed };
+  }, [bagItems, wishes, wishesData]);
+
   const orderedPowers = useMemo(() => {
     return [POWER_TYPES.PASSIVE, POWER_TYPES.FIRST_SKILL, POWER_TYPES.SECOND_SKILL, POWER_TYPES.ULTIMATE]
       .map(type => powers.find(p => p.type === type))
@@ -859,6 +877,7 @@ function CharacterInfo() {
           canDecreeTodayWish={isOwnProfile && !!todayWish && !todayWish.canceled && justiceCookieAmount > 0}
           trainingPoints={user?.trainingPoints ?? 0}
           codexCount={bagItems?.find(item => item.itemId === ITEMS.ATHENA_S_CODEX)?.amount ?? 0}
+          wishesProgress={irisKeychainProgress}
           onExchangeCodex={async () => {
             if (!user?.characterId) return;
             const codexAmount = bagItems?.find(item => item.itemId === ITEMS.ATHENA_S_CODEX)?.amount ?? 0;

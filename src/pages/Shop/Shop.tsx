@@ -201,6 +201,9 @@ function Shop() {
 
       // Refresh user data to update currency display
       await refreshUser();
+      
+      // Wait a moment to ensure React state has updated before showing success
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Log the purchase
       logActivity({
@@ -631,7 +634,7 @@ function Shop() {
             paying={processing}
             customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
             onPay={handlePay}
-            onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
+            onClose={() => { setShowCheckout(false); setPaySuccess(false); refreshUser(); }}
           />
         )
       }

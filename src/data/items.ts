@@ -8,7 +8,7 @@ export interface ItemActionDescriptor {
 }
 
 export interface ItemActionSection {
-  kind: 'todayWish' | 'incomeTracker' | 'trainingPoints';
+  kind: 'todayWish' | 'incomeTracker' | 'trainingPoints' | 'wishesProgress';
   title: string;
 }
 
@@ -239,6 +239,19 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
       }
     ],
   },
+  [ITEMS.IRIS_KEYCHAIN]: {
+    usage:
+      '\* พวงกุญแจไอริสเป็นไอเทมแบบ passive ที่จะตรวจสอบความคืบหน้าของคำอธิษฐานที่ได้รับจากไอริส\
+      \n\* เมื่อผู้ครอบครองได้รับคำอธิษฐานจากเทพทุกองค์ครบถ้วน จะได้รับเงิน 5000 ดรัคมาอัตโนมัติ\
+      \n\* โบนัสนี้จะมอบให้เพียงครั้งเดียวเท่านั้น',
+    actions: [],
+    sections: [
+      {
+        kind: 'wishesProgress',
+        title: 'Your Wishes Progress',
+      }
+    ],
+  },
   [ITEMS.RAINBOW_DRACHMA]: {
     usage:
       '\* เหรียญดรัคมาสายรุ้งเป็นไอเทมแบบ passive ที่จะส่งผลโดยอัตโนมัติเมื่อมีอยู่ในกระเป๋า\
@@ -323,6 +336,21 @@ export const ITEMS_ACTIONS: Record<string, ItemActionInfo> = {
         label: 'Join Harvesting',
         onClick: () => {
           window.open('/#/strawberry-fields', '_blank', 'noopener,noreferrer');
+        }
+      },
+    ],
+  },
+  [ITEMS.IRIS_KEYCHAIN]: {
+    usage:
+      '\* พวงกุญแจไอริสเป็นไอเทมแบบ passive ที่จะส่งผลโดยอัตโนมัติเมื่อมีอยู่ในกระเป๋า\
+      \n\* หากมีพวงกุญแจไอริสในกระเป๋า เมื่อสะสมพรแห่งไอริสครบทั้ง 20 องค์เทพ - เทพีแล้ว ผู้ครอบครองจะได้รับโบนัสเงิน 5000 drachma\
+      \n\* โบนัสจะถูกมอบให้โดยอัตโนมัติหลังจากการได้รับข้อความแต่ละครั้งที่น้ำพุไอริสครบทั้ง 20 องค์เทพ - เทพีแล้วเท่านั้น',
+    actions: [
+      {
+        label: 'Go to Iris Fountain',
+
+        onClick: () => {
+          window.open('/#/iris-message', '_blank', 'noopener,noreferrer');
         }
       },
     ],

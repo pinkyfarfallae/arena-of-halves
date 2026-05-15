@@ -47,6 +47,8 @@ export interface BagEntry {
   type: BagItemType;
   income?: number;
   available?: boolean;
+  bonusClaimed?: boolean;
+  bonusClaimedAt?: string;
 }
 
 export interface BagItemData {
@@ -54,6 +56,8 @@ export interface BagItemData {
   type: BagItemType;
   income?: number;
   available?: boolean;
+  bonusClaimed?: boolean;
+  bonusClaimedAt?: string;
 }
 
 export interface BagData {

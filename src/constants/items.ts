@@ -31,4 +31,6 @@ export const ITEMS = {
 
   ATHENA_S_CODEX: 'athenas_codex',
   DEMETER_S_GARDENING_SET: 'demeters_gardening_set',
+
+  IRIS_KEYCHAIN: 'iris_keychain',
 }
