@@ -174,16 +174,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Poll user data every 5 seconds for real-time updates
+  // Debounce refresh requests to avoid rapid successive fetches
+  const pendingRefreshRef = React.useRef<NodeJS.Timeout | null>(null);
+  const debouncedRefreshUser = useCallback(() => {
+    if (pendingRefreshRef.current) {
+      clearTimeout(pendingRefreshRef.current);
+    }
+    pendingRefreshRef.current = setTimeout(() => {
+      refreshUser();
+      pendingRefreshRef.current = null;
+    }, 300);
+  }, [refreshUser]);
+
+  // Poll user data every 5 seconds for real-time updates (use debounced version)
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(() => {
-      refreshUser();
+      debouncedRefreshUser();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [user, refreshUser]);
+  }, [user, debouncedRefreshUser]);
 
   // Re-fetch immediately when the tab/app comes back to the foreground (mobile background → foreground)
   useEffect(() => {
@@ -193,7 +205,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (pendingRefreshRef.current) {
+        clearTimeout(pendingRefreshRef.current);
+      }
+    };
   }, [refreshUser]);
 
   const value: AuthContextType = {

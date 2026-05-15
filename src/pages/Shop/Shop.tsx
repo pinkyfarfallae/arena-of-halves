@@ -634,7 +634,7 @@ function Shop() {
             paying={processing}
             customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}
             onPay={handlePay}
-            onClose={() => { setShowCheckout(false); setPaySuccess(false); refreshUser(); }}
+            onClose={() => { setShowCheckout(false); setPaySuccess(false); }}
           />
         )
       }
