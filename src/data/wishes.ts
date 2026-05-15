@@ -222,7 +222,7 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
 
   const keychain = bagData[ITEMS.IRIS_KEYCHAIN];
 
-  if (!keychain || keychain.bonusClaimed) {
+  if (!keychain || keychain.bonusClaimed || keychain.available === false) {
     return false;
   }
 
@@ -242,6 +242,7 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
   await setBagItemData(characterId, ITEMS.IRIS_KEYCHAIN, {
     amount: keychain.amount,
     type: keychain.type,
+    available: false,
     bonusClaimed: true,
     bonusClaimedAt: new Date().toISOString(),
   }, {
