@@ -64,9 +64,8 @@ export async function updateCharacterDrachma(
 async function applyHermesPurseIncome(characterId: string, amount: number): Promise<void> {
   const bagData = await getBagData(characterId);
   const purse = bagData[ITEMS.HERMES_S_PURSE];
-  const statue = bagData[ITEMS.NIKE_S_STATUE];
 
-  if (!purse || !statue || purse.available === false) {
+  if (!purse || purse.available === false) {
     return;
   }
 
