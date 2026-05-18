@@ -1,6 +1,6 @@
 export const SHEET_ID = '1P3gaozLPryFY8itFVx7YzBTrFfdSn2tllTKJIMXVWOA';
 
-const DEPLOYMENT_ID = 'AKfycbyo-cAGKy52K3EQHa0BYzf6ja3PRwtFl0zRlv-lXGbYm3nwoijUXhiVVz4_rq_NnEDzGQ';
+const DEPLOYMENT_ID = 'AKfycbyB99kDI68YsVgJg2qC5xXNEz1t6_rpdbhuUy5ZfICQHg3CK7ZiQjMR8NP1a8pbH5AdXw';
 export const APPS_SCRIPT_URL = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec`;
 
 export const SECRET_SHEET_ID = '1aIzkjzkP6WaW-CgLbckPEqV4xYdJbITZOJwFPUkdUHw';

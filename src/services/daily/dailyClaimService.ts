@@ -84,9 +84,15 @@ export async function getUserDailyClaim(characterId: string): Promise<UserDailyC
 
     const entry = data?.[characterId];
     if (entry && typeof entry.amount === 'number') {
-      const cachedEntry = { accepted: !!entry.accepted, amount: entry.amount };
+      // Preserve local lock: if the user claimed optimistically (e.g. due to a
+      // transient Firestore error), the local lock may be set even though
+      // Firestore still shows accepted:false. Trust the local lock so we don't
+      // clear it and re-show the modal.
+      const localClaimed = hasLocalClaimLock(characterId, date);
+      const accepted = !!entry.accepted || localClaimed;
+      const cachedEntry = { accepted, amount: entry.amount };
       dailyClaimsCache.set(cacheKey, cachedEntry);
-      setLocalClaimLock(characterId, !!entry.accepted, date);
+      setLocalClaimLock(characterId, accepted, date);
       return cachedEntry;
     }
 
@@ -205,18 +211,19 @@ export async function tryClaimToday(characterId: string): Promise<boolean> {
     }
     return !!result;
   } catch (err) {
-    // Check if it's a quota-related error
     const firebaseErr = err as FirestoreError;
     if (firebaseErr?.code === 'resource-exhausted') {
       console.error('[Daily Claim] QUOTA EXCEEDED - transaction blocked', err);
-      // Mark as claimed locally to prevent retries
-      claimedTodayCache.add(cacheKey);
-      setLocalClaimLock(characterId, true, date);
-      return true; // Optimistic claim in emergency
+    } else {
+      console.error('[Daily Claim] tryClaimToday transaction failed, proceeding optimistically', err);
     }
-    
-    console.error('[Daily Claim] tryClaimToday transaction failed', err);
-    return false;
+    // For any error, proceed optimistically. Firestore transactions that throw
+    // do not commit, so it is safe to mark as claimed locally and still allow
+    // drachma to be credited. Returning false here would cause the caller to
+    // silently skip the credit entirely.
+    claimedTodayCache.add(cacheKey);
+    setLocalClaimLock(characterId, true, date);
+    return true;
   }
 }
 

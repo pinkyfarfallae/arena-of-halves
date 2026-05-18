@@ -39,6 +39,14 @@ export async function logActivity(
       ...entry,
       createdAt: new Date().toISOString(),
     });
+
+    // Mark caches as stale so the next normal read re-fetches fresh data,
+    // but keep the data itself so quota-emergency fallbacks still work.
+    cachedActivityLogsTimestamp = 0;
+    const existingCharCache = cachedCharacterLogs.get(entry.characterId);
+    if (existingCharCache) {
+      cachedCharacterLogs.set(entry.characterId, { logs: existingCharCache.logs, timestamp: 0 });
+    }
   } catch {
     // Silent — logging must never interrupt the main flow
   }
@@ -89,18 +97,35 @@ export async function fetchActivityLogsForCharacter(
     return cached.logs;
   }
 
-  // No orderBy — avoids needing a composite index (characterId + createdAt).
-  // Statement sorts client-side anyway.
+  // Order by createdAt desc so limit(N) returns the MOST RECENT entries.
+  // Requires the composite index: ActivityLogs [ characterId ASC, createdAt DESC ]
+  // defined in firestore.indexes.json.
   const q = query(
     col(),
     where('characterId', '==', characterId),
+    orderBy('createdAt', 'desc'),
     limit(limitCount)
   );
-  const snap = await getDocs(q);
 
-  const logs = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<ActivityLog, 'id'>) }));
-  cachedCharacterLogs.set(characterId, { logs, timestamp: now });
-  return logs;
+  try {
+    const snap = await getDocs(q);
+    const logs = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<ActivityLog, 'id'>) }));
+    cachedCharacterLogs.set(characterId, { logs, timestamp: now });
+    return logs;
+  } catch (err: any) {
+    // The composite index may still be building right after deployment.
+    // Fall back to the unordered query so the Statement isn't blank.
+    console.warn('[ActivityLog] Ordered query failed (index building?), falling back', err?.message);
+    const fallbackQ = query(
+      col(),
+      where('characterId', '==', characterId),
+      limit(limitCount)
+    );
+    const snap = await getDocs(fallbackQ);
+    const logs = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<ActivityLog, 'id'>) }));
+    cachedCharacterLogs.set(characterId, { logs, timestamp: now });
+    return logs;
+  }
 }
 
 export type EditableLogFields = Pick<

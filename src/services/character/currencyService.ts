@@ -34,24 +34,22 @@ export async function updateCharacterDrachma(
       if (amount > 0 && !options?.skipHermesTracking) {
         applyHermesPurseIncome(characterId, amount).catch(() => {});
       }
-      try {
-        logActivity({
-          category: 'drachma',
-          action: amount >= 0 ? ACTIVITY_LOG_ACTIONS.AWARD : ACTIVITY_LOG_ACTIONS.DEDUCT,
-          characterId,
-          performedBy: options?.performedBy ?? characterId,
-          amount: Math.abs(amount),
-          metadata: { 
-            source: options?.source ?? 'unknown', 
-            delta: amount,
-            previous: data.previous,
-            current: data.current,
-            ...(options?.extraMetadata ?? {}),
-          },
-        });
-      } catch (_e) {
-        // Secondary effects must not propagate and roll back the daily claim
-      }
+      // logActivity handles its own errors internally — safe to await without
+      // risk of rolling back the drachma transaction.
+      await logActivity({
+        category: 'drachma',
+        action: amount >= 0 ? ACTIVITY_LOG_ACTIONS.AWARD : ACTIVITY_LOG_ACTIONS.DEDUCT,
+        characterId,
+        performedBy: options?.performedBy ?? characterId,
+        amount: Math.abs(amount),
+        metadata: { 
+          source: options?.source ?? 'unknown', 
+          delta: amount,
+          previous: data.previous,
+          current: data.current,
+          ...(options?.extraMetadata ?? {}),
+        },
+      });
     }
 
     return data;

@@ -13,6 +13,7 @@ import { hexToRgb } from '../../utils/color';
 import Drachma from '../../icons/Drachma';
 import { Deity } from '../../constants/deities';
 import { DEITY_SVG } from '../../data/deities';
+import Refresh from '../IrisMessage/icons/Refresh';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -822,6 +823,14 @@ export const Statement: React.FC = () => {
           <div className="statement-feed__header">
             <h2>Activity Entries</h2>
             <p>Entries are listed from newest to oldest.</p>
+            <button
+              className="statement-refresh-btn"
+              onClick={loadActivityLogs}
+              disabled={loading}
+              title="Refresh"
+            >
+              <Refresh /> Refresh
+            </button>
           </div>
 
           {loading && logs.length === 0 ? (

@@ -1106,21 +1106,21 @@ function upgradeStat(characterId, statId, pointsToSpend) {
           break;
 
         case 'technique':
-          switch (newStatValue) {
-            case 1:
-              handleEditUser(characterId, { 'passive skill point': 'unlocked' });
-              break;
-            case 2:
-              handleEditUser(characterId, { 'skill point': '1' });
-              break;
-            case 4:
-              handleEditUser(characterId, { 'skill point': '2' });
-              break;
-            case 5:
-              handleEditUser(characterId, { 'ultimate skill point': 'unlocked' });
-              break;
-            default:
-              break;
+          for (var techLvl = currentStatValue + 1; techLvl <= newStatValue; techLvl++) {
+            switch (techLvl) {
+              case 1:
+                handleEditUser(characterId, { 'passive skill point': 'unlocked' });
+                break;
+              case 2:
+                handleEditUser(characterId, { 'skill point': '1' });
+                break;
+              case 4:
+                handleEditUser(characterId, { 'skill point': '2' });
+                break;
+              case 5:
+                handleEditUser(characterId, { 'ultimate skill point': 'unlocked' });
+                break;
+            }
           }
           break;
 
