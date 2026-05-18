@@ -1,7 +1,7 @@
 import { doc, getDoc, setDoc, runTransaction, FirestoreError } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import { getTodayDate } from '../../utils/date';
+import { getTodayDate, getAppDateString } from '../../utils/date';
 import { isInQuotaEmergency } from '../quotaEmergency';
 import { LOCAL_STORAGE_KEYS } from '../../constants/localStorage';
 
@@ -248,4 +248,40 @@ export async function unmarkUserClaimedToday(characterId: string): Promise<void>
     console.error('unmarkUserClaimedToday failed', err);
     // swallow - best-effort
   }
+}
+
+/**
+ * Fetch accepted daily claims for a character over the last N days.
+ * Used to backfill missing ActivityLog entries in Statement and admin views.
+ * Returns empty array during quota emergency or on error.
+ */
+export async function fetchAcceptedClaimsForCharacter(
+  characterId: string,
+  lookbackDays: number = 14,
+): Promise<Array<{ date: string; amount: number }>> {
+  if (isInQuotaEmergency()) return [];
+
+  const today = new Date();
+  const dates = Array.from({ length: lookbackDays }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    return getAppDateString(d);
+  });
+
+  const results: Array<{ date: string; amount: number }> = [];
+
+  await Promise.all(dates.map(async (date) => {
+    try {
+      const snap = await getDoc(doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_CLAIMS, date));
+      if (!snap.exists()) return;
+      const entry = snap.data()?.[characterId];
+      if (entry?.accepted === true && typeof entry.amount === 'number') {
+        results.push({ date, amount: entry.amount });
+      }
+    } catch {
+      // Skip failed dates silently
+    }
+  }));
+
+  return results;
 }

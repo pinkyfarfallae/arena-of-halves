@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
 import { ROLE } from '../../../../constants/role';
 import { ActivityLog as ActivityLogType, ActivityLogCategory } from '../../../../types/activityLog';
-import { fetchActivityLogs, editActivityLog, deleteActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
-import Table, { Column } from '../../../../components/Table/Table';
+import { fetchActivityLogs, fetchActivityLogsForCharacter, editActivityLog, deleteActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
+import { fetchAcceptedClaimsForCharacter } from '../../../../services/daily/dailyClaimService';
+import { getAppDateString } from '../../../../utils/date';
 import { Dropdown, Input } from '../../../../components/Form';
 import Pencil from '../../../../icons/Pencil';
 import Trash from '../../../../icons/Trash';
-import { formatAppDateTime } from '../../../../utils/date';
 import './ActivityLog.scss';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
 
@@ -42,6 +42,36 @@ function formatDate(iso: string) {
   }
 }
 
+function describeLog(log: ActivityLogType): string {
+  const meta = (log.metadata as Record<string, any>) || {};
+  const source = String(meta.source || '');
+  const amt = log.amount != null ? log.amount.toLocaleString() : null;
+
+  if (log.category === 'drachma') {
+    const isEarn = ['award', 'earn_drachma'].includes(log.action);
+    const isSpend = ['deduct', 'spend_drachma', 'consume_drachma'].includes(log.action);
+    if (isEarn) return `Earned ${amt} drachma${source ? ` · ${source}` : ''}`;
+    if (isSpend) return `Spent ${amt} drachma${source ? ` · ${source}` : ''}`;
+  }
+  if (log.category === 'item') {
+    const itemId = meta.itemId || 'item';
+    if (['receive_item', 'give_item'].includes(log.action)) return `Received ${log.amount} × ${itemId}${source ? ` · ${source}` : ''}`;
+    if (log.action === 'consume_item') return `Used ${log.amount} × ${itemId}`;
+    if (log.action === 'shop_purchase') return `Shop purchase${amt ? ` · ${amt} drachma` : ''}`;
+  }
+  if (log.category === 'stat') {
+    if (log.action === 'approve_training') return `Training approved · ${amt} TP earned`;
+    if (log.action === 'stat_upgrade' || log.action === 'skill_upgrade') return `Upgraded ${meta.stat || 'stat'} +${amt}`;
+    if (log.action === 'add_training_points') return `+${amt} Training Points · ${source}`;
+  }
+  if (log.category === 'equipment') {
+    const outcome = String(meta.outcome || '').toLowerCase();
+    const passed = outcome === 'pass' || outcome === 'success';
+    return `Equipment upgrade · ${passed ? 'Pass' : 'Fail'} · ${meta.equipmentName || ''}`;
+  }
+  return `${log.action.replace(/_/g, ' ')}${amt ? ` · ${amt}` : ''}`;
+}
+
 type EditDraft = EditableLogFields;
 
 export default function ActivityLog() {
@@ -52,6 +82,8 @@ export default function ActivityLog() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [characterInput, setCharacterInput] = useState('');
+  const [activeCharFilter, setActiveCharFilter] = useState('');
 
   const [editingLog, setEditingLog] = useState<ActivityLogType | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
@@ -59,22 +91,61 @@ export default function ActivityLog() {
   const [pendingDeleteLog, setPendingDeleteLog] = useState<ActivityLogType | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
+  const loadLogs = async (charId?: string) => {
     setLoading(true);
-    fetchActivityLogs()
-      .then(data => {
-        setLogs([...data].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoadError('Failed to load activity logs.');
-        setLoading(false);
-      });
-  }, []);
+    setLoadError('');
+    try {
+      const [data, acceptedClaims] = await Promise.all([
+        charId ? fetchActivityLogsForCharacter(charId, 300) : fetchActivityLogs(300),
+        charId ? fetchAcceptedClaimsForCharacter(charId, 14) : Promise.resolve([]),
+      ]);
+      const sorted = [...data].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  const filtered = categoryFilter === 'all'
-    ? logs
-    : logs.filter(l => l.category === categoryFilter);
+      if (charId && acceptedClaims.length > 0) {
+        const loggedGiftDates = new Set(
+          sorted
+            .filter(l => l.category === 'drachma' && (l.metadata as Record<string, any>)?.source === 'daily_gift')
+            .map(l => getAppDateString(l.createdAt))
+        );
+        const syntheticClaims = acceptedClaims
+          .filter(c => !loggedGiftDates.has(c.date))
+          .map(c => ({
+            id: `daily-gift-${charId}-${c.date}`,
+            category: 'drachma' as const,
+            action: 'award',
+            characterId: charId,
+            performedBy: charId,
+            amount: c.amount,
+            note: '(from claims record)',
+            metadata: { source: 'daily_gift', syntheticFromClaim: true },
+            createdAt: `${c.date}T05:00:00.000Z`,
+          }));
+        setLogs([...sorted, ...syntheticClaims].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      } else {
+        setLogs(sorted);
+      }
+    } catch {
+      setLoadError('Failed to load activity logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadLogs(); }, []);
+
+  const applyCharFilter = () => {
+    const trimmed = characterInput.trim();
+    setActiveCharFilter(trimmed);
+    loadLogs(trimmed || undefined);
+  };
+
+  const clearCharFilter = () => {
+    setCharacterInput('');
+    setActiveCharFilter('');
+    loadLogs();
+  };
+
+  const filtered = (categoryFilter === 'all' ? logs : logs.filter(l => l.category === categoryFilter));
 
   const startEdit = (log: ActivityLogType) => {
     setEditingLog(log);
@@ -88,10 +159,7 @@ export default function ActivityLog() {
     });
   };
 
-  const cancelEdit = () => {
-    setEditingLog(null);
-    setEditDraft(null);
-  };
+  const cancelEdit = () => { setEditingLog(null); setEditDraft(null); };
 
   const patch = (fields: Partial<EditDraft>) =>
     setEditDraft(prev => prev ? { ...prev, ...fields } : prev);
@@ -129,9 +197,7 @@ export default function ActivityLog() {
       await editActivityLog(editingLog.id, fields, user.characterId);
       const now = new Date().toISOString();
       setLogs(prev => prev.map(l =>
-        l.id === editingLog.id
-          ? { ...l, ...fields, editedAt: now, editedBy: user.characterId }
-          : l
+        l.id === editingLog.id ? { ...l, ...fields, editedAt: now, editedBy: user.characterId } : l
       ));
       setEditingLog(null);
       setEditDraft(null);
@@ -140,41 +206,35 @@ export default function ActivityLog() {
     }
   };
 
-  const columns: Column<ActivityLogType>[] = [
-    {
-      key: 'createdAt',
-      label: 'Timestamp',
-      width: '175px',
-      render: row => <span className="al__timestamp">{formatDate(row.createdAt)}</span>,
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      width: '110px',
-      render: row => (
-        <span className={`al__badge al__badge--${row.category}`}>{row.category}</span>
-      ),
-    },
-    { key: 'action', label: 'Action', width: '170px' },
-    { key: 'characterId', label: 'Character', width: '130px' },
-    { key: 'performedBy', label: 'By', width: '130px' },
-    {
-      key: 'amount',
-      label: 'Amount',
-      width: '80px',
-      render: row => row.amount !== undefined ? String(row.amount) : '—',
-    },
-  ];
-
   return (
     <div className="activity-log">
       <div className="activity-log-header">
         <h2 className="activity-log-title">Activity Log</h2>
         <p className="activity-log-desc">
           Audit trail for drachma, item, equipment, stat, and action events
+          {activeCharFilter && <> — filtered to <strong>{activeCharFilter}</strong></>}
         </p>
       </div>
 
+      {/* Character filter row */}
+      <div className="al__char-filter">
+        <Input
+          placeholder="Filter by character ID…"
+          value={characterInput}
+          onChange={setCharacterInput}
+        />
+        <button className="al__char-filter-btn" onClick={applyCharFilter} disabled={loading}>
+          Search
+        </button>
+        {activeCharFilter && (
+          <button className="al__char-filter-clear" onClick={clearCharFilter}>✕ Clear</button>
+        )}
+        <button className="al__char-filter-btn al__char-filter-btn--refresh" onClick={() => loadLogs(activeCharFilter || undefined)} disabled={loading}>
+          ↺
+        </button>
+      </div>
+
+      {/* Category filter pills */}
       <div className="al__filters">
         {CATEGORY_FILTERS.map(c => (
           <button
@@ -185,33 +245,60 @@ export default function ActivityLog() {
             {c.label}
           </button>
         ))}
+        <span className="al__filter-count">{filtered.length} entries</span>
       </div>
 
       {loadError && <p className="al__error">{loadError}</p>}
 
-      <Table
-        columns={columns}
-        data={filtered}
-        rowKey={row => row.id ?? row.createdAt}
-        loading={loading}
-        actions={
-          isDev ? [
-            {
-              label: () => <Pencil width={14} height={14} />,
-              onClick: startEdit,
-            },
-            {
-              label: () => <Trash width={14} height={14} />,
-              onClick: (row) => setPendingDeleteLog(row),
-            },
-          ] : []}
-      />
+      {/* Card list */}
+      <div className="al__feed">
+        {loading && (
+          <div className="al__loading"><div className="loader-spinner" /><span>Loading…</span></div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="al__empty">No activity records found.</div>
+        )}
+        {!loading && filtered.map(log => {
+          const meta = (log.metadata as Record<string, any>) || {};
+          const source = String(meta.source || '');
+          return (
+            <article key={log.id ?? log.createdAt} className={`al__card al__card--${log.category}`}>
+              <div className="al__card-body">
+                <div className="al__card-meta">
+                  <span className="al__card-char">{log.characterId}</span>
+                  <span className={`al__badge al__badge--${log.category}`}>{log.category}</span>
+                  {log.performedBy && log.performedBy !== log.characterId && (
+                    <span className="al__card-by">by {log.performedBy}</span>
+                  )}
+                  <span className="al__card-time">{formatDate(log.createdAt)}</span>
+                  {log.editedAt && <span className="al__card-edited">edited</span>}
+                </div>
+                <div className="al__card-desc">{describeLog(log)}</div>
+                {(source || log.action) && (
+                  <div className="al__card-sub">
+                    <span className="al__card-action">{log.action}</span>
+                    {source && <span className="al__card-source">· {source}</span>}
+                    {log.amount != null && <span className="al__card-amount">· {log.amount.toLocaleString()}</span>}
+                  </div>
+                )}
+                {log.note && <div className="al__card-note">{log.note}</div>}
+              </div>
+              {isDev && (
+                <div className="al__card-actions">
+                  <button className="al__icon-btn" onClick={() => startEdit(log)} title="Edit"><Pencil width={13} height={13} /></button>
+                  <button className="al__icon-btn al__icon-btn--danger" onClick={() => setPendingDeleteLog(log)} title="Delete"><Trash width={13} height={13} /></button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
 
-      {/* Delete confirmation modal */}
+      {/* Delete confirmation */}
       {isDev && pendingDeleteLog && (
         <ConfirmModal
           title="Delete Log Entry"
-          message={`Are you sure you want to delete this log entry? This action cannot be undone. This log is on ${formatDate(pendingDeleteLog.createdAt)}`}
+          message={`Delete this log entry from ${formatDate(pendingDeleteLog.createdAt)}? This cannot be undone.`}
           onConfirm={confirmDelete}
           onCancel={() => setPendingDeleteLog(null)}
         />
@@ -222,7 +309,6 @@ export default function ActivityLog() {
         <div className="al__modal-backdrop" onClick={cancelEdit}>
           <div className="al__modal" onClick={e => e.stopPropagation()}>
             <h3 className="al__modal-title">Edit Log Entry</h3>
-
             <div className="al__form">
               <Dropdown
                 label="Category"
@@ -230,34 +316,11 @@ export default function ActivityLog() {
                 value={editDraft.category}
                 onChange={c => patch({ category: c as ActivityLogCategory })}
               />
-
-              <Input
-                label="Action"
-                value={editDraft.action}
-                onChange={e => patch({ action: e })}
-              />
-
-              <Input
-                label="Character ID"
-                value={editDraft.characterId}
-                onChange={e => patch({ characterId: e })}
-              />
-
-
-              <Input
-                label="Performed By"
-                value={editDraft.performedBy}
-                onChange={e => patch({ performedBy: e })}
-              />
-
-              <Input
-                label="Amount"
-                type="number"
-                value={editDraft.amount?.toString() ?? ''}
-                onChange={e => patch({ amount: e === '' ? undefined : Number(e) })}
-              />
+              <Input label="Action" value={editDraft.action} onChange={e => patch({ action: e })} />
+              <Input label="Character ID" value={editDraft.characterId} onChange={e => patch({ characterId: e })} />
+              <Input label="Performed By" value={editDraft.performedBy} onChange={e => patch({ performedBy: e })} />
+              <Input label="Amount" type="number" value={editDraft.amount?.toString() ?? ''} onChange={e => patch({ amount: e === '' ? undefined : Number(e) })} />
             </div>
-
             <div className="al__modal-actions">
               <button className="al__cancel-btn" onClick={cancelEdit}>Cancel</button>
               <button className="al__save-btn" onClick={saveEdit} disabled={isSaving}>

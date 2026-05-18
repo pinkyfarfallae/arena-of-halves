@@ -4,6 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { ActivityLog } from '../../types/activityLog';
 import { fetchActivityLogs, fetchActivityLogsForCharacter } from '../../services/activityLog/activityLogService';
 import { fetchUserWishOfIris, IrisWishDoc } from '../../data/wishes';
+import { fetchAcceptedClaimsForCharacter } from '../../services/daily/dailyClaimService';
+import { getAppDateString } from '../../utils/date';
 import './Statement.scss';
 import { Dropdown, Input } from '../../components/Form';
 import { ACTIVITY_LOG_ACTIONS, SOURCE_LABELS } from '../../constants/activityLog';
@@ -703,9 +705,10 @@ export const Statement: React.FC = () => {
     if (!user) return;
     try {
       setLoading(true);
-      const [userLogs, userWishes] = await Promise.all([
+      const [userLogs, userWishes, acceptedClaims] = await Promise.all([
         fetchActivityLogsForCharacter(user.characterId, 200),
         fetchUserWishOfIris(user.characterId),
+        fetchAcceptedClaimsForCharacter(user.characterId, 14),
       ]);
 
       const sortedLogs = [...userLogs]
@@ -716,9 +719,30 @@ export const Statement: React.FC = () => {
         .filter(wish => !hasWishTossLog(sortedLogs, wish))
         .map(toWishTossLog);
 
+      // Dates that already have a daily gift log (Bangkok timezone)
+      const loggedGiftDates = new Set(
+        sortedLogs
+          .filter(l => l.category === 'drachma' && (l.metadata as Record<string, any>)?.source === 'daily_gift')
+          .map(l => getAppDateString(l.createdAt))
+      );
+
+      // Synthetic daily gift logs for accepted claims not in ActivityLogs
+      const syntheticClaimLogs: ActivityLog[] = acceptedClaims
+        .filter(c => !loggedGiftDates.has(c.date))
+        .map(c => ({
+          id: `daily-gift-${user.characterId}-${c.date}`,
+          category: 'drachma' as const,
+          action: ACTIVITY_LOG_ACTIONS.AWARD,
+          characterId: user.characterId,
+          performedBy: user.characterId,
+          amount: c.amount,
+          metadata: { source: 'daily_gift', syntheticFromClaim: true },
+          createdAt: `${c.date}T05:00:00.000Z`,
+        }));
+
       setLogs(
         dedupeStatementLogs(
-          [...sortedLogs, ...syntheticWishLogs]
+          [...sortedLogs, ...syntheticWishLogs, ...syntheticClaimLogs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .filter(log => getDisplayCategory(log) !== 'action')
         )

@@ -33,12 +33,192 @@
 
 /* ── namespace al__ ── */
 .al {
+  &__char-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+    flex-shrink: 0;
+
+    .form-input, input { flex: 1; min-width: 0; }
+  }
+
+  &__char-filter-btn {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--ci-border, #d0d0d0);
+    border-radius: 8px;
+    background: var(--ci-accent, #333);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    &:disabled { opacity: 0.5; cursor: default; }
+    &--refresh { background: transparent; color: var(--ci-fg, #333); font-size: 1rem; padding: 0.3rem 0.5rem; }
+  }
+
+  &__char-filter-clear {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--ci-border, #d0d0d0);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ci-muted, #888);
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+    &:hover { color: var(--ci-fg, #333); }
+  }
+
+  &__filter-count {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--ci-muted, #888);
+    white-space: nowrap;
+  }
+
+  /* ── Card feed ── */
+  &__feed {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-right: 0.2rem;
+  }
+
+  &__loading, &__empty {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 2rem 1rem;
+    justify-content: center;
+    color: var(--ci-muted, #888);
+    font-size: 0.85rem;
+  }
+
+  &__card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--ci-border, #e8e8e8);
+    background: var(--ci-bg, #fff);
+    transition: background 0.12s;
+    &:hover { background: var(--ci-surface-hover, #f5f5f5); }
+  }
+
+  &__card-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--ci-surface, #f0f0f0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--ci-muted, #666);
+  }
+
+  &__card-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+  }
+
+  &__card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+  }
+
+  &__card-char {
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--ci-fg, #1a1a1a);
+  }
+
+  &__card-by {
+    color: var(--ci-muted, #888);
+  }
+
+  &__card-time {
+    margin-left: auto;
+    color: var(--ci-muted, #999);
+    white-space: nowrap;
+    font-size: 0.68rem;
+  }
+
+  &__card-edited {
+    font-size: 0.63rem;
+    color: var(--ci-muted, #aaa);
+    font-style: italic;
+  }
+
+  &__card-desc {
+    font-size: 0.82rem;
+    color: var(--ci-fg, #1a1a1a);
+    line-height: 1.4;
+  }
+
+  &__card-sub {
+    font-size: 0.68rem;
+    color: var(--ci-muted, #999);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  &__card-action { font-family: monospace; }
+  &__card-source, &__card-amount { color: var(--ci-muted, #aaa); }
+
+  &__card-note {
+    font-size: 0.72rem;
+    color: var(--ci-accent, #7a6a4a);
+    font-style: italic;
+    padding: 0.2rem 0.4rem;
+    background: var(--ci-accent-soft, #fdf8ee);
+    border-radius: 4px;
+    margin-top: 0.1rem;
+  }
+
+  &__card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  &__icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--ci-border, #e0e0e0);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ci-muted, #888);
+    cursor: pointer;
+    &:hover { background: var(--ci-surface-hover, #f0f0f0); color: var(--ci-fg, #333); }
+    &--danger:hover { background: #fde8e8; color: #c0392b; border-color: #c0392b; }
+  }
+
   &__filters {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
     flex-shrink: 0;
+    align-items: center;
   }
 
   &__filter-btn {
@@ -66,7 +246,7 @@
     display: inline-block;
     padding: 0.2rem 0.55rem;
     border-radius: 8px;
-    font-size: 0.6rem;
+    font-size: 0.5rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;

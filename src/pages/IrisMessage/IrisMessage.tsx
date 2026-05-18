@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchWishes, WISHES_FALLBACK, saveIrisWish, fetchTodayIrisWishes, fetchTodayIrisWish, BLESSING_WISHES, NORMAL_WISHES } from '../../data/wishes';
+import { fetchWishes, WISHES_FALLBACK, saveIrisWish, fetchTodayIrisWishes, fetchTodayIrisWish, BLESSING_WISHES, NORMAL_WISHES, fetchUserWishOfIris, IrisWishDoc } from '../../data/wishes';
+import { getTodayDate } from '../../utils/date';
 import { DEITY_SVG, toDeityKey } from '../../data/deities';
 import { useAuth } from '../../hooks/useAuth';
 import { useScreenSize } from '../../hooks/useScreenSize';
@@ -37,6 +38,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
   const [userTodayWish, setUserTodayWish] = useState<Wish | null>(null);
   const [pendingChoices, setPendingChoices] = useState<Wish[] | null>(null);
+  const [historicWishDeities, setHistoricWishDeities] = useState<Set<string> | null>(null);
 
   useEffect(() => {
 
@@ -54,9 +56,10 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
           return;
         }
 
-        const [todayWishes, userWish] = await Promise.all([
+        const [todayWishes, userWish, allUserWishes] = await Promise.all([
           fetchTodayIrisWishes().catch(() => [] as Wish[]),
           fetchTodayIrisWish(user?.characterId || ''),
+          fetchUserWishOfIris(user?.characterId || '').catch(() => [] as IrisWishDoc[]),
         ]);
 
         if (!isMounted) return;
@@ -73,6 +76,15 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         ]);
 
         setDiscovered(allDeities);
+
+        // Build set of deities received before today (for "new" badge)
+        const today = getTodayDate();
+        const historicDeities = new Set<string>(
+          allUserWishes
+            .filter(w => w.date !== today && !w.canceled && Boolean(w.deity))
+            .map(w => w.deity)
+        );
+        setHistoricWishDeities(historicDeities);
 
         if (userWish) {
           const matched = fetchedWishes.find(w => w.deity === userWish.deity);
@@ -343,6 +355,9 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
                       data-deity={w.deity.toLowerCase()}
                       onClick={() => confirmChoice(w)}
                     >
+                      {historicWishDeities !== null && !historicWishDeities.has(w.deity) && (
+                        <div className="iris__card-badge iris__card-badge--new">✦ New</div>
+                      )}
                       <div className="iris__card-glow" />
                       <div className="iris__card-frame">
                         <div className="iris__card-inner">

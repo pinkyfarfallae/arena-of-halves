@@ -194,24 +194,32 @@ export async function fetchTopHarvesters(limit?: number): Promise<{ topHarvester
     for (const harvest of harvests) {
       if (!harvest.drachmaReward) continue;
 
-      let totalForHarvest = 0;
+      const drachmaStr = String(harvest.drachmaReward).trim();
 
-      // Parse drachmaReward (can be JSON string or number)
-      if (typeof harvest.drachmaReward === 'string' && harvest.drachmaReward.startsWith('{')) {
+      // New format: JSON map {"charA": 50, "charB": 100} — credit each character individually
+      if (drachmaStr.startsWith('{')) {
         try {
-          const rewardMap = JSON.parse(harvest.drachmaReward);
-          // Sum all values in the reward map
-          totalForHarvest = Object.values(rewardMap).reduce((sum: number, val) => sum + Number(val || 0), 0);
-        } catch (e) {
-          totalForHarvest = Number(harvest.drachmaReward) || 0;
+          const rewardMap = JSON.parse(drachmaStr) as Record<string, number>;
+          for (const [charId, amount] of Object.entries(rewardMap)) {
+            if (!charId) continue;
+            const current = drachmaByCharacter.get(charId) || 0;
+            drachmaByCharacter.set(charId, current + (Number(amount) || 0));
+          }
+        } catch {
+          // Invalid JSON, skip
         }
       } else {
-        totalForHarvest = Number(harvest.drachmaReward) || 0;
+        // Legacy format: single number split evenly among roleplayers
+        const drachma = Number(drachmaStr) || 0;
+        const roleplayers = harvest.roleplayers
+          ? harvest.roleplayers.split(',').map(r => r.trim()).filter(Boolean)
+          : [harvest.characterId];
+        const perParticipant = Math.floor(drachma / (roleplayers.length || 1));
+        for (const charId of roleplayers) {
+          const current = drachmaByCharacter.get(charId) || 0;
+          drachmaByCharacter.set(charId, current + perParticipant);
+        }
       }
-
-      // Add to character's total
-      const current = drachmaByCharacter.get(harvest.characterId) || 0;
-      drachmaByCharacter.set(harvest.characterId, current + totalForHarvest);
     }
 
     // Convert to array and sort by total drachma (descending)
