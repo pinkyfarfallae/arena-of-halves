@@ -4,12 +4,17 @@ import { ROLE } from '../../../../constants/role';
 import { ActivityLog as ActivityLogType, ActivityLogCategory } from '../../../../types/activityLog';
 import { fetchActivityLogs, fetchActivityLogsForCharacter, editActivityLog, deleteActivityLog, EditableLogFields } from '../../../../services/activityLog/activityLogService';
 import { fetchAcceptedClaimsForCharacter } from '../../../../services/daily/dailyClaimService';
-import { getAppDateString } from '../../../../utils/date';
+import { formatAppDate, getAppDateString } from '../../../../utils/date';
 import { Dropdown, Input } from '../../../../components/Form';
 import Pencil from '../../../../icons/Pencil';
 import Trash from '../../../../icons/Trash';
 import './ActivityLog.scss';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
+import { ITEMS } from '../../../../constants/items';
+import { toTitleCase } from '../../../../utils/formatText';
+import { Character, fetchAllCharacters } from '../../../../data/characters';
+import Close from '../../../../icons/Close';
+import Refresh from '../../../IrisMessage/icons/Refresh';
 
 type CategoryFilter = ActivityLogCategory | 'all';
 
@@ -50,19 +55,23 @@ function describeLog(log: ActivityLogType): string {
   if (log.category === 'drachma') {
     const isEarn = ['award', 'earn_drachma'].includes(log.action);
     const isSpend = ['deduct', 'spend_drachma', 'consume_drachma'].includes(log.action);
-    if (isEarn) return `Earned ${amt} drachma${source ? ` · ${source}` : ''}`;
-    if (isSpend) return `Spent ${amt} drachma${source ? ` · ${source}` : ''}`;
+    if (isEarn) return `Earned ${amt} drachma${source ? ` · ${toTitleCase(source)}` : ''}`;
+    if (isSpend) return `Spent ${amt} drachma${source ? ` · ${toTitleCase(source)}` : ''}`;
   }
   if (log.category === 'item') {
     const itemId = meta.itemId || 'item';
-    if (['receive_item', 'give_item'].includes(log.action)) return `Received ${log.amount} × ${itemId}${source ? ` · ${source}` : ''}`;
-    if (log.action === 'consume_item') return `Used ${log.amount} × ${itemId}`;
+    const itemLabel = toTitleCase(itemId);
+    if (['receive_item', 'give_item'].includes(log.action)) return `Received ${log.amount} × ${itemLabel}${source ? ` · ${toTitleCase(source)}` : ''}`;
+    if (log.action === 'consume_item') return `Used ${log.amount} × ${itemLabel}`;
     if (log.action === 'shop_purchase') return `Shop purchase${amt ? ` · ${amt} drachma` : ''}`;
   }
   if (log.category === 'stat') {
-    if (log.action === 'approve_training') return `Training approved · ${amt} TP earned`;
-    if (log.action === 'stat_upgrade' || log.action === 'skill_upgrade') return `Upgraded ${meta.stat || 'stat'} +${amt}`;
-    if (log.action === 'add_training_points') return `+${amt} Training Points · ${source}`;
+    if (log.action === 'approve_training') {
+      const date = meta.date ? `${formatAppDate(meta.date)}` : '';
+      return `Training task of ${date} is approved · ${amt} TP earned`;
+    }
+    if (log.action === 'stat_upgrade' || log.action === 'skill_upgrade') return `Upgraded ${toTitleCase(meta.stat || 'stat')} +${amt}`;
+    if (log.action === 'add_training_points') return `+${amt} Training Points · ${toTitleCase(source)}`;
   }
   if (log.category === 'equipment') {
     const outcome = String(meta.outcome || '').toLowerCase();
@@ -82,6 +91,7 @@ export default function ActivityLog() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [allCharacters, setAllCharacters] = useState<Character[]>([]);
   const [characterInput, setCharacterInput] = useState('');
   const [activeCharFilter, setActiveCharFilter] = useState('');
 
@@ -109,17 +119,17 @@ export default function ActivityLog() {
         );
         const syntheticClaims = acceptedClaims
           .filter(c => !loggedGiftDates.has(c.date))
-          .map(c => ({
-            id: `daily-gift-${charId}-${c.date}`,
-            category: 'drachma' as const,
-            action: 'award',
-            characterId: charId,
-            performedBy: charId,
-            amount: c.amount,
-            note: '(from claims record)',
-            metadata: { source: 'daily_gift', syntheticFromClaim: true },
-            createdAt: `${c.date}T05:00:00.000Z`,
-          }));
+          .map(c => (
+            {
+              id: `daily-gift-${charId}-${c.date}`,
+              category: 'drachma' as const,
+              action: 'award',
+              characterId: charId,
+              performedBy: charId,
+              amount: c.amount,
+              metadata: { source: 'daily_gift', syntheticFromClaim: true },
+              createdAt: `${c.date}T05:00:00.000Z`,
+            }));
         setLogs([...sorted, ...syntheticClaims].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
       } else {
         setLogs(sorted);
@@ -131,10 +141,14 @@ export default function ActivityLog() {
     }
   };
 
-  useEffect(() => { loadLogs(); }, []);
+  useEffect(() => {
+    if (!user) return;
+    fetchAllCharacters(user).then(setAllCharacters);
+    loadLogs();
+  }, []);
 
-  const applyCharFilter = () => {
-    const trimmed = characterInput.trim();
+  const applyCharFilter = (_characterInput: string) => {
+    const trimmed = _characterInput.trim();
     setActiveCharFilter(trimmed);
     loadLogs(trimmed || undefined);
   };
@@ -216,24 +230,6 @@ export default function ActivityLog() {
         </p>
       </div>
 
-      {/* Character filter row */}
-      <div className="al__char-filter">
-        <Input
-          placeholder="Filter by character ID…"
-          value={characterInput}
-          onChange={setCharacterInput}
-        />
-        <button className="al__char-filter-btn" onClick={applyCharFilter} disabled={loading}>
-          Search
-        </button>
-        {activeCharFilter && (
-          <button className="al__char-filter-clear" onClick={clearCharFilter}>✕ Clear</button>
-        )}
-        <button className="al__char-filter-btn al__char-filter-btn--refresh" onClick={() => loadLogs(activeCharFilter || undefined)} disabled={loading}>
-          ↺
-        </button>
-      </div>
-
       {/* Category filter pills */}
       <div className="al__filters">
         {CATEGORY_FILTERS.map(c => (
@@ -245,7 +241,35 @@ export default function ActivityLog() {
             {c.label}
           </button>
         ))}
-        <span className="al__filter-count">{filtered.length} entries</span>
+      </div>
+
+      {/* Character filter row */}
+      <div className="al__char-filter">
+        <Dropdown
+          className="al__char-filter-dropdown"
+          options={allCharacters.map(c => ({ label: c.nicknameEng || toTitleCase(c.characterId), value: c.characterId }))}
+          placeholder="Filter by character"
+          value={characterInput}
+          onChange={(value) => {
+            setCharacterInput(value);
+            applyCharFilter(value);
+          }}
+          disabled={loading}
+        />
+        <button
+          className="al__char-filter-btn al__char-filter-btn--clear"
+          onClick={clearCharFilter}
+          disabled={loading || !activeCharFilter || activeCharFilter === ''}
+        >
+          <Close width={14} height={14} strokeWidth={2.5} />
+        </button>
+        <button
+          className="al__char-filter-btn al__char-filter-btn--refresh"
+          onClick={() => loadLogs(activeCharFilter || undefined)}
+          disabled={loading}
+        >
+          <Refresh width={13} height={13} />
+        </button>
       </div>
 
       {loadError && <p className="al__error">{loadError}</p>}
@@ -276,8 +300,8 @@ export default function ActivityLog() {
                 <div className="al__card-desc">{describeLog(log)}</div>
                 {(source || log.action) && (
                   <div className="al__card-sub">
-                    <span className="al__card-action">{log.action}</span>
-                    {source && <span className="al__card-source">· {source}</span>}
+                    <span className="al__card-action">{toTitleCase(log.action || '')}</span>
+                    {source && <span className="al__card-source">· {toTitleCase(source)}</span>}
                     {log.amount != null && <span className="al__card-amount">· {log.amount.toLocaleString()}</span>}
                   </div>
                 )}

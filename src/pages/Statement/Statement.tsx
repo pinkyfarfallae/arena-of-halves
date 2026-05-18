@@ -474,22 +474,19 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
 
     case 'stat':
       if (log.action === ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING) {
-        const trainingDate = metadata.date || 'unknown date';
+        const trainingDate = metadata.date || '';
         const withFortune = Boolean(metadata.withFullLevelFortune);
         const isAthena = Boolean(metadata.isAthena);
         const athenaBonus = metadata.athenaBonus ?? 0;
         const totalTP = metadata.totalTP ?? log.amount;
         const hasDetails = withFortune || isAthena || athenaBonus > 0;
+        const datePart = trainingDate ? `${formatDateOnly(trainingDate)}` : '';
 
         return {
           ...baseResult,
-          display: `Your roleplay submission was approved. Earned ${totalTP} Training Point${totalTP === 1 ? '' : 's'}.`,
+          display: `Your roleplay submission for ${datePart} was approved. Earned ${totalTP} Training Point${totalTP === 1 ? '' : 's'}.`,
           details: hasDetails ? (
             <div className="activity-details">
-              <div className="activity-detail-item">
-                <span className="detail-bullet" />
-                <span className="detail-text">Training date: {formatDateOnly(trainingDate)}</span>
-              </div>
               {withFortune && (
                 <div className="activity-detail-item activity-detail-bonus">
                   <span className="detail-bullet" />
@@ -500,12 +497,6 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
                 <div className="activity-detail-item activity-detail-bonus">
                   <span className="detail-bullet" />
                   <span className="detail-text">Athena's Blessing: +{athenaBonus > 1 ? 2 : 1} TP</span>
-                </div>
-              )}
-              {!withFortune && !isAthena && (
-                <div className="activity-detail-item">
-                  <span className="detail-bullet" />
-                  <span className="detail-text">Base approval: {log.amount} TP</span>
                 </div>
               )}
             </div>
