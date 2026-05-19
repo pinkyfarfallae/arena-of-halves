@@ -13,7 +13,8 @@ import {
   EQUIPMENT_IMAGES,
   Equipment,
   UpgradeType,
-  UPGRADE_TYPE
+  UPGRADE_TYPE,
+  EQUIPMENT_UPGRADE_OUTCOME
 } from '../../constants/equipment';
 import {
   upgradeEquipment,
@@ -42,6 +43,7 @@ import ForgeUpgradeOverlay from './components/ForgeUpgradeOverlay/ForgeUpgradeOv
 import { UPGRADE_SUCCESS_RATES } from '../../constants/equipment';
 import { logActivity } from '../../services/activityLog/activityLogService';
 import './Forge.scss';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../constants/activityLog';
 
 const CATEGORY_ORDER: Record<string, number> = {
   weapon: 1,
@@ -197,7 +199,7 @@ function Forge() {
 
       const [addCustomResult, updateDrachmaResult] = await Promise.all([
         addCustomEquipment(user?.characterId, equipment.itemId, categories),
-        updateCharacterDrachma(user?.characterId, -equipment.price, { source: 'forge_receive' }),
+        updateCharacterDrachma(user?.characterId, -equipment.price, { source: ACTIVITY_LOG_SOURCES.FORGE_RECEIVE }),
       ]);
 
       if (addCustomResult.success && updateDrachmaResult.success) {
@@ -221,12 +223,13 @@ function Forge() {
     }
   }, [equipment, user]);
 
+
   const handleUpgradeClick = (type: UpgradeType) => {
     setUpgradingMode(type);
   };
 
   const logEquipmentUpgrade = async (params: {
-    outcome: 'pass' | 'fail';
+    outcome: typeof EQUIPMENT_UPGRADE_OUTCOME[keyof typeof EQUIPMENT_UPGRADE_OUTCOME];
     equipment: Equipment;
     category: EquipmentCategory;
     fromTier: EquipmentTier;
@@ -240,8 +243,8 @@ function Forge() {
     if (!user?.characterId) return;
 
     await logActivity({
-      category: 'equipment',
-      action: 'equipment_upgrade',
+      category: ACTIVITY_LOG_CATEGORY.EQUIPMENT,
+      action: ACTIVITY_LOG_ACTIONS.EQUIPMENT_UPGRADE,
       characterId: user.characterId,
       performedBy: user.characterId,
       amount: params.cost,
@@ -327,10 +330,10 @@ function Forge() {
     try {
       // Consume tickets if any are being used
       if (ticketsUsed > 0) {
-        const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed, 'forge_equipment_upgrade');
+        const ticketResult = await consumeItem(user.characterId, ITEMS.UPGRADE_GUARANTEE_TICKET, ticketsUsed, ACTIVITY_LOG_SOURCES.FORGE);
         if (!ticketResult.success) {
           await logEquipmentUpgrade({
-            outcome: 'fail',
+            outcome: EQUIPMENT_UPGRADE_OUTCOME.FAIL,
             equipment: equipmentToUpgrade,
             category: equipmentToUpgrade.category,
             fromTier: currentTierValue,
@@ -349,10 +352,10 @@ function Forge() {
       }
 
       // Deduct currency (materials consumed regardless of success)
-      const currencyResult = await updateCharacterDrachma(user.characterId, -cost, { source: 'forge_upgrade' });
+      const currencyResult = await updateCharacterDrachma(user.characterId, -cost, { source: ACTIVITY_LOG_ACTIONS.EQUIPMENT_UPGRADE });
       if (!currencyResult.success) {
         await logEquipmentUpgrade({
-          outcome: 'fail',
+          outcome: EQUIPMENT_UPGRADE_OUTCOME.FAIL,
           equipment: equipmentToUpgrade,
           category: equipmentToUpgrade.category,
           fromTier: currentTierValue,
@@ -407,7 +410,7 @@ function Forge() {
           await refreshUser();
 
           await logEquipmentUpgrade({
-            outcome: 'pass',
+            outcome: EQUIPMENT_UPGRADE_OUTCOME.PASS,
             equipment: equipmentToUpgrade,
             category: equipmentToUpgrade.category,
             fromTier: currentTierValue,
@@ -419,7 +422,7 @@ function Forge() {
           });
         } else {
           await logEquipmentUpgrade({
-            outcome: 'fail',
+            outcome: EQUIPMENT_UPGRADE_OUTCOME.FAIL,
             equipment: equipmentToUpgrade,
             category: equipmentToUpgrade.category,
             fromTier: currentTierValue,
@@ -433,7 +436,7 @@ function Forge() {
         }
       } else {
         await logEquipmentUpgrade({
-          outcome: 'fail',
+          outcome: EQUIPMENT_UPGRADE_OUTCOME.FAIL,
           equipment: equipmentToUpgrade,
           category: equipmentToUpgrade.category,
           fromTier: currentTierValue,

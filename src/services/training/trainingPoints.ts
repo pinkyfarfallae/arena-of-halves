@@ -1,5 +1,5 @@
 import { ACTIONS } from "../../constants/action";
-import { ACTIVITY_LOG_ACTIONS } from "../../constants/activityLog";
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from "../../constants/activityLog";
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 import { logActivity } from '../activityLog/activityLogService';
 
@@ -35,7 +35,7 @@ export async function updateTrainingPoints(
     if (data.success) {
       const isUpgrade = options?.source?.includes('upgrade') ?? false;
       logActivity({
-        category: 'stat',
+        category: ACTIVITY_LOG_CATEGORY.STAT,
         action: amount >= 0
           ? ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS
           : (isUpgrade ? ACTIVITY_LOG_ACTIONS.SPEND_TRAINING_POINTS_UPGRADE : ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS),
@@ -43,7 +43,7 @@ export async function updateTrainingPoints(
         performedBy: options?.performedBy ?? characterId,
         amount: Math.abs(amount),
         metadata: { 
-          source: options?.source ?? 'training_grounds', 
+          source: options?.source ?? ACTIVITY_LOG_SOURCES.TRAINING_GROUNDS,
           previous: data.previous, 
           current: data.current,
           spendType: isUpgrade ? 'upgrade' : 'other',

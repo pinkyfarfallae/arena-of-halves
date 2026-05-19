@@ -27,6 +27,7 @@ import './Shop.scss';
 import { useBag } from '../../hooks/useBag';
 import Ticket from '../../icons/Ticket';
 import { ITEMS } from '../../constants/items';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../constants/activityLog';
 
 function Shop() {
   const { user, refreshUser } = useAuth();
@@ -161,7 +162,7 @@ function Shop() {
 
     try {
       // Deduct drachma
-      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice, { source: 'cashier' });
+      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice, { source: ACTIVITY_LOG_SOURCES.CASHIER });
 
       if (!drachmaResult.success) {
         setProcessing(false);
@@ -171,7 +172,7 @@ function Shop() {
       // Consume discount ticket if used
       if (hasDiscount) {
         // console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
-        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, 'shop_discount_used');
+        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, ACTIVITY_LOG_SOURCES.SHOP_DISCOUNT_USED);
 
         if (consumeResult.success) {
           // console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
@@ -190,7 +191,7 @@ function Shop() {
           item.itemId === ITEMS.HERMES_S_PURSE
             ? { income: 0, available: true }
             : undefined,
-          'shop_purchase'
+          ACTIVITY_LOG_SOURCES.SHOP
         );
 
         if (!result.success) {
@@ -207,13 +208,13 @@ function Shop() {
 
       // Log the purchase
       logActivity({
-        category: 'item',
-        action: 'shop_purchase',
+        category: ACTIVITY_LOG_CATEGORY.ITEM,
+        action: ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE,
         characterId: user.characterId,
         performedBy: user.characterId,
         amount: cart.length,
         metadata: {
-          source: 'shop',
+          source: ACTIVITY_LOG_SOURCES.SHOP,
           items: cart.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
           totalPrice,
           finalPrice,

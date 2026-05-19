@@ -10,24 +10,25 @@ import Pencil from '../../../../icons/Pencil';
 import Trash from '../../../../icons/Trash';
 import './ActivityLog.scss';
 import ConfirmModal from '../../../../components/ConfirmModal/ConfirmModal';
-import { ITEMS } from '../../../../constants/items';
 import { toTitleCase } from '../../../../utils/formatText';
 import { Character, fetchAllCharacters } from '../../../../data/characters';
 import Close from '../../../../icons/Close';
 import Refresh from '../../../IrisMessage/icons/Refresh';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../../../constants/activityLog';
+import { EQUIPMENT_UPGRADE_OUTCOME } from '../../../../constants/equipment';
 
 type CategoryFilter = ActivityLogCategory | 'all';
 
 const CATEGORY_FILTERS: { label: string; value: CategoryFilter }[] = [
   { label: 'All', value: 'all' },
-  { label: 'Drachma', value: 'drachma' },
-  { label: 'Item', value: 'item' },
-  { label: 'Equipment', value: 'equipment' },
-  { label: 'Stat', value: 'stat' },
-  { label: 'Action', value: 'action' },
+  { label: 'Drachma', value: ACTIVITY_LOG_CATEGORY.DRACHMA },
+  { label: 'Item', value: ACTIVITY_LOG_CATEGORY.ITEM },
+  { label: 'Equipment', value: ACTIVITY_LOG_CATEGORY.EQUIPMENT },
+  { label: 'Stat', value: ACTIVITY_LOG_CATEGORY.STAT },
+  { label: 'Action', value: ACTIVITY_LOG_CATEGORY.ACTION },
 ];
 
-const CATEGORIES: ActivityLogCategory[] = ['drachma', 'item', 'equipment', 'stat', 'action'];
+const CATEGORIES: ActivityLogCategory[] = [ACTIVITY_LOG_CATEGORY.DRACHMA, ACTIVITY_LOG_CATEGORY.ITEM, ACTIVITY_LOG_CATEGORY.EQUIPMENT, ACTIVITY_LOG_CATEGORY.STAT, ACTIVITY_LOG_CATEGORY.ACTION];
 
 function formatDate(iso: string) {
   try {
@@ -52,30 +53,30 @@ function describeLog(log: ActivityLogType): string {
   const source = String(meta.source || '');
   const amt = log.amount != null ? log.amount.toLocaleString() : null;
 
-  if (log.category === 'drachma') {
-    const isEarn = ['award', 'earn_drachma'].includes(log.action);
-    const isSpend = ['deduct', 'spend_drachma', 'consume_drachma'].includes(log.action);
+  if (log.category === ACTIVITY_LOG_CATEGORY.DRACHMA) {
+    const isEarn = [ACTIVITY_LOG_ACTIONS.AWARD, ACTIVITY_LOG_ACTIONS.EARN_DRACHMA].includes(log.action);
+    const isSpend = [ACTIVITY_LOG_ACTIONS.DEDUCT, ACTIVITY_LOG_ACTIONS.SPEND_DRACHMA, ACTIVITY_LOG_ACTIONS.CONSUME_DRACHMA].includes(log.action);
     if (isEarn) return `Earned ${amt} drachma${source ? ` · ${toTitleCase(source)}` : ''}`;
     if (isSpend) return `Spent ${amt} drachma${source ? ` · ${toTitleCase(source)}` : ''}`;
   }
-  if (log.category === 'item') {
+  if (log.category === ACTIVITY_LOG_CATEGORY.ITEM) {
     const itemId = meta.itemId || 'item';
     const itemLabel = toTitleCase(itemId);
-    if (['receive_item', 'give_item'].includes(log.action)) return `Received ${log.amount} × ${itemLabel}${source ? ` · ${toTitleCase(source)}` : ''}`;
-    if (log.action === 'consume_item') return `Used ${log.amount} × ${itemLabel}`;
-    if (log.action === 'shop_purchase') return `Shop purchase${amt ? ` · ${amt} drachma` : ''}`;
+    if ([ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM, ACTIVITY_LOG_ACTIONS.GIVE_ITEM].includes(log.action)) return `Received ${log.amount} × ${itemLabel}${source ? ` · ${toTitleCase(source)}` : ''}`;
+    if (log.action === ACTIVITY_LOG_ACTIONS.CONSUME_ITEM) return `Used ${log.amount} × ${itemLabel}`;
+    if (log.action === ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE) return `Shop purchase${amt ? ` · ${amt} drachma` : ''}`;
   }
-  if (log.category === 'stat') {
-    if (log.action === 'approve_training') {
+  if (log.category === ACTIVITY_LOG_CATEGORY.STAT) {
+    if (log.action === ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING) {
       const date = meta.date ? `${formatAppDate(meta.date)}` : '';
       return `Training task of ${date} is approved · ${amt} TP earned`;
     }
-    if (log.action === 'stat_upgrade' || log.action === 'skill_upgrade') return `Upgraded ${toTitleCase(meta.stat || 'stat')} +${amt}`;
-    if (log.action === 'add_training_points') return `+${amt} Training Points · ${toTitleCase(source)}`;
+    if (log.action === ACTIVITY_LOG_ACTIONS.STAT_UPGRADE || log.action === ACTIVITY_LOG_ACTIONS.SKILL_UPGRADE) return `Upgraded ${toTitleCase(meta.stat || 'stat')} +${amt}`;
+    if (log.action === ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS) return `+${amt} Training Points · ${toTitleCase(source)}`;
   }
-  if (log.category === 'equipment') {
+  if (log.category === ACTIVITY_LOG_CATEGORY.EQUIPMENT) {
     const outcome = String(meta.outcome || '').toLowerCase();
-    const passed = outcome === 'pass' || outcome === 'success';
+    const passed = outcome === EQUIPMENT_UPGRADE_OUTCOME.SUCCESS || outcome === EQUIPMENT_UPGRADE_OUTCOME.PASS;
     return `Equipment upgrade · ${passed ? 'Pass' : 'Fail'} · ${meta.equipmentName || ''}`;
   }
   return `${log.action.replace(/_/g, ' ')}${amt ? ` · ${amt}` : ''}`;
@@ -114,7 +115,7 @@ export default function ActivityLog() {
       if (charId && acceptedClaims.length > 0) {
         const loggedGiftDates = new Set(
           sorted
-            .filter(l => l.category === 'drachma' && (l.metadata as Record<string, any>)?.source === 'daily_gift')
+            .filter(l => l.category === ACTIVITY_LOG_CATEGORY.DRACHMA && (l.metadata as Record<string, any>)?.source === ACTIVITY_LOG_SOURCES.DAILY_GIFT)
             .map(l => getAppDateString(l.createdAt))
         );
         const syntheticClaims = acceptedClaims
@@ -122,12 +123,12 @@ export default function ActivityLog() {
           .map(c => (
             {
               id: `daily-gift-${charId}-${c.date}`,
-              category: 'drachma' as const,
-              action: 'award',
+              category: ACTIVITY_LOG_CATEGORY.DRACHMA,
+              action: ACTIVITY_LOG_ACTIONS.AWARD,
               characterId: charId,
               performedBy: charId,
               amount: c.amount,
-              metadata: { source: 'daily_gift', syntheticFromClaim: true },
+              metadata: { source: ACTIVITY_LOG_SOURCES.DAILY_GIFT, syntheticFromClaim: true },
               createdAt: `${c.date}T05:00:00.000Z`,
             }));
         setLogs([...sorted, ...syntheticClaims].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));

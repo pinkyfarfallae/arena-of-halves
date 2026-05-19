@@ -117,8 +117,13 @@ export async function fetchBigHouseRoleplays(
         row[headers[j]] = cols[j] || '';
       }
 
-      if (characterId && row.characterid !== characterId) {
-        continue;
+      if (characterId) {
+        const isSubmitter = row.characterid === characterId;
+        const roleplayers: string[] = row.roleplayers
+          ? row.roleplayers.split(',').map((r: string) => r.trim().toLowerCase())
+          : [];
+        const isRoleplayer = roleplayers.includes(characterId.toLowerCase());
+        if (!isSubmitter && !isRoleplayer) continue;
       }
 
       if (status && row.status !== status) {

@@ -27,7 +27,7 @@ import Basket from '../../../LifeInCamp/components/ActionIcon/icons/Basket';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
 import { logActivity } from '../../../../services/activityLog/activityLogService';
 import { formatAppDate, getAppDateString } from '../../../../utils/date';
-import { ACTIVITY_LOG_ACTIONS } from '../../../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../../../constants/activityLog';
 
 type ApproveParticipantReward = {
   characterId: string;
@@ -314,7 +314,7 @@ function HarvestApproval() {
     const rewardPromises = approveData.participantRewards.map((participant) =>
       updateCharacterDrachma(participant.characterId, participant.reward, {
         performedBy: user?.characterId || 'admin',
-        source: 'harvest_approval',
+        source: ACTIVITY_LOG_SOURCES.HARVEST_APPROVAL,
       })
     );
 
@@ -322,7 +322,7 @@ function HarvestApproval() {
     const gardeningConsumePromises = approveData.participantRewards
       .filter((p) => p.bonuses.hasGardeningSet)
       .map((p) =>
-        consumeItem(p.characterId, ITEMS.DEMETER_S_GARDENING_SET, 1, 'harvest_gardening_set_used')
+        consumeItem(p.characterId, ITEMS.DEMETER_S_GARDENING_SET, 1, ACTIVITY_LOG_SOURCES.HARVEST_GARDENING_SET_USED)
       );
 
     try {
@@ -370,7 +370,7 @@ function HarvestApproval() {
 
     // Log overall approval action
     logActivity({
-      category: 'action',
+      category: ACTIVITY_LOG_CATEGORY.ACTION,
       action: ACTIVITY_LOG_ACTIONS.HARVEST_APPROVED,
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
@@ -442,8 +442,8 @@ function HarvestApproval() {
 
     // Log rejection action
     logActivity({
-      category: 'action',
-      action: 'reject_harvest',
+      category: ACTIVITY_LOG_CATEGORY.ACTION,
+      action: ACTIVITY_LOG_ACTIONS.REJECT_HARVEST,
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
       note: tempRejectReason,

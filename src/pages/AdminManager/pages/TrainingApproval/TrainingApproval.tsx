@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { DEITY_THEMES, fetchAllCharacters } from '../../../../data/characters';
-import { ACTIONS } from '../../../../constants/action';
 import { Character } from '../../../../types/character';
 import { type HarvestScriptCopyStatus } from '../../../../types/harvest';
 import { COPY_RESULT_SCRIPT, THREAD_EXTRACTOR_SCRIPT } from '../../../../constants/threadExtractor';
@@ -33,7 +32,7 @@ import './TrainingApproval.scss';
 import Crown from '../../../../icons/Crown';
 import { PRACTICE_STATES_DETAIL } from '../../../../data/practiceStates';
 import { formatAppDate, getAppDateString } from '../../../../utils/date';
-import { ACTIVITY_LOG_ACTIONS } from '../../../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../../../constants/activityLog';
 
 function TrainingApproval() {
   const { user } = useAuth();
@@ -276,13 +275,13 @@ function TrainingApproval() {
 
       // Log the base TP that Apps Script awarded (it can't call Firestore itself)
       logActivity({
-        category: 'stat',
+        category: ACTIVITY_LOG_CATEGORY.STAT,
         action: ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING,
         characterId: reviewingTask.userId,
         performedBy: user?.characterId || 'admin',
         amount: baseTP,
         metadata: {
-          source: 'admin_training_approval',
+          source: ACTIVITY_LOG_SOURCES.ADMIN_TRAINING_APPROVAL,
           date: reviewingTask.date,
           withFullLevelFortune: approveData.withFullLevelFortune,
           isAthena: approveData.isTraineeBlessedByAthena,
@@ -294,7 +293,7 @@ function TrainingApproval() {
       if (pointsAwarded > 0) {
         await updateTrainingPoints(reviewingTask.userId, pointsAwarded, {
           performedBy: user?.characterId || 'admin',
-          source: 'admin_training_approval_athena_bonus',
+          source: ACTIVITY_LOG_SOURCES.ADMIN_TRAINING_APPROVAL_ATHENA_BONUS,
         });
       }
 
@@ -364,12 +363,12 @@ function TrainingApproval() {
         user?.characterId || 'admin'
       );
       logActivity({
-        category: 'stat',
+        category: ACTIVITY_LOG_CATEGORY.STAT,
         action: ACTIVITY_LOG_ACTIONS.REJECT_TRAINING,
         characterId: reviewingTask.userId,
         performedBy: user?.characterId || 'admin',
         amount: 0,
-        metadata: { source: 'admin_training_approval', date: reviewingTask.date },
+        metadata: { source: ACTIVITY_LOG_SOURCES.ADMIN_TRAINING_APPROVAL, date: reviewingTask.date },
       });
     } catch (error) {
       // console.error('Failed to reject training task:', error);

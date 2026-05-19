@@ -9,7 +9,7 @@ import type { WishEntry } from '../types/character';
 import { getTodayDate } from '../utils/date';
 import { updateCharacterDrachma } from '../services/character/currencyService';
 import { logActivity } from '../services/activityLog/activityLogService';
-import { ACTIVITY_LOG_ACTIONS } from '../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../constants/activityLog';
 import { getBagData, setBagItemData } from '../services/bag/bagService';
 import { ITEMS } from '../constants/items';
 import type { BagData } from '../types/character';
@@ -91,12 +91,12 @@ export const saveIrisWish = async (userId: string, deity: string) => {
   });
 
   await logActivity({
-    category: 'action',
+    category: ACTIVITY_LOG_CATEGORY.ACTION,
     action: ACTIVITY_LOG_ACTIONS.WISH_TOSSED,
     characterId: userId,
     performedBy: userId,
     metadata: {
-      source: 'iris_fountain',
+      source: ACTIVITY_LOG_SOURCES.IRIS_WISH,
       deity,
       date,
       tossedAt,
@@ -231,8 +231,8 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
   }
 
   const drachmaResult = await updateCharacterDrachma(characterId, IRIS_KEYCHAIN_BONUS_AMOUNT, {
-    source: 'iris_keychain_bonus',
-    performedBy: 'iris_wish',
+    source: ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS,
+    performedBy: ACTIVITY_LOG_SOURCES.IRIS_WISH,
   });
 
   if (!drachmaResult.success) {
@@ -247,7 +247,7 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
     bonusClaimedAt: new Date().toISOString(),
   }, {
     performedBy: characterId,
-    source: 'iris_keychain_bonus',
+    source: ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS,
   });
 
   return true;
@@ -362,8 +362,8 @@ export const tryAwardNikeBonusDrachma = async (userId: string): Promise<boolean>
 
     // Award drachma and increment counter
     await updateCharacterDrachma(userId, 100, {
-      source: 'nike_wish_battle_bonus',
-      performedBy: 'iris_wish',
+      source: ACTIVITY_LOG_SOURCES.NIKE_WISH_BATTLE_BONUS,
+      performedBy: ACTIVITY_LOG_SOURCES.IRIS_WISH,
     });
     await setDoc(ref, {
       nikeBonus100DCount: currentCount + 1,

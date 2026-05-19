@@ -17,7 +17,6 @@ $big-house-turquoise: #2f5f86;
   box-shadow: 0 4px 12px rgba($big-house-green, 0.06);
   overflow: hidden;
   position: relative;
-  min-height: 251.4px;
 
   &::before {
     content: '';
@@ -32,11 +31,13 @@ $big-house-turquoise: #2f5f86;
   }
 
   &--pending {
+    min-height: 197.5px;
     border-left: 3px solid #ffc107;
     background: linear-gradient(135deg, rgb(255, 255, 255) 0%, rgb(255, 249, 227) 50%);
   }
 
   &--approved {
+    min-height: 251.5px;
     border-left: 3px solid #75cb7d;
     background: linear-gradient(135deg, rgb(255, 255, 255) 0%, rgb(238, 255, 229) 50%);
   }
@@ -45,6 +46,7 @@ $big-house-turquoise: #2f5f86;
     border-left: 3px solid #e8565d;
     background: linear-gradient(135deg, rgb(255, 255, 255) 0%, rgb(255, 235, 235) 50%);
     opacity: 0.85;
+    min-height: 232.5px;
   }
 
   &.canClick:hover {

@@ -19,6 +19,7 @@ import TrainingGrounds from './pages/TrainingGrounds/TrainingGrounds';
 import { hexToRgb, contrastText, isNearWhite } from './utils/color';
 import DailyGift from './components/DailyGift/DailyGift';
 import { updateCharacterDrachma } from './services/character/currencyService';
+import { ACTIVITY_LOG_SOURCES } from './constants/activityLog';
 // Using server-side persistence for daily claims; no localStorage fallback
 import { getUserDailyClaim, tryClaimToday, unmarkUserClaimedToday } from './services/daily/dailyClaimService';
 import DiceRollerSimulator from './pages/DiceRollerSimulator/DiceRollerSimulator';
@@ -226,7 +227,7 @@ function AppShell() {
                 return;
               }
 
-              const res = await updateCharacterDrachma(user.characterId, giftAmount, { source: 'daily_gift' });
+              const res = await updateCharacterDrachma(user.characterId, giftAmount, { source: ACTIVITY_LOG_SOURCES.DAILY_GIFT });
               if (res.success) {
                 try { await refreshUser(); } catch (e) { /* ignore */ }
               } else {

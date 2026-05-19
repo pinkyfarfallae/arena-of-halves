@@ -27,6 +27,7 @@ import Background from '../../../BigHouse/images/background.jpg';
 import { BigHouseSubmission } from '../../../../types/bigHouse';
 import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS, BigHouseSubmissionStatus } from '../../../../constants/bigHouse';
 import { formatAppDate, getAppDateString } from '../../../../utils/date';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../../../constants/activityLog';
 import './BigHouseSubmissionApproval.scss';
 
 type ApproveParticipantReward = {
@@ -282,7 +283,7 @@ function BigHouseSubmissionApproval() {
     const rewardPromises = approveData.participantRewards.map((participant) =>
       updateCharacterDrachma(participant.characterId, participant.reward, {
         performedBy: user?.characterId || 'admin',
-        source: 'big_house_approval',
+        source: ACTIVITY_LOG_SOURCES.BIG_HOUSE_APPROVAL,
       })
     );
 
@@ -325,8 +326,8 @@ function BigHouseSubmissionApproval() {
 
     // Log overall approval action
     logActivity({
-      category: 'action',
-      action: 'approve_big_house',
+      category: ACTIVITY_LOG_CATEGORY.ACTION,
+      action: ACTIVITY_LOG_ACTIONS.APPROVE_BIG_HOUSE_ROLEPLAY,
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
       amount: totalDrachmaAwarded,
@@ -400,8 +401,8 @@ function BigHouseSubmissionApproval() {
 
     // Log rejection action
     logActivity({
-      category: 'action',
-      action: 'reject_big_house',
+      category: ACTIVITY_LOG_CATEGORY.ACTION,
+      action: ACTIVITY_LOG_ACTIONS.REJECT_BIG_HOUSE_ROLEPLAY,
       characterId: reviewingSubmission?.characterId || submissionId,
       performedBy: user?.characterId || 'admin',
       note: tempRejectReason,

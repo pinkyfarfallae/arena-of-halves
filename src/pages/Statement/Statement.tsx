@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { ACTIONS } from '../../constants/action';
 import { useAuth } from '../../hooks/useAuth';
 import { ActivityLog } from '../../types/activityLog';
 import { fetchActivityLogs, fetchActivityLogsForCharacter } from '../../services/activityLog/activityLogService';
@@ -8,7 +7,7 @@ import { fetchAcceptedClaimsForCharacter } from '../../services/daily/dailyClaim
 import { getAppDateString } from '../../utils/date';
 import './Statement.scss';
 import { Dropdown, Input } from '../../components/Form';
-import { ACTIVITY_LOG_ACTIONS, SOURCE_LABELS } from '../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES, SOURCE_LABELS } from '../../constants/activityLog';
 import { toTitleCase } from '../../utils/formatText';
 import { DEITY_THEMES } from '../../constants/theme';
 import { hexToRgb } from '../../utils/color';
@@ -16,6 +15,7 @@ import Drachma from '../../icons/Drachma';
 import { Deity } from '../../constants/deities';
 import { DEITY_SVG } from '../../data/deities';
 import Refresh from '../IrisMessage/icons/Refresh';
+import { EQUIPMENT_UPGRADE_OUTCOME } from '../../constants/equipment';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -73,7 +73,7 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   return activityLogs.filter((log) => {
     const metadata = (log.metadata as Record<string, any>) || {};
     const source = String(metadata.source || '');
-    const isDailyGiftLog = log.category === 'drachma' && source === 'daily_gift';
+    const isDailyGiftLog = log.category === ACTIVITY_LOG_CATEGORY.DRACHMA && source === ACTIVITY_LOG_SOURCES.DAILY_GIFT;
 
     if (isDailyGiftLog) {
       const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
@@ -84,12 +84,14 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
 
     // Both "give_item" and "receive_item" from admin sources represent the same
     // item grant event. Collapse them using characterId + itemId + amount + minute.
-    const adminItemSources = [
-      'admin_player_inventory_add', 'admin_player_inventory_bulk_add',
-      'player_inventory', 'player_inventory_bulk',
+    const adminItemSources: string[] = [
+      ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+      ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+      ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+      ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
     ];
     const isAdminItemGrant =
-      log.category === 'item' &&
+      log.category === ACTIVITY_LOG_CATEGORY.ITEM &&
       (log.action === ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM || log.action === ACTIVITY_LOG_ACTIONS.GIVE_ITEM) &&
       adminItemSources.includes(source);
 
@@ -106,12 +108,12 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
 
 const toWishTossLog = (wish: IrisWishDoc): ActivityLog => ({
   id: `wish-${wish.userId}-${wish.date}-${wish.deity}`,
-  category: 'action',
+  category: ACTIVITY_LOG_CATEGORY.ACTION,
   action: ACTIVITY_LOG_ACTIONS.WISH_TOSSED,
   characterId: wish.userId,
   performedBy: wish.userId,
   metadata: {
-    source: 'iris_fountain',
+    source: ACTIVITY_LOG_SOURCES.IRIS_FOUNTAIN,
     deity: wish.deity,
     date: wish.date,
     tossedAt: wish.tossedAt,
@@ -140,12 +142,13 @@ const isWishLog = (log: ActivityLog): boolean => {
   return (
     log.action === ACTIVITY_LOG_ACTIONS.WISH_TOSSED ||
     log.action === ACTIVITY_LOG_ACTIONS.WISH_RECEIVED ||
-    source === 'iris_wish' ||
+    source === ACTIVITY_LOG_SOURCES.IRIS_WISH ||
     source.startsWith('iris_wish_') ||
-    source === 'nike_wish_battle_bonus' ||
-    log.performedBy === 'iris_wish'
+    source === ACTIVITY_LOG_SOURCES.NIKE_WISH_BATTLE_BONUS ||
+    log.performedBy === ACTIVITY_LOG_SOURCES.IRIS_WISH
   );
 };
+
 
 const getDisplayCategory = (log: ActivityLog): string => {
   if (isWishLog(log)) {
@@ -234,21 +237,21 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       };
     }
 
-    if (log.category === 'item') {
+    if (log.category === ACTIVITY_LOG_CATEGORY.ITEM) {
       return {
         ...baseResult,
         display: `Wish of ${deity} granted ${log.amount || 1} x ${toTitleCase(itemId)}.`,
       };
     };
 
-    if (log.category === 'stat') {
+    if (log.category === ACTIVITY_LOG_CATEGORY.STAT) {
       return {
         ...baseResult,
         display: `Wish of ${deity} granted ${log.amount || 0} Training Point${log.amount === 1 ? '' : 's'}.`,
       };
     }
 
-    if (log.category === 'drachma' && wishSource === 'nike_wish_battle_bonus') {
+    if (log.category === ACTIVITY_LOG_CATEGORY.DRACHMA && wishSource === ACTIVITY_LOG_SOURCES.NIKE_WISH_BATTLE_BONUS) {
       return {
         ...baseResult,
         display: `Earned ${log.amount?.toLocaleString() || 0} drachma bonus from the Wish of Nike after winning a battle.`,
@@ -257,18 +260,18 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
   }
 
   switch (log.category) {
-    case 'drachma':
+    case ACTIVITY_LOG_CATEGORY.DRACHMA:
       if (log.action === ACTIVITY_LOG_ACTIONS.EARN_DRACHMA || log.action === ACTIVITY_LOG_ACTIONS.AWARD) {
-        const source = metadata.source || 'unknown source';
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
 
-        if (source === 'iris_fountain') {
+        if (source === ACTIVITY_LOG_SOURCES.IRIS_FOUNTAIN) {
           return {
             ...baseResult,
             display: `Earned ${log.amount?.toLocaleString()} drachma from Rainbow Drachma after the Wish of Iris.`,
           };
         }
 
-        if (source === 'treasury_transfer') {
+        if (source === ACTIVITY_LOG_SOURCES.TREASURY_TRANSFER) {
           const fromName = (metadata.fromName as string) || (metadata.fromUserId as string) || 'another character';
           return {
             ...baseResult,
@@ -276,7 +279,14 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
           };
         }
 
-        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        const adminSources = [
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+        ];
         if (adminSources.includes(source)) {
           return {
             ...baseResult,
@@ -290,9 +300,9 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         };
       }
       if (log.action === ACTIVITY_LOG_ACTIONS.DEDUCT || log.action === ACTIVITY_LOG_ACTIONS.SPEND_DRACHMA || log.action === ACTIVITY_LOG_ACTIONS.CONSUME_DRACHMA) {
-        const source = metadata.source || 'unknown source';
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
 
-        if (source === 'treasury_transfer') {
+        if (source === ACTIVITY_LOG_SOURCES.TREASURY_TRANSFER) {
           const toName = (metadata.toName as string) || (metadata.toUserId as string) || 'another character';
           return {
             ...baseResult,
@@ -317,7 +327,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         display: `${log.action.replace(/_/g, ' ')}: ${log.amount?.toLocaleString() || 0} drachma.`,
       };
 
-    case 'item':
+    case ACTIVITY_LOG_CATEGORY.ITEM:
       if (log.action === ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE) {
         const purchasedItems = (metadata.items as Array<{ itemId: string; quantity: number; price: number }>) || [];
         const finalPrice = metadata.finalPrice ?? metadata.totalPrice ?? log.amount ?? 0;
@@ -358,8 +368,15 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       }
       if (log.action === ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM || log.action === ACTIVITY_LOG_ACTIONS.GIVE_ITEM) {
         const itemId = metadata.itemId || 'item';
-        const source = metadata.source || 'unknown';
-        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
+        const adminSources = [
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+        ];
         if (adminSources.includes(source)) {
           return {
             ...baseResult,
@@ -373,8 +390,15 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
       }
       if (log.action === ACTIVITY_LOG_ACTIONS.CONSUME_ITEM) {
         const itemId = metadata.itemId || 'item';
-        const source = metadata.source || 'usage';
-        const adminSources = ['admin_player_inventory', 'admin_player_inventory_bulk', 'admin_player_inventory_add', 'admin_player_inventory_bulk_add', 'player_inventory', 'player_inventory_bulk'];
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
+        const adminSources = [
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+        ];
         if (adminSources.includes(source)) {
           return {
             ...baseResult,
@@ -419,10 +443,10 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         display: `${log.action.replace(/_/g, ' ')}: ${log.amount} items.`,
       };
 
-    case 'equipment':
-      if (log.action === 'equipment_upgrade') {
+    case ACTIVITY_LOG_CATEGORY.EQUIPMENT:
+      if (log.action === ACTIVITY_LOG_ACTIONS.EQUIPMENT_UPGRADE) {
         const outcome = String(metadata.outcome || log.note || '').toLowerCase();
-        const passed = outcome === 'pass' || outcome === 'success';
+        const passed = outcome === EQUIPMENT_UPGRADE_OUTCOME.SUCCESS || outcome === EQUIPMENT_UPGRADE_OUTCOME.PASS;
         const equipmentName = (metadata.equipmentName as string) || 'equipment';
         const fromTier = metadata.fromTier != null ? String(metadata.fromTier).replace('level_', '') : '?';
         const toTier = metadata.toTier != null ? String(metadata.toTier).replace('level_', '') : '?';
@@ -472,7 +496,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         display: `${log.action.replace(/_/g, ' ')}: ${log.amount}.`,
       };
 
-    case 'stat':
+    case ACTIVITY_LOG_CATEGORY.STAT:
       if (log.action === ACTIVITY_LOG_ACTIONS.APPROVE_TRAINING) {
         const trainingDate = metadata.date || '';
         const withFortune = Boolean(metadata.withFullLevelFortune);
@@ -539,7 +563,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         display: `${log.action.replace(/_/g, ' ')}: ${log.amount}.`,
       };
 
-    case 'action':
+    case ACTIVITY_LOG_CATEGORY.ACTION:
       if (log.action === ACTIVITY_LOG_ACTIONS.TRAINING_APPROVED) {
         return {
           ...baseResult,
@@ -611,7 +635,7 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
           ) : undefined,
         };
       }
-      if (log.action === 'approveBigHouseRoleplay' || log.action === 'approve_big_house') {
+      if (log.action === ACTIVITY_LOG_ACTIONS.APPROVE_BIG_HOUSE_ROLEPLAY) {
         const roleplayers = (metadata.roleplayers as string[]) || [];
         let drachmaRewardMap: Record<string, number> = {};
 
@@ -713,7 +737,7 @@ export const Statement: React.FC = () => {
       // Dates that already have a daily gift log (Bangkok timezone)
       const loggedGiftDates = new Set(
         sortedLogs
-          .filter(l => l.category === 'drachma' && (l.metadata as Record<string, any>)?.source === 'daily_gift')
+          .filter(l => l.category === ACTIVITY_LOG_CATEGORY.DRACHMA && (l.metadata as Record<string, any>)?.source === ACTIVITY_LOG_SOURCES.DAILY_GIFT)
           .map(l => getAppDateString(l.createdAt))
       );
 
@@ -722,12 +746,12 @@ export const Statement: React.FC = () => {
         .filter(c => !loggedGiftDates.has(c.date))
         .map(c => ({
           id: `daily-gift-${user.characterId}-${c.date}`,
-          category: 'drachma' as const,
+          category: ACTIVITY_LOG_CATEGORY.DRACHMA,
           action: ACTIVITY_LOG_ACTIONS.AWARD,
           characterId: user.characterId,
           performedBy: user.characterId,
           amount: c.amount,
-          metadata: { source: 'daily_gift', syntheticFromClaim: true },
+          metadata: { source: ACTIVITY_LOG_SOURCES.DAILY_GIFT, syntheticFromClaim: true },
           createdAt: `${c.date}T05:00:00.000Z`,
         }));
 
@@ -735,7 +759,7 @@ export const Statement: React.FC = () => {
         dedupeStatementLogs(
           [...sortedLogs, ...syntheticWishLogs, ...syntheticClaimLogs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .filter(log => getDisplayCategory(log) !== 'action')
+            .filter(log => getDisplayCategory(log) !== ACTIVITY_LOG_CATEGORY.ACTION)
         )
       );
     } catch (error) {

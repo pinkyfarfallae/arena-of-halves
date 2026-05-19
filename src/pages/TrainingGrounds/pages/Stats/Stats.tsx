@@ -34,6 +34,7 @@ import { ITEMS } from '../../../../constants/items';
 import Plus from '../../../../icons/Plus';
 import './Stats.scss';
 import { updateCharacterDrachma } from '../../../../services/character/currencyService';
+import { ACTIVITY_LOG_SOURCES } from '../../../../constants/activityLog';
 
 const statBackgrounds: Record<string, string> = {
   strength: strengthBg,
@@ -194,7 +195,7 @@ export default function Stats({ onSelectTrainingWithAdminMode, onSelectPvPMode, 
       const hasNikeStatue = (bagEntries.find(entry => entry.itemId === ITEMS.NIKE_S_STATUE)?.amount || 0) > 0;
 
       if(hasNikeStatue) {
-        updateCharacterDrachma(user.characterId, 30, { source: 'nike_statue' });
+        updateCharacterDrachma(user.characterId, 30, { source: ACTIVITY_LOG_SOURCES.NIKE_STATUE });
       }
     }
 

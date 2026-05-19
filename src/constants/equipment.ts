@@ -175,3 +175,9 @@ export const UPGRADE_TYPE = {
 }
 
 export type UpgradeType = typeof UPGRADE_TYPE[keyof typeof UPGRADE_TYPE];
+
+export const EQUIPMENT_UPGRADE_OUTCOME = {
+  SUCCESS: 'success',
+  PASS: 'pass',
+  FAIL: 'fail',
+} as const;

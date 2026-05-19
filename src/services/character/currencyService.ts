@@ -3,7 +3,7 @@ import { ACTIONS } from '../../constants/action';
 import { getBagData, setBagItemData } from '../bag/bagService';
 import { ITEMS } from '../../constants/items';
 import { logActivity } from '../activityLog/activityLogService';
-import { ACTIVITY_LOG_ACTIONS } from '../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../constants/activityLog';
 
 /**
  * Update character's drachma (currency)
@@ -37,13 +37,13 @@ export async function updateCharacterDrachma(
       // logActivity handles its own errors internally — safe to await without
       // risk of rolling back the drachma transaction.
       await logActivity({
-        category: 'drachma',
+        category: ACTIVITY_LOG_CATEGORY.DRACHMA,
         action: amount >= 0 ? ACTIVITY_LOG_ACTIONS.AWARD : ACTIVITY_LOG_ACTIONS.DEDUCT,
         characterId,
         performedBy: options?.performedBy ?? characterId,
         amount: Math.abs(amount),
         metadata: { 
-          source: options?.source ?? 'unknown', 
+          source: options?.source ?? ACTIVITY_LOG_SOURCES.UNKNOWN, 
           delta: amount,
           previous: data.previous,
           current: data.current,
@@ -76,13 +76,13 @@ async function applyHermesPurseIncome(characterId: string, amount: number): Prom
     available: true,
   }, {
     performedBy: characterId,
-    source: 'hermes_purse_tracking',
+    source: ACTIVITY_LOG_SOURCES.HERMES_PURSE_TRACKING,
   });
 
   if (nextIncome >= 1000) {
     const bonusResult = await updateCharacterDrachma(characterId, 500, {
       skipHermesTracking: true,
-      source: 'hermes_purse_bonus',
+      source: ACTIVITY_LOG_SOURCES.HERMES_PURSE_BONUS,
     });
 
     if (bonusResult.success) {
@@ -93,7 +93,7 @@ async function applyHermesPurseIncome(characterId: string, amount: number): Prom
         available: false,
       }, {
         performedBy: characterId,
-        source: 'hermes_purse_bonus',
+        source: ACTIVITY_LOG_SOURCES.HERMES_PURSE_BONUS,
       });
     }
   }

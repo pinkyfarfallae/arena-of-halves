@@ -1,11 +1,10 @@
 import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
-import { ACTIONS } from '../../constants/action';
 import type { BagData, BagItemData } from '../../types/character';
 import { BagItemType } from '../../constants/bag';
 import { logActivity } from '../activityLog/activityLogService';
-import { ACTIVITY_LOG_ACTIONS } from '../../constants/activityLog';
+import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../constants/activityLog';
 
 /** Strip undefined values so Firestore never receives them */
 function clean(obj: object): Record<string, unknown> {
@@ -63,13 +62,13 @@ export async function setBagItemData(
       currentItem.available !== data.available
     ) {
       logActivity({
-        category: 'item',
+        category: ACTIVITY_LOG_CATEGORY.ITEM,
         action: ACTIVITY_LOG_ACTIONS.UPDATE_ITEM_STATE,
         characterId: userId,
         performedBy: options?.performedBy ?? userId,
         metadata: {
           itemId,
-          source: options?.source ?? 'item_state_update',
+          source: options?.source ?? ACTIVITY_LOG_SOURCES.ITEM_STATE_UPDATE,
           previousAvailable: currentItem.available,
           currentAvailable: data.available,
           income: data.income ?? currentItem.income,
@@ -174,12 +173,12 @@ export async function giveItem(
 
     if (result.success) {
       logActivity({
-        category: 'item',
+        category: ACTIVITY_LOG_CATEGORY.ITEM,
         action: ACTIVITY_LOG_ACTIONS.RECEIVE_ITEM,
         characterId: userId,
-        performedBy: source ?? 'system',
+        performedBy: source ?? ACTIVITY_LOG_SOURCES.SYSTEM,
         amount,
-        metadata: { itemId, source: source ?? 'unknown', newAmount },
+        metadata: { itemId, source: source ?? ACTIVITY_LOG_SOURCES.UNKNOWN, newAmount },
       });
       return { success: true, newAmount };
     }
@@ -234,12 +233,12 @@ export async function consumeItem(
 
     if (result.success) {
       logActivity({
-        category: 'item',
+        category: ACTIVITY_LOG_CATEGORY.ITEM,
         action: ACTIVITY_LOG_ACTIONS.CONSUME_ITEM,
         characterId: userId,
         performedBy: userId,
         amount,
-        metadata: { itemId, source: source ?? 'manual', newAmount },
+        metadata: { itemId, source: source ?? ACTIVITY_LOG_SOURCES.UNKNOWN, newAmount },
       });
       return { success: true, newAmount };
     }
@@ -329,7 +328,7 @@ export async function transferItem(
 
     // Log for the receiver
     logActivity({
-      category: 'item',
+      category: ACTIVITY_LOG_CATEGORY.ITEM,
       action: ACTIVITY_LOG_ACTIONS.TRANSFER_ITEM,
       characterId: toUserId,
       performedBy: fromUserId,
@@ -338,7 +337,7 @@ export async function transferItem(
     });
     // Log for the sender
     logActivity({
-      category: 'item',
+      category: ACTIVITY_LOG_CATEGORY.ITEM,
       action: ACTIVITY_LOG_ACTIONS.TRANSFER_ITEM,
       characterId: fromUserId,
       performedBy: fromUserId,

@@ -24,6 +24,7 @@ import { useBag } from "../../hooks/useBag";
 import './CampTreasuryTransfer.scss';
 import { HIDDEN_AMPHITRITE_FOR } from "../../constants/characters";
 import Pencil from "../../icons/Pencil";
+import { ACTIVITY_LOG_SOURCES } from "../../constants/activityLog";
 
 type BulkRow = {
   id: string;
@@ -302,7 +303,7 @@ const CampTreasuryTransfer = () => {
           const receiverName = recipientPlayer?.nicknameEng || recipientPlayer?.nameEng || selectedPlayer;
           const deductRes = await updateCharacterDrachma(user.characterId, -amount, {
             performedBy: user.characterId,
-            source: 'treasury_transfer',
+            source: ACTIVITY_LOG_SOURCES.TREASURY_TRANSFER,
             extraMetadata: { toUserId: selectedPlayer, toName: receiverName },
           });
           if (!deductRes.success) {
@@ -311,13 +312,13 @@ const CampTreasuryTransfer = () => {
           }
           const addRes = await updateCharacterDrachma(selectedPlayer, amount, {
             performedBy: user.characterId,
-            source: 'treasury_transfer',
+            source: ACTIVITY_LOG_SOURCES.TREASURY_TRANSFER,
             extraMetadata: { fromUserId: user.characterId, fromName: senderName },
           });
           if (!addRes.success) {
             await updateCharacterDrachma(user.characterId, amount, {
               performedBy: user.characterId,
-              source: 'treasury_transfer_rollback',
+              source: ACTIVITY_LOG_SOURCES.TREASURY_TRANSFER_ROLLBACK,
             });
             errors.push(`Drachma send failed: ${addRes.error || 'unknown'}`);
           }
