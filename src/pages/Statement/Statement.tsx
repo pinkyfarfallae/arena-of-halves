@@ -65,24 +65,24 @@ const getDayKey = (dateStr: string): string => {
 
 const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   const seenDailyGiftDays = new Set<string>();
-  const seenWishDays = new Set<string>();
+  // Keep only the latest WISH_TOSSED per day (retosses produce multiple logs)
+  const seenWishTossedDays = new Set<string>();
   // Deduplicate admin item grants that produced two Firestore docs:
   // one "give_item" (old manual log) + one "receive_item" (auto-log from bagService).
   // Normalize both to the same key so only the first one survives.
   const seenItemGrantKeys = new Set<string>();
 
   return activityLogs.filter((log) => {
+    // Logs are sorted newest-first, so the first WISH_TOSSED seen per day is the final selection
+    if (log.action === ACTIVITY_LOG_ACTIONS.WISH_TOSSED) {
+      const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
+      if (seenWishTossedDays.has(dayKey)) return false;
+      seenWishTossedDays.add(dayKey);
+      return true;
+    }
     const metadata = (log.metadata as Record<string, any>) || {};
     const source = String(metadata.source || '');
     const isDailyGiftLog = log.category === ACTIVITY_LOG_CATEGORY.DRACHMA && source === ACTIVITY_LOG_SOURCES.DAILY_GIFT;
-
-    // Keep only the latest wish log per day (logs are sorted newest-first)
-    if (isWishLog(log)) {
-      const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
-      if (seenWishDays.has(dayKey)) return false;
-      seenWishDays.add(dayKey);
-      return true;
-    }
 
     if (isDailyGiftLog) {
       const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
