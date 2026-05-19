@@ -206,6 +206,10 @@ export const UI_TEXT = {
     en: 'Harvest Conditions\nand Rewards',
     th: 'เงื่อนไขการเก็บเกี่ยว\nและค่าตอบแทน'
   },
+  DUPLICATE_URL: {
+    en: 'You have already\nsubmitted this URL',
+    th: 'คุณเคยส่ง URL นี้ไปแล้ว'
+  },
   INVALID_TWITTER_URL: {
     en: 'Invalid Twitter URL',
     th: 'URL Twitter ไม่ถูกต้อง'

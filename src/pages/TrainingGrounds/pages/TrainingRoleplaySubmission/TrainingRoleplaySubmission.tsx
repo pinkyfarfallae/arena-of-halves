@@ -92,6 +92,10 @@ function TrainingRoleplaySubmission() {
 
   const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
+  const _isDuplicateUrl = useMemo(() => {
+    return userTrainingTasks.some(t => t.roleplay === firstTweetUrl);
+  }, [userTrainingTasks, firstTweetUrl]);
+
   const requiredCharacters = useMemo(() => {
     const baseRequirement = 1000;
     const charReductionPerTicket = 200;
@@ -522,15 +526,15 @@ function TrainingRoleplaySubmission() {
                           : canSubmitWithoutTweet
                             ? 'Tweet URL (optional - covered by tickets)'
                             : 'Paste thread URL (first tweet)'}
-                        style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                        style={(!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                         value={firstTweetUrl}
                         onChange={(e) => setFirstTweetUrl(e.target.value)}
                         disabled={isUrlLockedByTickets}
                       />
-                      {!isUrlLockedByTickets && !_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                      {!isUrlLockedByTickets && (!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' && (
                         <div
                           className="training-roleplay-submission__form-error-icon"
-                          data-tooltip={t(T.INVALID_TWITTER_URL)}
+                          data-tooltip={_isDuplicateUrl ? t(T.DUPLICATE_URL) : t(T.INVALID_TWITTER_URL)}
                           data-tooltip-pos={width < 480 ? "left" : "top"}
                         >
                           <InfoCircle />
@@ -581,7 +585,7 @@ function TrainingRoleplaySubmission() {
                     <button
                       className={`training-roleplay-submission__form-button ${isSubmitting || isSubmittingRecheck ? 'training-roleplay-submission__form-button--loading' : ''}`}
                       onClick={handleSubmit}
-                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && !isUrlLockedByTickets && (!firstTweetUrl.trim() || !_isValidTwitterUrl))}
+                      disabled={isSubmitting || isSubmittingRecheck || (!canSubmitWithoutTweet && !isUrlLockedByTickets && (!firstTweetUrl.trim() || !_isValidTwitterUrl || _isDuplicateUrl))}
                     >
                       <Swords className="training-roleplay-submission__form-button-icon" />
                       <span>{isSubmitting || isSubmittingRecheck ? t(T.SUBMITTING_TRAINING_TASK) : t(T.SUBMIT_TRAINING_TASK)}</span>

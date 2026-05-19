@@ -1,7 +1,7 @@
 import { ACTIONS } from "../../constants/action";
 import { APPS_SCRIPT_URL, fetchSheetCsv, GID } from "../../constants/sheets";
 import { BigHouseSubmission } from "../../types/bigHouse";
-import { BigHouseSubmissionStatus } from "../../constants/bigHouse";
+import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS, BigHouseSubmissionStatus } from "../../constants/bigHouse";
 import { generateUUID } from "../../utils/uuid";
 import { splitCSVRows, parseCSVLine } from "../../utils/csv";
 
@@ -134,7 +134,7 @@ export async function fetchBigHouseRoleplays(
         id: row.id || generateUUID(),
         characterId: row.characterid || '',
         roleplayUrl: row.roleplayurl || '',
-        status: (row.status || 'pending') as BigHouseSubmissionStatus,
+        status: (row.status || BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.PENDING) as BigHouseSubmissionStatus,
         submittedAt: row.submittedat || '',
         reviewedAt: row.reviewedat || undefined,
         reviewedBy: row.reviewedby || undefined,

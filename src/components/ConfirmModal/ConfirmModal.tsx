@@ -7,6 +7,7 @@ interface Props {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  confirmText?: string; // Added confirmText prop
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }

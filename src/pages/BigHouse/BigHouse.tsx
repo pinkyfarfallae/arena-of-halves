@@ -17,6 +17,8 @@ import { BigHouseSubmission } from '../../types/bigHouse';
 import { isValidTwitterUrl } from '../../utils/twitterUrlValidation';
 import SubmissionCard from './components/SubmissionCard/SubmissionCard';
 import './BigHouse.scss';
+import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS } from '../../constants/bigHouse';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 
 function BigHouse() {
   const { user } = useAuth();
@@ -32,7 +34,6 @@ function BigHouse() {
   const [allCampData, setAllCampData] = useState<Character[]>([]);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [hasDemeterBonus, setHasDemeterBonus] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -71,6 +72,11 @@ function BigHouse() {
 
   const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
+  const _isDuplicateUrl = useMemo(() => {
+    const trimmedUrl = firstTweetUrl.trim();
+    return submissions.some(sub => sub.roleplayUrl === trimmedUrl);
+  }, [firstTweetUrl, submissions]);
+
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
       setError('Please paste the thread URL');
@@ -84,6 +90,11 @@ function BigHouse() {
 
     if (!_isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
+      return;
+    }
+
+    if (_isDuplicateUrl) {
+      setError('Duplicate URL');
       return;
     }
 
@@ -107,7 +118,7 @@ function BigHouse() {
           id: result.id || submittedAt,
           characterId: user.characterId,
           roleplayUrl: firstTweetUrl.trim(),
-          status: 'pending',
+          status: BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.PENDING,
           submittedAt,
         },
         ...prev,
@@ -161,14 +172,14 @@ function BigHouse() {
                   ref={inputRef}
                   className="big-house__form-input"
                   placeholder="Paste thread URL (first tweet)"
-                  style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                  style={(!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
-                {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                {(!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' && (
                   <div
                     className="big-house__form-error-icon"
-                    data-tooltip={t(T.INVALID_TWITTER_URL)}
+                    data-tooltip={_isDuplicateUrl ? t(T.DUPLICATE_URL) : t(T.INVALID_TWITTER_URL)}
                     data-tooltip-pos={width < 480 ? "left" : "top"}
                   >
                     <InfoCircle />
@@ -177,7 +188,7 @@ function BigHouse() {
                 <button
                   className={`big-house__form-button ${isSubmitting ? 'big-house__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl || _isDuplicateUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >

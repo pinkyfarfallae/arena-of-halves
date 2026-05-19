@@ -201,6 +201,12 @@ function StrawberryFields() {
 
   const _isValidTwitterUrl = useMemo(() => isValidTwitterUrl(firstTweetUrl), [firstTweetUrl]);
 
+  const _isDuplicateUrl = useMemo(
+    () =>
+      submissionsRecord.some((s) => s.firstTweetUrl.toLowerCase() === firstTweetUrl.toLowerCase()),
+    [firstTweetUrl, submissionsRecord]
+  );
+
   const handleSubmit = async () => {
     if (!firstTweetUrl.trim()) {
       setError('Please paste the thread URL');
@@ -214,6 +220,11 @@ function StrawberryFields() {
 
     if (!_isValidTwitterUrl) {
       setError('Invalid Twitter/X URL');
+      return;
+    }
+
+    if (_isDuplicateUrl) {
+      setError('Duplicate URL');
       return;
     }
 
@@ -374,14 +385,14 @@ function StrawberryFields() {
                   ref={inputRef}
                   className="strawberry-fields__form-input"
                   placeholder="Paste thread URL (first tweet)"
-                  style={!_isValidTwitterUrl && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
+                  style={(!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' ? { paddingRight: "40px" } : {}}
                   value={firstTweetUrl}
                   onChange={(e) => setFirstTweetUrl(e.target.value)}
                 />
-                {!_isValidTwitterUrl && firstTweetUrl.trim() !== '' && (
+                {(!_isValidTwitterUrl || _isDuplicateUrl) && firstTweetUrl.trim() !== '' && (
                   <div
                     className="strawberry-fields__form-error-icon"
-                    data-tooltip={t(T.INVALID_TWITTER_URL)}
+                    data-tooltip={_isDuplicateUrl ? t(T.DUPLICATE_URL) : t(T.INVALID_TWITTER_URL)}
                     data-tooltip-pos={width < 480 ? "left" : "top"}
                   >
                     <InfoCircle />
@@ -390,7 +401,7 @@ function StrawberryFields() {
                 <button
                   className={`strawberry-fields__form-button ${isSubmitting ? 'strawberry-fields__form-button--loading' : ''}`}
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl}
+                  disabled={isSubmitting || !firstTweetUrl.trim() || !_isValidTwitterUrl || _isDuplicateUrl}
                   data-tooltip={t(T.SUBMIT)}
                   data-tooltip-pos="top"
                 >

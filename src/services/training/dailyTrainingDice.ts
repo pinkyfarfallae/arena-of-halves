@@ -16,6 +16,7 @@ import { FIRESTORE_COLLECTIONS } from '../../constants/fireStoreCollections';
 import { getAppDateString, getTodayDate } from '../../utils/date';
 import { splitCSVRows, parseCSVLine } from '../../utils/csv';
 import { canExecuteNonCriticalRead } from '../quotaEmergency';
+import { BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS } from '../../constants/bigHouse';
 export interface DailyConfig {
   date: string;
   targets: number[]; // Array of 5 targets (1-12)
@@ -569,7 +570,7 @@ export const fetchAllTrainingTasks = async (params?: {
         success: row[iSuccess] === 'TRUE' || row[iSuccess] === 'true',
         roleplay: row[iRoleplay] || '',
         tickets: Number(row[iTickets]) || 0,
-        verified: (row[iVerified] || 'pending') as TrainingPointRequestStatus,
+        verified: (row[iVerified] || BIG_HOUSE_ROLEPLAY_SUBMISSION_STATUS.PENDING) as TrainingPointRequestStatus,
         verifiedBy: row[iVerifiedBy] || '',
         verifiedAt: row[iVerifiedAt] || '',
         rejectReason: row[iRejectReason] || '',
