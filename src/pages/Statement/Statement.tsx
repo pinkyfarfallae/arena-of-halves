@@ -65,6 +65,7 @@ const getDayKey = (dateStr: string): string => {
 
 const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   const seenDailyGiftDays = new Set<string>();
+  const seenWishDays = new Set<string>();
   // Deduplicate admin item grants that produced two Firestore docs:
   // one "give_item" (old manual log) + one "receive_item" (auto-log from bagService).
   // Normalize both to the same key so only the first one survives.
@@ -74,6 +75,14 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
     const metadata = (log.metadata as Record<string, any>) || {};
     const source = String(metadata.source || '');
     const isDailyGiftLog = log.category === ACTIVITY_LOG_CATEGORY.DRACHMA && source === ACTIVITY_LOG_SOURCES.DAILY_GIFT;
+
+    // Keep only the latest wish log per day (logs are sorted newest-first)
+    if (isWishLog(log)) {
+      const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
+      if (seenWishDays.has(dayKey)) return false;
+      seenWishDays.add(dayKey);
+      return true;
+    }
 
     if (isDailyGiftLog) {
       const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
