@@ -485,7 +485,7 @@ export default function DiceModal({
   // Use original roll before Zeus/Poseidon buff for dice animation if available
   const attackerHasZeusOrPoseidon = displayAttackFighter?.wishOfIris === DEITY.ZEUS || displayAttackFighter?.wishOfIris === DEITY.POSEIDON;
 
-  const rolledAttackValue = pomCoFlowActive
+  const rolledAttackValue = iAmCoAttacker
     ? (attackerHasZeusOrPoseidon && originalCoAttackRollBeforeBuff ? originalCoAttackRollBeforeBuff : (turn.coAttackRoll ?? preRolledAttack))
     : (attackerHasZeusOrPoseidon && originalAttackRollBeforeBuff ? originalAttackRollBeforeBuff : (turn.attackRoll ?? preRolledAttack));
   const attackReplayDeity =
@@ -523,9 +523,7 @@ export default function DiceModal({
         >
           <b>{deity}</b>
         </span>
-        {' '}
-        →
-        {' '}
+        {' → '}
       </>
     );
   };

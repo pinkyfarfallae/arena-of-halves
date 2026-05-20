@@ -47,6 +47,7 @@ import { TARGET_TYPES, MOD_STAT } from '../../../../constants/effectTypes';
 import { SKILL_UNLOCKED } from '../../../../constants/character';
 import { TRANSLATION_KEYS } from '../../../../constants/translations';
 import { DEITY } from '../../../../constants/deities';
+import { getDiceSize } from '../../../../utils/getDiceSize';
 
 /** PvE NPC: let attack D12 mount + animate before writing roll — same delay as `Arena.tsx` main NPC attack schedule. */
 const NPC_AUTO_ATTACK_ROLL_DELAY_MS = 1200;
@@ -469,7 +470,11 @@ export default function BattleHUD({
       (turn?.phase === PHASE.ROLLING_ATTACK && turn?.attackerId === myId && !awaitingPom) ||
       myCoAttackRoll
     ) {
-      setPreRolledAttack(Math.floor(Math.random() * 12) + 1);
+      const rollerWishOfIris = myCoAttackRoll
+        ? find(teamA, teamB, coId ?? '')?.wishOfIris
+        : attacker?.wishOfIris;
+      const diceSize = getDiceSize(rollerWishOfIris);
+      setPreRolledAttack(Math.floor(Math.random() * diceSize) + 1);
     } else if (
       ((turn?.phase === PHASE.ROLLING_DEFEND && !awaitingPom) ||
         isPomegranateCoDefendDicePhase(turn?.phase, awaitingPom)) &&
