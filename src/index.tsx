@@ -3,11 +3,6 @@ import ReactDOM from 'react-dom/client';
 import './index.scss';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { startVersionCheck, clearServiceWorkers } from './utils/versionCheck';
-
-// Clear old service workers and start version checking
-clearServiceWorkers();
-startVersionCheck();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
