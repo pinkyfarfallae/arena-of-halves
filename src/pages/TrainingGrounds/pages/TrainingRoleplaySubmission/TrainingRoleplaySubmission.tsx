@@ -37,6 +37,7 @@ function TrainingRoleplaySubmission() {
   const [sheetTask, setSheetTask] = useState<TrainingTask | null>(null);
   const [livePractice, setLivePractice] = useState<UserDailyProgress | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false); // sync guard against double-click
   const [firstTweetUrl, setFirstTweetUrl] = useState('');
   const [showDescription, setShowDescription] = useState(true);
   // eslint-disable-next-line
@@ -207,6 +208,8 @@ function TrainingRoleplaySubmission() {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setError('');
 
@@ -295,6 +298,7 @@ function TrainingRoleplaySubmission() {
       }
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
