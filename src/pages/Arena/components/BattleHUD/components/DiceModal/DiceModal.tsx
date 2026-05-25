@@ -706,7 +706,9 @@ export default function DiceModal({
               fixedResult={
                 getWishOriginalReplayRoll(
                   latchedAttackRoll,
-                  pomCoFlowActive ? originalCoAttackRollBeforeBuff : originalAttackRollBeforeBuff,
+                  pomCoFlowActive
+                    ? (originalCoAttackRollBeforeBuff ?? turn.originalCoAttackRoll)
+                    : (originalAttackRollBeforeBuff ?? turn.originalAttackRoll),
                   replayAttackFighter?.wishOfIris,
                 )
               }
@@ -754,7 +756,7 @@ export default function DiceModal({
                   (!pomCoFlowActive && showMyDefendReplay
                     ? getWishOriginalReplayRoll(
                       preRolledDefend ?? turn.defendRoll,
-                      originalDefendRollBeforeBuff,
+                      originalDefendRollBeforeBuff ?? turn.originalDefendRoll,
                       defender?.wishOfIris,
                     )
                     : !pomCoFlowActive
@@ -819,7 +821,7 @@ export default function DiceModal({
                     className="bhud__dice-roller"
                     lockedDie={getDiceSize(defender?.wishOfIris)}
                     fixedResult={
-                      getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff, defender?.wishOfIris)
+                      getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff ?? turn.originalDefendRoll, defender?.wishOfIris)
                     }
                     accentColor={defender?.theme[9]}
                     themeColors={dieColors(defender)}
@@ -855,7 +857,7 @@ export default function DiceModal({
                   className="bhud__dice-roller"
                   lockedDie={getDiceSize(defender?.wishOfIris)}
                   fixedResult={
-                    getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff, defender?.wishOfIris)
+                    getWishOriginalReplayRoll(turn.defendRoll, originalDefendRollBeforeBuff ?? turn.originalDefendRoll, defender?.wishOfIris)
                   }
                   accentColor={defender?.theme[9]}
                   themeColors={dieColors(defender)}

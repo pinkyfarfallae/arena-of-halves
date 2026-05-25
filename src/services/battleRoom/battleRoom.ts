@@ -4217,7 +4217,7 @@ export async function requestDefendRollStart(arenaId: string): Promise<void> {
 
 /* ── submit attack dice roll ─────────────────────────── */
 
-export async function submitAttackRoll(arenaId: string, roll: number): Promise<void> {
+export async function submitAttackRoll(arenaId: string, roll: number, originalRoll?: number): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
   const room = snap.val() as BattleRoom;
@@ -4261,6 +4261,7 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
 
   const updates: Record<string, unknown> = {
     [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL]: roll,
+    ...(originalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_ATTACK_ROLL]: originalRoll } : {}),
     [ARENA_PATH.BATTLE_TURN_PHASE]: powerNoDefend ? PHASE.RESOLVING : PHASE.ROLLING_DEFEND,
     ...(powerNoDefend ? { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: 0 } : {}),
   };
@@ -4270,7 +4271,7 @@ export async function submitAttackRoll(arenaId: string, roll: number): Promise<v
 
 /* ── submit defend dice roll ─────────────────────────── */
 
-export async function submitDefendRoll(arenaId: string, roll: number): Promise<void> {
+export async function submitDefendRoll(arenaId: string, roll: number, originalRoll?: number): Promise<void> {
   const snap = await get(roomRef(arenaId));
   if (!snap.exists()) return;
   const room = snap.val() as BattleRoom;
@@ -4323,6 +4324,7 @@ export async function submitDefendRoll(arenaId: string, roll: number): Promise<v
 
   const updates: Record<string, unknown> = {
     [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: roll,
+    ...(originalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_DEFEND_ROLL]: originalRoll } : {}),
     [ARENA_PATH.BATTLE_TURN_PHASE]: PHASE.RESOLVING,
   };
 

@@ -106,6 +106,9 @@ export const ARENA_PATH = {
   BATTLE_ROUND_NUMBER: 'battle/roundNumber',
   BATTLE_TURN_ATTACK_ROLL: 'battle/turn/attackRoll',
   BATTLE_TURN_DEFEND_ROLL: 'battle/turn/defendRoll',
+  /** Raw roll before Zeus/Poseidon modifier — stored so all clients (incl. viewers) can show the real die face */
+  BATTLE_TURN_ORIGINAL_ATTACK_ROLL: 'battle/turn/originalAttackRoll',
+  BATTLE_TURN_ORIGINAL_DEFEND_ROLL: 'battle/turn/originalDefendRoll',
   BATTLE_TURN_ATTACK_ROLL_STARTED_AT: 'battle/turn/attackRollStartedAt',
   BATTLE_TURN_DEFEND_ROLL_STARTED_AT: 'battle/turn/defendRollStartedAt',
   BATTLE_TURN_PHASE: 'battle/turn/phase',

@@ -139,6 +139,14 @@ export interface TurnState {
   phase: TurnPhase;
   attackRoll?: number;
   defendRoll?: number;
+  /** Raw attack roll before Zeus/Poseidon modifier — stored so all clients (incl. viewers) show the real die face */
+  originalAttackRoll?: number | null;
+  /** Raw defend roll before Zeus/Poseidon modifier */
+  originalDefendRoll?: number | null;
+  /** Raw co-attack roll before Zeus/Poseidon modifier */
+  originalCoAttackRoll?: number | null;
+  /** Raw co-defend roll before Zeus/Poseidon modifier */
+  originalCoDefendRoll?: number | null;
 
   /* Power usage */
   action?: (typeof TURN_ACTION)[keyof typeof TURN_ACTION];

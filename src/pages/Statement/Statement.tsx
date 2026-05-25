@@ -440,13 +440,13 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
           const hasDetails = trainingDate || remaining != null;
           return {
             ...baseResult,
-            display: `Used ${log.amount} x ${toTitleCase(itemId)} for training roleplay skip.`,
+            display: `Used ${log.amount} x ${toTitleCase(itemId)} for training roleplay ${trainingDate ? `of task on ${formatDateOnly(trainingDate)}` : ''} skip.`,
             details: hasDetails ? (
               <div className="activity-details">
                 {trainingDate && (
                   <div className="activity-detail-item">
                     <span className="detail-bullet" />
-                    <span className="detail-text">Training date: {trainingDate}</span>
+                    <span className="detail-text">Training date: {formatDateOnly(trainingDate)}</span>
                   </div>
                 )}
                 {remaining != null && (

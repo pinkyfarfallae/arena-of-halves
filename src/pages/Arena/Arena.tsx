@@ -1502,7 +1502,7 @@ function Arena(props?: ArenaDemoProps) {
       } else {
         setOriginalAttackRollBeforeBuff(roll);
       }
-      await submitAttackRoll(arenaId, modifiedRoll);
+      await submitAttackRoll(arenaId, modifiedRoll, roll);
     } else if (attackerTodayWishOfIris === DEITY.POSEIDON) {
       // Submit boosted roll (Poseidon: min 6)
       const modifiedRoll = Math.max(6, roll);
@@ -1511,7 +1511,7 @@ function Arena(props?: ArenaDemoProps) {
       } else {
         setOriginalAttackRollBeforeBuff(roll);
       }
-      await submitAttackRoll(arenaId, modifiedRoll);
+      await submitAttackRoll(arenaId, modifiedRoll, roll);
     } else if (attackerTodayWishOfIris === DEITY.TYCHE) {
       // Submit advantage roll (Tyche: max of two D20 rolls)
       const modifiedRoll = roll;
@@ -1543,7 +1543,7 @@ function Arena(props?: ArenaDemoProps) {
         setOriginalDefendRollBeforeBuff(roll);
       }
 
-      await submitDefendRoll(arenaId, modifiedRoll);
+      await submitDefendRoll(arenaId, modifiedRoll, roll);
     } else if (defenderTodayWishOfIris === DEITY.POSEIDON) {
       // Submit boosted roll (Poseidon: min 6)
       const modifiedRoll = Math.max(6, roll);
@@ -1552,7 +1552,7 @@ function Arena(props?: ArenaDemoProps) {
       } else {
         setOriginalDefendRollBeforeBuff(roll);
       }
-      await submitDefendRoll(arenaId, modifiedRoll);
+      await submitDefendRoll(arenaId, modifiedRoll, roll);
     } else if (defenderTodayWishOfIris === DEITY.TYCHE) {
       // Submit advantage roll (Tyche: max of two D20 rolls)
       const modifiedRoll = roll;
