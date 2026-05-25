@@ -241,7 +241,7 @@ function TrainingRoleplaySubmission() {
             urlToSubmit,
             ticketsToApply
           ),
-          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference, 'training_roleplay_skip')
+          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference, 'training_roleplay_skip', { trainingDate: date })
         ]);
       } else if (ticketDifference < 0) {
         // Using fewer tickets than before - return unused tickets

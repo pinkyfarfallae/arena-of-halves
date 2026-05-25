@@ -414,6 +414,13 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
             display: `${log.amount} x ${toTitleCase(itemId)} removed by admin.`,
           };
         }
+        if (source === ACTIVITY_LOG_SOURCES.TRAINING_ROLEPLAY_SKIP) {
+          const trainingDate = metadata.trainingDate ? ` of ${metadata.trainingDate}` : '';
+          return {
+            ...baseResult,
+            display: `${log.id} Used ${log.amount} x ${toTitleCase(itemId)} for training roleplay${trainingDate} skip.`,
+          };
+        }
         return {
           ...baseResult,
           display: `Used ${log.amount} x ${toTitleCase(itemId)} for ${formatSourceLabel(String(source))}.`,

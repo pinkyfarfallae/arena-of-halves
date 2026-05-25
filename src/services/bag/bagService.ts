@@ -204,7 +204,8 @@ export async function consumeItem(
   userId: string,
   itemId: string,
   amount: number = 1,
-  source?: string
+  source?: string,
+  extraMetadata?: Record<string, any>
 ): Promise<{ success: boolean; newAmount?: number; error?: string }> {
   if (amount <= 0) {
     return { success: false, error: 'Amount must be positive' };
@@ -238,7 +239,7 @@ export async function consumeItem(
         characterId: userId,
         performedBy: userId,
         amount,
-        metadata: { itemId, source: source ?? ACTIVITY_LOG_SOURCES.UNKNOWN, newAmount },
+        metadata: { itemId, source: source ?? ACTIVITY_LOG_SOURCES.UNKNOWN, newAmount, ...extraMetadata },
       });
       return { success: true, newAmount };
     }
