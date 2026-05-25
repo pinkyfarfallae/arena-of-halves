@@ -202,7 +202,7 @@ function TrainingApproval() {
     if (!reviewingTask) return;
     if (!canApproveTrainingTask(reviewingTask)) return;
 
-    const isTicketOnly = ((reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '')) || reviewingTask.mode === PRACTICE_MODE.PVP;
+    const isTicketOnly = (reviewingTask.tickets || 0) >= 5;
 
     let charCount = 0;
     let tweetCount = 0;
@@ -499,125 +499,7 @@ function TrainingApproval() {
                   );
                 }
 
-                const isPvPTask = reviewingTask.mode === PRACTICE_MODE.PVP;
-                const isTicketOnly = !isPvPTask && (reviewingTask.tickets || 0) >= 5 && (!reviewingTask.roleplay || reviewingTask.roleplay.trim() === '');
-                if (isPvPTask) {
-                  const trainee = characters.find((c) => c.characterId === reviewingTask.userId);
-                  return (
-                    <div className="training-approval__review-sheet">
-                      <div className="training-approval__review-section training-approval__review-section--result">
-                        <div className="training-approval__review-section-header">
-                          <span className="training-approval__review-section-title">PvP Battle Submission</span>
-                        </div>
-                        <div className="training-approval__review-section-content">
-                          <div style={{ marginBottom: '0.75rem', opacity: 0.8 }}>
-                            This is a PvP practice battle — no roleplay thread required.
-                          </div>
-
-                          {/* Trainee */}
-                          <div className="training-approval__trainee">
-                            <div className="training-approval__trainee-avatar">
-                              {trainee ? (
-                                <img src={trainee.image} alt={getCharacterName(trainee.characterId)} referrerPolicy="no-referrer" />
-                              ) : (
-                                <span>{getCharacterName(reviewingTask.userId)[0]?.toUpperCase() || '?'}</span>
-                              )}
-                            </div>
-                            <span className="training-approval__trainee-name">
-                              <b>Trainee </b>
-                              {trainee ? `${trainee.nameEng} (${trainee.nicknameEng})` : getCharacterName(reviewingTask.userId)}
-                            </span>
-                          </div>
-
-                          {/* Battle stats */}
-                          <div className="training-approval__stats">
-                            <div className="training-approval__stat-item">
-                              <span className="training-approval__stat-label">Result</span>
-                              <span className="training-approval__stat-value" style={{ color: reviewingTask.success ? '#2ecc71' : '#e74c3c' }}>
-                                {reviewingTask.success ? 'Win' : 'Loss'}
-                              </span>
-                            </div>
-                            <div className="training-approval__stat-item">
-                              <span className="training-approval__stat-label">Opponent</span>
-                              <span className="training-approval__stat-value">{reviewingTask.opponentName || reviewingTask.opponentId || '—'}</span>
-                            </div>
-                            <div className="training-approval__stat-item">
-                              <span className="training-approval__stat-label">Rounds</span>
-                              <span className="training-approval__stat-value">{reviewingTask.battleRounds ?? '—'}</span>
-                            </div>
-                          </div>
-
-                          <div className="training-approval__result">
-                            <div className="training-approval__result-title">Training Status</div>
-                            <div className="training-approval__result-status training-approval__result-status--pass">
-                              <span className="training-approval__result-status-head">✓ BATTLE COMPLETED</span>
-                              <small style={{ opacity: 0.8, fontWeight: 500 }}>PvP awards TP for both win and loss</small>
-                            </div>
-                          </div>
-
-                          {/* Fortune blessing */}
-                          {reviewingTask.withFullLevelFortune && (
-                            <div
-                              className="training-approval__fortune-blessing"
-                              style={{
-                                '--fortune-primary-color': PRACTICE_STATES_DETAIL[5].color,
-                                '--fortune-primary-color-rgb': hexToRgb(PRACTICE_STATES_DETAIL[5].color),
-                                '--fortune-dark-color': rgbToHex(darken(PRACTICE_STATES_DETAIL[5].color, 0.5)),
-                                '--fortune-dark-color-rgb': hexToRgb(darken(PRACTICE_STATES_DETAIL[5].color, 0.5))
-                              } as CSSProperties}
-                            >
-                              <div className="training-approval__fortune-blessing-header">
-                                <div className="training-approval__fortune-blessing-icon"><Crown /></div>
-                                <span>This trainee had max Fortune (level 5) on the training day!</span>
-                              </div>
-                              <div className="training-approval__fortune-blessing-content">
-                                Full Fortune grants an extra training point for this submission.
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Athena blessing */}
-                          {isTraineeBlessedByAthena && (
-                            <div
-                              className="training-approval__athena-blessing"
-                              style={{
-                                '--athena-primary-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0],
-                                '--athena-primary-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][0]),
-                                '--athena-dark-color': DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1],
-                                '--athena-dark-color-rgb': hexToRgb(DEITY_THEMES[DEITY.ATHENA.toLowerCase()][1]),
-                              } as CSSProperties}
-                            >
-                              <div className="training-approval__athena-blessing-header">
-                                <div className="training-approval__athena-blessing-icon"><Athena /></div>
-                                <span>Goddess Athena has blessed this trainee on the training day!</span>
-                              </div>
-                              <div className="training-approval__athena-blessing-content">
-                                As a blessing from Athena, this trainee's will receive 2 training point reward for this submission.
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Quick Reject */}
-                          <div className="training-approval__quick-reject" style={{ marginTop: '0.5rem' }}>
-                            <div className="training-approval__quick-reject-content">
-                              <span className="training-approval__quick-reject-label">Need to reject this submission?</span>
-                              <button className="training-approval__quick-reject-btn" onClick={handleRejectClick}>Reject Submission</button>
-                            </div>
-                          </div>
-
-                          <div className="training-approval__actions">
-                            <button
-                              className="training-approval__action-btn training-approval__action-btn--approve"
-                              onClick={handleApproveClick}
-                            >
-                              Approve
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
+                const isTicketOnly = (reviewingTask.tickets || 0) >= 5;
                 if (isTicketOnly) {
                   const trainee = characters.find((c) => c.characterId === reviewingTask.userId);
                   return (
