@@ -231,6 +231,11 @@ function TrainingRoleplaySubmission() {
         rejectReason: '',
       };
       setSheetTask(optimisticTask);
+      // Also sync userTrainingTasks so _isDuplicateDate reflects the new state
+      // immediately — without this, the check stays stale until the next fetch.
+      setUserTrainingTasks(prev =>
+        prev.map(t => (t.id === optimisticTask.id ? optimisticTask : t))
+      );
 
       if (ticketDifference > 0) {
         // Using more tickets than before - consume additional tickets
@@ -241,7 +246,7 @@ function TrainingRoleplaySubmission() {
             urlToSubmit,
             ticketsToApply
           ),
-          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference, 'training_roleplay_skip', { trainingDate: date })
+          consumeItem(user.characterId, ITEMS.SKIP_TICKET, ticketDifference, 'training_roleplay_skip', { trainingDate: date, taskId: sheetTask?.id || '', roleplayUrl: urlToSubmit || '' })
         ]);
       } else if (ticketDifference < 0) {
         // Using fewer tickets than before - return unused tickets
@@ -284,6 +289,9 @@ function TrainingRoleplaySubmission() {
       // Rollback sheet task optimistic update
       if (sheetTask) {
         setSheetTask(sheetTask);
+        setUserTrainingTasks(prev =>
+          prev.map(t => (t.id === sheetTask.id ? sheetTask : t))
+        );
       }
       setError(err instanceof Error ? err.message : 'Failed to submit training task');
     } finally {

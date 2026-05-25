@@ -71,6 +71,10 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   // one "give_item" (old manual log) + one "receive_item" (auto-log from bagService).
   // Normalize both to the same key so only the first one survives.
   const seenItemGrantKeys = new Set<string>();
+  // Deduplicate training roleplay skip tickets by characterId + trainingDate.
+  // Only collapse when trainingDate is explicitly stored in metadata — old logs
+  // without it are kept as-is to avoid incorrectly merging different-task entries.
+  const seenRoleplaySkipKeys = new Set<string>();
 
   return activityLogs.filter((log) => {
     // Logs are sorted newest-first, so the first WISH_TOSSED seen per day is the final selection
@@ -88,6 +92,22 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
       const dayKey = `${log.characterId}:${getDayKey(log.createdAt)}`;
       if (seenDailyGiftDays.has(dayKey)) return false;
       seenDailyGiftDays.add(dayKey);
+      return true;
+    }
+
+    // Deduplicate skip ticket usage only when trainingDate is explicitly in metadata.
+    // Using day-of-createdAt as a fallback is unsafe: a player can submit skip tickets
+    // for multiple different tasks on the same calendar day, so those logs share the
+    // same createdAt day but must be kept as separate entries.
+    if (
+      log.category === ACTIVITY_LOG_CATEGORY.ITEM &&
+      log.action === ACTIVITY_LOG_ACTIONS.CONSUME_ITEM &&
+      source === ACTIVITY_LOG_SOURCES.TRAINING_ROLEPLAY_SKIP &&
+      metadata.trainingDate
+    ) {
+      const key = `${log.characterId}:${String(metadata.trainingDate)}`;
+      if (seenRoleplaySkipKeys.has(key)) return false;
+      seenRoleplaySkipKeys.add(key);
       return true;
     }
 
@@ -415,10 +435,28 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
           };
         }
         if (source === ACTIVITY_LOG_SOURCES.TRAINING_ROLEPLAY_SKIP) {
-          const trainingDate = metadata.trainingDate ? ` of ${metadata.trainingDate}` : '';
+          const remaining = metadata.newAmount != null ? Number(metadata.newAmount) : null;
+          const trainingDate = metadata.trainingDate as string | undefined;
+          const hasDetails = trainingDate || remaining != null;
           return {
             ...baseResult,
-            display: `${log.id} Used ${log.amount} x ${toTitleCase(itemId)} for training roleplay${trainingDate} skip.`,
+            display: `Used ${log.amount} x ${toTitleCase(itemId)} for training roleplay skip.`,
+            details: hasDetails ? (
+              <div className="activity-details">
+                {trainingDate && (
+                  <div className="activity-detail-item">
+                    <span className="detail-bullet" />
+                    <span className="detail-text">Training date: {trainingDate}</span>
+                  </div>
+                )}
+                {remaining != null && (
+                  <div className="activity-detail-item">
+                    <span className="detail-bullet" />
+                    <span className="detail-text">Remaining: {remaining} Skip Ticket{remaining === 1 ? '' : 's'}</span>
+                  </div>
+                )}
+              </div>
+            ) : undefined,
           };
         }
         return {
