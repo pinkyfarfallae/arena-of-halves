@@ -27,6 +27,7 @@ import CampTreasury from './pages/CampTreasuryTransfer/CampTreasuryTransfer';
 import './App.scss';
 import { SECRET_CHARACTERS } from './constants/characters';
 import Statement from './pages/Statement/Statement';
+import { useAppVersionRefresh } from './hooks/useAppVersionRefresh';
 
 export const applyTheme = (t: string[]): React.CSSProperties => {
   const primaryColor = (!isNearWhite(t[0]) ? t[0] : undefined) || t[0];
@@ -124,6 +125,8 @@ function AppShell() {
   const [checkedDailyGiftForSession, setCheckedDailyGiftForSession] = useState<string | null>(null);
   const dailyGiftFetchingRef = React.useRef(false);
   const dailyGiftClaimingRef = React.useRef(false);
+
+  useAppVersionRefresh();
 
   let themeVars: React.CSSProperties | undefined;
 
