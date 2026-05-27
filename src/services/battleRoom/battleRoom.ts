@@ -5013,8 +5013,9 @@ export async function applyDeferredPomegranateCoContinue(
         );
       }
 
+      const coDefendedSuccessfully = !coHit;
       if (
-        coHit &&
+        coDefendedSuccessfully &&
         hpAfterCo > 0 &&
         defender.wishOfIris === DEITY.NEMESIS &&
         casterId
@@ -6754,9 +6755,10 @@ export async function resolveTurn(arenaId: string): Promise<void> {
   const nemesisReattackTargetId = turn.awaitingPomegranateCoAttack && turn.pomegranateDeferredCtx
     ? (effectivePomCoAttackerId(turn) ?? attackerId)
     : attackerId;
+  const defendedSuccessfully = !hit;
   const shouldPauseForNemesis =
-    hit &&
-    defenderHpAfter > 0 &&
+    defendedSuccessfully &&
+    defender.currentHp > 0 &&
     defenderHasNemesisWish &&
     !!nemesisReattackTargetId &&
     !(turn as { nemesisReattackSourceId?: string | null }).nemesisReattackSourceId;
