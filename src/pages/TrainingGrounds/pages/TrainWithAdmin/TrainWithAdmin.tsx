@@ -372,8 +372,9 @@ export default function TrainWithAdmin() {
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',
       '--accent-dark': user?.theme[19] || '#0f1a2e',
+      '--bg-text': contrastText(user?.theme[4] || '#1a1a1a'), // Page background text color
     } as React.CSSProperties
-  }, [user?.theme, user?.characterId]);
+  }, [user?.theme, user?.characterId, user?.deityBlood]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
   // PvP is considered "in progress" if it's in waiting or live state
@@ -397,7 +398,7 @@ export default function TrainWithAdmin() {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
-        <div className="train-with-admin__error">
+        <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
           <h2>Your last training is not completed yet</h2>
           <p>
             Your training submission is currently pending review by the admin. <br />
@@ -418,7 +419,7 @@ export default function TrainWithAdmin() {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
-        <div className="train-with-admin__error">
+        <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
           <h2>PvP Training In Progress</h2>
           <p>
             You have an active PvP training. <br />
@@ -439,7 +440,7 @@ export default function TrainWithAdmin() {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
-        <div className="train-with-admin__error">
+        <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
           <h2>PvP Training Completed</h2>
           <p>
             Your PvP training has been completed. <br />
@@ -463,7 +464,7 @@ export default function TrainWithAdmin() {
         style={colorStyle}
       >
         {BG_ELEMENTS}
-        <div className="train-with-admin__error">
+        <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
           <h2>No Training Available</h2>
           <p>The admin hasn't set today's training targets yet. <br /> Please check back later.</p>
           <Link
@@ -481,7 +482,7 @@ export default function TrainWithAdmin() {
     return (
       <div className="train-with-admin" style={colorStyle}>
         {BG_ELEMENTS}
-        <div className="train-with-admin__error">
+        <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
           <h2>Training Not Available</h2>
           <p>{validation.reason}</p>
           <Link

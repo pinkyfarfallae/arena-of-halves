@@ -767,6 +767,10 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void, viewerChara
   const arenasRef = ref(db, FIREBASE_PATHS.ARENAS);
   const handler = onValue(arenasRef, (snap) => {
     const now = Date.now();
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    
     const rooms = !snap.exists()
       ? []
       : (Object.values(snap.val() as Record<string, BattleRoom>)
@@ -774,6 +778,8 @@ export function onRoomsList(callback: (rooms: BattleRoom[]) => void, viewerChara
           // QUOTA EMERGENCY: Filter early to reduce processing
           if (r.status === ROOM_STATUS.CONFIGURING || r.practiceMode) return false;
           if (r.secretMode && !isSecretCharacter(viewerCharacterId)) return false;
+          // Filter out rooms created before today (prevent showing yesterday's lingering rooms)
+          if (r.createdAt < todayMidnightMs) return false;
           return true;
         })
         .sort((a, b) => b.createdAt - a.createdAt));

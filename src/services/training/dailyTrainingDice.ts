@@ -6,7 +6,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { firestore, db } from '../../firebase';
-import { ref, set } from 'firebase/database';
+import { ref, set, get } from 'firebase/database';
 import { APPS_SCRIPT_URL, fetchSheetCsv, GID } from '../../constants/sheets';
 import { ACTIONS } from '../../constants/action';
 import { ARENA_ROLE } from '../../constants/battle';
@@ -420,6 +420,19 @@ export const saveTrainingResult = async (
 
 export const savePracticeProgress = async (progress: PracticeProgressInput): Promise<void> => {
   const date = getTodayDate();
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const todayMidnightMs = todayMidnight.getTime();
+
+  // Reject stale rooms from previous days so they cannot create today's progress/quota.
+  const arenaSnap = await get(ref(db, `arenas/${progress.arenaId}`)).catch(() => null);
+  if (arenaSnap?.exists()) {
+    const arena = arenaSnap.val() as { createdAt?: number };
+    if (typeof arena.createdAt === 'number' && arena.createdAt < todayMidnightMs) {
+      throw new Error('This practice room expired at midnight. Please create a new room for today.');
+    }
+  }
+
   const docId = `${progress.userId}_${date}`;
   const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, docId);
   const existingSnap = await getDoc(progressRef);

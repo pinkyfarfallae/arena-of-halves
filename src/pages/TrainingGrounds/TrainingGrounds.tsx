@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Stats from './pages/Stats/Stats';
 import PvP from './pages/PvP/PvP';
@@ -10,7 +10,7 @@ import { createRoom, getRoom, deleteRoom, toFighterState, updateTodayWishesForRo
 import { getPowers } from '../../data/powers';
 import { db, firestore } from '../../firebase';
 import { ref, update, get, remove } from 'firebase/database';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { ARENA_ROLE, ROOM_STATUS } from '../../constants/battle';
 import { ROLE } from '../../constants/role';
 import { InviteReservation } from '../../types/battle';
@@ -105,6 +105,9 @@ export default function TrainingGrounds() {
           try {
             const room = await getRoom(todayProgress.arenaId);
             if (room) {
+              const todayMidnight = new Date();
+              todayMidnight.setHours(0, 0, 0, 0);
+              const isRoomFromToday = typeof room.createdAt === 'number' && room.createdAt >= todayMidnight.getTime();
               const teamAMembers = room.teamA?.members || [];
               const teamBMembers = room.teamB?.members || [];
               const allMembers = [...teamAMembers, ...teamBMembers];
@@ -123,7 +126,7 @@ export default function TrainingGrounds() {
                 (room.status === ROOM_STATUS.CONFIGURING || room.status === ROOM_STATUS.WAITING);
 
               if (mounted) {
-                setExistingPvpArenaId(isFighter || isCreator || isOwnPracticeRoom ? todayProgress.arenaId : '');
+                setExistingPvpArenaId(isRoomFromToday && (isFighter || isCreator || isOwnPracticeRoom) ? todayProgress.arenaId : '');
               }
             } else {
               if (mounted) {
@@ -171,7 +174,7 @@ export default function TrainingGrounds() {
   }, [todayDate, user?.characterId, createdPracticeArenaId, existingPvpArenaId]);
 
   // Auto-delete yesterday's PvP practice room when the day rolls over
-  const cleanupYesterdayPracticeRoom = () => {
+  const cleanupYesterdayPracticeRoom = useCallback(() => {
     if (!user?.characterId) return;
 
     (async () => {
@@ -184,21 +187,65 @@ export default function TrainingGrounds() {
 
         if (hadYesterdayPvpRoom && yesterdayArenaId) {
           await deleteRoom(yesterdayArenaId);
+          // Keep daily progress record but close the stale room reference.
+          const progressDocId = `${user.characterId}_${yesterdayDate}`;
+          const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
+          await updateDoc(progressRef, {
+            state: PRACTICE_STATES.FINISHED,
+            arenaId: '',
+          }).catch(() => {});
         }
       } catch (err) {
         // Ignore errors - best-effort cleanup
       }
     })();
-  };
+  }, [user?.characterId]);
+
+  // Vacuum any orphaned practice rooms created before today
+  const vacuumOldPracticeRooms = useCallback(() => {
+    if (!user?.characterId) return;
+
+    (async () => {
+      try {
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
+        
+        const arenasSnap = await get(ref(db, 'arenas')).catch(() => null);
+        if (!arenasSnap?.exists()) return;
+        
+        const rooms = arenasSnap.val() as Record<string, any>;
+        const cleanupPromises: Promise<void>[] = [];
+        
+        for (const [arenaId, room] of Object.entries(rooms)) {
+          // Only clean up practice mode rooms created before today by this user's team members
+          if (room.practiceMode && 
+              room.createdAt < todayMidnightMs && 
+              (room.teamA?.members?.some((m: any) => m.characterId?.toLowerCase() === user.characterId?.toLowerCase()) ||
+               room.teamB?.members?.some((m: any) => m.characterId?.toLowerCase() === user.characterId?.toLowerCase()))) {
+            cleanupPromises.push(deleteRoom(arenaId).catch(() => {}));
+          }
+        }
+        
+        if (cleanupPromises.length > 0) {
+          await Promise.all(cleanupPromises);
+        }
+      } catch (err) {
+        // Ignore errors - best-effort cleanup
+      }
+    })();
+  }, [user?.characterId]);
 
   // Run cleanup once on mount when user is available
   useEffect(() => {
     cleanupYesterdayPracticeRoom();
-  }, [user?.characterId]);
+    vacuumOldPracticeRooms();
+  }, [user?.characterId, cleanupYesterdayPracticeRoom, vacuumOldPracticeRooms]);
 
   // Also trigger cleanup on daily rollover
   useDailyTrigger(() => {
     cleanupYesterdayPracticeRoom();
+    vacuumOldPracticeRooms();
   });
 
   const handleTrainWithAdmin = () => {
@@ -219,7 +266,13 @@ export default function TrainingGrounds() {
       const hadYesterdayPvpRoom = yesterdayQuotaSnap?.exists() && yesterdayQuotaSnap.val().mode === PRACTICE_MODE.PVP && yesterdayArenaId;
 
       if (hadYesterdayPvpRoom && yesterdayArenaId) {
-        deleteRoom(yesterdayArenaId);
+        await deleteRoom(yesterdayArenaId);
+        const progressDocId = `${user.characterId}_${yesterdayDate}`;
+        const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
+        await updateDoc(progressRef, {
+          state: PRACTICE_STATES.FINISHED,
+          arenaId: '',
+        }).catch(() => {});
       }
     } catch (err) {
       // Ignore errors here - if cleanup fails, we'll just treat it as no existing room and let user create a new one
@@ -237,8 +290,12 @@ export default function TrainingGrounds() {
     }
 
     if (!pvpGateOpenModal) {
-      navigate('/training-grounds/pvp');
-      return;
+      // Re-check in real-time: local gate can be stale after async cleanup.
+      const validation = await canUserTrain(user.characterId, PRACTICE_MODE.PVP).catch(() => null);
+      if (!validation?.canTrain) {
+        navigate('/training-grounds/pvp');
+        return;
+      }
     }
 
     // Create room if needed
@@ -424,7 +481,10 @@ export default function TrainingGrounds() {
       const progressDocId = `${quotaOwnerId}_${quotaDate}`;
       const progressRef = doc(firestore, FIRESTORE_COLLECTIONS.USER_DAILY_PROGRESS, progressDocId);
       try {
-        await deleteDoc(progressRef);
+        await updateDoc(progressRef, {
+          state: PRACTICE_STATES.FINISHED,
+          arenaId: '',
+        });
       } catch (err) {
         // Don't fail the deletion if progress delete fails
       }

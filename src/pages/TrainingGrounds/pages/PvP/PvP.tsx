@@ -84,8 +84,9 @@ export default function PvP() {
       '--surface-hover': user?.theme[11] || '#e8e8e8',
       '--overlay-text': user?.theme[17] || '#333333',
       '--accent-dark': user?.theme[19] || '#0f1a2e',
+      '--bg-text': contrastText(user?.theme[4] || '#1a1a1a'), // Page background text color
     } as React.CSSProperties;
-  }, [user?.theme, user?.characterId]);
+  }, [user?.theme, user?.characterId, user?.deityBlood]);
 
   const hasPendingSheetTask = !!sheetTask && sheetTask.verified !== TRAINING_POINT_REQUEST_STATUS.APPROVED;
   const hasLiveNormalTraining = livePractice?.mode === PRACTICE_MODE.NORMAL && livePractice.state === PRACTICE_STATES.LIVE;
@@ -204,7 +205,7 @@ export default function PvP() {
   return (
     <div className="train-with-admin" style={colorStyle}>
       {BG_ELEMENTS}
-      <div className="train-with-admin__error">
+      <div className="train-with-admin__error" style={{ color: 'var(--bg-text)' }}>
         <h2>PvP Training</h2>
         <p>Open or join a practice room from Camp when you are ready.</p>
         <Link to="/training-grounds" className="train-with-admin__error-back-button">
