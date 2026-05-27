@@ -154,7 +154,8 @@ function Arena(props?: ArenaDemoProps) {
     if (!arenaId) return;
     if (isPractice) {
       setBeyondTodayPractice(true);
-    } else if (!isDemo) {
+    }
+    if (!isDemo) {
       updateTodayWishesForRoom(arenaId);
     }
   });
