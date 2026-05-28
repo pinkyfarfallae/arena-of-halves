@@ -16,6 +16,8 @@ import { Deity } from '../../constants/deities';
 import { DEITY_SVG } from '../../data/deities';
 import Refresh from '../IrisMessage/icons/Refresh';
 import { EQUIPMENT_UPGRADE_OUTCOME } from '../../constants/equipment';
+import { fetchHarvests } from '../../services/harvest/fetchHarvest';
+import { HARVEST_SUBMISSION_STATUS } from '../../constants/harvest';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -237,7 +239,7 @@ const getWishDeityStyles = (log: ActivityLog): React.CSSProperties => {
   } as React.CSSProperties;
 };
 
-const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
+const formatActivityDisplay = (log: ActivityLog, currentCharacterId?: string): FormattedActivity => {
   const metadata = log.metadata as Record<string, any> || {};
   const deity = metadata.deity || 'Iris';
   const itemId = metadata.itemId || 'item';
@@ -664,9 +666,23 @@ const formatActivityDisplay = (log: ActivityLog): FormattedActivity => {
         const roleplayers = (metadata.roleplayers as string[]) || [];
         const hasDetails = roleplayers.length > 0;
 
+        let earnedDrachma = log.amount;
+        if (currentCharacterId && metadata.drachmaReward) {
+          try {
+            const rewardMap: Record<string, number> = typeof metadata.drachmaReward === 'string'
+              ? JSON.parse(metadata.drachmaReward)
+              : metadata.drachmaReward;
+            if (rewardMap[currentCharacterId] != null) {
+              earnedDrachma = rewardMap[currentCharacterId];
+            }
+          } catch {
+            // fall back to log.amount
+          }
+        }
+
         return {
           ...baseResult,
-          display: `${isHarvest ? 'Harvest' : 'Mission'} approval granted. Earned ${log.amount} drachma.`,
+          display: `${isHarvest ? 'Harvest' : 'Mission'} approval granted. Earned ${earnedDrachma?.toLocaleString()} drachma.`,
           details: hasDetails ? (
             <div className="activity-details">
               <div className="activity-detail-item">
@@ -780,8 +796,37 @@ export const Statement: React.FC = () => {
         fetchAcceptedClaimsForCharacter(user.characterId, 14),
       ]);
 
-      const sortedLogs = [...userLogs]
+      let sortedLogs = [...userLogs]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Enrich old HARVEST_APPROVED logs that are missing drachmaReward in metadata
+      const harvestLogsNeedingEnrichment = sortedLogs.filter(l =>
+        (l.action === ACTIVITY_LOG_ACTIONS.HARVEST_APPROVED || l.action === ACTIVITY_LOG_ACTIONS.MISSION_APPROVED) &&
+        !(l.metadata as Record<string, any>)?.drachmaReward
+      );
+      if (harvestLogsNeedingEnrichment.length > 0) {
+        const { harvests } = await fetchHarvests(user.characterId, HARVEST_SUBMISSION_STATUS.APPROVED);
+        const harvestById = new Map(harvests.map(h => [h.id, h]));
+        sortedLogs = sortedLogs.map(l => {
+          if (
+            (l.action === ACTIVITY_LOG_ACTIONS.HARVEST_APPROVED || l.action === ACTIVITY_LOG_ACTIONS.MISSION_APPROVED) &&
+            !(l.metadata as Record<string, any>)?.drachmaReward
+          ) {
+            const submissionId = (l.metadata as Record<string, any>)?.submissionId as string | undefined;
+            const harvestRecord = submissionId ? harvestById.get(submissionId) : undefined;
+            if (harvestRecord?.drachmaReward) {
+              return {
+                ...l,
+                metadata: {
+                  ...(l.metadata as Record<string, any>),
+                  drachmaReward: harvestRecord.drachmaReward,
+                },
+              } as ActivityLog;
+            }
+          }
+          return l;
+        });
+      }
 
       const syntheticWishLogs = userWishes
         .filter(wish => Boolean(wish.deity))
@@ -823,7 +868,7 @@ export const Statement: React.FC = () => {
     }
   };
 
-  const formattedLogs = logs.map(log => formatActivityDisplay(log));
+  const formattedLogs = logs.map(log => formatActivityDisplay(log, user?.characterId));
 
   const filteredLogs = formattedLogs.filter(formatted => {
     const log = formatted.log;

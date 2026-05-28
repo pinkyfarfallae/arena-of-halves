@@ -34,7 +34,12 @@ export default function SubmissionCard({ submission, focused, onClick, forcedCom
 
   const roleplayers = submission.roleplayers?.split(',').map(r => r.trim()) || [];
   const isSolo = roleplayers.length === 1;
-  const { display: rewardDisplay, label: rewardLabel } = parseDrachmaReward(submission.drachmaReward, isSolo);
+  const { display: rewardDisplay, label: rewardLabel } = parseDrachmaReward(
+    submission.drachmaReward,
+    isSolo,
+    submission.charCount,
+    roleplayers.length
+  );
 
   return (
     <div

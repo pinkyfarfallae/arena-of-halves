@@ -379,6 +379,7 @@ function HarvestApproval() {
         submissionId,
         totalDrachma: totalDrachmaAwarded,
         roleplayers: approveData.roleplayers,
+        drachmaReward: JSON.stringify(rewardMap),
       },
     });
 

@@ -41,7 +41,12 @@ export default function HarvestRecordCard({ submission, characterMap }: HarvestR
   }, [submission.roleplayers]);
   
   const isSolo = roleplayers.length === 1;
-  const { display: rewardDisplay } = parseDrachmaReward(submission.drachmaReward, isSolo);
+  const { display: rewardDisplay } = parseDrachmaReward(
+    submission.drachmaReward,
+    isSolo,
+    submission.charCount,
+    roleplayers.length
+  );
 
   useEffect(() => {
     let mounted = true;
