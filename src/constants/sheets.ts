@@ -31,6 +31,35 @@ export const csvUrl = (gid: string) =>
 export const secretCsvUrl = (gid: string) =>
   `https://docs.google.com/spreadsheets/d/${SECRET_SHEET_ID}/export?format=csv&gid=${gid}&_t=${Date.now()}&r=${Math.random()}`;
 
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Guard against requests that never settle on some mobile networks/browsers.
+ */
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (error) {
+    if ((error as Error)?.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Fetch a sheet as CSV via Apps Script POST proxy.
  *  Works in production (GitHub Pages). Local dev may be CORS-blocked — test on deployed site.
  *  If Apps Script doPost hasn't been redeployed with fetchSheet action, falls back gracefully. */
@@ -52,10 +81,13 @@ export async function fetchSheetCsv(gid: string): Promise<string> {
   const existing = _csvInflight.get(gid);
   if (existing) return existing;
 
-  const promise = fetch(APPS_SCRIPT_URL, {
+  const promise = fetchWithTimeout(APPS_SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'fetchSheet', gid }),
   }).then(async r => {
+    if (!r.ok) {
+      throw new Error(`fetchSheet failed with status ${r.status}`);
+    }
     const text = await r.text();
     if (text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
       console.error('[fetchSheetCsv] Apps Script returned JSON for gid', gid, ':', text.slice(0, 200));

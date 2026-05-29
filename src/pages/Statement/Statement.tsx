@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { ActivityLog } from '../../types/activityLog';
 import { fetchActivityLogs, fetchActivityLogsForCharacter } from '../../services/activityLog/activityLogService';
@@ -781,20 +781,45 @@ export const Statement: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
+  const latestLoadRef = useRef(0);
 
   useEffect(() => {
     loadActivityLogs();
   }, [user?.characterId]);
 
   const loadActivityLogs = async () => {
-    if (!user) return;
+    const loadId = ++latestLoadRef.current;
+
+    if (!user) {
+      // Avoid a permanent spinner while auth is restoring or user is signed out.
+      setLogs([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const [userLogs, userWishes, acceptedClaims] = await Promise.all([
+      const [userLogsResult, userWishesResult, acceptedClaimsResult] = await Promise.allSettled([
         fetchActivityLogsForCharacter(user.characterId, 200),
         fetchUserWishOfIris(user.characterId),
         fetchAcceptedClaimsForCharacter(user.characterId, 14),
       ]);
+
+      if (loadId !== latestLoadRef.current) return;
+
+      const userLogs = userLogsResult.status === 'fulfilled' ? userLogsResult.value : [];
+      const userWishes = userWishesResult.status === 'fulfilled' ? userWishesResult.value : [];
+      const acceptedClaims = acceptedClaimsResult.status === 'fulfilled' ? acceptedClaimsResult.value : [];
+
+      if (userLogsResult.status === 'rejected') {
+        console.error('Failed to load activity logs list:', userLogsResult.reason);
+      }
+      if (userWishesResult.status === 'rejected') {
+        console.error('Failed to load Iris wishes:', userWishesResult.reason);
+      }
+      if (acceptedClaimsResult.status === 'rejected') {
+        console.error('Failed to load accepted daily claims:', acceptedClaimsResult.reason);
+      }
 
       let sortedLogs = [...userLogs]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -864,7 +889,9 @@ export const Statement: React.FC = () => {
     } catch (error) {
       console.error('Failed to load activity logs:', error);
     } finally {
-      setLoading(false);
+      if (loadId === latestLoadRef.current) {
+        setLoading(false);
+      }
     }
   };
 
