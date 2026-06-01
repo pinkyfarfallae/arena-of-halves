@@ -116,7 +116,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
     if (phase === IRIS_PHASE.TOSSING || phase === IRIS_PHASE.CHOOSING) return;
     if (!isAdmin && userTodayWish) return;
 
-    const pool = wishes.filter(w => w.deity !== DEITY.HEPHAESTUS);
+    const pool = wishes.filter(w => w.deity);
     setPhase(IRIS_PHASE.TOSSING);
 
     if (!isAdmin && (user?.fortune || 0) >= 1) {
