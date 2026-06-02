@@ -7,13 +7,7 @@ import { loginCharacter, registerCharacter } from '../services/auth/firebaseAnon
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { LOCAL_STORAGE_KEYS } from '../constants/localStorage';
-import { getBagData, setBagItemData } from '../services/bag/bagService';
-import { ITEMS } from '../constants/items';
-import { updateCharacterDrachma } from '../services/character/currencyService';
-import { ACTIVITY_LOG_SOURCES } from '../constants/activityLog';
-import { fetchUserWishOfIris } from '../data/wishes';
-
-const IRIS_DEITY_COMPLETION_TARGET = 20;
+import { tryAwardIrisKeychainBonus } from '../data/wishes';
 
 interface AuthContextType {
   user: Character | null;
@@ -119,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const r = userRow?.role ?? ROLE.PLAYER;
             setRole(r);
             localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, r);
+            tryAwardIrisKeychainBonus(saved).catch(() => { });
           } else {
             localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
             localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
@@ -152,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, found.role);
         setUser(character);
         setRole(found.role);
+        tryAwardIrisKeychainBonus(found.characterId).catch(() => { });
         return true;
       }
     }
@@ -207,62 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applyIrisKeychainBonusAfterWishToss = useCallback(async (characterId: string) => {
     if (!characterId) return;
-
-    const allUserWishes = await fetchUserWishOfIris(characterId).catch(() => []);
-    const uniqueDeities = new Set(
-      allUserWishes
-        .filter(w => Boolean(w.deity))
-        .map(w => w.deity)
-    );
-
-    if (uniqueDeities.size < IRIS_DEITY_COMPLETION_TARGET) {
-      return;
-    }
-
-    const bagData = await getBagData(characterId);
-    const keychain = bagData[ITEMS.IRIS_KEYCHAIN];
-
-    if (!keychain || keychain.amount <= 0 || keychain.available === false) {
-      return;
-    }
-
-    // Lock the keychain bonus first so repeated toss/selection flows don't double-award.
-    const lockResult = await setBagItemData(characterId, ITEMS.IRIS_KEYCHAIN, {
-      amount: keychain.amount,
-      type: keychain.type,
-      income: keychain.income,
-      available: false,
-      bonusClaimed: true,
-      bonusClaimedAt: new Date().toISOString(),
-    }, {
-      performedBy: characterId,
-      source: ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS,
-    });
-
-    if (!lockResult.success) {
-      return;
-    }
-
-    const bonusResult = await updateCharacterDrachma(characterId, 5000, {
-      source: ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS,
-      extraMetadata: {
-        itemId: ITEMS.IRIS_KEYCHAIN,
-      },
-    });
-
-    if (!bonusResult.success) {
-      await setBagItemData(characterId, ITEMS.IRIS_KEYCHAIN, {
-        amount: keychain.amount,
-        type: keychain.type,
-        income: keychain.income,
-        available: keychain.available,
-        bonusClaimed: keychain.bonusClaimed,
-        bonusClaimedAt: keychain.bonusClaimedAt,
-      }, {
-        performedBy: characterId,
-        source: ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS,
-      });
-    }
+    await tryAwardIrisKeychainBonus(characterId);
   }, []);
 
   // Poll user data every 5 seconds for real-time updates (use debounced version)

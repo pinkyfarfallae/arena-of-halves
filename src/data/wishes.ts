@@ -81,6 +81,13 @@ export const saveIrisWish = async (userId: string, deity: string) => {
   const docId = `${userId}_${date}`;
   const tossedAt = new Date().toISOString();
 
+  // Ensure completion checks read fresh wish history after this write.
+  userWishesCacheMap.delete(userId);
+  if (cachedTodayDate === date) {
+    cachedTodayWishes = null;
+    wishCacheTimestamp = 0;
+  }
+
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
 
   await setDoc(ref, {
@@ -105,7 +112,7 @@ export const saveIrisWish = async (userId: string, deity: string) => {
   });
 
   try {
-    await tryAwardIrisKeychainBonus(userId);
+    await tryAwardIrisKeychainBonus(userId, deity);
   } catch {
     // The wish itself must still save even if the bonus check fails.
   }
@@ -114,6 +121,13 @@ export const saveIrisWish = async (userId: string, deity: string) => {
 export const cancelTodayIrisWish = async (characterId: string) => {
   const date = getTodayDate();
   const docId = `${characterId}_${date}`;
+
+  // Keep caches coherent for follow-up progress/bonus reads.
+  userWishesCacheMap.delete(characterId);
+  if (cachedTodayDate === date) {
+    cachedTodayWishes = null;
+    wishCacheTimestamp = 0;
+  }
 
   const ref = doc(firestore, FIRESTORE_COLLECTIONS.PLAYER_WISHES_OF_IRIS, docId);
 
@@ -167,7 +181,7 @@ export const fetchAllIrisWishes = async (characterId: string) => {
   const cached = userWishesCacheMap.get(characterId);
   const now = Date.now();
   if (cached && (now - cached.timestamp) < wishesCacheExpiry) {
-    console.log(`[Quota Cache] Using cached wishes for character ${characterId}`);
+    console.log(`[Quota Cache] Using cached wishes for character ${characterId}: ${cached.wishes.filter(w => !!w.deity).length} wishes`);
     return cached.wishes;
   }
 
@@ -215,28 +229,79 @@ export const getIrisWishProgress = async (characterId: string): Promise<{
   };
 };
 
-export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<boolean> => {
-  const [progress, bagData] = await Promise.all([
-    getIrisWishProgress(characterId),
+export const tryAwardIrisKeychainBonus = async (characterId: string, recentDeity?: string): Promise<boolean> => {
+  console.log('[IrisKeychainBonus][Wishes] Check start', { characterId });
+
+  const [allUserWishes, bagData] = await Promise.all([
+    fetchAllIrisWishes(characterId).catch(() => [] as IrisWishDoc[]),
     getBagData(characterId).catch(() => ({} as BagData)),
   ]);
 
   const keychain = bagData[ITEMS.IRIS_KEYCHAIN];
+  const effectiveCollected = new Set<string>([
+    ...allUserWishes
+      .filter((wish) => !!wish.deity)
+      .map((wish) => wish.deity.trim()),
+    ...(recentDeity ? [recentDeity.trim()] : []),
+  ]);
+  const effectiveCurrent = effectiveCollected.size;
 
-  if (!keychain || keychain.bonusClaimed || keychain.available === false) {
+  console.log('[IrisKeychainBonus][Wishes] Progress and keychain', {
+    characterId,
+    effectiveCurrent,
+    target: IRIS_DEITY_COMPLETION_TARGET,
+    hasKeychain: Boolean(keychain),
+    amount: keychain?.amount,
+    available: keychain?.available,
+    bonusClaimed: keychain?.bonusClaimed,
+  });
+
+  if (!keychain || keychain.amount <= 0 || keychain.bonusClaimed) {
+    console.log('[IrisKeychainBonus][Wishes] Skip: keychain gate failed', {
+      characterId,
+      hasKeychain: Boolean(keychain),
+      amount: keychain?.amount,
+      available: keychain?.available,
+      bonusClaimed: keychain?.bonusClaimed,
+    });
     return false;
   }
 
-  if (progress.current < IRIS_DEITY_COMPLETION_TARGET) {
+  if (keychain.available === false && !keychain.bonusClaimed) {
+    console.warn('[IrisKeychainBonus][Wishes] Inconsistent keychain state detected; continuing award check', {
+      characterId,
+      available: keychain.available,
+      bonusClaimed: keychain.bonusClaimed,
+    });
+  }
+
+  if (effectiveCurrent < IRIS_DEITY_COMPLETION_TARGET) {
+    console.log('[IrisKeychainBonus][Wishes] Skip: not enough unique deities', {
+      characterId,
+      effectiveCurrent,
+      target: IRIS_DEITY_COMPLETION_TARGET,
+    });
     return false;
   }
+
+  console.log('[IrisKeychainBonus][Wishes] Awarding drachma', {
+    characterId,
+    amount: IRIS_KEYCHAIN_BONUS_AMOUNT,
+  });
 
   const drachmaResult = await updateCharacterDrachma(characterId, IRIS_KEYCHAIN_BONUS_AMOUNT, {
     source: ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS,
     performedBy: ACTIVITY_LOG_SOURCES.IRIS_WISH,
+    extraMetadata: {
+      itemId: ITEMS.IRIS_KEYCHAIN,
+    },
   });
 
   if (!drachmaResult.success) {
+    console.warn('[IrisKeychainBonus][Wishes] Drachma award failed', {
+      characterId,
+      drachmaResult,
+    });
     return false;
   }
 
@@ -249,6 +314,11 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
   }, {
     performedBy: characterId,
     source: ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS,
+  });
+
+  console.log('[IrisKeychainBonus][Wishes] Award success', {
+    characterId,
+    amount: IRIS_KEYCHAIN_BONUS_AMOUNT,
   });
 
   return true;

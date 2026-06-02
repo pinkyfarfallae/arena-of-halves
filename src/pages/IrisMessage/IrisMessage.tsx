@@ -28,7 +28,7 @@ interface Props {
 }
 
 function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: Props) {
-  const { user, applyIrisKeychainBonusAfterWishToss } = useAuth();
+  const { user } = useAuth();
   const { width } = useScreenSize();
   const { bagEntries } = useBag(user?.characterId || '');
   const [phase, setPhase] = useState<Phase>(IRIS_PHASE.IDLE);
@@ -129,7 +129,6 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
       if (user.characterId) {
         // Save the first pick as the default now — user can change it during CHOOSING
         saveIrisWish(user.characterId, first.deity).catch(() => { });
-        applyIrisKeychainBonusAfterWishToss(user.characterId).catch(() => { });
         const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
         if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30, { source: ACTIVITY_LOG_SOURCES.IRIS_FOUNTAIN }).catch(() => { }); }
       }
@@ -155,7 +154,6 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
 
       if (!isAdmin && user?.characterId) {
         saveIrisWish(user.characterId, pick.deity).catch(() => { });
-        applyIrisKeychainBonusAfterWishToss(user.characterId).catch(() => { });
         const hasRainbowDrachma = (bagEntries.find(entry => entry.itemId === ITEMS.RAINBOW_DRACHMA)?.amount || 0) > 0;
         if (hasRainbowDrachma) { updateCharacterDrachma(user.characterId, 30, { source: ACTIVITY_LOG_SOURCES.IRIS_FOUNTAIN }).catch(() => { }); }
       }
@@ -182,7 +180,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         }
       }, 2200);
     }
-  }, [phase, wishes, user?.characterId, user?.fortune, isAdmin, userTodayWish, bagEntries, applyIrisKeychainBonusAfterWishToss]);
+  }, [phase, wishes, user?.characterId, user?.fortune, isAdmin, userTodayWish, bagEntries]);
 
   const reset = useCallback(() => {
     setPhase(IRIS_PHASE.IDLE);
@@ -201,7 +199,6 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
     const defaultPick = choices?.[0];
     if (defaultPick && picked.deity !== defaultPick.deity) {
       saveIrisWish(user.characterId, picked.deity).catch(() => { });
-      applyIrisKeychainBonusAfterWishToss(user.characterId).catch(() => { });
     }
     applyWishEffect(picked, user.characterId);
 
@@ -217,7 +214,7 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
       });
       unsubscribe();
     }, user?.characterId);
-  }, [user?.characterId, pendingChoices, applyIrisKeychainBonusAfterWishToss]);
+  }, [user?.characterId, pendingChoices]);
 
   const deityLabel = useMemo(() => wish?.deity ?? '', [wish]);
 

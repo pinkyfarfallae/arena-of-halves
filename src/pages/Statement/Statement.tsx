@@ -18,6 +18,7 @@ import Refresh from '../IrisMessage/icons/Refresh';
 import { EQUIPMENT_UPGRADE_OUTCOME } from '../../constants/equipment';
 import { fetchHarvests } from '../../services/harvest/fetchHarvest';
 import { HARVEST_SUBMISSION_STATUS } from '../../constants/harvest';
+import { ITEMS } from '../../constants/items';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -73,6 +74,9 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   // one "give_item" (old manual log) + one "receive_item" (auto-log from bagService).
   // Normalize both to the same key so only the first one survives.
   const seenItemGrantKeys = new Set<string>();
+  // Some users may have duplicate keychain bonus award logs from earlier race paths.
+  // Keep only the latest one per character in Statement.
+  const seenIrisKeychainBonusAward = new Set<string>();
   // Deduplicate training roleplay skip tickets by characterId + trainingDate.
   // Only collapse when trainingDate is explicitly stored in metadata — old logs
   // without it are kept as-is to avoid incorrectly merging different-task entries.
@@ -97,6 +101,18 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
       return true;
     }
 
+    const isIrisKeychainBonusAward =
+      log.category === ACTIVITY_LOG_CATEGORY.DRACHMA &&
+      (log.action === ACTIVITY_LOG_ACTIONS.AWARD || log.action === ACTIVITY_LOG_ACTIONS.EARN_DRACHMA) &&
+      (source === ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS || source === ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS);
+
+    if (isIrisKeychainBonusAward) {
+      const key = `${log.characterId}:iris_keychain_bonus_award`;
+      if (seenIrisKeychainBonusAward.has(key)) return false;
+      seenIrisKeychainBonusAward.add(key);
+      return true;
+    }
+
     // Deduplicate skip ticket usage only when trainingDate is explicitly in metadata.
     // Using day-of-createdAt as a fallback is unsafe: a player can submit skip tickets
     // for multiple different tasks on the same calendar day, so those logs share the
@@ -111,6 +127,18 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
       if (seenRoleplaySkipKeys.has(key)) return false;
       seenRoleplaySkipKeys.add(key);
       return true;
+    }
+
+    // Hide technical keychain state flip for bonus claim to avoid duplicate-looking
+    // Statement rows (the user-facing drachma award row is kept).
+    const isIrisKeychainStateFlip =
+      log.category === ACTIVITY_LOG_CATEGORY.ITEM &&
+      log.action === ACTIVITY_LOG_ACTIONS.UPDATE_ITEM_STATE &&
+      String(metadata.itemId || '') === ITEMS.IRIS_KEYCHAIN &&
+      (source === ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS || source === ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS);
+
+    if (isIrisKeychainStateFlip) {
+      return false;
     }
 
     // Both "give_item" and "receive_item" from admin sources represent the same
@@ -294,6 +322,18 @@ const formatActivityDisplay = (log: ActivityLog, currentCharacterId?: string): F
     case ACTIVITY_LOG_CATEGORY.DRACHMA:
       if (log.action === ACTIVITY_LOG_ACTIONS.EARN_DRACHMA || log.action === ACTIVITY_LOG_ACTIONS.AWARD) {
         const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
+        const isIrisKeychainBonus =
+          source === ACTIVITY_LOG_SOURCES.IRIS_KEYCHAIN_BONUS ||
+          (source === ACTIVITY_LOG_SOURCES.IRIS_WISH_BONUS && (
+            String(metadata.itemId || '') === ITEMS.IRIS_KEYCHAIN || Number(log.amount || 0) === 5000
+          ));
+
+        if (isIrisKeychainBonus) {
+          return {
+            ...baseResult,
+            display: `Earned ${log.amount?.toLocaleString()} drachma from Iris Keychain bonus.`,
+          };
+        }
 
         if (source === ACTIVITY_LOG_SOURCES.IRIS_FOUNTAIN) {
           return {
