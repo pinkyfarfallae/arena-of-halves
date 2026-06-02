@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (localStorage.getItem(LOCAL_STORAGE_KEYS.ROLE_KEY) as RoleName) || ROLE.PLAYER;
   });
   const [restoring, setRestoring] = useState(() => !!localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_KEY));
+  const irisBonusCheckedRef = React.useRef<Set<string>>(new Set());
 
   // Restore session on mount — also re-fetch role
   useEffect(() => {
@@ -113,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const r = userRow?.role ?? ROLE.PLAYER;
             setRole(r);
             localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, r);
-            tryAwardIrisKeychainBonus(saved).catch(() => { });
           } else {
             localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
             localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
@@ -147,7 +147,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(LOCAL_STORAGE_KEYS.ROLE_KEY, found.role);
         setUser(character);
         setRole(found.role);
-        tryAwardIrisKeychainBonus(found.characterId).catch(() => { });
         return true;
       }
     }
@@ -172,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_KEY);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.THEME);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.ROLE_KEY);
+    irisBonusCheckedRef.current.clear();
   }, []);
 
   const updateUser = useCallback((patch: Partial<Character>) => {
@@ -205,6 +205,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!characterId) return;
     await tryAwardIrisKeychainBonus(characterId);
   }, []);
+
+  // Run Iris keychain bonus check once per character per auth session.
+  useEffect(() => {
+    const characterId = user?.characterId;
+    if (!characterId) return;
+    if (irisBonusCheckedRef.current.has(characterId)) return;
+
+    irisBonusCheckedRef.current.add(characterId);
+    tryAwardIrisKeychainBonus(characterId).catch(() => {
+      // Allow retry if this one-time check fails unexpectedly.
+      irisBonusCheckedRef.current.delete(characterId);
+    });
+  }, [user?.characterId]);
 
   // Poll user data every 5 seconds for real-time updates (use debounced version)
   useEffect(() => {

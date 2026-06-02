@@ -230,6 +230,13 @@ export const getIrisWishProgress = async (characterId: string): Promise<{
 };
 
 export const tryAwardIrisKeychainBonus = async (characterId: string, recentDeity?: string): Promise<boolean> => {
+  if (irisKeychainBonusInFlight.has(characterId)) {
+    console.log('[IrisKeychainBonus][Wishes] Skip: check already in-flight', { characterId });
+    return false;
+  }
+  irisKeychainBonusInFlight.add(characterId);
+
+  try {
   console.log('[IrisKeychainBonus][Wishes] Check start', { characterId });
 
   const [allUserWishes, bagData] = await Promise.all([
@@ -322,6 +329,9 @@ export const tryAwardIrisKeychainBonus = async (characterId: string, recentDeity
   });
 
   return true;
+  } finally {
+    irisKeychainBonusInFlight.delete(characterId);
+  }
 };
 
 /** Aggregate all Iris wishes for a specific character by deity */
@@ -348,6 +358,8 @@ const userWishesCacheMap = new Map<string, { wishes: IrisWishDoc[]; timestamp: n
 
 // Cache for historical wishes by date to avoid repeated statement/admin reads
 const wishesByDateCacheMap = new Map<string, { wishes: IrisWishDoc[]; timestamp: number }>();
+// Prevent concurrent keychain bonus checks from awarding twice in the same runtime.
+const irisKeychainBonusInFlight = new Set<string>();
 
 /** 
  * Fetch today's Iris wish of every character.
