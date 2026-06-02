@@ -534,17 +534,29 @@ export default function DiceModal({
     diceUp,
     buffMod,
     adjustedValue,
+    deity,
     deityNode,
   }: {
     rolling: boolean;
     diceUp: number;
     buffMod: number;
     adjustedValue: number;
+    deity?: Deity | null;
     deityNode?: ReactNode;
   }) => {
     if (rolling) return 'rolling...';
     const bonus = diceUp + buffMod;
     if (bonus > 0) {
+      if (deity === DEITY.HYPNOS) {
+        return (
+          <>
+            {deityNode}
+            {adjustedValue}
+            {' '}
+            (+{bonus})
+          </>
+        );
+      }
       return (
         <>
           {deityNode}
@@ -567,6 +579,7 @@ export default function DiceModal({
     diceUp: displayAttackFighter?.attackDiceUp ?? 0,
     buffMod: displayAtkBuffMod,
     adjustedValue: attackReplayAdjustedValue,
+    deity: displayAttackFighter?.wishOfIris,
     deityNode: attackReplayDeityNode,
   });
   const replayAttackDeityNode = renderWishDeityNode(replayAttackFighter?.wishOfIris);
@@ -575,6 +588,7 @@ export default function DiceModal({
     diceUp: replayAttackFighter?.attackDiceUp ?? 0,
     buffMod: replayAtkBuffMod,
     adjustedValue: latchedAttackRoll ?? 0,
+    deity: replayAttackFighter?.wishOfIris,
     deityNode: replayAttackDeityNode,
   });
   const defendReplayBonusNode = renderDiceBonusNode({
@@ -582,6 +596,7 @@ export default function DiceModal({
     diceUp: defender?.defendDiceUp ?? 0,
     buffMod: defBuffMod,
     adjustedValue: defendReplayAdjustedValue,
+    deity: defender?.wishOfIris,
     deityNode: defendReplayDeityNode,
   });
   const resolvingDefendBonusNode = renderDiceBonusNode({
@@ -589,6 +604,7 @@ export default function DiceModal({
     diceUp: defender?.defendDiceUp ?? 0,
     buffMod: defBuffMod,
     adjustedValue: resolvingDefendAdjustedValue,
+    deity: defender?.wishOfIris,
     deityNode: defendReplayDeityNode,
   });
   const coDefendBonusNode = renderDiceBonusNode({
@@ -596,6 +612,7 @@ export default function DiceModal({
     diceUp: defender?.defendDiceUp ?? 0,
     buffMod: defBuffMod,
     adjustedValue: coDefendAdjustedValue,
+    deity: defender?.wishOfIris,
     deityNode: defendReplayDeityNode,
   });
 

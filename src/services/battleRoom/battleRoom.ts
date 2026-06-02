@@ -4265,9 +4265,17 @@ export async function submitAttackRoll(arenaId: string, roll: number, originalRo
 
   const powerNoDefend = turn.action === TURN_ACTION.POWER && turn.usedPowerName && (POWERS_DEFENDER_CANNOT_DEFEND as readonly string[]).includes(turn.usedPowerName);
 
+  const attacker = findFighter(room, turn.attackerId);
+  const attackDiceSize = getDiceSize(attacker?.wishOfIris);
+  const clampedRoll = Math.max(1, Math.min(attackDiceSize, Math.floor(roll)));
+  const clampedOriginalRoll =
+    originalRoll != null
+      ? Math.max(1, Math.min(attackDiceSize, Math.floor(originalRoll)))
+      : undefined;
+
   const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL]: roll,
-    ...(originalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_ATTACK_ROLL]: originalRoll } : {}),
+    [ARENA_PATH.BATTLE_TURN_ATTACK_ROLL]: clampedRoll,
+    ...(clampedOriginalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_ATTACK_ROLL]: clampedOriginalRoll } : {}),
     [ARENA_PATH.BATTLE_TURN_PHASE]: powerNoDefend ? PHASE.RESOLVING : PHASE.ROLLING_DEFEND,
     ...(powerNoDefend ? { [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: 0 } : {}),
   };
@@ -4328,9 +4336,17 @@ export async function submitDefendRoll(arenaId: string, roll: number, originalRo
     return;
   }
 
+  const defender = findFighter(room, turn.defenderId ?? '');
+  const defendDiceSize = getDiceSize(defender?.wishOfIris);
+  const clampedRoll = Math.max(1, Math.min(defendDiceSize, Math.floor(roll)));
+  const clampedOriginalRoll =
+    originalRoll != null
+      ? Math.max(1, Math.min(defendDiceSize, Math.floor(originalRoll)))
+      : undefined;
+
   const updates: Record<string, unknown> = {
-    [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: roll,
-    ...(originalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_DEFEND_ROLL]: originalRoll } : {}),
+    [ARENA_PATH.BATTLE_TURN_DEFEND_ROLL]: clampedRoll,
+    ...(clampedOriginalRoll != null ? { [ARENA_PATH.BATTLE_TURN_ORIGINAL_DEFEND_ROLL]: clampedOriginalRoll } : {}),
     [ARENA_PATH.BATTLE_TURN_PHASE]: PHASE.RESOLVING,
   };
 
