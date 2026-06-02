@@ -17,11 +17,10 @@ import Table, { Column } from "../../../../components/Table/Table";
 import { getBagData, giveItem, consumeItem, getItemAmount, setBagItemData } from "../../../../services/bag/bagService";
 import { updateCharacterDrachma } from "../../../../services/character/currencyService";
 import { addTrainingPoints, spendTrainingPoints } from "../../../../services/training/trainingPoints";
-import { logActivity } from "../../../../services/activityLog/activityLogService";
 import { BAG_ITEM_TYPES } from "../../../../constants/bag";
 import ConfirmModal from "../../../../components/ConfirmModal/ConfirmModal";
 import { ITEMS } from "../../../../constants/items";
-import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from "../../../../constants/activityLog";
+import { ACTIVITY_LOG_SOURCES } from "../../../../constants/activityLog";
 import './PlayerInventory.scss';
 import Trash from "../../../Shop/icons/Trash";
 import Pencil from "../../../../icons/Pencil";
@@ -554,32 +553,22 @@ const PlayerInventory = () => {
                             }
                           } else if (itemId === ITEMS.TRAINING_POINTS) {
                             if (pending.action === ACTION.ADD) {
-                              const res = await addTrainingPoints(userId, pending.amount);
+                              const res = await addTrainingPoints(userId, pending.amount, {
+                                performedBy: user?.characterId || 'admin',
+                                source: ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+                              });
                               // console.log('addTrainingPoints result', { userId, itemId, pending, res });
                               if (res.success) {
                                 setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
-                                logActivity({
-                                  category: ACTIVITY_LOG_CATEGORY.STAT,
-                                  action: ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS,
-                                  characterId: userId,
-                                  performedBy: user?.characterId || 'admin',
-                                  amount: pending.amount,
-                                  metadata: { source: ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY },
-                                });
                               }
                             } else {
-                              const res = await spendTrainingPoints(userId, pending.amount);
+                              const res = await spendTrainingPoints(userId, pending.amount, {
+                                performedBy: user?.characterId || 'admin',
+                                source: ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+                              });
                               // console.log('spendTrainingPoints result', { userId, itemId, pending, res });
                               if (res.success) {
                                 setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
-                                logActivity({
-                                  category: ACTIVITY_LOG_CATEGORY.STAT,
-                                  action: ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS,
-                                  characterId: userId,
-                                  performedBy: user?.characterId || 'admin',
-                                  amount: pending.amount,
-                                  metadata: { source: ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY },
-                                });
                               }
                             }
                           } else {
@@ -687,30 +676,20 @@ const PlayerInventory = () => {
                               }
                             } else if (row.itemId === ITEMS.TRAINING_POINTS) {
                               if (row.action === ACTION.ADD) {
-                                const res = await addTrainingPoints(userId, row.amount);
+                                const res = await addTrainingPoints(userId, row.amount, {
+                                  performedBy: user?.characterId || 'admin',
+                                  source: ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+                                });
                                 if (res.success) {
                                   setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
-                                  logActivity({
-                                    category: ACTIVITY_LOG_CATEGORY.STAT,
-                                    action: ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS,
-                                    characterId: userId,
-                                    performedBy: user?.characterId || 'admin',
-                                    amount: row.amount,
-                                    metadata: { source: ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK },
-                                  });
                                 }
                               } else {
-                                const res = await spendTrainingPoints(userId, row.amount);
+                                const res = await spendTrainingPoints(userId, row.amount, {
+                                  performedBy: user?.characterId || 'admin',
+                                  source: ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+                                });
                                 if (res.success) {
                                   setPlayers(prev => prev.map(p => p.characterId === userId ? { ...p, trainingPoints: res.current ?? (p.trainingPoints ?? 0) } : p));
-                                  logActivity({
-                                    category: ACTIVITY_LOG_CATEGORY.STAT,
-                                    action: ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS,
-                                    characterId: userId,
-                                    performedBy: user?.characterId || 'admin',
-                                    amount: row.amount,
-                                    metadata: { source: ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK },
-                                  });
                                 }
                               }
                             } else {

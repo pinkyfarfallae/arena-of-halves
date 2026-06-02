@@ -82,6 +82,46 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
   // without it are kept as-is to avoid incorrectly merging different-task entries.
   const seenRoleplaySkipKeys = new Set<string>();
 
+  // Historical bug path: admin TP changes created two logs for one transaction
+  // (service default source=training_grounds + manual admin source log).
+  // Prefer the admin-source row and hide the training_grounds duplicate.
+  const adminTrainingSources: string[] = [
+    ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+    ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+    ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+    ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+    ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+    ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+  ];
+  const trainingActions = new Set<string>([
+    ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS,
+    ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS,
+    ACTIVITY_LOG_ACTIONS.SPEND_TRAINING_POINTS_UPGRADE,
+  ]);
+
+  const adminTrainingEvents: Array<{ key: string; ts: number }> = [];
+  const TRAINING_DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
+
+  activityLogs.forEach((log) => {
+    const metadata = (log.metadata as Record<string, any>) || {};
+    const source = String(metadata.source || '');
+    const isTrainingChange =
+      log.category === ACTIVITY_LOG_CATEGORY.STAT &&
+      trainingActions.has(log.action);
+
+    if (!isTrainingChange || !adminTrainingSources.includes(source)) {
+      return;
+    }
+
+    const ts = new Date(log.createdAt).getTime();
+    if (Number.isNaN(ts)) {
+      return;
+    }
+
+    const key = `${log.characterId}:${log.action}:${log.amount || 0}`;
+    adminTrainingEvents.push({ key, ts });
+  });
+
   return activityLogs.filter((log) => {
     // Logs are sorted newest-first, so the first WISH_TOSSED seen per day is the final selection
     if (log.action === ACTIVITY_LOG_ACTIONS.WISH_TOSSED) {
@@ -92,6 +132,21 @@ const dedupeStatementLogs = (activityLogs: ActivityLog[]): ActivityLog[] => {
     }
     const metadata = (log.metadata as Record<string, any>) || {};
     const source = String(metadata.source || '');
+
+    const isTrainingChange =
+      log.category === ACTIVITY_LOG_CATEGORY.STAT &&
+      trainingActions.has(log.action);
+    if (isTrainingChange && source === ACTIVITY_LOG_SOURCES.TRAINING_GROUNDS) {
+      const ts = new Date(log.createdAt).getTime();
+      if (!Number.isNaN(ts)) {
+        const key = `${log.characterId}:${log.action}:${log.amount || 0}`;
+        const hasAdminTwin = adminTrainingEvents.some(
+          (event) => event.key === key && Math.abs(event.ts - ts) <= TRAINING_DUPLICATE_WINDOW_MS
+        );
+        if (hasAdminTwin) return false;
+      }
+    }
+
     const isDailyGiftLog = log.category === ACTIVITY_LOG_CATEGORY.DRACHMA && source === ACTIVITY_LOG_SOURCES.DAILY_GIFT;
 
     if (isDailyGiftLog) {
@@ -624,12 +679,42 @@ const formatActivityDisplay = (log: ActivityLog, currentCharacterId?: string): F
         };
       }
       if (log.action === ACTIVITY_LOG_ACTIONS.ADD_TRAINING_POINTS) {
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
+        const adminSources = [
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+        ];
+        if (adminSources.includes(source)) {
+          return {
+            ...baseResult,
+            display: `Earned ${log.amount} Training Point${log.amount === 1 ? '' : 's'} awarded by admin.`,
+          };
+        }
         return {
           ...baseResult,
           display: `Earned ${log.amount} Training Point${log.amount === 1 ? '' : 's'} from ${sourceLabel}.`,
         };
       }
       if (log.action === ACTIVITY_LOG_ACTIONS.DEDUCT_TRAINING_POINTS || log.action === ACTIVITY_LOG_ACTIONS.SPEND_TRAINING_POINTS_UPGRADE) {
+        const source = metadata.source || ACTIVITY_LOG_SOURCES.UNKNOWN;
+        const adminSources = [
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_ADD,
+          ACTIVITY_LOG_SOURCES.ADMIN_PLAYER_INVENTORY_BULK_ADD,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY,
+          ACTIVITY_LOG_SOURCES.PLAYER_INVENTORY_BULK,
+        ];
+        if (adminSources.includes(source)) {
+          return {
+            ...baseResult,
+            display: `Spent ${log.amount} Training Point${log.amount === 1 ? '' : 's'} removed by admin.`,
+          };
+        }
         return {
           ...baseResult,
           display: `Spent ${log.amount} Training Point${log.amount === 1 ? '' : 's'} on ${sourceLabel}.`,

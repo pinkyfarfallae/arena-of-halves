@@ -3,6 +3,8 @@ import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } fro
 import { APPS_SCRIPT_URL } from "../../constants/sheets";
 import { logActivity } from '../activityLog/activityLogService';
 
+type TrainingPointLogOptions = { performedBy?: string; source?: string };
+
 /**
  * Update character training points (add or subtract)
  * @param characterId - The character to update
@@ -12,7 +14,7 @@ import { logActivity } from '../activityLog/activityLogService';
 export async function updateTrainingPoints(
   characterId: string,
   amount: number,
-  options?: { performedBy?: string; source?: string }
+  options?: TrainingPointLogOptions
 ): Promise<{ 
   success?: boolean; 
   characterId?: string;
@@ -63,7 +65,8 @@ export async function updateTrainingPoints(
  */
 export async function addTrainingPoints(
   characterId: string,
-  amount: number
+  amount: number,
+  options?: TrainingPointLogOptions
 ): Promise<{ 
   success?: boolean; 
   current?: number;
@@ -72,7 +75,7 @@ export async function addTrainingPoints(
   if (amount <= 0) {
     return { error: 'Amount must be positive' };
   }
-  return updateTrainingPoints(characterId, amount);
+  return updateTrainingPoints(characterId, amount, options);
 }
 
 /**
@@ -82,7 +85,8 @@ export async function addTrainingPoints(
  */
 export async function spendTrainingPoints(
   characterId: string,
-  amount: number
+  amount: number,
+  options?: TrainingPointLogOptions
 ): Promise<{ 
   success?: boolean; 
   current?: number;
@@ -91,5 +95,5 @@ export async function spendTrainingPoints(
   if (amount <= 0) {
     return { error: 'Amount must be positive' };
   }
-  return updateTrainingPoints(characterId, -amount);
+  return updateTrainingPoints(characterId, -amount, options);
 }
