@@ -24,6 +24,7 @@ export interface IrisWishDoc {
 }
 
 export const IRIS_KEYCHAIN_BONUS_AMOUNT = 5000;
+const IRIS_DEITY_COMPLETION_TARGET = 20;
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
@@ -201,7 +202,7 @@ export const getIrisWishProgress = async (characterId: string): Promise<{
 
   const collectedDeities = new Set(
     wishes
-      .filter((wish) => !wish.canceled && !!wish.deity)
+      .filter((wish) => !!wish.deity)
       .map((wish) => wish.deity.trim())
   );
 
@@ -226,7 +227,7 @@ export const tryAwardIrisKeychainBonus = async (characterId: string): Promise<bo
     return false;
   }
 
-  if (progress.total === 0 || progress.current < progress.total) {
+  if (progress.current < IRIS_DEITY_COMPLETION_TARGET) {
     return false;
   }
 
