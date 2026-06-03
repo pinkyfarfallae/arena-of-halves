@@ -630,6 +630,10 @@ export const UI_TEXT = {
     en: 'Always Available',
     th: 'สินค้าพร้อมจำหน่าย'
   },
+  GIFT_FOR_YOUR_COMPANIONS: {
+    en: 'Gift for your Companions',
+    th: 'ของขวัญสำหรับสหายของคุณ'
+  },
   ITEMS: {
     en: 'items',
     th: 'รายการ'

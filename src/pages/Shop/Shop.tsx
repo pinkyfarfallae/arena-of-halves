@@ -145,8 +145,19 @@ function Shop() {
     ));
   }, [removeFromCart]);
 
-  const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const discountTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount, [bagEntries]);
+  const giftCard = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.NPC_GIFT_CARD)?.amount, [bagEntries]);
+
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const drachmaCartTotal = cart
+    .filter(item => (item.priceUnit ?? PRICE_UNIT.DRACHMA) === PRICE_UNIT.DRACHMA)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const giftCardCartTotal = cart
+    .filter(item => item.priceUnit === PRICE_UNIT.NPC_GIFT_CARD)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const finalDrachmaCartTotal = appliedDiscount ? Math.round(drachmaCartTotal * 0.7) : drachmaCartTotal;
+  const hasEnoughDrachma = (user?.currency ?? 0) >= finalDrachmaCartTotal;
+  const hasEnoughGiftCards = (giftCard ?? 0) >= giftCardCartTotal;
 
   const handlePay = async () => {
     if (!user?.characterId || processing) return;
@@ -196,12 +207,12 @@ function Shop() {
           amount: drachmaItems.reduce((sum, item) => sum + item.quantity, 0),
           metadata: {
             source: ACTIVITY_LOG_SOURCES.SHOP,
-            items: drachmaItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
+            items: drachmaItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price, priceUnit: item.priceUnit ?? PRICE_UNIT.DRACHMA })),
             totalPrice: drachmaTotalPrice,
             finalPrice: finalDrachmaPrice,
             discountApplied: hasDiscount,
             discountAmount: hasDiscount ? Math.round(drachmaTotalPrice * 0.3) : 0,
-            priceUnit: 'drachma',
+            priceUnit: PRICE_UNIT.DRACHMA,
           },
         });
       }
@@ -233,11 +244,11 @@ function Shop() {
           amount: giftCardItems.reduce((sum, item) => sum + item.quantity, 0),
           metadata: {
             source: ACTIVITY_LOG_SOURCES.SHOP,
-            items: giftCardItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
+            items: giftCardItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price, priceUnit: item.priceUnit ?? PRICE_UNIT.NPC_GIFT_CARD })),
             totalPrice: giftCardTotalPrice,
             finalPrice: giftCardTotalPrice,
             discountApplied: false,
-            priceUnit: 'npc_gift_card',
+            priceUnit: PRICE_UNIT.NPC_GIFT_CARD,
           },
         });
       }
@@ -274,9 +285,6 @@ function Shop() {
     }
   };
 
-  const discountTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount, [bagEntries]);
-  const giftCard = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.NPC_GIFT_CARD)?.amount, [bagEntries]);
-
   // Filter items based on search query
   const filteredItems = useMemo(() => {
     return items.filter(item =>
@@ -286,8 +294,9 @@ function Shop() {
   }, [items, searchQuery]);
 
   // console.log('Filtered Items:', filteredItems);
-  const limitedItems = filteredItems.filter(i => i.stock !== "infinity");
-  const unlimitedItems = filteredItems.filter(i => i.stock === "infinity");
+  const companionGiftItems = filteredItems.filter(i => i.priceUnit === PRICE_UNIT.NPC_GIFT_CARD);
+  const limitedItems = filteredItems.filter(i => i.priceUnit !== PRICE_UNIT.NPC_GIFT_CARD && i.stock !== "infinity");
+  const unlimitedItems = filteredItems.filter(i => i.priceUnit !== PRICE_UNIT.NPC_GIFT_CARD && i.stock === "infinity");
 
   return (
     <div className="shop">
@@ -534,6 +543,104 @@ function Shop() {
               </section>
             )}
 
+            {/* Companion Gift Items */}
+            {companionGiftItems.length > 0 && (
+              <section className="shop__section">
+                <div className="shop__section-head">
+                  <h2>{t(T.GIFT_FOR_YOUR_COMPANIONS)}</h2>
+                  <span className="shop__section-count">{companionGiftItems.length} {t(T.ITEMS)}</span>
+                </div>
+                <div className="shop__grid">
+                  {companionGiftItems.map(item => (
+                    <div key={item.itemId} className="item">
+                      {typeof item.stock === 'number' && item.stock !== -1 && item.stock < 5 && (
+                        <span className="item__badge">{lang === LANGUAGE.THAI ? `${t(T.LEFT)} ${item.stock}` : `${item.stock} ${t(T.LEFT)}`}</span>
+                      )}
+                      <button
+                        className="item__img"
+                        onClick={() => addToCart(item)}
+                        disabled={item.stock === 0}
+                        type="button"
+                      >
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <Package className="item__img-ph" />
+                        )}
+                      </button>
+                      <div className="item__body">
+                        <div className="item__plank" />
+                        <div className="item__label">
+                          {item.description && (
+                            <button className="item__info"
+                              onMouseEnter={(e) => setTooltip({ id: item.itemId, rect: e.currentTarget.getBoundingClientRect() })}
+                              onMouseLeave={() => setTooltip(null)}
+                            >
+                              <InfoCircle />
+                            </button>
+                          )}
+                          <div className="item__row">
+                            <h3 className="item__name">{item.name.replace(/\\n/g, '\n')}</h3>
+                          </div>
+                          <div className="item__price">
+                            {item.price.toFixed(0)} Gift Card
+                          </div>
+                          {cart.find(c => c.itemId === item.itemId) ? (
+                            <div className="item__qty-control">
+                              <button
+                                onClick={() => updateQuantity(item.itemId, (cart.find(c => c.itemId === item.itemId)?.quantity || 1) - 1)}
+                                disabled={item.stock === 0}
+                              >−</button>
+                              <input
+                                type="number"
+                                min="1"
+                                max={item.stock !== -1 ? item.stock : undefined}
+                                value={cart.find(c => c.itemId === item.itemId)?.quantity || 0}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (val > 0 && (max === null || val <= max)) updateQuantity(item.itemId, val);
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  const current = cart.find(c => c.itemId === item.itemId)?.quantity || 1;
+                                  const max = item.stock === 'infinity' ? null : Number(item.stock);
+                                  if (max === null || current < max) updateQuantity(item.itemId, current + 1);
+                                }}
+                                disabled={
+                                  item.stock === 0 ||
+                                  (
+                                    typeof item.stock === 'number' &&
+                                    item.stock !== -1 &&
+                                    (cart.find(c => c.itemId === item.itemId)?.quantity || 0) >= item.stock
+                                  )
+                                }
+                              >+</button>
+                            </div>
+                          ) : (
+                            <button
+                              className="item__add"
+                              onClick={() => addToCart(item)}
+                              disabled={item.stock === 0}
+                            >
+                              {item.stock === 0 ? t(T.SOLD_OUT) : t(T.ADD_TO_CART)}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {items.length === 0 && !loading && (
               <div className="shop__empty">
                 <WingedSandal />
@@ -618,16 +725,18 @@ function Shop() {
                             +
                           </button>
                         </div>
-                        <span className="cart__item-price">{(item.price * item.quantity).toFixed(0)} <Drachma /></span>
+                        <span className="cart__item-price">
+                          {(item.price * item.quantity).toFixed(0)} {item.priceUnit === PRICE_UNIT.NPC_GIFT_CARD ? 'Gift Card' : <Drachma />}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {appliedDiscount && (
+                {appliedDiscount && drachmaCartTotal > 0 && (
                   <span className="cart__coupon-original">
                     <span className="cart__coupon-original-price-label">Original Price</span>
-                    <span className="cart__coupon-original-price">{totalPrice.toFixed(0)} <Drachma /></span>
+                    <span className="cart__coupon-original-price">{drachmaCartTotal.toFixed(0)} <Drachma /></span>
                   </span>
                 )}
 
@@ -636,7 +745,7 @@ function Shop() {
                   {appliedDiscount ? (
                     <>
                       <span className="cart__coupon-tickets">Ticket Applied</span>
-                      <span className="cart__coupon-discount">-{Math.round(totalPrice * 0.3)} <Drachma /></span>
+                      <span className="cart__coupon-discount">-{Math.round(drachmaCartTotal * 0.3)} <Drachma /></span>
                       <span className="cart__coupon-remove" onClick={() => setAppliedDiscount(false)}><Close /></span>
                     </>
                   ) : (
@@ -659,12 +768,18 @@ function Shop() {
                 <div className="cart__footer">
                   <div className="cart__total">
                     <span>{t(T.TOTAL)} ({totalItems})</span>
-                    <span className="cart__total-amt">{appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice} <Drachma /></span>
+                    <span className="cart__total-amt">{finalDrachmaCartTotal} <Drachma /></span>
                   </div>
+                  {giftCardCartTotal > 0 && (
+                    <div className="cart__total">
+                      <span>{t(T.TOTAL)} Gift Card</span>
+                      <span className="cart__total-amt">{giftCardCartTotal} Gift Card</span>
+                    </div>
+                  )}
                   <button
                     className="cart__pay"
                     onClick={() => setShowCheckout(true)}
-                    disabled={processing || cart.length === 0 || (user?.currency ?? 0) < (appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice)}
+                    disabled={processing || cart.length === 0 || !hasEnoughDrachma || !hasEnoughGiftCards}
                   >
                     {t(T.CHECKOUT)}
                   </button>
@@ -680,7 +795,8 @@ function Shop() {
         showCheckout && (
           <CheckoutModal
             cart={cart}
-            totalPrice={appliedDiscount ? Math.round(totalPrice * 0.7) : totalPrice}
+            drachmaTotal={finalDrachmaCartTotal}
+            giftCardTotal={giftCardCartTotal}
             paySuccess={paySuccess}
             paying={processing}
             customerName={user?.nameEng?.replace(/\s*\\n\s*/g, ' ') || 'Guest Demigod'}

@@ -125,8 +125,10 @@ $ink-faint: #a08a74;
   margin-bottom: 0.75rem;
   max-height: 260px;
   overflow-y: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE 10+ */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE 10+ */
 
   &::-webkit-scrollbar-track {
     background: transparent;
@@ -199,6 +201,7 @@ $ink-faint: #a08a74;
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
+    white-space: nowrap;
   }
 }
 
@@ -208,15 +211,18 @@ $ink-faint: #a08a74;
   align-items: baseline;
   padding: 0.75rem 0;
   border-top: 1px solid rgba($wood-frame, 0.1);
-  margin-bottom: 0.85rem;
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
   color: $ink-faint;
 
+  &:nth-last-child(2) {
+    margin-bottom: 1rem;
+  }
+
   &-amount {
     font-family: 'DM Mono', monospace;
-    font-size: 1.35rem;
+    font-size: 1rem;
     font-weight: 700;
     color: $ink;
     display: flex;

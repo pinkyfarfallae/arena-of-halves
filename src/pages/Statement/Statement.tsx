@@ -19,6 +19,7 @@ import { EQUIPMENT_UPGRADE_OUTCOME } from '../../constants/equipment';
 import { fetchHarvests } from '../../services/harvest/fetchHarvest';
 import { HARVEST_SUBMISSION_STATUS } from '../../constants/harvest';
 import { ITEMS } from '../../constants/items';
+import { PRICE_UNIT } from '../../constants/priceUnit';
 
 interface ExpandedRows {
   [key: string]: boolean;
@@ -43,6 +44,14 @@ const formatSourceLabel = (source: string): string => {
   return source
     .replace(/_/g, ' ')
     .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+const formatShopCurrencyAmount = (amount: number, priceUnit?: string): string => {
+  if (priceUnit === PRICE_UNIT.NPC_GIFT_CARD) {
+    return `${amount.toLocaleString()} Gift Card${amount === 1 ? '' : 's'}`;
+  }
+
+  return `${amount.toLocaleString()} drachma`;
 };
 
 const formatDateOnly = (dateStr: string): string => {
@@ -455,18 +464,21 @@ const formatActivityDisplay = (log: ActivityLog, currentCharacterId?: string): F
 
     case ACTIVITY_LOG_CATEGORY.ITEM:
       if (log.action === ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE) {
-        const purchasedItems = (metadata.items as Array<{ itemId: string; quantity: number; price: number }>) || [];
+        const purchasedItems = (metadata.items as Array<{ itemId: string; quantity: number; price: number; priceUnit?: string }>) || [];
         const finalPrice = metadata.finalPrice ?? metadata.totalPrice ?? log.amount ?? 0;
         const discountApplied = Boolean(metadata.discountApplied);
         const discountAmount = metadata.discountAmount ?? 0;
+        const priceUnit = String(metadata.priceUnit || purchasedItems[0]?.priceUnit || PRICE_UNIT.DRACHMA);
         const itemCount = purchasedItems.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0) || log.amount || purchasedItems.length;
-        const discountNote = discountApplied ? ` (saved ${Number(discountAmount).toLocaleString()} drachma with 30% discount)` : '';
+        const discountNote = discountApplied && priceUnit === PRICE_UNIT.DRACHMA
+          ? ` (saved ${Number(discountAmount).toLocaleString()} drachma with 30% discount)`
+          : '';
         return {
           ...baseResult,
-          display: `Purchased ${itemCount} item${itemCount === 1 ? '' : 's'} from the Shop for ${Number(finalPrice).toLocaleString()} drachma${discountNote}.`,
+          display: `Purchased ${itemCount} item${itemCount === 1 ? '' : 's'} from the Shop for ${formatShopCurrencyAmount(Number(finalPrice), priceUnit)}${discountNote}.`,
           details: purchasedItems.length > 0 ? (
             <div className="activity-details">
-              {discountApplied && (
+              {discountApplied && priceUnit === PRICE_UNIT.DRACHMA && (
                 <div className="activity-detail-item activity-detail-discount">
                   <span className="detail-bullet" />
                   <span className="detail-text">30% Discount Ticket applied — saved {Number(discountAmount).toLocaleString()} drachma</span>
@@ -477,7 +489,7 @@ const formatActivityDisplay = (log: ActivityLog, currentCharacterId?: string): F
                   <span className="detail-bullet" />
                   <span className="detail-text">
                     {toTitleCase(item.itemId)} ×{item.quantity}
-                    {item.price != null && <span className="detail-price"> — {Number(item.price * item.quantity).toLocaleString()} drachma</span>}
+                    {item.price != null && <span className="detail-price"> — {formatShopCurrencyAmount(Number(item.price * item.quantity), item.priceUnit || priceUnit)}</span>}
                   </span>
                 </div>
               ))}
