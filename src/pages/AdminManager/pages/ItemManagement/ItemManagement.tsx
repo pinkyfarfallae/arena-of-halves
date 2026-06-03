@@ -12,6 +12,7 @@ import { Input } from '../../../../components/Form';
 import Save from './icons/Save';
 import Close from '../../../../icons/Close';
 import { useScreenSize } from '../../../../hooks/useScreenSize';
+import { PRICE_UNIT } from '../../../../constants/priceUnit';
 import './ItemManagement.scss';
 
 export default function ItemManagement() {
@@ -211,6 +212,15 @@ export default function ItemManagement() {
             {row.price}
           </span>
         );
+      },
+    },
+    {
+      key: 'priceUnit' as keyof ItemInfo & string,
+      label: 'Currency',
+      width: "150px",
+      render: (row) => {
+        const displayText = row.priceUnit === PRICE_UNIT.NPC_GIFT_CARD ? 'Gift Card' : 'Drachma';
+        return <span className="item__price-unit">{displayText}</span>;
       },
     },
     {

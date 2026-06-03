@@ -1,7 +1,10 @@
+import { PriceUnit } from "../constants/priceUnit";
+
 export interface ShopItem {
   itemId: string;
   name: string;
   price: number;
+  priceUnit?: PriceUnit;
   stock: number | "infinity";
   description: string;
   imageUrl: string;

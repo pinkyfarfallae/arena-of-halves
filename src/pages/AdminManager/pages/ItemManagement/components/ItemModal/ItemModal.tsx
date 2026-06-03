@@ -3,8 +3,9 @@ import { ItemInfo } from '../../../../../../types/character';
 import { createItem, editItem, CreateItemPayload, UserRecord } from '../../../../../../data/characters';
 import Close from '../../../../../../icons/Close';
 import './ItemModal.scss';
-import { Input, TextArea } from '../../../../../../components/Form';
+import { Dropdown, Input, TextArea } from '../../../../../../components/Form';
 import { USER_MANAGEMENT_MODE } from '../../../../../../constants/userManagement';
+import { PRICE_UNIT } from '../../../../../../constants/priceUnit';
 
 interface CreateProps {
   mode: typeof USER_MANAGEMENT_MODE.CREATE;
@@ -34,6 +35,7 @@ const ItemModal: React.FC<Props> = (props) => {
     imageUrl: item?.imageUrl || '',
     description: item?.description || '',
     price: item?.price || 0,
+    priceUnit: item?.priceUnit || PRICE_UNIT.DRACHMA,
     piece: item?.piece || 'infinity',
     available: item?.available !== undefined ? item.available : true,
   });
@@ -87,6 +89,7 @@ const ItemModal: React.FC<Props> = (props) => {
         if (formData.imageUrl !== item?.imageUrl) fields.imageUrl = formData.imageUrl;
         if (formData.description !== item?.description) fields.description = formData.description;
         if (formData.price !== item?.price) fields.price = formData.price.toString();
+        if (formData.priceUnit !== item?.priceUnit) fields.priceUnit = formData.priceUnit;
         if (formData.piece !== item?.piece) fields.piece = formData.piece.toString();
         if (formData.available !== item?.available) fields.available = formData.available.toString();
 
@@ -117,6 +120,7 @@ const ItemModal: React.FC<Props> = (props) => {
       imageUrl: '',
       description: '',
       price: 0,
+      priceUnit: PRICE_UNIT.DRACHMA,
       piece: "infinity",
       available: true,
     });
@@ -186,6 +190,19 @@ const ItemModal: React.FC<Props> = (props) => {
                   type="number"
                   value={formData.price.toString()}
                   onChange={(v) => setFormData(f => ({ ...f, price: Number(v) }))}
+                  required
+                />
+
+                <Dropdown
+                  key="Price Unit"
+                  label="Currency"
+                  placeholder="Select price unit"
+                  options={[
+                    { value: PRICE_UNIT.DRACHMA, label: 'Drachma' },
+                    { value: PRICE_UNIT.NPC_GIFT_CARD, label: 'Gift Card' },
+                  ]}
+                  value={formData.priceUnit || ''}
+                  onChange={(v) => setFormData(f => ({ ...f, priceUnit: v as typeof formData.priceUnit }))}
                   required
                 />
 

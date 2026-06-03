@@ -1,5 +1,6 @@
 import { BagItemType } from "../constants/bag";
 import { EquipmentCategory, EquipmentTier } from "../constants/equipment";
+import { PriceUnit } from "../constants/priceUnit";
 import { Deity } from "./deity";
 
 export type Theme25 = [string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string];
@@ -25,6 +26,7 @@ export interface ItemInfo {
   imageUrl: string;
   description?: string;
   price?: number;
+  priceUnit?: PriceUnit;
   piece?: number | 'infinity';
   available?: boolean;
 }

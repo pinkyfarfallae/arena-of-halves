@@ -28,6 +28,7 @@ import { useBag } from '../../hooks/useBag';
 import Ticket from '../../icons/Ticket';
 import { ITEMS } from '../../constants/items';
 import { ACTIVITY_LOG_ACTIONS, ACTIVITY_LOG_CATEGORY, ACTIVITY_LOG_SOURCES } from '../../constants/activityLog';
+import { PRICE_UNIT } from '../../constants/priceUnit';
 
 function Shop() {
   const { user, refreshUser } = useAuth();
@@ -87,6 +88,7 @@ function Shop() {
           name: i.labelEng,
           description: i.description ?? '',
           price: i.price ?? 0,
+          priceUnit: i.priceUnit ?? PRICE_UNIT.DRACHMA,
           stock:
             i.piece === 'infinity'
               ? 'infinity'
@@ -151,39 +153,98 @@ function Shop() {
 
     setProcessing(true);
 
-    const discountTicketAmount = bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount || 0;
-    const hasDiscount = appliedDiscount && discountTicketAmount > 0;
-    const finalPrice = hasDiscount ? Math.round(totalPrice * 0.7) : totalPrice;
-
-    // Check if user has enough drachma
-    if ((user.currency ?? 0) < finalPrice) {
-      return;
-    }
-
     try {
-      // Deduct drachma
-      const drachmaResult = await updateCharacterDrachma(user.characterId, -finalPrice, { source: ACTIVITY_LOG_SOURCES.CASHIER });
+      // Separate cart items by price unit
+      const drachmaItems = cart.filter(item => (item.priceUnit ?? 'drachma') === 'drachma');
+      const giftCardItems = cart.filter(item => item.priceUnit === 'npc_gift_card');
 
-      if (!drachmaResult.success) {
-        setProcessing(false);
-        return;
-      }
+      // Calculate prices for each group
+      const drachmaTotalPrice = drachmaItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const giftCardTotalPrice = giftCardItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-      // Consume discount ticket if used
-      if (hasDiscount) {
-        // console.log('Attempting to consume discount ticket. Current amount:', discountTicketAmount);
-        const consumeResult = await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, ACTIVITY_LOG_SOURCES.SHOP_DISCOUNT_USED);
+      // Process drachma items with discount support
+      if (drachmaItems.length > 0) {
+        const discountTicketAmount = bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount || 0;
+        const hasDiscount = appliedDiscount && discountTicketAmount > 0;
+        const finalDrachmaPrice = hasDiscount ? Math.round(drachmaTotalPrice * 0.7) : drachmaTotalPrice;
 
-        if (consumeResult.success) {
-          // console.log('Ticket consumed successfully. New amount:', consumeResult.newAmount);
+        // Check if user has enough drachma
+        if ((user.currency ?? 0) < finalDrachmaPrice) {
+          setProcessing(false);
+          return;
         }
+
+        // Deduct drachma
+        const drachmaResult = await updateCharacterDrachma(user.characterId, -finalDrachmaPrice, { source: ACTIVITY_LOG_SOURCES.CASHIER });
+
+        if (!drachmaResult.success) {
+          setProcessing(false);
+          return;
+        }
+
+        // Consume discount ticket if used
+        if (hasDiscount) {
+          await consumeItem(user.characterId, ITEMS.SHOP_30_DISCOUNT_TICKET, 1, ACTIVITY_LOG_SOURCES.SHOP_DISCOUNT_USED);
+        }
+
+        // Log drachma purchase
+        logActivity({
+          category: ACTIVITY_LOG_CATEGORY.ITEM,
+          action: ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE,
+          characterId: user.characterId,
+          performedBy: user.characterId,
+          amount: drachmaItems.reduce((sum, item) => sum + item.quantity, 0),
+          metadata: {
+            source: ACTIVITY_LOG_SOURCES.SHOP,
+            items: drachmaItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
+            totalPrice: drachmaTotalPrice,
+            finalPrice: finalDrachmaPrice,
+            discountApplied: hasDiscount,
+            discountAmount: hasDiscount ? Math.round(drachmaTotalPrice * 0.3) : 0,
+            priceUnit: 'drachma',
+          },
+        });
       }
 
-      // Add items to bag
-      for (const item of cart) {
-        // Determine item type from itemId prefix
+      // Process gift card items (no discount)
+      if (giftCardItems.length > 0) {
+        const giftCardAmount = bagEntries.find(i => i.itemId === ITEMS.NPC_GIFT_CARD)?.amount || 0;
+        
+        // Check if user has enough gift cards
+        if (giftCardAmount < giftCardTotalPrice) {
+          setProcessing(false);
+          return;
+        }
 
-        const result = await giveItem(
+        // Consume gift cards
+        const consumeResult = await consumeItem(user.characterId, ITEMS.NPC_GIFT_CARD, giftCardTotalPrice, ACTIVITY_LOG_SOURCES.SHOP);
+
+        if (!consumeResult.success) {
+          setProcessing(false);
+          return;
+        }
+
+        // Log gift card purchase
+        logActivity({
+          category: ACTIVITY_LOG_CATEGORY.ITEM,
+          action: ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE,
+          characterId: user.characterId,
+          performedBy: user.characterId,
+          amount: giftCardItems.reduce((sum, item) => sum + item.quantity, 0),
+          metadata: {
+            source: ACTIVITY_LOG_SOURCES.SHOP,
+            items: giftCardItems.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
+            totalPrice: giftCardTotalPrice,
+            finalPrice: giftCardTotalPrice,
+            discountApplied: false,
+            priceUnit: 'npc_gift_card',
+          },
+        });
+      }
+
+      // Add all items to bag
+      for (const item of cart) {
+        await giveItem(
           user.characterId,
           item.itemId,
           item.quantity,
@@ -193,11 +254,6 @@ function Shop() {
             : undefined,
           ACTIVITY_LOG_SOURCES.SHOP
         );
-
-        if (!result.success) {
-          // console.error(`Failed to add ${item.itemId} to bag:`, result.error);
-          // Continue with other items even if one fails
-        }
       }
 
       // Refresh user data to update currency display
@@ -205,23 +261,6 @@ function Shop() {
       
       // Wait a moment to ensure React state has updated before showing success
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Log the purchase
-      logActivity({
-        category: ACTIVITY_LOG_CATEGORY.ITEM,
-        action: ACTIVITY_LOG_ACTIONS.SHOP_PURCHASE,
-        characterId: user.characterId,
-        performedBy: user.characterId,
-        amount: cart.length,
-        metadata: {
-          source: ACTIVITY_LOG_SOURCES.SHOP,
-          items: cart.map(item => ({ itemId: item.itemId, quantity: item.quantity, price: item.price })),
-          totalPrice,
-          finalPrice,
-          discountApplied: hasDiscount,
-          discountAmount: hasDiscount ? Math.round(totalPrice * 0.3) : 0,
-        },
-      });
 
       // Clear cart and show success
       setCart([]);
@@ -236,6 +275,7 @@ function Shop() {
   };
 
   const discountTicket = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.SHOP_30_DISCOUNT_TICKET)?.amount, [bagEntries]);
+  const giftCard = useMemo(() => bagEntries.find(i => i.itemId === ITEMS.NPC_GIFT_CARD)?.amount, [bagEntries]);
 
   // Filter items based on search query
   const filteredItems = useMemo(() => {
@@ -275,6 +315,12 @@ function Shop() {
           <Ticket className="drachma--shop" />
           <span className="shop__bar-amount">{discountTicket || 0}</span>
           <span className="shop__bar-unit">Discount Ticket</span>
+        </div>
+
+        {/* NPC Gift Card */}
+        <div className="shop__bar-discount">
+          <span className="shop__bar-amount">{giftCard || 0}</span>
+          <span className="shop__bar-unit">Gift Card</span>
         </div>
 
         {/* Mobile cart toggle */}
@@ -346,7 +392,9 @@ function Shop() {
                           <div className="item__row">
                             <h3 className="item__name">{item.name.replace(/\\n/g, '\n')}</h3>
                           </div>
-                          <div className="item__price">{item.price.toFixed(0)} <Drachma /></div>
+                          <div className="item__price">
+                            {item.price.toFixed(0)} {item.priceUnit === 'npc_gift_card' ? 'Gift Card' : <Drachma />}
+                          </div>
                           {cart.find(c => c.itemId === item.itemId) ? (
                             <div className="item__qty-control">
                               <button
@@ -437,7 +485,9 @@ function Shop() {
                           <div className="item__row">
                             <h3 className="item__name">{item.name}</h3>
                           </div>
-                          <div className="item__price">{item.price.toFixed(0)} <Drachma /></div>
+                          <div className="item__price">
+                            {item.price.toFixed(0)} {item.priceUnit === 'npc_gift_card' ? 'Gift Card' : <Drachma />}
+                          </div>
                           {cart.find(c => c.itemId === item.itemId) ? (
                             <div className="item__qty-control">
                               <button

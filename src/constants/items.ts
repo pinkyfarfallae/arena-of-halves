@@ -33,4 +33,6 @@ export const ITEMS = {
   DEMETER_S_GARDENING_SET: 'demeters_gardening_set',
 
   IRIS_KEYCHAIN: 'iris_keychain',
+
+  NPC_GIFT_CARD: 'npc_gift_card',
 }

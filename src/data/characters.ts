@@ -3,6 +3,7 @@ import type { Theme25, Power, WishEntry, ItemInfo, BagEntry, Character, CustomEq
 import type { PowerDefinition } from '../types/power';
 import { THEME_LABELS, DEFAULT_THEME, DEITY_THEMES } from '../constants/theme';
 import { GID, SECRET_GID, fetchSheetCsv, clearSheetCache, secretCsvUrl, APPS_SCRIPT_URL } from '../constants/sheets';
+import { PRICE_UNIT, PriceUnit } from '../constants/priceUnit';
 import { DEITY, Deity } from '../constants/deities';
 import { ACTIONS } from '../constants/action';
 import { doc, getDoc } from 'firebase/firestore';
@@ -279,6 +280,9 @@ export async function fetchItemInfo(): Promise<ItemInfo[]> {
     const itemId = get('itemid');
     if (itemId) {
       const piece = get('piece');
+      const priceUnitRaw = get('priceunit')?.toLowerCase().trim();
+      const priceUnit = priceUnitRaw === PRICE_UNIT.NPC_GIFT_CARD ? PRICE_UNIT.NPC_GIFT_CARD : PRICE_UNIT.DRACHMA;
+      
       items.push({
         itemId,
         labelEng: get('labeleng'),
@@ -287,6 +291,7 @@ export async function fetchItemInfo(): Promise<ItemInfo[]> {
         // Items don't have tier
         description: get('description'),
         price: parseFloat(get('price')) || undefined,
+        priceUnit,
         piece: piece === 'infinity' ? 'infinity' : (parseInt(piece) || undefined),
         available: get('available').toLowerCase() === 'true',
       });
@@ -446,6 +451,7 @@ export interface CreateItemPayload {
   imageUrl: string;
   description: string;
   price: number;
+  priceUnit?: PriceUnit;
   piece: number | 'infinity';
   available: boolean;
 }

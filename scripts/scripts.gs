@@ -2048,6 +2048,7 @@ function handleCreateItem(params) {
   var tier = (params.tier || '').toString().trim();
   var description = (params.description || '').toString().trim();
   var price = parseFloat(params.price || '0');
+  var priceUnit = (params.priceUnit || 'drachma').toString().trim().toLowerCase();
   var piece = params.piece === 'infinity' ? 'infinity' : parseInt(params.piece || '0', 10);
   var available = params.available === 'true' || params.available === true;
 
@@ -2090,6 +2091,7 @@ function handleCreateItem(params) {
     else if (h === 'tier') row.push(tier);
     else if (h === 'description') row.push(description);
     else if (h === 'price') row.push(price);
+    else if (h === 'priceunit') row.push(priceUnit);
     else if (h === 'piece') row.push(piece);
     else if (h === 'available') row.push(available);
     else row.push('');
