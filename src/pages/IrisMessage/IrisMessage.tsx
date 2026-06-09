@@ -79,10 +79,11 @@ function IrisMessage({ retossable = false, embedded = false, isAdmin = false }: 
         setDiscovered(allDeities);
 
         // Build set of deities received before today (for "new" badge)
+        // Canceled wishes still count — the user has seen/received that deity before.
         const today = getTodayDate();
         const historicDeities = new Set<string>(
           allUserWishes
-            .filter(w => w.date !== today && !w.canceled && Boolean(w.deity))
+            .filter(w => w.date !== today && Boolean(w.deity))
             .map(w => w.deity)
         );
         setHistoricWishDeities(historicDeities);
